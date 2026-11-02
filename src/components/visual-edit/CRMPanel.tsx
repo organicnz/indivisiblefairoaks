@@ -818,7 +818,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-4xl max-h-[85vh] bg-surface-card text-foreground p-0">
+        <DialogContent className="max-w-4xl max-h-[85vh] bg-surface-card text-foreground p-0 overscroll-contain">
           <DialogHeader className="p-4 border-b border-border bg-surface-muted/30">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
@@ -826,7 +826,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({
                   <button
                     type="button"
                     onClick={() => setActiveTab('constituents')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors focus-visible:ring-2 focus-visible:ring-primary ${
                       activeTab === 'constituents'
                         ? 'bg-primary text-white shadow-xs font-black'
                         : 'text-muted-foreground hover:text-foreground'
@@ -837,7 +837,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({
                   <button
                     type="button"
                     onClick={() => setActiveTab('events')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors focus-visible:ring-2 focus-visible:ring-primary ${
                       activeTab === 'events'
                         ? 'bg-primary text-white shadow-xs font-black'
                         : 'text-muted-foreground hover:text-foreground'
@@ -848,7 +848,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({
                   <button
                     type="button"
                     onClick={() => setActiveTab('news')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors focus-visible:ring-2 focus-visible:ring-primary ${
                       activeTab === 'news'
                         ? 'bg-primary text-white shadow-xs font-black'
                         : 'text-muted-foreground hover:text-foreground'
@@ -859,7 +859,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({
                   <button
                     type="button"
                     onClick={() => setActiveTab('links')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors focus-visible:ring-2 focus-visible:ring-primary ${
                       activeTab === 'links'
                         ? 'bg-primary text-white shadow-xs font-black'
                         : 'text-muted-foreground hover:text-foreground'
@@ -1404,7 +1404,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({
                 )}
 
                 {/* Contact List */}
-                <div className="flex-1 overflow-y-auto">
+                <div className="flex-1 overflow-y-auto overscroll-contain">
                   {loading ? (
                     <div className="p-4 text-center text-muted-foreground">
                       <Loader2 className="mx-auto h-6 w-6 animate-spin" />
@@ -1536,7 +1536,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({
                 }`}
               >
                 {showSegments ? (
-                  <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                  <div className="flex-1 overflow-y-auto overscroll-contain p-4 space-y-3">
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
                         <button
@@ -1573,7 +1573,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({
                               key={segment.id}
                               type="button"
                               onClick={() => handleApplySegment(segment)}
-                              className={`w-full text-left p-3 rounded-xl border transition-all ${
+                              className={`w-full text-left p-3 rounded-xl border transition-[border-color,background-color] duration-150 ${
                                 isApplied
                                   ? 'border-primary bg-primary/10 shadow-xs ring-1 ring-primary'
                                   : 'border-border bg-background hover:border-primary/40 hover:bg-muted/40'
@@ -1715,7 +1715,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({
                       </div>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                    <div className="flex-1 overflow-y-auto overscroll-contain p-4 space-y-4">
                       {/* Contact Details */}
                       <div className="grid gap-3 sm:grid-cols-2">
                         {selectedContact.phone && (
@@ -1969,7 +1969,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({
                             <Plus size={12} className="mr-1" /> Add
                           </button>
                         </div>
-                        <div className="space-y-2 max-h-48 overflow-y-auto">
+                        <div className="space-y-2 max-h-48 overflow-y-auto overscroll-contain">
                           {tasksLoading ? (
                             <div className="text-center py-4">
                               <Loader2 className="mx-auto h-5 w-5 animate-spin text-muted-foreground" />
@@ -2147,7 +2147,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({
                                 : 'No activity recorded yet.'}
                           </p>
                         ) : (
-                          <div className="space-y-3 max-h-56 overflow-y-auto">
+                          <div className="space-y-3 max-h-56 overflow-y-auto overscroll-contain">
                             {filteredActivities.map((act) => {
                               const isNote = act.type === 'note';
                               return (

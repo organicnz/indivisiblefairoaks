@@ -324,7 +324,7 @@ export function BlockLibraryModal({
       aria-describedby={descId}
       className="fixed inset-0 z-[10020] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in-0 pointer-events-auto"
     >
-      <div className="flex flex-col w-full max-w-3xl max-h-[85vh] rounded-3xl border border-white/20 bg-slate-950/95 text-white shadow-2xl overflow-hidden">
+      <div className="flex flex-col w-full max-w-3xl max-h-[85vh] rounded-3xl border border-white/20 bg-slate-950/95 text-white shadow-2xl overflow-hidden overscroll-contain">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
           <div className="flex items-center gap-3">
@@ -346,7 +346,7 @@ export function BlockLibraryModal({
             type="button"
             onClick={onClose}
             aria-label="Close Element Library"
-            className="rounded-xl p-1.5 text-slate-400 hover:bg-white/10 hover:text-white transition-colors"
+            className="rounded-xl p-1.5 text-slate-400 hover:bg-white/10 hover:text-white transition-colors focus-visible:ring-2 focus-visible:ring-accent-gold"
           >
             <X size={18} />
           </button>
@@ -364,8 +364,8 @@ export function BlockLibraryModal({
               aria-label="Search elements"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search elements (e.g. heading, button, callout, table, image)..."
-              className="w-full rounded-xl border border-white/10 bg-white/5 py-2 pl-9 pr-4 text-xs text-white placeholder:text-white/40 focus:border-accent-gold/50 focus:outline-none focus:ring-1 focus:ring-accent-gold/40"
+              placeholder="Search elements (e.g. heading, button, callout, table, image)…"
+              className="w-full rounded-xl border border-white/10 bg-white/5 py-2 pl-9 pr-4 text-xs text-white placeholder:text-white/40 focus:border-accent-gold/50 focus:outline-none focus-visible:ring-1 focus-visible:ring-accent-gold/60"
             />
           </div>
 
@@ -375,7 +375,7 @@ export function BlockLibraryModal({
                 key={cat}
                 type="button"
                 onClick={() => setSelectedCategory(cat)}
-                className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors focus-visible:ring-2 focus-visible:ring-accent-gold ${
                   selectedCategory === cat
                     ? 'bg-accent-gold text-ink-strong font-black'
                     : 'bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10'
@@ -388,7 +388,7 @@ export function BlockLibraryModal({
         </div>
 
         {/* Templates Grid */}
-        <div className="flex-1 overflow-y-auto p-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+        <div className="flex-1 overflow-y-auto overscroll-contain p-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
           {filteredTemplates.map((template) => {
             const Icon = template.icon;
             return (
@@ -399,7 +399,7 @@ export function BlockLibraryModal({
                   onInsertBlock(template, insertTargetIndex ?? undefined);
                   onClose();
                 }}
-                className="group flex flex-col items-start p-4 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 hover:border-accent-gold/50 text-left transition-all duration-150 cursor-pointer"
+                className="group flex flex-col items-start p-4 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 hover:border-accent-gold/50 text-left transition-[border-color,background-color] duration-150 cursor-pointer focus-visible:ring-2 focus-visible:ring-accent-gold"
               >
                 <div className="flex items-center justify-between w-full mb-2">
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-gold/15 text-accent-gold group-hover:scale-110 transition-transform">

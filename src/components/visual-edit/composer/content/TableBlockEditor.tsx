@@ -247,7 +247,7 @@ export function TableBlockEditor({
                     }
                     setDraggingColIndex(null);
                   }}
-                  className={`flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] p-1.5 transition-all ${
+                  className={`flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] p-1.5 transition-[border-color,background-color,box-shadow] duration-150 ${
                     draggingColIndex === col.colIdx
                       ? 'border-accent-gold/80 bg-accent-gold/5 shadow-[0_0_12px_rgba(245,158,11,0.2)]'
                       : ''
@@ -265,7 +265,7 @@ export function TableBlockEditor({
                       }
                     }}
                     onDragEnd={() => setDraggingColIndex(null)}
-                    className="cursor-grab p-0.5 text-slate-400 hover:text-white active:cursor-grabbing"
+                    className="cursor-grab p-0.5 text-slate-400 hover:text-white active:cursor-grabbing touch-manipulation"
                   >
                     <GripVertical size={11} />
                   </span>
@@ -278,7 +278,7 @@ export function TableBlockEditor({
                     onChange={(e) => handleUpdateColumnHeader(col.colIdx, e.target.value)}
                     placeholder={`Column ${col.colIdx + 1}`}
                     aria-label={`Column ${col.colIdx + 1} header`}
-                    className="min-w-0 flex-1 rounded border border-white/10 bg-white/5 px-2 py-1 text-xs text-white placeholder:text-white/30 focus:border-accent-gold/50 focus:outline-none font-medium"
+                    className="min-w-0 flex-1 rounded border border-white/10 bg-white/5 px-2 py-1 text-xs text-white placeholder:text-white/30 focus:border-accent-gold/50 focus:outline-none focus-visible:ring-1 focus-visible:ring-accent-gold font-medium"
                   />
                   <div className="flex items-center gap-0.5">
                     <button
@@ -378,7 +378,7 @@ export function TableBlockEditor({
                             }
                           }}
                           onDragEnd={() => setDraggingRowIndex(null)}
-                          className="cursor-grab p-0.5 text-slate-400 hover:text-white active:cursor-grabbing"
+                          className="cursor-grab p-0.5 text-slate-400 hover:text-white active:cursor-grabbing touch-manipulation"
                         >
                           <GripVertical size={11} />
                         </span>
@@ -435,7 +435,7 @@ export function TableBlockEditor({
                             }
                             placeholder={cell.colHeader}
                             aria-label={`Row ${rowItem.rowIdx + 1} ${cell.colHeader}`}
-                            className="min-w-0 flex-1 rounded border border-white/10 bg-white/5 px-2 py-1 text-xs text-white placeholder:text-white/20 focus:border-accent-gold/50 focus:outline-none"
+                            className="min-w-0 flex-1 rounded border border-white/10 bg-white/5 px-2 py-1 text-xs text-white placeholder:text-white/20 focus:border-accent-gold/50 focus:outline-none focus-visible:ring-1 focus-visible:ring-accent-gold"
                           />
                         </div>
                       ))}

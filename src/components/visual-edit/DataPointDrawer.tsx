@@ -239,7 +239,7 @@ export const DataPointDrawer: React.FC<DataPointDrawerProps> = ({
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs transition-opacity animate-in fade-in-0" />
         <Dialog.Content
           aria-label="Page DataPoints Manager"
-          className="fixed inset-y-0 right-0 z-50 flex w-full max-w-xl flex-col border-l border-white/15 bg-secondary text-white shadow-2xl animate-in slide-in-from-right duration-200 focus:outline-none"
+          className="fixed inset-y-0 right-0 z-50 flex w-full max-w-xl flex-col border-l border-white/15 bg-secondary text-white shadow-2xl animate-in slide-in-from-right duration-200 focus:outline-none overscroll-contain"
         >
           {/* Header */}
           <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-6 py-4">
@@ -263,7 +263,7 @@ export const DataPointDrawer: React.FC<DataPointDrawerProps> = ({
                 onClick={scanDataPoints}
                 title="Rescan page for DataPoints"
                 aria-label="Rescan page"
-                className="rounded-lg border border-white/10 bg-white/5 p-2 text-slate-300 hover:bg-white/10 hover:text-white transition-colors"
+                className="rounded-lg border border-white/10 bg-white/5 p-2 text-slate-300 hover:bg-white/10 hover:text-white transition-colors focus-visible:ring-2 focus-visible:ring-accent-gold"
               >
                 <RefreshCw size={14} />
               </button>
@@ -271,7 +271,7 @@ export const DataPointDrawer: React.FC<DataPointDrawerProps> = ({
                 <button
                   type="button"
                   aria-label="Close DataPoints drawer"
-                  className="rounded-lg border border-white/10 bg-white/5 p-2 text-slate-300 hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
+                  className="rounded-lg border border-white/10 bg-white/5 p-2 text-slate-300 hover:bg-white/10 hover:text-white transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-accent-gold"
                 >
                   <X size={15} />
                 </button>
@@ -290,14 +290,14 @@ export const DataPointDrawer: React.FC<DataPointDrawerProps> = ({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search keys or copy (e.g. 'gallery.hero', 'No Kings')..."
-                className="w-full rounded-xl border border-white/15 bg-black/40 pl-10 pr-4 py-2 text-xs text-white placeholder:text-white/40 focus:border-accent-gold focus:outline-none focus:ring-1 focus:ring-accent-gold"
+                placeholder="Search keys or copy (e.g. 'gallery.hero', 'No Kings')…"
+                className="w-full rounded-xl border border-white/15 bg-black/40 pl-10 pr-4 py-2 text-xs text-white placeholder:text-white/40 focus:border-accent-gold focus:outline-none focus-visible:ring-1 focus-visible:ring-accent-gold"
               />
               {searchQuery && (
                 <button
                   type="button"
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-xs"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-xs focus-visible:ring-1 focus-visible:ring-accent-gold rounded"
                 >
                   Clear
                 </button>
@@ -318,7 +318,7 @@ export const DataPointDrawer: React.FC<DataPointDrawerProps> = ({
                     key={grp}
                     type="button"
                     onClick={() => setSelectedGroup(grp)}
-                    className={`shrink-0 rounded-lg px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider transition-colors cursor-pointer ${
+                    className={`shrink-0 rounded-lg px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-accent-gold ${
                       isSelected
                         ? 'bg-accent-gold text-ink-strong shadow-xs'
                         : 'bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 hover:text-white'
@@ -333,7 +333,7 @@ export const DataPointDrawer: React.FC<DataPointDrawerProps> = ({
           </div>
 
           {/* Items List */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3.5">
+          <div className="flex-1 overflow-y-auto overscroll-contain p-4 space-y-3.5">
             {filtered.length === 0 ? (
               <div className="py-16 text-center space-y-2">
                 <Database size={28} className="mx-auto text-slate-400 opacity-60" />
@@ -349,7 +349,7 @@ export const DataPointDrawer: React.FC<DataPointDrawerProps> = ({
                   <div
                     key={dp.key}
                     data-datapoint-card={dp.key}
-                    className={`rounded-xl border p-3.5 transition-all ${
+                    className={`rounded-xl border p-3.5 transition-[border-color,background-color,box-shadow] duration-150 ${
                       dp.isDirty
                         ? 'border-accent-gold/60 bg-accent-gold/5 shadow-md shadow-accent-gold/5'
                         : 'border-white/10 bg-white/5 hover:border-white/20'

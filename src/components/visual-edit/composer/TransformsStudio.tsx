@@ -139,7 +139,7 @@ export function TransformsStudio({
                 })
               }
               title={preset.description}
-              className="px-2 py-1 rounded-lg text-[10px] font-semibold border border-white/10 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white transition-all active:scale-95"
+              className="px-2 py-1 rounded-lg text-[10px] font-semibold border border-white/10 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white transition-[background-color,color,transform] active:scale-95 focus-visible:ring-1 focus-visible:ring-accent-gold"
             >
               {preset.name}
             </button>
@@ -151,7 +151,7 @@ export function TransformsStudio({
       <div className="relative overflow-hidden p-3 rounded-xl border border-white/10 bg-slate-900 mb-3 flex items-center justify-between min-h-[64px]">
         <div className="flex items-center gap-3">
           <div
-            className={`p-2 rounded-lg border border-accent-gold/40 bg-accent-gold/10 text-white font-bold text-xs transition-all duration-300 ${
+            className={`p-2 rounded-lg border border-accent-gold/40 bg-accent-gold/10 text-white font-bold text-xs transition-transform duration-300 ${
               styles.transform?.rotate || ''
             } ${styles.transform?.scale || ''} ${styles.transform?.skew || ''} ${
               styles.transform?.translateX || ''

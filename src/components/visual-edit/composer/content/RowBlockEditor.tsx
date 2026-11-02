@@ -277,7 +277,7 @@ export function RowBlockEditor({
                   }}
                   className={`flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider ${
                     columnCount > 1
-                      ? 'cursor-grab select-none text-slate-300 hover:text-white active:cursor-grabbing'
+                      ? 'cursor-grab select-none text-slate-300 hover:text-white active:cursor-grabbing touch-manipulation'
                       : 'text-slate-400'
                   }`}
                   title={columnCount > 1 ? `Drag Column ${columnIndex + 1} to reorder` : undefined}
@@ -393,7 +393,7 @@ export function RowBlockEditor({
                               event.dataTransfer.setData('text/plain', child.id);
                             }}
                             onDragEnd={() => setDraggingId(null)}
-                            className="cursor-grab p-0.5 text-slate-400 hover:text-white active:cursor-grabbing"
+                            className="cursor-grab p-0.5 text-slate-400 hover:text-white active:cursor-grabbing touch-manipulation"
                           >
                             <GripVertical size={11} />
                           </span>

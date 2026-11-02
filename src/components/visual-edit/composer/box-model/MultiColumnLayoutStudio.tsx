@@ -82,9 +82,9 @@ export function MultiColumnLayoutStudio({
                     layout: { ...styles.layout, columns: preset.value },
                   })
                 }
-                className={`flex flex-col items-center justify-center p-2 rounded-xl border text-[11px] font-bold transition-all ${
+                className={`flex flex-col items-center justify-center p-2 rounded-xl border text-[11px] font-bold transition-[border-color,background-color,color] cursor-pointer focus-visible:ring-1 focus-visible:ring-accent-gold ${
                   isSelected
-                    ? 'border-accent-gold/60 bg-accent-gold/20 text-accent-gold shadow-sm'
+                    ? 'border-accent-gold/60 bg-accent-gold/20 text-accent-gold shadow-xs'
                     : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10 hover:border-white/20'
                 }`}
               >

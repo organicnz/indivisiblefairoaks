@@ -158,10 +158,10 @@ export function TypographyEditorialStudio({
             <span className="text-[10px] text-slate-400">Flow &amp; Columns Render</span>
           </div>
 
-          <div className="bg-black/20 dark:bg-black/40 rounded-md border border-white/10 p-3 max-h-36 overflow-y-auto">
+          <div className="bg-black/20 dark:bg-black/40 rounded-md border border-white/10 p-3 max-h-36 overflow-y-auto overscroll-contain">
             <div
               data-testid="typography-editorial-preview-text"
-              className={`text-xs text-foreground/90 transition-all duration-200 ${
+              className={`text-xs text-foreground/90 transition-colors duration-200 ${
                 styles.typography.textColumns || ''
               } ${styles.typography.textWrap || ''} ${styles.typography.wordBreak || ''} ${
                 styles.typography.fontStyle === 'italic' ? 'italic' : 'not-italic'
@@ -224,7 +224,7 @@ export function TypographyEditorialStudio({
                     },
                   }))
                 }
-                className="group p-2 rounded-md border border-border/40 bg-card/40 hover:bg-card hover:border-amber-500/40 text-left transition-all"
+                className="group p-2 rounded-md border border-border/40 bg-card/40 hover:bg-card hover:border-amber-500/40 text-left transition-[border-color,background-color] duration-150 focus-visible:ring-1 focus-visible:ring-accent-gold"
               >
                 <div className="flex items-center justify-between mb-0.5">
                   <span className="text-[11px] font-medium text-foreground group-hover:text-accent-gold transition-colors">

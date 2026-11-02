@@ -122,9 +122,9 @@ export function LayoutDimensionsStudio({
               key={tab.id}
               type="button"
               onClick={() => handleTabClick(tab.id)}
-              className={`shrink-0 px-2.5 py-1 rounded-lg font-medium transition-all ${
+              className={`shrink-0 px-2.5 py-1 rounded-lg font-medium transition-colors focus-visible:ring-1 focus-visible:ring-accent-gold ${
                 isActive
-                  ? 'bg-accent-gold text-ink-strong font-bold shadow-sm'
+                  ? 'bg-accent-gold text-ink-strong font-bold shadow-xs'
                   : 'text-slate-400 hover:text-white hover:bg-white/5'
               }`}
             >

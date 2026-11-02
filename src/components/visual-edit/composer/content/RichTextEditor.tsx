@@ -814,7 +814,7 @@ export function RichTextListEditor({
                     setDraggingIndex(null);
                     setDragOverIndex(null);
                   }}
-                  className={`rounded-lg transition-all ${
+                  className={`rounded-lg transition-[background-color,box-shadow,opacity] duration-150 ${
                     dragOverIndex === index
                       ? 'bg-accent-gold/10 ring-1 ring-accent-gold/60'
                       : draggingIndex === index
@@ -837,7 +837,7 @@ export function RichTextListEditor({
                           setDraggingIndex(null);
                           setDragOverIndex(null);
                         }}
-                        className="mt-1 cursor-grab select-none text-slate-400 hover:text-white active:cursor-grabbing"
+                        className="mt-1 cursor-grab select-none text-slate-400 hover:text-white active:cursor-grabbing touch-manipulation"
                       >
                         <GripVertical size={12} />
                       </span>

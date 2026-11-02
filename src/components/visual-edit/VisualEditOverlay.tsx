@@ -3756,7 +3756,7 @@ export function VisualEditOverlay() {
                 pill chip, which is the one pointer-events-auto surface here.
               */}
               <div
-                className={`w-full h-full rounded-2xl transition-all duration-300 ${
+                className={`w-full h-full rounded-2xl transition-[border-color,background-color,box-shadow] duration-300 ${
                   selectedBlockIndexes.has(item.blockIndex)
                     ? 'border-2 border-accent-gold ring-4 ring-accent-gold/30 bg-accent-gold/10 shadow-[0_0_40px_rgba(245,158,11,0.35)]'
                     : activeBlockIndex === item.blockIndex
@@ -3783,7 +3783,7 @@ export function VisualEditOverlay() {
                   }}
                   aria-label={`Add a block after ${item.label}`}
                   title="Add a block after this one"
-                  className="pointer-events-auto absolute -bottom-3 left-1/2 z-10 flex size-6 -translate-x-1/2 items-center justify-center rounded-full border border-accent-gold/60 bg-secondary text-accent-gold shadow-float backdrop-blur-md transition-all hover:scale-110 hover:bg-accent-gold hover:text-ink-strong"
+                  className="pointer-events-auto absolute -bottom-3 left-1/2 z-10 flex size-6 -translate-x-1/2 items-center justify-center rounded-full border border-accent-gold/60 bg-secondary text-accent-gold shadow-float backdrop-blur-md transition-[transform,background-color,color] hover:scale-110 hover:bg-accent-gold hover:text-ink-strong focus-visible:ring-2 focus-visible:ring-accent-gold"
                 >
                   <Plus size={13} />
                 </button>
@@ -3793,7 +3793,7 @@ export function VisualEditOverlay() {
               <div
                 role="toolbar"
                 aria-label={`Actions for ${item.label}`}
-                className="pointer-events-auto absolute -top-3.5 left-0 -translate-x-full -ml-1 max-sm:left-0 max-sm:translate-x-0 max-sm:-top-8 inline-flex items-center gap-1.5 rounded-full border border-accent-gold/50 bg-secondary/95 px-3 py-1 text-xs text-ink-on-dark shadow-float backdrop-blur-md transition-all hover:scale-105"
+                className="pointer-events-auto absolute -top-3.5 left-0 -translate-x-full -ml-1 max-sm:left-0 max-sm:translate-x-0 max-sm:-top-8 inline-flex items-center gap-1.5 rounded-full border border-accent-gold/50 bg-secondary/95 px-3 py-1 text-xs text-ink-on-dark shadow-float backdrop-blur-md transition-[transform,background-color,border-color] hover:scale-105"
               >
                 {/*
                   Drag to reorder. The handle is a button because a drag-only
@@ -3820,7 +3820,7 @@ export function VisualEditOverlay() {
                       ? 'Close the composer to move blocks'
                       : 'Drag to reorder — or focus and press ↑ / ↓'
                   }
-                  className="cursor-grab touch-none rounded p-1 text-slate-400 transition-colors hover:bg-white/15 hover:text-white disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+                  className="cursor-grab touch-manipulation rounded p-1 text-slate-300 transition-colors hover:bg-white/15 hover:text-accent-gold active:cursor-grabbing focus-visible:ring-1 focus-visible:ring-accent-gold disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
                 >
                   <GripVertical size={13} />
                 </button>

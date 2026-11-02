@@ -128,7 +128,7 @@ export function DimensionsFlexStudio({
                 }));
               }}
               title={preset.description}
-              className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-left text-[10px] font-medium text-slate-300 hover:border-accent-gold/40 hover:bg-white/10 hover:text-white transition-all cursor-pointer"
+              className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-left text-[10px] font-medium text-slate-300 hover:border-accent-gold/40 hover:bg-white/10 hover:text-white transition-[border-color,background-color,color] cursor-pointer focus-visible:ring-1 focus-visible:ring-accent-gold"
             >
               <Sparkles size={10} className="text-accent-gold shrink-0" />
               <span className="truncate">{preset.name}</span>
@@ -153,7 +153,7 @@ export function DimensionsFlexStudio({
           </div>
           <div
             data-testid="flex-live-preview"
-            className={`h-24 w-full rounded-lg border border-white/10 bg-slate-950/80 p-2 flex gap-1.5 transition-all overflow-hidden ${
+            className={`h-24 w-full rounded-lg border border-white/10 bg-slate-950/80 p-2 flex gap-1.5 transition-colors overflow-hidden ${
               styles.layout.flexDirection || 'flex-row'
             } ${styles.layout.justifyContent || 'justify-start'} ${
               styles.layout.alignItems || 'items-start'
@@ -267,7 +267,7 @@ export function DimensionsFlexStudio({
                 layout: { ...prev.layout, display: 'flex' },
               }))
             }
-            className="inline-flex items-center gap-1.5 rounded-lg border border-accent-gold/40 bg-accent-gold/20 px-2.5 py-1 text-[11px] font-bold text-accent-gold hover:bg-accent-gold/30 hover:scale-105 active:scale-95 transition-all cursor-pointer"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-accent-gold/40 bg-accent-gold/20 px-2.5 py-1 text-[11px] font-bold text-accent-gold hover:bg-accent-gold/30 hover:scale-105 active:scale-95 transition-[transform,background-color] cursor-pointer focus-visible:ring-1 focus-visible:ring-accent-gold"
           >
             <Sparkles size={12} />
             <span>Enable Flex Container</span>

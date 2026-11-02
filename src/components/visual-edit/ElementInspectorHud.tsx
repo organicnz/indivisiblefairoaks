@@ -225,7 +225,7 @@ export function ElementInspectorHud({
           height: `${hovered.height}px`,
           zIndex: 9997,
         }}
-        className="pointer-events-none rounded-md border-2 border-sky-400/70 bg-sky-400/5 shadow-[0_0_12px_rgba(56,189,248,0.2)] transition-all duration-75 animate-in fade-in-0"
+        className="pointer-events-none rounded-md border-2 border-sky-400/70 bg-sky-400/5 shadow-[0_0_12px_rgba(56,189,248,0.2)] transition-[top,left,width,height,opacity] duration-75 animate-in fade-in-0"
       />
 
       {/* Floating HUD Pill */}
@@ -238,7 +238,7 @@ export function ElementInspectorHud({
           left: `${hovered.left}px`,
           zIndex: 9998,
         }}
-        className="pointer-events-none select-none flex items-center gap-1.5 rounded-full border border-white/20 bg-slate-950/90 px-2.5 py-1 text-[11px] font-mono text-white shadow-float backdrop-blur-md transition-all duration-75 animate-in fade-in-0 zoom-in-95"
+        className="pointer-events-none select-none flex items-center gap-1.5 rounded-full border border-white/20 bg-slate-950/90 px-2.5 py-1 text-[11px] font-mono text-white shadow-float backdrop-blur-md transition-[top,left,opacity,transform] duration-75 animate-in fade-in-0 zoom-in-95"
       >
         {hovered.dataPointKey ? (
           <span className="flex items-center gap-1 font-bold text-sky-400">
@@ -311,7 +311,7 @@ export function ElementInspectorHud({
                 e.stopPropagation();
                 onOpenStudio();
               }}
-              className="pointer-events-auto flex items-center gap-1 rounded-full border border-accent-gold/40 bg-accent-gold/20 px-2 py-0.5 text-[10px] font-sans font-bold text-accent-gold hover:bg-accent-gold/30 hover:scale-105 active:scale-95 transition-all"
+              className="pointer-events-auto flex items-center gap-1 rounded-full border border-accent-gold/40 bg-accent-gold/20 px-2 py-0.5 text-[10px] font-sans font-bold text-accent-gold hover:bg-accent-gold/30 hover:scale-105 active:scale-95 transition-[transform,background-color] focus-visible:ring-1 focus-visible:ring-accent-gold"
               title="Open Visual Composer 10x Studio"
             >
               <SlidersHorizontal size={10} />

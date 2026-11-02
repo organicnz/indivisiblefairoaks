@@ -189,7 +189,7 @@ export function BordersStudio({
               }
               title={preset.description}
               aria-label={`Apply ${preset.name} border preset`}
-              className="px-2 py-1 rounded-lg text-[10px] font-semibold border border-white/10 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white transition-all active:scale-95"
+              className="px-2 py-1 rounded-lg text-[10px] font-semibold border border-white/10 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white transition-[background-color,color,transform] active:scale-95 focus-visible:ring-1 focus-visible:ring-accent-gold"
             >
               {preset.name}
             </button>
@@ -201,7 +201,7 @@ export function BordersStudio({
       <div className="relative overflow-hidden p-3 rounded-xl border border-white/10 bg-slate-900 mb-3 flex items-center justify-between min-h-[56px]">
         <div className="flex items-center gap-3">
           <div
-            className={`px-3 py-1.5 bg-white/10 text-white font-medium text-xs transition-all duration-200 ${
+            className={`px-3 py-1.5 bg-white/10 text-white font-medium text-xs transition-[border-color,border-radius,border-width] duration-200 ${
               styles.border.radiusLinked === false
                 ? `${styles.border.radiusTopLeft || 'rounded-tl-none'} ${styles.border.radiusTopRight || 'rounded-tr-none'} ${styles.border.radiusBottomRight || 'rounded-br-none'} ${styles.border.radiusBottomLeft || 'rounded-bl-none'}`
                 : styles.border.radius || 'rounded-none'

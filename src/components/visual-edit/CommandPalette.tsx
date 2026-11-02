@@ -698,7 +698,7 @@ export function CommandPalette({
         <DialogPrimitive.Overlay className="fixed inset-0 z-[150] bg-black/70 backdrop-blur-md animate-in fade-in-0 duration-200" />
         <DialogPrimitive.Content
           aria-labelledby={titleId}
-          className="fixed left-1/2 top-[16%] z-[160] w-full max-w-2xl -translate-x-1/2 rounded-3xl border border-white/20 bg-slate-950/95 p-0 text-white shadow-2xl backdrop-blur-2xl duration-200 animate-in fade-in-0 zoom-in-95 overflow-hidden"
+          className="fixed left-1/2 top-[16%] z-[160] w-full max-w-2xl -translate-x-1/2 rounded-3xl border border-white/20 bg-slate-950/95 p-0 text-white shadow-2xl backdrop-blur-2xl duration-200 animate-in fade-in-0 zoom-in-95 overflow-hidden overscroll-contain"
           onKeyDown={handleKeyDown}
         >
           {/* Header & Search Input */}
@@ -719,7 +719,7 @@ export function CommandPalette({
               <button
                 type="button"
                 onClick={() => setQuery('')}
-                className="rounded-md p-1 text-slate-400 hover:text-white"
+                className="rounded-md p-1 text-slate-400 hover:text-white focus-visible:ring-1 focus-visible:ring-accent-gold"
                 aria-label="Clear search"
               >
                 <X size={14} />
@@ -735,7 +735,7 @@ export function CommandPalette({
           </DialogPrimitive.Title>
 
           {/* Results List */}
-          <div ref={listRef} className="max-h-[60vh] overflow-y-auto p-2 space-y-4">
+          <div ref={listRef} className="max-h-[60vh] overflow-y-auto overscroll-contain p-2 space-y-4">
             {groupedCategories.length === 0 ? (
               <div className="py-12 text-center text-sm text-slate-400">
                 No matching actions, sections, or data points found for &ldquo;{query}&rdquo;
@@ -760,7 +760,7 @@ export function CommandPalette({
                         type="button"
                         onClick={item.run}
                         onMouseEnter={() => setSelectedIndex(itemIndex)}
-                        className={`flex w-full items-center justify-between gap-3 rounded-2xl px-3.5 py-2.5 text-left text-xs transition-colors cursor-pointer ${
+                        className={`flex w-full items-center justify-between gap-3 rounded-2xl px-3.5 py-2.5 text-left text-xs transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-accent-gold ${
                           isSelected
                             ? 'bg-accent-gold/20 text-white border border-accent-gold/40'
                             : 'text-slate-200 hover:bg-white/5 border border-transparent'

@@ -398,7 +398,7 @@ export function DevicePreviewFrame({
       <div
         data-theme={effectiveTheme}
         data-theme-mode={themeOverrideTone || activeTheme}
-        className={`rounded-xl border transition-all duration-300 p-2.5 overflow-hidden relative ${
+        className={`rounded-xl border transition-[background-color,border-color,color] duration-300 p-2.5 overflow-hidden relative ${
           effectiveTheme === 'light'
             ? 'bg-white/95 text-ink-strong border-white/20 shadow-xs'
             : 'bg-slate-950 text-white border-white/10 shadow-inner'
@@ -427,7 +427,7 @@ export function DevicePreviewFrame({
         )}
 
         <div
-          className={`transition-all duration-300 ${
+          className={`transition-[max-width,width] duration-300 ${
             previewDevice === 'mobile'
               ? 'max-w-[220px] mx-auto'
               : previewDevice === 'tablet'

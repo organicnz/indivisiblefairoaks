@@ -234,7 +234,7 @@ export function PresetStudio({
           <button
             type="button"
             onClick={() => setActiveTab('blocks')}
-            className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+            className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-bold transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-accent-gold ${
               activeTab === 'blocks'
                 ? 'bg-accent-gold text-ink-strong shadow-xs'
                 : 'text-slate-400 hover:text-white hover:bg-white/5'
@@ -246,7 +246,7 @@ export function PresetStudio({
           <button
             type="button"
             onClick={() => setActiveTab('sections')}
-            className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+            className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-bold transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-accent-gold ${
               activeTab === 'sections'
                 ? 'bg-accent-gold text-ink-strong shadow-xs'
                 : 'text-slate-400 hover:text-white hover:bg-white/5'
@@ -313,7 +313,7 @@ export function PresetStudio({
                   key={cat.id}
                   type="button"
                   onClick={() => setActiveCategory(cat.id)}
-                  className={`px-2 py-0.5 rounded-md text-[10px] font-medium transition-all cursor-pointer flex items-center gap-1 ${
+                  className={`px-2 py-0.5 rounded-md text-[10px] font-medium transition-colors cursor-pointer flex items-center gap-1 focus-visible:ring-1 focus-visible:ring-accent-gold ${
                     isActive
                       ? 'bg-accent-gold/20 text-accent-gold border border-accent-gold/40 font-bold'
                       : 'border border-white/10 bg-white/5 text-slate-400 hover:text-white hover:bg-white/10'
@@ -424,7 +424,7 @@ export function PresetStudio({
                 return (
                   <div
                     key={preset.id}
-                    className={`flex items-start justify-between rounded-xl border ${accent.border} bg-white/5 p-3 text-left transition-all hover:border-accent-gold/50 hover:bg-white/10 group relative`}
+                    className={`flex items-start justify-between rounded-xl border ${accent.border} bg-white/5 p-3 text-left transition-[border-color,background-color] duration-150 hover:border-accent-gold/50 hover:bg-white/10 group relative`}
                   >
                     <button
                       type="button"
@@ -512,7 +512,7 @@ export function PresetStudio({
                 key={preset.id}
                 type="button"
                 onClick={() => handleApplySection(preset)}
-                className="flex items-start justify-between rounded-xl border border-white/10 bg-white/5 p-3 text-left transition-all hover:border-accent-gold/50 hover:bg-white/10 group cursor-pointer w-full"
+                className="flex items-start justify-between rounded-xl border border-white/10 bg-white/5 p-3 text-left transition-[border-color,background-color] duration-150 hover:border-accent-gold/50 hover:bg-white/10 group cursor-pointer w-full focus-visible:ring-2 focus-visible:ring-accent-gold"
               >
                 <div className="flex items-start gap-2.5">
                   <span className="h-2.5 w-2.5 rounded-full bg-accent-gold mt-1 shrink-0 shadow-xs" />

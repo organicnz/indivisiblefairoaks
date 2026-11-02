@@ -174,7 +174,7 @@ export const PageA11yAuditor: React.FC<PageA11yAuditorProps> = ({ isOpen, onClos
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs transition-opacity animate-in fade-in-0" />
         <Dialog.Content
           aria-label="Civic Accessibility & Page Health Auditor"
-          className="fixed inset-y-0 right-0 z-50 flex w-full max-w-lg flex-col border-l border-white/15 bg-secondary text-white shadow-2xl animate-in slide-in-from-right duration-200 focus:outline-none"
+          className="fixed inset-y-0 right-0 z-50 flex w-full max-w-lg flex-col border-l border-white/15 bg-secondary text-white shadow-2xl animate-in slide-in-from-right duration-200 focus:outline-none overscroll-contain"
         >
           {/* Header */}
           <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-6 py-4">
@@ -206,7 +206,7 @@ export const PageA11yAuditor: React.FC<PageA11yAuditorProps> = ({ isOpen, onClos
                 onClick={runAudit}
                 disabled={isScanning}
                 title="Rescan page"
-                className="rounded-lg border border-white/10 bg-white/5 p-2 text-slate-300 hover:bg-white/10 hover:text-white transition-colors"
+                className="rounded-lg border border-white/10 bg-white/5 p-2 text-slate-300 hover:bg-white/10 hover:text-white transition-colors focus-visible:ring-2 focus-visible:ring-accent-gold"
               >
                 <RefreshCw size={14} className={isScanning ? 'animate-spin' : ''} />
               </button>
@@ -214,7 +214,7 @@ export const PageA11yAuditor: React.FC<PageA11yAuditorProps> = ({ isOpen, onClos
                 <button
                   type="button"
                   aria-label="Close A11y audit drawer"
-                  className="rounded-lg border border-white/10 bg-white/5 p-2 text-slate-300 hover:bg-white/10 hover:text-white transition-colors"
+                  className="rounded-lg border border-white/10 bg-white/5 p-2 text-slate-300 hover:bg-white/10 hover:text-white transition-colors focus-visible:ring-2 focus-visible:ring-accent-gold"
                 >
                   <X size={15} />
                 </button>
@@ -252,7 +252,7 @@ export const PageA11yAuditor: React.FC<PageA11yAuditorProps> = ({ isOpen, onClos
           </div>
 
           {/* Issue Cards */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          <div className="flex-1 overflow-y-auto overscroll-contain p-4 space-y-3">
             {issues.length === 0 ? (
               <div className="py-20 text-center space-y-3">
                 <CheckCircle2 size={36} className="mx-auto text-emerald-400" />
@@ -266,7 +266,7 @@ export const PageA11yAuditor: React.FC<PageA11yAuditorProps> = ({ isOpen, onClos
               issues.map((issue) => (
                 <div
                   key={issue.id}
-                  className={`rounded-xl border p-3.5 space-y-1.5 transition-all ${
+                  className={`rounded-xl border p-3.5 space-y-1.5 transition-[border-color,background-color] duration-150 ${
                     issue.severity === 'error'
                       ? 'border-rose-500/40 bg-rose-500/10'
                       : issue.severity === 'warning'
