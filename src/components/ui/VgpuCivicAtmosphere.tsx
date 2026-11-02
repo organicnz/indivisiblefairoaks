@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { prepareShader } from '@vgpu/wgsl/prepare';
 import { useThemeMode } from '@/components/layout/theme-store';
 
 // Pure WGSL shader for VGPU with dynamic theme-adaptive chromatic auroras
@@ -154,6 +155,9 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
 }
 `;
 
+export const ATMOSPHERE_SHADER = prepareShader(WGSL_ATMOSPHERE, 'civic-atmosphere.wgsl');
+
+
 interface VgpuCivicAtmosphereProps {
   className?: string;
   intensity?: number;
@@ -265,7 +269,7 @@ export function VgpuCivicAtmosphere({ className = '', intensity = 1.0 }: VgpuCiv
           effectiveTheme: currentEffective,
         });
 
-        const atmosphere = effect(gpu, WGSL_ATMOSPHERE, {
+        const atmosphere = effect(gpu, ATMOSPHERE_SHADER, {
           label: 'civic-atmosphere',
           set: { params: sharedParams },
         });

@@ -192,18 +192,6 @@ export function CRMMediaLibraryModal({
             </button>
             <button
               type="button"
-              onClick={() => setFolder('products')}
-              className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
-                folder === 'products'
-                  ? 'bg-surface-card text-foreground shadow-xs'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              <Folder size={14} className="text-emerald-500" />
-              <span>Storefront</span>
-            </button>
-            <button
-              type="button"
               onClick={() => setFolder('all')}
               className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
                 folder === 'all'

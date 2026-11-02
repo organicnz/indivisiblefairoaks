@@ -3075,15 +3075,6 @@ async function mediaReferenceReason(
     return null;
   }
 
-  const { data, error } = await adminClient
-    .from('products')
-    .select('id')
-    .or(`image_url.ilike.%${path}%,description.ilike.%${path}%`)
-    .limit(1);
-  if (error) return 'Could not verify whether this image is still in use';
-  if ((data?.length ?? 0) > 0) {
-    return 'This image is still used by a product and cannot be deleted yet.';
-  }
   return null;
 }
 

@@ -137,7 +137,6 @@ import {
   DEFAULT_VC_STYLES,
   getStylesClipboard,
   setStylesClipboard,
-  VisualComposerInspector,
   type VisualComposerInspectorProps,
 } from './VisualComposerInspector';
 import {
@@ -5622,36 +5621,7 @@ export function VisualEditOverlay() {
         }}
         isSaving={savingBackend}
       />
-
-      {/* ── Visual Composer Full Block & Design Inspector (⌘E) ─────────────── */}
-      <VisualComposerInspector
-        open={isVisualComposerOpen}
-        onClose={closeVisualComposer}
-        block={vcBlockIndex !== null ? (blocks[vcBlockIndex] ?? null) : null}
-        blockIndex={vcBlockIndex}
-        onSaveBlock={handleSaveVcBlock}
-        onSaveBlocks={handleSaveVcBlocks}
-        selectedBlockIndexes={vcSelectedBlockIndexes}
-        selectedBlockTargets={vcSelectedTargets}
-        expectedSelectedCount={vcSelectedBlockIds.length}
-        takenAnchorIds={vcTakenAnchorIds}
-        onLocateBlock={revealBlock}
-        onNavigateBlock={navigateComposerBlock}
-        onMoveBlock={(dir) => {
-          if (vcBlockIndex !== null) {
-            handleMoveSection(vcBlockIndex, dir);
-          }
-        }}
-        canNavigatePrevious={vcBlockIndex !== null && vcBlockIndex > 0}
-        canNavigateNext={vcBlockIndex !== null && vcBlockIndex < blocks.length - 1}
-        initialMode={vcMode}
-        onPreviewChange={applyComposerDraft}
-        closeRequest={composerCloseRequest}
-        onDeleteBlock={handleDeleteSection}
-        onDeleteBlocks={handleDeleteSections}
-        onCopyBlockJson={handleCopyBlockJson}
-        onPasteBlockJson={handlePasteBlockJson}
-      />
+      {/* Visual Composer is integrated directly into the sidebar (⌘E) */}
 
       {/* ── Visual Composer Element Library & Templates Modal (⌘⇧E) ─────────── */}
       <BlockLibraryModal

@@ -130,13 +130,12 @@ export async function getVisualPageContext(input?: {
     (async (): Promise<VisualCatalogCounts> => {
       const fallback: VisualCatalogCounts = { products: 0, galleryPhotos: 0, events: 0 };
       try {
-        const [products, gallery, events] = await Promise.all([
-          adminClient.from('products').select('id', { count: 'exact', head: true }),
+        const [gallery, events] = await Promise.all([
           adminClient.from('gallery_photos').select('id', { count: 'exact', head: true }),
           adminClient.from('events').select('slug', { count: 'exact', head: true }),
         ]);
         return {
-          products: products.count ?? 0,
+          products: 0,
           galleryPhotos: gallery.count ?? 0,
           events: events.count ?? 0,
         };

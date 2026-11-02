@@ -235,12 +235,15 @@ export interface VisualEditorSidebarProps {
 export function VisualEditorSidebar(props: VisualEditorSidebarProps) {
   const { collapsed, onToggleCollapsed, isVisualComposerOpen } = props;
 
+  const isComposerActive =
+    isVisualComposerOpen && Boolean(props.composerProps?.open && props.composerProps?.block);
+
   const sidebarStyle: React.CSSProperties = {
-    right: isVisualComposerOpen ? 'min(100vw, 28rem)' : '0',
+    right: '0',
   };
 
   // ── Collapsed: a narrow icon strip ──────────────────────────────────────
-  if (collapsed) {
+  if (collapsed && !isComposerActive) {
     return (
       <aside
         aria-label="Visual Editor Toolbar"
@@ -296,13 +299,16 @@ export function VisualEditorSidebar(props: VisualEditorSidebarProps) {
 
   // ── Expanded: full sidebar with context zone ────────────────────────────
   const { inlineSession, imageSession } = props;
+  const [sidebarTab, setSidebarTab] = useState<'composer' | 'blocks'>('composer');
 
   return (
     <aside
       aria-label="Visual Editor Toolbar"
       data-testid="visual-edit-overlay"
       style={sidebarStyle}
-      className="fixed inset-y-0 right-0 z-[9998] flex w-72 flex-col border-l border-white/20 bg-secondary/95 text-ink-on-dark shadow-float backdrop-blur-md"
+      className={`fixed inset-y-0 right-0 z-[9998] flex flex-col border-l border-white/20 bg-secondary/95 text-ink-on-dark shadow-float backdrop-blur-md transition-all duration-200 ${
+        isComposerActive ? 'w-[28rem] max-w-[100vw]' : 'w-72'
+      }`}
     >
       {/* ── Header ───────────────────────────────────────────────────────── */}
       <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-3 py-3">
@@ -313,27 +319,76 @@ export function VisualEditorSidebar(props: VisualEditorSidebarProps) {
             {props.documentTitle}
           </span>
         </div>
-        <button
-          type="button"
-          onClick={() => void props.onOpenShortcuts()}
-          title="Keyboard shortcuts cheat sheet"
-          aria-label="Keyboard shortcuts cheat sheet"
-          className="shrink-0 rounded-full bg-white/10 p-1.5 text-white hover:bg-white/20 cursor-pointer"
-        >
-          <Keyboard size={14} />
-        </button>
-        <button
-          type="button"
-          onClick={onToggleCollapsed}
-          title="Collapse Visual Editor Sidebar"
-          aria-label="Collapse Visual Editor Sidebar"
-          className="shrink-0 rounded-full bg-white/10 p-1.5 text-white hover:bg-white/20 cursor-pointer"
-        >
-          <ChevronRight size={14} />
-        </button>
+        {isComposerActive && (
+          <div className="flex items-center gap-1 bg-white/10 rounded-lg p-0.5 text-[10px] font-bold">
+            <button
+              type="button"
+              onClick={() => setSidebarTab('composer')}
+              className={`px-2 py-0.5 rounded-md transition-colors cursor-pointer ${
+                sidebarTab === 'composer'
+                  ? 'bg-accent-gold text-ink-strong'
+                  : 'text-slate-300 hover:text-white'
+              }`}
+            >
+              Studio
+            </button>
+            <button
+              type="button"
+              onClick={() => setSidebarTab('blocks')}
+              className={`px-2 py-0.5 rounded-md transition-colors cursor-pointer ${
+                sidebarTab === 'blocks'
+                  ? 'bg-accent-gold text-ink-strong'
+                  : 'text-slate-300 hover:text-white'
+              }`}
+            >
+              Blocks
+            </button>
+          </div>
+        )}
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => void props.onOpenShortcuts()}
+            title="Keyboard shortcuts cheat sheet"
+            aria-label="Keyboard shortcuts cheat sheet"
+            className="shrink-0 rounded-full bg-white/10 p-1.5 text-white hover:bg-white/20 cursor-pointer"
+          >
+            <Keyboard size={14} />
+          </button>
+          <button
+            type="button"
+            onClick={onToggleCollapsed}
+            title="Collapse Visual Editor Sidebar"
+            aria-label="Collapse Visual Editor Sidebar"
+            className="shrink-0 rounded-full bg-white/10 p-1.5 text-white hover:bg-white/20 cursor-pointer"
+          >
+            <ChevronRight size={14} />
+          </button>
+        </div>
       </div>
       {/* ── Context zone ─────────────────────────────────────────────────── */}
-      {inlineSession ? (
+      {isComposerActive && props.composerProps ? (
+        <>
+          <div
+            className={`flex-1 flex flex-col min-h-0 overflow-hidden ${
+              sidebarTab === 'composer' ? 'flex' : 'hidden'
+            }`}
+          >
+            <VisualComposerInspector {...props.composerProps} embedded={true} />
+          </div>
+          <div
+            className={`flex-1 overflow-y-auto ${sidebarTab === 'blocks' ? 'block' : 'hidden'}`}
+          >
+            {inlineSession ? (
+              <InlineContextZone {...props} inlineSession={inlineSession} />
+            ) : imageSession ? (
+              <ImageContextZone {...props} imageSession={imageSession} />
+            ) : (
+              <DefaultContextZone {...props} />
+            )}
+          </div>
+        </>
+      ) : inlineSession ? (
         <InlineContextZone {...props} inlineSession={inlineSession} />
       ) : imageSession ? (
         <ImageContextZone {...props} imageSession={imageSession} />

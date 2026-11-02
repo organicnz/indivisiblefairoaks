@@ -16,6 +16,7 @@
         "@tanstack/react-query-devtools": "^5.105.1",
         "@vercel/analytics": "^2.0.1",
         "@vercel/speed-insights": "^2.0.0",
+        "@vgpu/wgsl": "0.6.0",
         "clsx": "^2.1.1",
         "effect": "^4.1.2",
         "lucide-react": "^1.66.0",
@@ -28,7 +29,7 @@
         "sanitize-html": "2.18.1",
         "sonner": "^2.0.8",
         "tailwind-merge": "^3.7.0",
-        "vgpu": "0.4.1",
+        "vgpu": "0.6.0",
         "zod": "^4.6.7",
         "zustand": "^5.0.16",
       },
@@ -876,15 +877,15 @@
 
     "@vercel/vc-native-linux-x64-musl": ["@vercel/vc-native-linux-x64-musl@65.9.0", "", { "os": "linux", "cpu": "x64", "libc": "musl" }, "sha512-wbUca+QzwUSDBEWTyr9LEdlVTCtPn8VBIVx2p+Gl2nk2j19kpMEyf/04yodamRXYaccJEeQWM5sKDpwNaErrig=="],
 
-    "@vgpu/adapter-mock": ["@vgpu/adapter-mock@0.4.1", "", { "dependencies": { "@vgpu/core": "0.4.1" } }, "sha512-4w6FHutvlno5nAYt/SYDB5TJlXVwL7liZeBo79jKkjOKJoIrtTO8jf9ny9M5lrLcdpzKdBcdLY1UPJRHZ+DbkQ=="],
+    "@vgpu/adapter-mock": ["@vgpu/adapter-mock@0.6.0", "", { "dependencies": { "@vgpu/core": "0.6.0" } }, "sha512-xLzDbi0satAaY1z8a+9mVLBX5XXsoaGFiyPqR+T/QWKTXeYWLKloMHzJ2eIhHWeGEJJmpqhpYM/TMssjZjXbNA=="],
 
-    "@vgpu/adapter-node": ["@vgpu/adapter-node@0.4.1", "", { "dependencies": { "@vgpu/core": "0.4.1", "webgpu": "0.4.0" }, "hasInstallScript": true }, "sha512-fZgokRT/oTodHqCgyrqtKOrqw7TO+1qxW8gcW5A30wcKnjjAj+4sRHytaJTQkJCYDpZeOHp7B2lhvAxrv1zINg=="],
+    "@vgpu/adapter-node": ["@vgpu/adapter-node@0.6.0", "", { "dependencies": { "@vgpu/core": "0.6.0", "webgpu": "0.4.0" }, "hasInstallScript": true }, "sha512-A/ZvkZV+vWMQOtaKyK+G2VlYWMwr7hce2AlpnkVouLKfsJ3TR+VeIKZC/OXgDYtEQ6fANmHEmHuTFge5kjSyaA=="],
 
-    "@vgpu/core": ["@vgpu/core@0.4.1", "", { "dependencies": { "@vgpu/wgsl": "0.4.1" } }, "sha512-cWETNNvNrobCjGGKbWxujEjNgH8QCz+sTbz3zecKtq/P6V5iB8f6tFrKGmQNvc084R+XJLOAoLY/gGCo8KTbTQ=="],
+    "@vgpu/core": ["@vgpu/core@0.6.0", "", { "dependencies": { "@vgpu/wgsl": "0.6.0" } }, "sha512-0ihBJl1kiFl5sBidv4dmoDepR7TCCaeSxy+EzJWz8zX/C4lw4jDGsN/ThgO/p79QGRUgRSW5J21erG2a6AtuWg=="],
 
-    "@vgpu/wgsl": ["@vgpu/wgsl@0.4.1", "", { "dependencies": { "@vgpu/wgsl-std": "0.4.1" }, "peerDependencies": { "@vgpu/adapter-node": ">=0.1.6 <1.0.0" }, "optionalPeers": ["@vgpu/adapter-node"] }, "sha512-wcK3y+bSVkFhcDPxbGKVNi1tATGA8TdqdmrAuBtRhv2LXi2cEgK5VOZ5k4y5G7yX5+4T5mml9nGO3fQdGDD6WQ=="],
+    "@vgpu/wgsl": ["@vgpu/wgsl@0.6.0", "", { "dependencies": { "@vgpu/wgsl-std": "0.6.0" }, "peerDependencies": { "@vgpu/adapter-node": ">=0.1.6 <1.0.0 || ^0.5.0-rc.0 || ^0.6.0-rc.0" }, "optionalPeers": ["@vgpu/adapter-node"] }, "sha512-/TlncdEz8hS5JvUI4lKDOK4irYgnfWrrox9sspc5Kt8xl6E3nqHjWfJw9iaAT9nDir8RuzPUNSxrCV8t3IDNmw=="],
 
-    "@vgpu/wgsl-std": ["@vgpu/wgsl-std@0.4.1", "", {}, "sha512-K6qB9qTBXP/G0uhiJZ9cKt0MEH/bHFrcD0t3+xyjkA7QxNPMXqx7LniMHMIz3T0pC47ujCLaBRyOuHwyOqV0EA=="],
+    "@vgpu/wgsl-std": ["@vgpu/wgsl-std@0.6.0", "", {}, "sha512-C2C52G40p+54FKPAVzaXlffi4hLKK5xViTuINVH/CfBWb70qOL2WJ7cBiEpY5guvXAWHCJ1wyg+n6RSy92XnsA=="],
 
     "@vitest/coverage-v8": ["@vitest/coverage-v8@5.0.5", "", { "dependencies": { "@bcoe/v8-coverage": "^1.0.2", "@vitest/istanbul-lib-coverage": "^1.0.2", "@vitest/istanbul-lib-report": "^1.0.2", "ast-v8-to-istanbul": "^1.0.7", "magicast": "^0.5.5", "obug": "^3.0.0", "std-env": "^4.3.0", "tinyrainbow": "^3.2.0" }, "peerDependencies": { "@vitest/browser": "5.0.5", "vitest": "5.0.5" }, "optionalPeers": ["@vitest/browser"] }, "sha512-4KpkGdIrSqBihx/JyP/e+S+IKB98etg1XDQiLAxksLfcShnwi1VReGeOT9NI43hLHbknosKp/1CCLn9Zgcs8mg=="],
 
@@ -1490,7 +1491,7 @@
 
     "vercel": ["vercel@65.9.0", "", { "dependencies": { "@vercel/backends": "24.0.1", "@vercel/blob": "2.8.0", "@vercel/build-utils": "15.2.1", "@vercel/cli-auth": "0.3.14", "@vercel/cli-config": "0.3.5", "@vercel/container": "24.0.1", "@vercel/detect-agent": "1.2.7", "@vercel/elysia": "24.0.1", "@vercel/express": "24.0.1", "@vercel/fastify": "24.0.1", "@vercel/fun": "1.3.6", "@vercel/go": "27.0.1", "@vercel/h3": "24.0.1", "@vercel/hono": "24.0.1", "@vercel/hydrogen": "25.0.1", "@vercel/koa": "24.0.1", "@vercel/nestjs": "24.0.1", "@vercel/next": "28.0.1", "@vercel/node": "29.0.1", "@vercel/prepare-flags-definitions": "0.6.1", "@vercel/python": "30.0.1", "@vercel/python-analysis": "0.15.2", "@vercel/redwood": "26.0.1", "@vercel/remix-builder": "29.0.1", "@vercel/ruby": "26.0.1", "@vercel/rust": "25.0.1", "@vercel/static-build": "26.0.1", "chokidar": "4.0.0", "esbuild": "0.27.0", "jose": "5.9.6", "jsonc-parser": "3.3.1", "luxon": "^3.4.0", "sandbox": "4.11.1", "smol-toml": "1.5.2", "undici": "5.29.0", "uuid": "14.0.1", "zod": "4.1.11" }, "optionalDependencies": { "@vercel/cli-support": "65.9.0", "@vercel/vc-native-darwin-arm64": "65.9.0", "@vercel/vc-native-darwin-x64": "65.9.0", "@vercel/vc-native-linux-arm64": "65.9.0", "@vercel/vc-native-linux-arm64-musl": "65.9.0", "@vercel/vc-native-linux-x64": "65.9.0", "@vercel/vc-native-linux-x64-musl": "65.9.0" }, "bin": { "vc": "dist/vc.js", "vercel": "dist/vc.js" } }, "sha512-uROjH+BpZP18DXTruhl4JTVvZbRZPIG89gFN8xZ5V66WLK660Qc+3rITATIG82/yrEm3d3GpYGavISc52kBn/w=="],
 
-    "vgpu": ["vgpu@0.4.1", "", { "dependencies": { "@modelcontextprotocol/server": "2.0.0", "@vgpu/adapter-mock": "0.4.1", "@vgpu/adapter-node": "0.4.1", "@vgpu/core": "0.4.1", "@vgpu/wgsl": "0.4.1", "@vgpu/wgsl-std": "0.4.1", "@webgpu/types": "^0.1.69", "pixelmatch": "^7.2.0", "pngjs": "^7.0.0", "wgpu-matrix": "^3.4.2", "zod": "^4.4.3" }, "peerDependencies": { "three": ">=0.180.0 <0.200.0" }, "optionalPeers": ["three"], "bin": { "vgpu": "bin/vgpu.js" } }, "sha512-Kq2W2Y7Z0hZnSp4Hdf3jaoVL7oHjFypZapwGcMYYVkTfRXqAISmklGl3yd6wmte8yFwOhAkhJErPKZjWJBGpzA=="],
+    "vgpu": ["vgpu@0.6.0", "", { "dependencies": { "@modelcontextprotocol/server": "2.0.0", "@vgpu/adapter-mock": "0.6.0", "@vgpu/adapter-node": "0.6.0", "@vgpu/core": "0.6.0", "@vgpu/wgsl": "0.6.0", "@vgpu/wgsl-std": "0.6.0", "@webgpu/types": "^0.1.69", "pixelmatch": "^7.2.0", "pngjs": "^7.0.0", "wgpu-matrix": "^3.4.2", "zod": "^4.4.3" }, "peerDependencies": { "three": ">=0.180.0 <0.200.0" }, "optionalPeers": ["three"], "bin": { "vgpu": "bin/vgpu.js" } }, "sha512-st7Sc40nNnRHoWFguP7sGOeziLtO/bF+YL/Tn1fn2h9cGmSpWq4gxEQp0/T6Z7Xz3zH66ZS3qBp+ZLMBrUSxug=="],
 
     "vite": ["vite@8.3.4", "", { "dependencies": { "lightningcss": "^1.33.0", "picomatch": "^4.0.7", "postcss": "^8.5.29", "rolldown": "~1.2.12", "tinyglobby": "^0.2.17" }, "optionalDependencies": { "fsevents": "~2.3.3" }, "peerDependencies": { "@types/node": "^20.19.0 || >=22.12.0", "@vitejs/devtools": "^0.7.1", "esbuild": "^0.27.0 || ^0.28.0", "jiti": ">=1.21.0", "less": "^4.0.0", "sass": "^1.70.0", "sass-embedded": "^1.70.0", "stylus": ">=0.54.8", "sugarss": "^5.0.0", "terser": "^5.16.0", "tsx": "^4.8.1", "yaml": "^2.4.2" }, "optionalPeers": ["@types/node", "@vitejs/devtools", "esbuild", "jiti", "less", "sass", "sass-embedded", "stylus", "sugarss", "terser", "tsx", "yaml"], "bin": { "vite": "bin/vite.js" } }, "sha512-IftLE8phJhdNRIGNEV4JCCvfNScoZQVfcXaN8TQropWGJtOHcu+iAB9pHcuGvmEb/kddw0LBe/jS8ztdC6xdiQ=="],
 

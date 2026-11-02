@@ -1,10 +1,19 @@
 // @vitest-environment node
 import { effect, frame, init, target, uniforms } from 'vgpu/mock';
 import { describe, expect, it } from 'vitest';
-import { THEME_WGSL } from '@/components/layout/VgpuThemeCanvas';
-import { WGSL_CHOIR_HARMONICS } from '@/components/ui/VgpuChoirHarmonics';
-import { WGSL_ATMOSPHERE } from '@/components/ui/VgpuCivicAtmosphere';
-import { WGSL_CONSTELLATION } from '@/components/ui/VgpuCivicConstellation';
+import { THEME_SHADER, THEME_WGSL } from '@/components/layout/VgpuThemeCanvas';
+import {
+  CHOIR_HARMONICS_SHADER,
+  WGSL_CHOIR_HARMONICS,
+} from '@/components/ui/VgpuChoirHarmonics';
+import {
+  ATMOSPHERE_SHADER,
+  WGSL_ATMOSPHERE,
+} from '@/components/ui/VgpuCivicAtmosphere';
+import {
+  CONSTELLATION_SHADER,
+  WGSL_CONSTELLATION,
+} from '@/components/ui/VgpuCivicConstellation';
 
 describe('VGPU WebGPU Shader Compilation & Pipeline Verification', () => {
   it('compiles THEME_WGSL without WGSL errors and executes a multi-wave render pass', async () => {
@@ -61,7 +70,8 @@ describe('VGPU WebGPU Shader Compilation & Pipeline Verification', () => {
 
     const sharedGlobals = uniforms(gpu, initialGlobals);
 
-    const themeEffect = effect(gpu, THEME_WGSL, {
+    expect(THEME_WGSL.length).toBeGreaterThan(0);
+    const themeEffect = effect(gpu, THEME_SHADER, {
       label: 'test-theme-wavefront',
       blend: 'alpha',
       set: {
@@ -86,7 +96,8 @@ describe('VGPU WebGPU Shader Compilation & Pipeline Verification', () => {
     const gpu = await init();
     const renderTarget = target(gpu, { size: [256, 256] });
 
-    const atmosphere = effect(gpu, WGSL_ATMOSPHERE, {
+    expect(WGSL_ATMOSPHERE.length).toBeGreaterThan(0);
+    const atmosphere = effect(gpu, ATMOSPHERE_SHADER, {
       label: 'test-civic-atmosphere',
       set: {
         params: {
@@ -127,7 +138,8 @@ describe('VGPU WebGPU Shader Compilation & Pipeline Verification', () => {
     const gpu = await init();
     const renderTarget = target(gpu, { size: [256, 256] });
 
-    const constellation = effect(gpu, WGSL_CONSTELLATION, {
+    expect(WGSL_CONSTELLATION.length).toBeGreaterThan(0);
+    const constellation = effect(gpu, CONSTELLATION_SHADER, {
       label: 'test-civic-constellation',
       set: {
         params: {
@@ -146,11 +158,12 @@ describe('VGPU WebGPU Shader Compilation & Pipeline Verification', () => {
     await constellation.compile(renderTarget);
 
     // Verify dark palette transition
+    const constellationParams = {
+      themeMode: 2.0,
+      effectiveTheme: 1.0,
+    };
     constellation.set({
-      params: {
-        themeMode: 2.0,
-        effectiveTheme: 1.0,
-      },
+      params: constellationParams,
     });
 
     expect(() => {
@@ -168,7 +181,8 @@ describe('VGPU WebGPU Shader Compilation & Pipeline Verification', () => {
     const gpu = await init();
     const renderTarget = target(gpu, { size: [256, 256] });
 
-    const choir = effect(gpu, WGSL_CHOIR_HARMONICS, {
+    expect(WGSL_CHOIR_HARMONICS.length).toBeGreaterThan(0);
+    const choir = effect(gpu, CHOIR_HARMONICS_SHADER, {
       label: 'test-choir-harmonics',
       set: {
         params: {

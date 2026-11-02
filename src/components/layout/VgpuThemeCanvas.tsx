@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { clock, effect, frame, init, surface, uniforms } from 'vgpu';
+import { prepareShader } from '@vgpu/wgsl/prepare';
 import { subscribeThemeHud, type ThemeHudEvent } from './theme-store';
 
 type GpuContext = Awaited<ReturnType<typeof init>>;
@@ -357,6 +358,9 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
 }
 `;
 
+export const THEME_SHADER = prepareShader(THEME_WGSL, 'theme-wavefront.wgsl');
+
+
 function createInitialWave(): WaveSlot {
   return {
     origin: [0.5, 0.5],
@@ -576,7 +580,7 @@ export function VgpuThemeCanvas() {
 
         sharedGlobals = uniformsFn(gpuInstance, initialGlobals);
 
-        themeEffect = effect(gpuInstance, THEME_WGSL, {
+        themeEffect = effect(gpuInstance, THEME_SHADER, {
           label: 'atomic-theme-wavefront-10x-pro',
           blend: 'alpha',
           set: {

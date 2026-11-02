@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { prepareShader } from '@vgpu/wgsl/prepare';
 import { useThemeMode } from '@/components/layout/theme-store';
 
 // WGSL Shader for Acoustic Choir Vocal Harmonics with Theme-Adaptive Resonances
@@ -127,6 +128,9 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
 }
 `;
 
+export const CHOIR_HARMONICS_SHADER = prepareShader(WGSL_CHOIR_HARMONICS, 'choir-harmonics.wgsl');
+
+
 interface VgpuChoirHarmonicsProps {
   className?: string;
   intensity?: number;
@@ -217,7 +221,7 @@ export function VgpuChoirHarmonics({ className = '', intensity = 1.0 }: VgpuChoi
           effectiveTheme: currentEffective,
         });
 
-        const harmonics = effect(gpu, WGSL_CHOIR_HARMONICS, {
+        const harmonics = effect(gpu, CHOIR_HARMONICS_SHADER, {
           label: 'choir-harmonics',
           set: { params: sharedParams },
         });

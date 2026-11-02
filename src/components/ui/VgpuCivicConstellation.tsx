@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { prepareShader } from '@vgpu/wgsl/prepare';
 import { useThemeMode } from '@/components/layout/theme-store';
 
 // WGSL Shader for Interconnected Civic Coalition Constellation with Theme-Adaptive Colors
@@ -126,6 +127,9 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
 }
 `;
 
+export const CONSTELLATION_SHADER = prepareShader(WGSL_CONSTELLATION, 'civic-constellation.wgsl');
+
+
 interface VgpuCivicConstellationProps {
   className?: string;
   intensity?: number;
@@ -219,7 +223,7 @@ export function VgpuCivicConstellation({
           effectiveTheme: currentEffective,
         });
 
-        const constellation = effect(gpu, WGSL_CONSTELLATION, {
+        const constellation = effect(gpu, CONSTELLATION_SHADER, {
           label: 'civic-constellation',
           set: { params: sharedParams },
         });
