@@ -137,20 +137,37 @@ describe('InteractiveEventsCalendar', () => {
     expect(createObjectUrlMock).toHaveBeenCalled();
   });
 
-  it('renders Import Mobilize button for admins and opens import modal', async () => {
+  it('renders unified Add Event dropdown for admins and triggers modal options', async () => {
     mockEditContext.isAdmin = true;
 
     await act(async () => {
       root.render(<InteractiveEventsCalendar />);
     });
 
-    const importBtn = Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find(
-      (b) => b.textContent?.includes('Import Mobilize')
+    const dropdownTrigger = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Add or import event"]'
     );
-    expect(importBtn).toBeDefined();
+    expect(dropdownTrigger).not.toBeNull();
+    expect(dropdownTrigger?.textContent).toContain('Add Event');
+
+    // Click trigger to open dropdown menu (Radix listens to pointerdown)
+    await act(async () => {
+      dropdownTrigger?.dispatchEvent(
+        new MouseEvent('pointerdown', { bubbles: true, cancelable: true })
+      );
+    });
+
+    // Check both options are rendered
+    expect(document.body.textContent).toContain('Import Mobilize');
+
+    // Click "Import Mobilize"
+    const importItem = Array.from(document.body.querySelectorAll('[role="menuitem"]')).find((el) =>
+      el.textContent?.includes('Import Mobilize')
+    );
+    expect(importItem).toBeDefined();
 
     await act(async () => {
-      importBtn?.click();
+      importItem?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
 
     expect(document.body.textContent).toContain('Import Mobilize Event');

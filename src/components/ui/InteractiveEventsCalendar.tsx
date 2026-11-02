@@ -1,7 +1,14 @@
 'use client';
 
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@radix-ui/react-dropdown-menu';
+import {
   CalendarPlus,
+  ChevronDown,
   Clock,
   Download,
   ExternalLink,
@@ -325,26 +332,61 @@ export function InteractiveEventsCalendar({
           ))}
         </div>
 
-        {/* In-Page Admin Controls */}
+        {/* In-Page Admin Controls (Issue #153: unified dropdown with Add Event & Import Mobilize) */}
         {isAdmin && (
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={() => setIsMobilizeModalOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-primary-bright hover:bg-primary-light text-white font-bold text-xs uppercase tracking-wider shadow-md transition-all cursor-pointer"
-              title="Directly import any single Mobilize event link (issue #153)"
-            >
-              <Download size={14} />
-              <span>Import Mobilize</span>
-            </button>
-            <button
-              type="button"
-              onClick={handleOpenCreateModal}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-accent-gold hover:brightness-105 text-ink-strong font-black text-xs uppercase tracking-wider shadow-md transition-all shrink-0 cursor-pointer"
-            >
-              <Plus size={15} />
-              <span>Add Event</span>
-            </button>
+          <div className="shrink-0">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="Add or import event"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-accent-gold hover:brightness-105 text-ink-strong font-black text-xs uppercase tracking-wider shadow-md transition-all cursor-pointer select-none"
+                >
+                  <Plus size={15} />
+                  <span>Add Event</span>
+                  <ChevronDown size={14} className="opacity-70" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                sideOffset={6}
+                className="z-[110] min-w-56 rounded-2xl bg-surface-card dark:bg-slate-900 p-2 shadow-2xl border border-border dark:border-white/10"
+              >
+                <DropdownMenuItem
+                  className="flex items-start gap-3 p-2.5 rounded-xl cursor-pointer outline-none transition-colors hover:bg-surface-muted dark:hover:bg-white/10"
+                  onClick={handleOpenCreateModal}
+                >
+                  <div className="size-8 rounded-lg bg-accent-gold/20 text-accent-gold flex items-center justify-center shrink-0 mt-0.5">
+                    <Plus size={16} />
+                  </div>
+                  <div>
+                    <span className="block text-xs font-bold text-foreground dark:text-white">
+                      Add Event
+                    </span>
+                    <span className="block text-[11px] text-muted-foreground dark:text-ink-muted-on-dark">
+                      Manually create a new civic event
+                    </span>
+                  </div>
+                </DropdownMenuItem>
+
+                <DropdownMenuItem
+                  className="flex items-start gap-3 p-2.5 rounded-xl cursor-pointer outline-none transition-colors hover:bg-surface-muted dark:hover:bg-white/10 mt-1"
+                  onClick={() => setIsMobilizeModalOpen(true)}
+                >
+                  <div className="size-8 rounded-lg bg-primary/15 text-primary-bright dark:text-accent-gold flex items-center justify-center shrink-0 mt-0.5">
+                    <Download size={16} />
+                  </div>
+                  <div>
+                    <span className="block text-xs font-bold text-foreground dark:text-white">
+                      Import Mobilize
+                    </span>
+                    <span className="block text-[11px] text-muted-foreground dark:text-ink-muted-on-dark">
+                      1-click import from any Mobilize URL
+                    </span>
+                  </div>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         )}
       </div>
