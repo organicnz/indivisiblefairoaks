@@ -462,4 +462,48 @@ describe('VisualEditOverlay 10x Pro Features', () => {
 
     expect(document.querySelector('[role="menu"][aria-label="Block Context Menu"]')).toBeNull();
   });
+
+  it('opens confirmation modal on ⌘⇧Backspace and safely cancels or deletes', async () => {
+    const main = document.createElement('main');
+    const p = document.createElement('p');
+    p.textContent = 'Block to delete';
+    main.appendChild(p);
+    document.body.appendChild(main);
+
+    await mount();
+
+    // Select the block
+    await act(async () => {
+      p.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+
+    // Press ⌘⇧Backspace
+    await act(async () => {
+      window.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'Backspace',
+          metaKey: true,
+          shiftKey: true,
+          bubbles: true,
+        })
+      );
+    });
+
+    // Dialog should appear
+    expect(document.body.textContent).toContain('Delete Section');
+    expect(document.body.textContent).toContain('Are you sure you want to delete');
+
+    // Click Cancel button
+    const cancelBtn = Array.from(document.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === 'Cancel'
+    );
+    expect(cancelBtn).toBeDefined();
+
+    await act(async () => {
+      cancelBtn?.click();
+    });
+
+    // Dialog should close
+    expect(document.body.textContent).not.toContain('Are you sure you want to delete');
+  });
 });

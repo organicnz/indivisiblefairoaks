@@ -1,6 +1,15 @@
 'use client';
 
-import { ChevronDown, ChevronUp, Columns3, GripVertical, Plus, Trash2 } from 'lucide-react';
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  Columns3,
+  GripVertical,
+  Plus,
+  Trash2,
+} from 'lucide-react';
 import { useId, useLayoutEffect, useRef, useState } from 'react';
 import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import {
@@ -155,6 +164,17 @@ export function RowBlockEditor({
     onRemoveColumn(columnIndex);
   };
 
+  const moveColumn = (fromIndex: number, toIndex: number) => {
+    if (toIndex < 0 || toIndex >= currentBlock.columns.length || fromIndex === toIndex) return;
+    const nextColumns = [...currentBlock.columns];
+    const [moved] = nextColumns.splice(fromIndex, 1);
+    nextColumns.splice(toIndex, 0, moved);
+    setCurrentBlock({
+      ...currentBlock,
+      columns: nextColumns,
+    });
+  };
+
   const updateLeaf = (blockId: string, next: ContentBlock) => {
     setCurrentBlock({
       ...currentBlock,
@@ -225,6 +245,30 @@ export function RowBlockEditor({
                   <span className="text-[9px] text-slate-400">
                     {column.blocks.length} {column.blocks.length === 1 ? 'block' : 'blocks'}
                   </span>
+                  {columnCount > 1 && (
+                    <>
+                      <button
+                        type="button"
+                        aria-label={`Move column ${columnIndex + 1} left`}
+                        title={`Move column ${columnIndex + 1} left`}
+                        disabled={columnIndex === 0}
+                        onClick={() => moveColumn(columnIndex, columnIndex - 1)}
+                        className="inline-flex size-5 items-center justify-center rounded text-slate-400 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+                      >
+                        <ChevronLeft size={11} />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={`Move column ${columnIndex + 1} right`}
+                        title={`Move column ${columnIndex + 1} right`}
+                        disabled={columnIndex === columnCount - 1}
+                        onClick={() => moveColumn(columnIndex, columnIndex + 1)}
+                        className="inline-flex size-5 items-center justify-center rounded text-slate-400 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+                      >
+                        <ChevronRight size={11} />
+                      </button>
+                    </>
+                  )}
                   {/* A row-level control could only ever remove the last column. */}
                   <button
                     ref={(node) => {

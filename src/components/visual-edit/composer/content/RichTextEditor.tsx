@@ -1,6 +1,6 @@
 'use client';
 
-import { Code2, Eye, Plus, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, Code2, Eye, Plus, Trash2 } from 'lucide-react';
 import {
   type KeyboardEvent as ReactKeyboardEvent,
   type RefObject,
@@ -702,6 +702,21 @@ export function RichTextListEditor({
     [safeItems, update]
   );
 
+  const moveItem = useCallback(
+    (fromIndex: number, toIndex: number) => {
+      if (toIndex < 0 || toIndex >= safeItems.length || fromIndex === toIndex) return;
+      const next = [...safeItems];
+      const [moved] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, moved);
+      pendingFocus.current = {
+        index: toIndex,
+        expectedLength: next.length,
+      };
+      update(next);
+    },
+    [safeItems, update]
+  );
+
   const handleEnter = useCallback(
     (event: ReactKeyboardEvent<HTMLDivElement>, index: number) => {
       if (event.shiftKey) {
@@ -787,6 +802,30 @@ export function RichTextListEditor({
                       onBackspace={(event) => handleBackspace(event, index)}
                       className="min-w-0 flex-1 text-sm leading-relaxed text-slate-100"
                     />
+                    {safeItems.length > 1 && (
+                      <div className="mt-0.5 flex shrink-0 items-center gap-0.5">
+                        <button
+                          type="button"
+                          aria-label={`Move list item ${index + 1} up`}
+                          title={`Move list item ${index + 1} up`}
+                          disabled={index === 0}
+                          onClick={() => moveItem(index, index - 1)}
+                          className="inline-flex size-5 items-center justify-center rounded text-slate-400 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+                        >
+                          <ChevronUp size={11} />
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={`Move list item ${index + 1} down`}
+                          title={`Move list item ${index + 1} down`}
+                          disabled={index === safeItems.length - 1}
+                          onClick={() => moveItem(index, index + 1)}
+                          className="inline-flex size-5 items-center justify-center rounded text-slate-400 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+                        >
+                          <ChevronDown size={11} />
+                        </button>
+                      </div>
+                    )}
                     <button
                       type="button"
                       aria-label={`Remove list item ${index + 1}`}

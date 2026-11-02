@@ -27,7 +27,7 @@ import { copyRegionSlug } from '@/lib/copy-regions';
 
 export interface UseBlockWriterArgs {
   commitBlocks: (next: Block[], coalesceKey?: string | null) => void;
-  handlePersistBlocks: (newBlocks: Block[], successMessage?: string) => Promise<void>;
+  handlePersistBlocks: (newBlocks: Block[], successMessage?: string) => Promise<unknown>;
   saveContentWithEdgeApi: (
     payload: ContentInput
   ) => Promise<ActionResult<{ id: number; updatedAt: string | null }>>;

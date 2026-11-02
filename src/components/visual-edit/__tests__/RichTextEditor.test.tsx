@@ -533,6 +533,38 @@ describe('visual rich-text content editors', () => {
     );
   });
 
+  it('reorders list items with move up and down buttons', async () => {
+    await act(async () => {
+      root.render(
+        <ListHarness
+          initial={{ id: 'l', type: 'bulletList', items: ['First', 'Second', 'Third'] }}
+        />
+      );
+    });
+
+    const moveDown = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Move list item 1 down"]'
+    );
+    expect(moveDown).not.toBeNull();
+
+    act(() => {
+      moveDown?.click();
+    });
+
+    expect(items()).toEqual(['Second', 'First', 'Third']);
+
+    const moveUp = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Move list item 3 up"]'
+    );
+    expect(moveUp).not.toBeNull();
+
+    act(() => {
+      moveUp?.click();
+    });
+
+    expect(items()).toEqual(['Second', 'Third', 'First']);
+  });
+
   function contentEditor(): HTMLElement {
     const editor = container.querySelector<HTMLElement>('[contenteditable="true"]');
     if (!editor) throw new Error('expected a visual content editor');

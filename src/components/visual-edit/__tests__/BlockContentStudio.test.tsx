@@ -471,6 +471,27 @@ describe('BlockContentStudio & Modular Block Editors', () => {
     expect(container.querySelectorAll('[data-testid^="row-column-"]')).toHaveLength(3);
   });
 
+  it('reorders columns with left and right buttons', async () => {
+    const committed: Block[] = [];
+    await act(async () => {
+      root.render(
+        <RowHarness initial={THREE_COLUMN_ROW} onCommit={(next) => committed.push(next)} />
+      );
+    });
+
+    const moveRight = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Move column 1 right"]'
+    );
+    expect(moveRight).not.toBeNull();
+
+    act(() => {
+      moveRight?.click();
+    });
+
+    const reordered = expectRow(committed.at(-1));
+    expect(reordered.columns.map((c) => c.id)).toEqual(['c2', 'c1', 'c3']);
+  });
+
   it.each([
     {
       removed: 'first',

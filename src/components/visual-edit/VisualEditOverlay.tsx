@@ -574,6 +574,9 @@ export function VisualEditOverlay() {
   const [isSectionModalOpen, setIsSectionModalOpen] = useState(false);
   const activeSectionLabel = editingBlock ? sectionLabelForBlock(editingBlock) : '';
 
+  // Atomic delete confirmation dialog state
+  const [deleteConfirmIndexes, setDeleteConfirmIndexes] = useState<number[] | null>(null);
+
   // Page settings modal state
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [pageTitle, setPageTitle] = useState('');
@@ -1806,7 +1809,7 @@ export function VisualEditOverlay() {
       newBlocks: Block[],
       successMessage = 'Page saved',
       toastOptions?: { action?: { label: string; onClick: () => void } }
-    ) => {
+    ): Promise<{ success: boolean; error?: string; updatedAt?: string | null }> => {
       setSavingBackend(true);
       const newBody = serializeBlocks(newBlocks);
 
@@ -1884,6 +1887,7 @@ export function VisualEditOverlay() {
           setRecoveredDraft(null);
           clearDraft(draftScope);
           router.refresh();
+          return { success: true, updatedAt: res.data?.updatedAt };
         } else if (isStaleConflict(res.error)) {
           /**
            * Someone else wrote this page while it was open.
@@ -1897,11 +1901,15 @@ export function VisualEditOverlay() {
             'This page was edited by someone else. Reload to see their version before saving.',
             { duration: 8000 }
           );
+          return { success: false, error: res.error };
         } else {
           toast.error(res.error || 'Failed to save changes to backend');
+          return { success: false, error: res.error };
         }
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : 'Error syncing with backend');
+        const errorMsg = err instanceof Error ? err.message : 'Error syncing with backend';
+        toast.error(errorMsg);
+        return { success: false, error: errorMsg };
       } finally {
         setSavingBackend(false);
       }
@@ -2914,6 +2922,12 @@ export function VisualEditOverlay() {
       if (blockIndexes.length === 0) return;
       applyComposerDraft(null);
 
+      const priorBlocks = [...blocksRef.current];
+      const priorSelectedBlockIds = new Set(selectedBlockIds);
+      const priorVcSelectedBlockIds = [...vcSelectedBlockIds];
+      const priorActiveIndex = activeBlockIndex;
+      const priorVcBlockIndex = vcBlockIndex;
+
       const deletedIds = new Set<string>();
       const sorted = [...blockIndexes].sort((a, b) => b - a); // highest first so indices stay valid
       const nextBlocks = [...blocksRef.current];
@@ -2953,7 +2967,7 @@ export function VisualEditOverlay() {
       }
 
       commitBlocks(nextBlocks, blockIndexes.length > 1 ? 'batch-delete' : null);
-      await handlePersistBlocks(
+      const result = await handlePersistBlocks(
         nextBlocks,
         blockIndexes.length === 1 ? 'Section deleted' : `${blockIndexes.length} sections deleted`,
         {
@@ -2963,6 +2977,16 @@ export function VisualEditOverlay() {
           },
         }
       );
+
+      if (!result.success) {
+        // Atomic rollback to source of truth
+        commitBlocks(priorBlocks);
+        setSelectedBlockIds(priorSelectedBlockIds);
+        setVcSelectedBlockIds(priorVcSelectedBlockIds);
+        setActiveBlockIndex(priorActiveIndex);
+        setVcBlockIndex(priorVcBlockIndex);
+        toast.error('Deletion rolled back: changes could not be saved to backend.');
+      }
     },
     [
       applyComposerDraft,
@@ -2972,6 +2996,8 @@ export function VisualEditOverlay() {
       activeBlockIndex,
       vcBlockIndex,
       setVcBlockIndex,
+      selectedBlockIds,
+      vcSelectedBlockIds,
     ]
   );
 
@@ -2998,19 +3024,30 @@ export function VisualEditOverlay() {
        * repaints at the block's new index on the next render.
        */
       applyComposerDraft(null);
+      const priorBlocks = [...blocksRef.current];
+      const priorActiveIndex = activeBlockIndex;
+
       const nextBlocks = [...blocksRef.current];
       const temp = nextBlocks[blockIndex];
       nextBlocks[blockIndex] = nextBlocks[targetIdx];
       nextBlocks[targetIdx] = temp;
       commitBlocks(nextBlocks, `move:${blockIndex}`);
-      await handlePersistBlocks(nextBlocks, 'Section order updated', {
+      setActiveBlockIndex(targetIdx);
+
+      const result = await handlePersistBlocks(nextBlocks, 'Section order updated', {
         action: {
           label: 'Undo',
           onClick: () => handleUndo(),
         },
       });
+
+      if (!result.success) {
+        commitBlocks(priorBlocks);
+        setActiveBlockIndex(priorActiveIndex);
+        toast.error('Section move rolled back: could not sync with backend.');
+      }
     },
-    [applyComposerDraft, commitBlocks, handlePersistBlocks, handleUndo, sections]
+    [applyComposerDraft, commitBlocks, handlePersistBlocks, handleUndo, sections, activeBlockIndex]
   );
 
   /**
@@ -3020,7 +3057,7 @@ export function VisualEditOverlay() {
    * two histories or two save paths that disagree about what "moved" means.
    */
   const moveBlockTo = useCallback(
-    (from: number, to: number) => {
+    async (from: number, to: number) => {
       if (from === to) return;
       const total = blocksRef.current.length;
       if (from < 0 || to < 0 || from >= total || to >= total) return;
@@ -3029,20 +3066,38 @@ export function VisualEditOverlay() {
       // elements by text, so painted copy must be off the page before a reorder
       // re-pairs them. The panel restores it at the block's new index.
       applyComposerDraft(null);
+      const priorBlocks = [...blocksRef.current];
+      const priorActiveIndex = activeBlockIndex;
+      const priorSelectedIds = new Set(selectedBlockIds);
+
       const next = moveBlockItem(blocksRef.current, { from, to });
       commitBlocks(next, `reorder:${from}`);
       // Selection follows the block, not the slot it left behind.
       setActiveBlockIndex(to);
       const moved = next[to];
       if (moved) setSelectedBlockIds(new Set([moved.id]));
-      void handlePersistBlocks(next, 'Block order updated', {
+      const result = await handlePersistBlocks(next, 'Block order updated', {
         action: {
           label: 'Undo',
           onClick: () => handleUndo(),
         },
       });
+
+      if (!result.success) {
+        commitBlocks(priorBlocks);
+        setActiveBlockIndex(priorActiveIndex);
+        setSelectedBlockIds(priorSelectedIds);
+        toast.error('Block reorder rolled back: could not sync with backend.');
+      }
     },
-    [applyComposerDraft, commitBlocks, handlePersistBlocks, handleUndo]
+    [
+      applyComposerDraft,
+      commitBlocks,
+      handlePersistBlocks,
+      handleUndo,
+      activeBlockIndex,
+      selectedBlockIds,
+    ]
   );
 
   /**
@@ -3095,11 +3150,18 @@ export function VisualEditOverlay() {
     async (blockIndex: number) => {
       const source = blocksRef.current[blockIndex];
       if (!source) return;
+      const priorBlocks = [...blocksRef.current];
       const duplicated = cloneBlockWithFreshIds(source);
       const nextBlocks = [...blocksRef.current];
       nextBlocks.splice(blockIndex + 1, 0, duplicated);
       commitBlocks(nextBlocks, null);
-      await handlePersistBlocks(nextBlocks, 'Section duplicated in Supabase');
+      setActiveBlockIndex(blockIndex + 1);
+      const result = await handlePersistBlocks(nextBlocks, 'Section duplicated in Supabase');
+      if (!result.success) {
+        commitBlocks(priorBlocks);
+        setActiveBlockIndex(blockIndex);
+        toast.error('Duplicate rolled back: could not sync with backend.');
+      }
     },
     [commitBlocks, handlePersistBlocks]
   );
@@ -3114,10 +3176,15 @@ export function VisualEditOverlay() {
       if (!source || source.type === 'row') return;
       const converted = convertBlock(source, targetType, options);
       if (converted === source) return;
+      const priorBlocks = [...blocksRef.current];
       const nextBlocks = [...blocksRef.current];
       nextBlocks[blockIndex] = converted;
       commitBlocks(nextBlocks, null);
-      await handlePersistBlocks(nextBlocks, `Section converted to ${targetType}`);
+      const result = await handlePersistBlocks(nextBlocks, `Section converted to ${targetType}`);
+      if (!result.success) {
+        commitBlocks(priorBlocks);
+        toast.error('Convert rolled back: could not sync with backend.');
+      }
     },
     [commitBlocks, handlePersistBlocks]
   );
@@ -3245,14 +3312,14 @@ export function VisualEditOverlay() {
         handleDuplicateSection(activeBlockIndex);
         return;
       }
-      // Delete section (⌘⌫ or ⌘Delete)
-      if (
-        (key === 'backspace' || key === 'delete') &&
-        event.shiftKey &&
-        activeBlockIndex !== null
-      ) {
+      // Delete section (⌘⌫ or ⌘Delete) with confirmation
+      if ((key === 'backspace' || key === 'delete') && event.shiftKey) {
         event.preventDefault();
-        handleDeleteSection(activeBlockIndex);
+        if (selectedBlockIndexes.size > 1) {
+          setDeleteConfirmIndexes(Array.from(selectedBlockIndexes));
+        } else if (activeBlockIndex !== null) {
+          setDeleteConfirmIndexes([activeBlockIndex]);
+        }
         return;
       }
       // Toggle shortcuts help (⌘/)
@@ -3321,7 +3388,6 @@ export function VisualEditOverlay() {
     activeBlockIndex,
     handleMoveSection,
     handleDuplicateSection,
-    handleDeleteSection,
     commitInlineEdit,
     contentRow,
     toggleInspector,
@@ -3332,6 +3398,7 @@ export function VisualEditOverlay() {
     toggleBlockSelection,
     clearSelection,
     selectedBlockIds.size,
+    selectedBlockIndexes,
     isVisualComposerOpen,
     closeVisualComposer,
     openVisualComposer,
@@ -3890,6 +3957,18 @@ export function VisualEditOverlay() {
                     className="rounded p-1 text-slate-300 hover:bg-white/15 hover:text-white transition-colors"
                   >
                     <Copy size={13} />
+                  </button>
+
+                  {/* Drag section handle */}
+                  <button
+                    type="button"
+                    onPointerDown={(event) => beginBlockDrag(event, item.blockIndex)}
+                    disabled={isVisualComposerOpen}
+                    title="Drag section to reorder"
+                    aria-label={`Drag section ${item.label} to reorder`}
+                    className="rounded p-1 text-slate-400 hover:bg-white/15 hover:text-white transition-colors cursor-grab touch-none disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <GripVertical size={13} />
                   </button>
 
                   {/* Move Up */}
@@ -6399,6 +6478,53 @@ export function VisualEditOverlay() {
               <Trash2 size={13} className="text-rose-400" />
               <span className="flex-1">Delete Block</span>
             </ConfirmAction>
+          </div>
+        </div>
+      )}
+
+      {/* ── Atomic Delete Confirmation Modal (Minimizes Accidental Deletions) ── */}
+      {deleteConfirmIndexes !== null && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="confirm-delete-dialog-title"
+          className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in"
+        >
+          <div className="w-full max-w-sm rounded-2xl border border-white/20 bg-secondary p-5 shadow-2xl text-ink-on-dark space-y-4">
+            <div className="flex items-center gap-2 text-rose-400 font-bold text-sm">
+              <Trash2 size={18} />
+              <h3 id="confirm-delete-dialog-title" className="text-white text-base">
+                {deleteConfirmIndexes.length === 1
+                  ? 'Delete Section?'
+                  : `Delete ${deleteConfirmIndexes.length} Sections?`}
+              </h3>
+            </div>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              {deleteConfirmIndexes.length === 1
+                ? `Are you sure you want to delete "${sections.find((s) => s.blockIndex === deleteConfirmIndexes[0])?.label || 'this section'}"? Undo will be available in this session.`
+                : `Are you sure you want to delete ${deleteConfirmIndexes.length} selected sections? Undo will be available in this session.`}
+            </p>
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/10">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmIndexes(null)}
+                className="px-3 py-1.5 rounded-xl border border-white/15 text-xs font-bold text-slate-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={savingBackend}
+                onClick={async () => {
+                  const indexes = deleteConfirmIndexes;
+                  setDeleteConfirmIndexes(null);
+                  await handleDeleteSections(indexes);
+                }}
+                className="px-4 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-colors disabled:opacity-50 cursor-pointer"
+              >
+                {savingBackend ? 'Deleting…' : 'Delete'}
+              </button>
+            </div>
           </div>
         </div>
       )}
