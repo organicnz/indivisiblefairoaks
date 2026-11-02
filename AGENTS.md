@@ -1521,7 +1521,7 @@ pre-commit gate, so drift fails at commit time rather than at 3am.
      against Next.js (`next start`) and the mock server for memory.
 - **The local lefthook gates are therefore the real gates**, and they do run on
   every push: 35 pre-commit guards, then lint → unit → coverage → types → build →
-  peer-deps → 85 Playwright specs (85 + no running tests). Migrations and Edge Functions are **not**
+  peer-deps → 86 Playwright specs (86 + no running tests). Migrations and Edge Functions are **not**
   deployed by hand: `supabase.yml` is the only delivery path and a push touching
   `supabase/**` is its trigger, so the fix and the deploy are one action. It pushed
   migrations to the hosted project at 20:56 on 2026-10-04 while its sibling
@@ -2333,7 +2333,7 @@ README/AGENTS/CLAUDE docs, ProductCard + Gallery design hardening, end-to-end QA
 
 <!-- BEGIN:nextjs-agent-rules -->
 
-# This is NOT the Next.js you know
+## This is NOT the Next.js you know
 
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
 

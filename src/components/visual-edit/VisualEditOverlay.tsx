@@ -7,7 +7,6 @@ import {
   ArrowUp,
   ClipboardCopy,
   ClipboardPaste,
-  Code,
   Copy,
   Download,
   EyeOff,
@@ -28,7 +27,6 @@ import {
   Sparkles,
   Trash2,
   Upload,
-  UploadCloud,
   X,
 } from 'lucide-react';
 import Image from 'next/image';
@@ -62,7 +60,6 @@ import { moveBlockItem } from '@/lib/block-order';
 import {
   applyBlockShell,
   type Block,
-  CALLOUT_TONES,
   type CalloutTone,
   cloneBlockWithFreshIds,
   convertBlock,
@@ -126,11 +123,7 @@ import { CommandPalette } from './CommandPalette';
 import { CRMPanel } from './CRMPanel';
 import { DataPointDrawer } from './DataPointDrawer';
 import { ElementInspectorHud } from './ElementInspectorHud';
-import {
-  applyInlineFormatCommand,
-  type InlineFormatCommand,
-  InlineFormatToolbar,
-} from './InlineFormatToolbar';
+import { applyInlineFormatCommand, type InlineFormatCommand } from './InlineFormatToolbar';
 import { PageA11yAuditor } from './PageA11yAuditor';
 import { PageNavigatorDrawer } from './PageNavigatorDrawer';
 import { SlashCommandMenu } from './SlashCommandMenu';
@@ -237,7 +230,7 @@ const CONVERT_BLOCK_OPTIONS: ReadonlyArray<{
  * the field is a textarea of HTML, so list and block-format commands have no
  * selection to act on and would be controls that do nothing.
  */
-const SECTION_MODAL_FORMAT_COMMANDS: readonly InlineFormatCommand[] = [
+const _SECTION_MODAL_FORMAT_COMMANDS: readonly InlineFormatCommand[] = [
   'bold',
   'italic',
   'code',
@@ -567,12 +560,6 @@ export function VisualEditOverlay() {
   /** Same, for the section model the event handlers translate through. */
   const sectionsRef = useRef<VisualSection[]>([]);
   sectionsRef.current = sections;
-
-  // Section editor modal state
-  const [editingBlockIndex, setEditingBlockIndex] = useState<number | null>(null);
-  const [editingBlock, setEditingBlock] = useState<Block | null>(null);
-  const [isSectionModalOpen, setIsSectionModalOpen] = useState(false);
-  const activeSectionLabel = editingBlock ? sectionLabelForBlock(editingBlock) : '';
 
   // Atomic delete confirmation dialog state
   const [deleteConfirmIndexes, setDeleteConfirmIndexes] = useState<number[] | null>(null);
@@ -905,14 +892,16 @@ export function VisualEditOverlay() {
   const featuredImageId = useId();
 
   /** Copy the currently edited block to the clipboard as structured JSON */
-  const handleCopyBlockJson = useCallback(() => {
-    if (!editingBlock) return;
-    void navigator.clipboard?.writeText(JSON.stringify(editingBlock, null, 2));
+  const _handleCopyBlockJson = useCallback(() => {
+    const activeBlock = vcBlockIndex !== null ? blocksRef.current[vcBlockIndex] : null;
+    if (!activeBlock) return;
+    void navigator.clipboard?.writeText(JSON.stringify(activeBlock, null, 2));
     toast.success('Block definition copied to clipboard as JSON');
-  }, [editingBlock]);
+  }, [vcBlockIndex]);
 
   /** Paste block JSON from clipboard to update the currently edited block */
-  const handlePasteBlockJson = useCallback(async () => {
+  const _handlePasteBlockJson = useCallback(async () => {
+    if (vcBlockIndex === null) return;
     try {
       const text = await navigator.clipboard?.readText();
       if (!text?.trim()) {
@@ -928,12 +917,16 @@ export function VisualEditOverlay() {
         ...parsed,
         id: nextBlockId(),
       };
-      setEditingBlock(pastedBlock);
+      setBlocks((prev) => {
+        const next = [...prev];
+        next[vcBlockIndex] = pastedBlock;
+        return next;
+      });
       toast.success(`Replaced block with pasted ${pastedBlock.type} definition`);
     } catch {
       toast.error('Failed to read or parse block JSON from clipboard');
     }
-  }, []);
+  }, [vcBlockIndex]);
 
   /** Export the current document and all its blocks as a portable JSON snapshot */
   const handleExportPageJson = useCallback(() => {
@@ -979,21 +972,6 @@ export function VisualEditOverlay() {
       return next;
     });
   }, []);
-
-  // Section editor field IDs for a11y
-  const blockTypeId = useId();
-  const headingContentId = useId();
-  const paragraphContentId = useId();
-
-  const calloutMessageId = useId();
-  const imageSrcId = useId();
-  const imageAltId = useId();
-  const imageCaptionId = useId();
-  const buttonLabelId = useId();
-  const buttonHrefId = useId();
-  const quoteTextId = useId();
-  const codeTextId = useId();
-  const listItemsId = useId();
 
   const findEffectiveVisualEditRoot = useCallback((): HTMLElement | null => {
     // A copy region is its own section root: its children are the copy an admin
@@ -1067,7 +1045,7 @@ export function VisualEditOverlay() {
   }, [enabled, isAdmin, applyComposerDraft]);
 
   /** Handle keyboard shortcuts in the editor. */
-  const handleEditorShortcuts = useCallback(
+  const _handleEditorShortcuts = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>, textareaId: string) => {
       if (!(e.metaKey || e.ctrlKey)) return;
       const shortcuts: Record<string, InlineFormatCommand> = {
@@ -2022,26 +2000,12 @@ export function VisualEditOverlay() {
     (blockIndex: number) => {
       /*
        * Every legacy entry into the section modal comes through here — Enter on
-       * a selected block, a header chip, the context menu, the command palette
-       * and the inline Full Editor. On the composer route they all open the
-       * composer instead, so "one block editor" is a property of the route
-       * rather than of the handful of buttons that happened to be reviewed.
+       * Every entry into block/section editing opens the Visual Composer
+       * directly in the elegant right sidebar dock — no intrusive popup modal.
        */
-      if (isComposerWorkspace || blocksRef.current[blockIndex]?.type === 'row') {
-        openVisualComposer('block', blockIndex);
-        return;
-      }
-
-      const targetBlock = blocksRef.current[blockIndex] || {
-        id: nextBlockId(),
-        type: 'paragraph' as const,
-        html: sections.find((s) => s.blockIndex === blockIndex)?.label || '',
-      };
-      setEditingBlockIndex(blockIndex);
-      setEditingBlock({ ...targetBlock });
-      setIsSectionModalOpen(true);
+      openVisualComposer('block', blockIndex);
     },
-    [sections, isComposerWorkspace, openVisualComposer]
+    [openVisualComposer]
   );
   const handleAddNewSection = useCallback(
     (type: Block['type'], insertAfterBlockIndex?: number) => {
@@ -2066,30 +2030,10 @@ export function VisualEditOverlay() {
       }
 
       commitBlocks(nextBlocks);
-      /*
-       * A row has no section-modal form — its content lives in its columns. The
-       * composer is where it can actually be filled, so adding one opens it
-       * rather than a modal with no fields for what was just created.
-       */
-      if (freshBlock.type === 'row') {
-        openVisualComposer('block', newIndex);
-        return;
-      }
-      setEditingBlockIndex(newIndex);
-      setEditingBlock(freshBlock);
-      setIsSectionModalOpen(true);
+      openVisualComposer('block', newIndex);
     },
     [commitBlocks, openVisualComposer]
   );
-
-  const handleSaveSectionModal = async () => {
-    if (!editingBlock || editingBlockIndex === null) return;
-    const nextBlocks = [...blocksRef.current];
-    nextBlocks[editingBlockIndex] = editingBlock;
-    setIsSectionModalOpen(false);
-    commitBlocks(nextBlocks);
-    await handlePersistBlocks(nextBlocks, 'Section updated in Supabase');
-  };
 
   const handleSaveVcBlock = useCallback(
     (
@@ -4397,685 +4341,6 @@ export function VisualEditOverlay() {
         adminEditUrl={target?.editUrl ?? null}
       />
 
-      {/* ── Section Edit Modal ────────────────────────────────────────── */}
-      {isSectionModalOpen && editingBlock && (
-        <Dialog open={isSectionModalOpen} onOpenChange={setIsSectionModalOpen}>
-          {/*
-            The dialog names the block, not its position. "Edit Section #3" was
-            wrong twice over: the number was a DOM ordinal on a page whose blocks
-            and elements had already diverged, and it told the operator nothing
-            about what they were about to change.
-          */}
-          <DialogContent className="max-w-2xl bg-surface-card text-foreground p-6 rounded-3xl">
-            <DialogHeader>
-              <DialogTitle className="text-xl font-black uppercase tracking-tight text-foreground">
-                {activeSectionLabel || `Block ${(editingBlockIndex ?? 0) + 1}`}
-              </DialogTitle>
-              <DialogDescription className="text-xs text-muted-foreground">
-                Editing a {editingBlock.type} block. Changes persist directly to the Supabase
-                backend, and undo brings this one back if you change your mind.
-              </DialogDescription>
-            </DialogHeader>
-
-            {/* Quick 1-Click Access to Visual Composer Pro Suite */}
-            <div className="flex gap-2 my-2 p-2 rounded-2xl bg-surface-muted border border-border">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsSectionModalOpen(false);
-                  setVcBlockIndex(editingBlockIndex);
-                  setVcMode('block');
-                  setIsVisualComposerOpen(true);
-                }}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-accent-gold/15 text-accent-gold border border-accent-gold/30 text-xs font-bold hover:bg-accent-gold/25 transition-colors"
-              >
-                <SlidersHorizontal size={14} />
-                <span>Visual Composer (Block)</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsSectionModalOpen(false);
-                  setVcBlockIndex(editingBlockIndex);
-                  setVcMode('section');
-                  setIsVisualComposerOpen(true);
-                }}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-sky-400/15 text-sky-400 border border-sky-400/30 text-xs font-bold hover:bg-sky-400/25 transition-colors"
-              >
-                <LayoutTemplate size={14} />
-                <span>Row / Section Settings</span>
-              </button>
-            </div>
-
-            <div className="space-y-4 my-2 max-h-[60vh] overflow-y-auto pr-1">
-              {/* Block Type Selector */}
-              <div>
-                <label
-                  htmlFor={blockTypeId}
-                  className="block text-xs font-bold text-foreground mb-1"
-                >
-                  Block Type
-                </label>
-                <select
-                  id={blockTypeId}
-                  value={editingBlock.type}
-                  onChange={(e) => {
-                    const newType = e.target.value as Block['type'];
-                    if (editingBlock.type === 'row' || newType === 'row') return;
-                    setEditingBlock(convertBlock(editingBlock, newType));
-                  }}
-                  className="w-full rounded-lg border border-border px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-primary"
-                >
-                  {BLOCK_TYPE_OPTIONS.filter((o) => o.type !== 'row').map((o) => (
-                    <option key={o.type} value={o.type}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Heading Fields */}
-              {editingBlock.type === 'heading' && (
-                <div className="space-y-3">
-                  <div className="flex gap-2">
-                    {([2, 3, 4] as HeadingLevel[]).map((lvl) => (
-                      <button
-                        key={lvl}
-                        type="button"
-                        onClick={() => setEditingBlock({ ...editingBlock, level: lvl })}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold ${
-                          editingBlock.level === lvl
-                            ? 'bg-primary text-white'
-                            : 'bg-surface-muted text-foreground hover:bg-border border border-border'
-                        }`}
-                      >
-                        H{lvl}
-                      </button>
-                    ))}
-                  </div>
-                  <div>
-                    <label
-                      htmlFor={headingContentId}
-                      className="block text-xs font-bold text-foreground mb-1"
-                    >
-                      Heading Content
-                    </label>
-                    <input
-                      id={headingContentId}
-                      type="text"
-                      value={editingBlock.html}
-                      onChange={(e) => setEditingBlock({ ...editingBlock, html: e.target.value })}
-                      className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:ring-2 focus:ring-primary"
-                    />
-                    <div className="mt-1 flex items-center justify-end text-[11px] text-muted-foreground">
-                      <span>{editingBlock.html.length} characters</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Paragraph Fields */}
-              {editingBlock.type === 'paragraph' && (
-                <div>
-                  <label
-                    htmlFor={paragraphContentId}
-                    className="block text-xs font-bold text-foreground mb-1"
-                  >
-                    Paragraph Content
-                  </label>
-                  <div className="border border-border rounded-lg overflow-hidden">
-                    {/* Inline formatting toolbar */}
-                    <InlineFormatToolbar
-                      variant="panel"
-                      commands={SECTION_MODAL_FORMAT_COMMANDS}
-                      onCommand={(command) => {
-                        if (command === 'link') {
-                          setLinkModal({ textareaId: paragraphContentId, url: '', text: '' });
-                        } else {
-                          runTextareaFormatCommand(paragraphContentId, command);
-                        }
-                      }}
-                      className="flex flex-wrap items-center gap-1 px-2 py-1.5 bg-surface-muted border-b border-border"
-                      trailing={
-                        <>
-                          <span className="flex-1" />
-                          <span className="text-[10px] text-muted-foreground font-mono">
-                            HTML supported
-                          </span>
-                        </>
-                      }
-                    />
-                    <textarea
-                      id={paragraphContentId}
-                      rows={5}
-                      value={editingBlock.html}
-                      onChange={(e) => setEditingBlock({ ...editingBlock, html: e.target.value })}
-                      onKeyDown={(e) => handleEditorShortcuts(e, paragraphContentId)}
-                      className="w-full border-0 p-3 text-sm focus:outline-none resize-none font-sans"
-                      spellCheck={true}
-                    />
-                  </div>
-                  <div className="mt-1 flex items-center justify-end gap-2 text-[11px] text-muted-foreground">
-                    <span>
-                      {editingBlock.html.trim() ? editingBlock.html.trim().split(/\s+/).length : 0}{' '}
-                      words
-                    </span>
-                    <span>·</span>
-                    <span>{editingBlock.html.length} characters</span>
-                  </div>
-                </div>
-              )}
-
-              {/* List Fields */}
-              {(editingBlock.type === 'bulletList' || editingBlock.type === 'orderedList') && (
-                <div>
-                  <label
-                    htmlFor={listItemsId}
-                    className="block text-xs font-bold text-foreground mb-1"
-                  >
-                    {editingBlock.type === 'bulletList'
-                      ? 'Bullet Items (one item per line)'
-                      : 'Numbered Steps (one item per line)'}
-                  </label>
-                  <textarea
-                    id={listItemsId}
-                    rows={5}
-                    value={editingBlock.items.join('\n')}
-                    onChange={(e) =>
-                      setEditingBlock({
-                        ...editingBlock,
-                        items: e.target.value.split('\n'),
-                      })
-                    }
-                    placeholder="Enter each item on a new line..."
-                    className="w-full rounded-lg border border-border p-3 text-sm focus:ring-2 focus:ring-primary font-mono"
-                  />
-                </div>
-              )}
-
-              {/* Table Fields — a real grid editor, add/remove rows and columns */}
-              {editingBlock.type === 'table' && (
-                <div className="space-y-3">
-                  <p className="text-[11px] text-muted-foreground">
-                    Edit cells directly. Row 1 is the header. Empty cells save as empty.
-                  </p>
-                  <div className="overflow-x-auto rounded-lg border border-border">
-                    <table className="w-full text-xs border-collapse">
-                      <thead>
-                        <tr>
-                          <th className="p-1 w-8 text-[10px] text-muted-foreground">#</th>
-                          {editingBlock.head.map((cell, col) => (
-                            // biome-ignore lint/suspicious/noArrayIndexKey: positional grid — inputs are controlled, so values stay correct; a content key would remount (and unfocus) the cell on every keystroke.
-                            <th key={`th-${col}`} className="p-1">
-                              <input
-                                aria-label={`Header cell ${col + 1}`}
-                                type="text"
-                                value={cell}
-                                onChange={(e) => {
-                                  const head = [...editingBlock.head];
-                                  head[col] = e.target.value;
-                                  setEditingBlock({ ...editingBlock, head });
-                                }}
-                                className="w-full min-w-24 rounded border border-border bg-surface-muted px-2 py-1 text-xs font-bold"
-                              />
-                            </th>
-                          ))}
-                          <th className="p-1 w-8">
-                            <button
-                              type="button"
-                              aria-label="Add column"
-                              title="Add column"
-                              onClick={() => {
-                                const columns = Math.max(
-                                  editingBlock.head.length,
-                                  ...editingBlock.rows.map((r) => r.length),
-                                  0
-                                );
-                                setEditingBlock({
-                                  ...editingBlock,
-                                  head: [...editingBlock.head, `Column ${columns + 1}`],
-                                  rows: editingBlock.rows.map((row) => [...row, '']),
-                                });
-                              }}
-                              className="rounded p-1 text-primary hover:bg-primary/10"
-                            >
-                              <Plus size={12} />
-                            </button>
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {editingBlock.rows.map((row, r) => (
-                          // biome-ignore lint/suspicious/noArrayIndexKey: positional grid — see the header-cell note above; delete removes the addressed row from state, not from the DOM order.
-                          <tr key={`tr-${r}`}>
-                            <td className="p-1 text-center text-[10px] text-muted-foreground">
-                              {r + 1}
-                            </td>
-                            {row.map((cell, c) => (
-                              // biome-ignore lint/suspicious/noArrayIndexKey: positional grid — see the header-cell note above; only the last column is ever removed, so earlier cells keep their nodes.
-                              <td key={`td-${r}-${c}`} className="p-1">
-                                <input
-                                  aria-label={`Row ${r + 1} cell ${c + 1}`}
-                                  type="text"
-                                  value={cell}
-                                  onChange={(e) => {
-                                    const rows = editingBlock.rows.map((rowItem) => [...rowItem]);
-                                    rows[r][c] = e.target.value;
-                                    setEditingBlock({ ...editingBlock, rows });
-                                  }}
-                                  className="w-full min-w-24 rounded border border-border px-2 py-1 text-xs"
-                                />
-                              </td>
-                            ))}
-                            <td className="p-1 w-8 text-center">
-                              <button
-                                type="button"
-                                aria-label={`Delete row ${r + 1}`}
-                                title="Delete row"
-                                onClick={() =>
-                                  setEditingBlock({
-                                    ...editingBlock,
-                                    rows: editingBlock.rows.filter((_, i) => i !== r),
-                                  })
-                                }
-                                className="rounded p-1 text-rose-500 hover:bg-rose-500/10"
-                              >
-                                <Trash2 size={12} />
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setEditingBlock({
-                          ...editingBlock,
-                          rows: [
-                            ...editingBlock.rows,
-                            Array.from({ length: Math.max(editingBlock.head.length, 1) }, () => ''),
-                          ],
-                        })
-                      }
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-muted px-3 py-1.5 text-xs font-bold text-foreground hover:bg-border"
-                    >
-                      <Plus size={12} />
-                      Add row
-                    </button>
-                    {editingBlock.head.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const last = editingBlock.head.length - 1;
-                          setEditingBlock({
-                            ...editingBlock,
-                            head: editingBlock.head.filter((_, i) => i !== last),
-                            rows: editingBlock.rows.map((row) => row.filter((_, i) => i !== last)),
-                          });
-                        }}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-muted px-3 py-1.5 text-xs font-bold text-foreground hover:bg-border"
-                      >
-                        <Trash2 size={12} />
-                        Remove last column
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Code Fields */}
-              {editingBlock.type === 'code' && (
-                <div>
-                  <label
-                    htmlFor={codeTextId}
-                    className="block text-xs font-bold text-foreground mb-1"
-                  >
-                    Code (rendered verbatim, escaped)
-                  </label>
-                  <textarea
-                    id={codeTextId}
-                    rows={5}
-                    value={editingBlock.text}
-                    onChange={(e) => setEditingBlock({ ...editingBlock, text: e.target.value })}
-                    placeholder="Paste or type code..."
-                    className="w-full rounded-lg border border-border p-3 text-sm font-mono focus:ring-2 focus:ring-primary"
-                  />
-                </div>
-              )}
-
-              {/* Callout Fields */}
-              {editingBlock.type === 'callout' && (
-                <div className="space-y-3">
-                  <fieldset className="border-0 p-0 m-0">
-                    <legend className="block text-xs font-bold text-foreground mb-1">Tone</legend>
-                    <div className="flex gap-2">
-                      {CALLOUT_TONES.map((t) => (
-                        <button
-                          key={t}
-                          type="button"
-                          onClick={() => setEditingBlock({ ...editingBlock, tone: t })}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-bold capitalize ${
-                            editingBlock.tone === t
-                              ? 'bg-accent-gold text-ink-strong'
-                              : 'bg-surface-muted text-foreground hover:bg-border border border-border'
-                          }`}
-                        >
-                          {t}
-                        </button>
-                      ))}
-                    </div>
-                  </fieldset>
-                  <div>
-                    <label
-                      htmlFor={calloutMessageId}
-                      className="block text-xs font-bold text-foreground mb-1"
-                    >
-                      Callout Message
-                    </label>
-                    <textarea
-                      id={calloutMessageId}
-                      rows={3}
-                      value={editingBlock.html}
-                      onChange={(e) => setEditingBlock({ ...editingBlock, html: e.target.value })}
-                      className="w-full rounded-lg border border-border p-3 text-sm focus:ring-2 focus:ring-primary"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Image Fields (with Supabase S3 storage modal + direct upload) */}
-              {editingBlock.type === 'image' && (
-                <div className="space-y-3">
-                  <div>
-                    <label
-                      htmlFor={imageSrcId}
-                      className="block text-xs font-bold text-foreground mb-1"
-                    >
-                      Image URL
-                    </label>
-                    <div className="flex gap-2">
-                      <input
-                        id={imageSrcId}
-                        type="url"
-                        value={editingBlock.src}
-                        onChange={(e) => setEditingBlock({ ...editingBlock, src: e.target.value })}
-                        placeholder="https://...supabase.co/storage/v1/object/public/media/..."
-                        className="flex-1 rounded-lg border border-border px-3 py-2 text-sm focus:ring-2 focus:ring-primary"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setMediaTarget('section');
-                          setMediaModalOpen(true);
-                        }}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-muted px-3 py-2 text-xs font-bold text-foreground hover:bg-border shadow-2xs shrink-0"
-                      >
-                        <FolderOpen size={14} className="text-primary" />
-                        <span>S3 Storage</span>
-                      </button>
-                    </div>
-                  </div>
-                  {/* Direct file upload */}
-                  <div className="relative">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                      onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
-                        if (file.size > 5 * 1024 * 1024) {
-                          toast.error('Image must be 5MB or smaller');
-                          return;
-                        }
-                        const formData = new FormData();
-                        formData.append('file', file);
-                        formData.append('folder', 'content');
-                        setSavingBackend(true);
-                        try {
-                          const res = await uploadCRMMedia(formData);
-                          if (res.success && res.data) {
-                            setEditingBlock({
-                              ...editingBlock,
-                              src: res.data.url,
-                              alt: res.data.name,
-                              width: res.data.width,
-                              height: res.data.height,
-                            });
-                            toast.success('Image uploaded to Supabase Storage');
-                          } else {
-                            toast.error(res.error || 'Upload failed');
-                          }
-                        } catch (err) {
-                          toast.error(err instanceof Error ? err.message : 'Upload failed');
-                        } finally {
-                          setSavingBackend(false);
-                        }
-                      }}
-                    />
-                    <button
-                      type="button"
-                      className="inline-flex items-center gap-1.5 w-full rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 hover:bg-emerald-100 shadow-2xs"
-                    >
-                      <UploadCloud size={14} className="text-emerald-600" />
-                      <span>Upload Direct</span>
-                    </button>
-                  </div>
-                  {editingBlock.src && (
-                    <div className="relative aspect-video w-full max-h-48 rounded-xl bg-surface-muted overflow-hidden border border-border">
-                      <Image
-                        src={editingBlock.src}
-                        alt={editingBlock.alt || ''}
-                        unoptimized
-                        fill
-                        className="object-contain"
-                      />
-                    </div>
-                  )}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label
-                        htmlFor={imageAltId}
-                        className="block text-xs font-bold text-foreground mb-1"
-                      >
-                        Alt Text
-                      </label>
-                      <input
-                        id={imageAltId}
-                        type="text"
-                        value={editingBlock.alt}
-                        onChange={(e) => setEditingBlock({ ...editingBlock, alt: e.target.value })}
-                        className="w-full rounded-lg border border-border px-3 py-2 text-xs"
-                      />
-                    </div>
-                    <div>
-                      <label
-                        htmlFor={imageCaptionId}
-                        className="block text-xs font-bold text-foreground mb-1"
-                      >
-                        Caption
-                      </label>
-                      <input
-                        id={imageCaptionId}
-                        type="text"
-                        value={editingBlock.caption || ''}
-                        onChange={(e) =>
-                          setEditingBlock({ ...editingBlock, caption: e.target.value })
-                        }
-                        className="w-full rounded-lg border border-border px-3 py-2 text-xs"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Button Fields with CRM Presets */}
-              {editingBlock.type === 'button' && (
-                <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label
-                        htmlFor={buttonLabelId}
-                        className="block text-xs font-bold text-foreground mb-1"
-                      >
-                        Button Label
-                      </label>
-                      <input
-                        id={buttonLabelId}
-                        type="text"
-                        value={editingBlock.label}
-                        onChange={(e) =>
-                          setEditingBlock({ ...editingBlock, label: e.target.value })
-                        }
-                        className="w-full rounded-lg border border-border px-3 py-2 text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label
-                        htmlFor={buttonHrefId}
-                        className="block text-xs font-bold text-foreground mb-1"
-                      >
-                        Destination URL
-                      </label>
-                      <input
-                        id={buttonHrefId}
-                        type="text"
-                        value={editingBlock.href}
-                        onChange={(e) => setEditingBlock({ ...editingBlock, href: e.target.value })}
-                        className="w-full rounded-lg border border-border px-3 py-2 text-sm"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <span className="block text-[11px] font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">
-                      CRM &amp; Civic Action Presets
-                    </span>
-                    <div className="flex flex-wrap gap-1.5">
-                      {[
-                        { label: 'Take Civic Action', href: '/contact?topic=action' },
-                        { label: 'Join Newsletter', href: '/contact?topic=newsletter' },
-                        { label: 'Donate to Chapter', href: '/donate' },
-                        { label: 'Volunteer Today', href: '/contact?topic=volunteer' },
-                        { label: 'Browse Events', href: '/events' },
-                        { label: 'Request Civic Materials', href: '/contact?topic=materials' },
-                      ].map((preset) => (
-                        <button
-                          key={preset.label}
-                          type="button"
-                          onClick={() =>
-                            setEditingBlock({
-                              ...editingBlock,
-                              label: preset.label,
-                              href: preset.href,
-                            })
-                          }
-                          className="px-2.5 py-1 rounded-lg bg-surface-muted hover:bg-border text-foreground text-xs font-medium border border-border transition-colors"
-                        >
-                          {preset.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Quote Fields */}
-              {editingBlock.type === 'quote' && (
-                <div>
-                  <label
-                    htmlFor={quoteTextId}
-                    className="block text-xs font-bold text-foreground mb-1"
-                  >
-                    Quote Text
-                  </label>
-                  <textarea
-                    id={quoteTextId}
-                    rows={3}
-                    value={editingBlock.html}
-                    onChange={(e) => setEditingBlock({ ...editingBlock, html: e.target.value })}
-                    className="w-full rounded-lg border border-border p-3 text-sm"
-                  />
-                </div>
-              )}
-
-              {/* Divider Notice */}
-              {editingBlock.type === 'divider' && (
-                <div className="p-3 bg-surface-muted border border-border rounded-xl text-xs text-muted-foreground">
-                  A visual horizontal rule dividing sections.
-                </div>
-              )}
-
-              {/* Unsupported block type */}
-              {editingBlock.type === 'unsupported' && (
-                <div className="p-3 bg-surface-muted border border-border rounded-xl text-xs text-muted-foreground">
-                  Preserved markup from the original import. You can delete or convert this block,
-                  but its raw HTML cannot be edited here.
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center justify-between border-t border-border pt-4 mt-2">
-              <div className="flex items-center gap-2">
-                {editingBlockIndex !== null && (
-                  <ConfirmAction
-                    label="Delete Section"
-                    message="Delete this section from the page?"
-                    danger
-                    onConfirm={() => {
-                      setIsSectionModalOpen(false);
-                      handleDeleteSection(editingBlockIndex);
-                    }}
-                    idleClassName="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-rose-600 hover:bg-rose-50 text-xs font-bold"
-                  >
-                    <Trash2 size={14} />
-                    <span>Delete Section</span>
-                  </ConfirmAction>
-                )}
-                <button
-                  type="button"
-                  onClick={handleCopyBlockJson}
-                  title="Copy block definition as JSON"
-                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-border text-foreground hover:bg-surface-muted text-xs font-bold transition-colors"
-                >
-                  <Code size={14} className="text-muted-foreground" />
-                  <span>Copy JSON</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={handlePasteBlockJson}
-                  title="Paste block definition from clipboard"
-                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-border text-foreground hover:bg-surface-muted text-xs font-bold transition-colors"
-                >
-                  <ClipboardPaste size={14} className="text-muted-foreground" />
-                  <span>Paste JSON</span>
-                </button>
-              </div>
-              <div className="flex items-center gap-2 ml-auto">
-                <button
-                  type="button"
-                  onClick={() => setIsSectionModalOpen(false)}
-                  className="rounded-xl px-4 py-2 text-xs font-bold text-muted-foreground hover:bg-border"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSaveSectionModal}
-                  disabled={savingBackend}
-                  className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2 text-xs font-bold text-white shadow-raised hover:bg-primary-dark"
-                >
-                  {savingBackend && <Loader2 size={13} className="animate-spin" />}
-                  <span>Save to Backend</span>
-                </button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
-
       {/* ── Page Settings Modal (Title, Slug, Featured Image) ─────────── */}
       {isSettingsOpen && (
         <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
@@ -5393,13 +4658,18 @@ export function VisualEditOverlay() {
             } else if (mediaTarget === 'featured') {
               setPageFeaturedImage(item.url);
               toast.success('Featured image selected from Supabase storage');
-            } else if (editingBlock && editingBlock.type === 'image') {
-              setEditingBlock({
-                ...editingBlock,
-                src: item.url,
-                alt: item.alt || item.name,
-                width: item.width ?? null,
-                height: item.height ?? null,
+            } else if (vcBlockIndex !== null && blocksRef.current[vcBlockIndex]?.type === 'image') {
+              const currentBlock = blocksRef.current[vcBlockIndex];
+              setBlocks((prev) => {
+                const next = [...prev];
+                next[vcBlockIndex] = {
+                  ...currentBlock,
+                  src: item.url,
+                  alt: item.alt || item.name,
+                  width: item.width ?? null,
+                  height: item.height ?? null,
+                };
+                return next;
               });
               toast.success('Image selected from Supabase storage');
             } else {
@@ -5791,7 +5061,7 @@ export function VisualEditOverlay() {
                   <div>
                     <p className="text-xs font-bold text-foreground">PostgreSQL Database</p>
                     <p className="text-[11px] text-muted-foreground">
-                      RLS-secured tables (content, CRM, products, catalog)
+                      RLS-secured tables (content, CRM, events, gallery)
                     </p>
                   </div>
                 </div>
@@ -5817,7 +5087,7 @@ export function VisualEditOverlay() {
                   <div>
                     <p className="text-xs font-bold text-foreground">Supabase S3 Storage</p>
                     <p className="text-[11px] text-muted-foreground">
-                      Bucket &quot;media&quot; (crm, content, products folders)
+                      Bucket &quot;media&quot; (crm, content, hero, gallery folders)
                     </p>
                   </div>
                 </div>
@@ -5897,13 +5167,13 @@ export function VisualEditOverlay() {
                     </div>
                     <div className="p-2 rounded-xl bg-background border border-border">
                       <span className="text-muted-foreground block text-[10px] font-semibold uppercase">
-                        Catalog
+                        Civic content
                       </span>
                       <span className="text-base font-black text-foreground">
-                        {backendSummary.products}
+                        {backendSummary.events}
                       </span>
                       <span className="text-[10px] text-muted-foreground block mt-0.5">
-                        {backendSummary.gallery} photos · {backendSummary.events} events
+                        {backendSummary.events} events · {backendSummary.gallery} photos
                       </span>
                     </div>
                   </div>

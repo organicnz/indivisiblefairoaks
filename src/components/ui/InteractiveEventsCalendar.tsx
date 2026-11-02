@@ -336,10 +336,22 @@ export function InteractiveEventsCalendar({
           )}
 
           {/* Expanded / Always-Mounted Search Input Field */}
+          {/*
+            `relative` is part of the expanded branch, NOT the base string.
+
+            An element carrying both `.relative` and `.absolute` resolves to
+            whichever Tailwind emits last, and that is `.relative` (measured in
+            the deployed stylesheet: `.absolute` at byte 21586, `.relative` at
+            21636). So the collapsed state kept this wrapper in flow at `w-full`
+            (36px), and the 36px trigger beside it was flex-shrunk to 18px — the
+            magnifier pill in the filter bar rendered as a half-width sliver.
+            Verified live: the button measured 18x36 collapsed and 36x36 once
+            this wrapper was forced to `position: absolute`.
+          */}
           <div
-            className={`relative w-full flex items-center transition-opacity duration-200 ${
+            className={`w-full flex items-center transition-opacity duration-200 ${
               isSearchOpen || searchQuery
-                ? 'opacity-100 pointer-events-auto'
+                ? 'relative opacity-100 pointer-events-auto'
                 : 'opacity-0 pointer-events-none absolute inset-0'
             }`}
           >
