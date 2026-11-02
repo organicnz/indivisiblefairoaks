@@ -20,7 +20,7 @@ const guardedRoutes: Route[] = [
   { path: '/contact', heading: /Contact/i },
   { path: '/privacy-policy', heading: /Privacy/i },
   { path: '/terms-and-conditions', heading: /Terms/i },
-  { path: '/search?q=braid', heading: /Search Results/ },
+  { path: '/search?q=action', heading: /Search Results/ },
 ];
 
 async function expectHeadingClearOfHeader(page: import('@playwright/test').Page) {

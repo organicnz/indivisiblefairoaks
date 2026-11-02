@@ -4,9 +4,9 @@ import { expect, test } from '@playwright/test';
  * Sitewide link-integrity crawler.
  *
  * Every internal <a href> discovered on key pages must resolve to a live
- * route (<400). Catches renamed/deleted product slugs and stale CMS links —
+ * route (<400). Catches renamed/deleted civic slugs and stale CMS links —
  * the "red button leads to a dead page" class of bug (#9) — across the whole
- * storefront, not just the page where it was reported.
+ * site, not just the page where it was reported.
  */
 
 const CRAWL_SEEDS = [
