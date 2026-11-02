@@ -23,6 +23,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import {
   type Block,
   CALLOUT_TONES,
@@ -705,14 +706,17 @@ export function BlockEditor({ blocks, onChange, composeHref = null }: Props) {
                 >
                   <Copy size={14} aria-hidden="true" />
                 </button>
-                <button
-                  type="button"
-                  onClick={() => removeAt(index)}
-                  aria-label="Delete block"
-                  className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-rose-50 hover:text-accent-red focus-visible:ring-2 focus-visible:ring-primary"
+                <ConfirmAction
+                  label="Delete block"
+                  message={`Delete ${block.type === 'row' ? 'Row' : block.type === 'unsupported' ? 'Block' : (definitionFor(block.type)?.label || 'Block')}?`}
+                  confirmLabel="Delete"
+                  cancelLabel="Cancel"
+                  danger
+                  idleClassName="rounded-md p-1 text-muted-foreground transition-colors hover:bg-rose-50 hover:text-accent-red focus-visible:ring-2 focus-visible:ring-primary cursor-pointer"
+                  onConfirm={() => removeAt(index)}
                 >
                   <Trash2 size={14} aria-hidden="true" />
-                </button>
+                </ConfirmAction>
               </div>
 
               {block.type === 'row' ? (

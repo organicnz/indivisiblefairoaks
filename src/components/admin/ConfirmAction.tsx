@@ -17,6 +17,7 @@ interface ConfirmActionProps {
   /** An async action in flight: the whole step disables. */
   busy?: boolean;
   idleClassName?: string;
+  buttonRef?: (node: HTMLButtonElement | null) => void;
   onConfirm: () => void;
 }
 
@@ -39,6 +40,7 @@ export function ConfirmAction({
   disabled = false,
   busy = false,
   idleClassName,
+  buttonRef,
   onConfirm,
 }: ConfirmActionProps) {
   const [confirming, setConfirming] = useState(false);
@@ -46,6 +48,7 @@ export function ConfirmAction({
   if (!confirming) {
     return (
       <button
+        ref={buttonRef}
         type="button"
         onClick={() => setConfirming(true)}
         disabled={disabled || busy}

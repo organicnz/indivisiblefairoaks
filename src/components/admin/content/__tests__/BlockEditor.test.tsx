@@ -190,6 +190,31 @@ describe('BlockEditor DOM/model bridge', () => {
     expect(names).toContain('Delete block');
   });
 
+  it('confirms block deletion before removing', () => {
+    const onChange = vi.fn();
+    render(parseHtml('<p>First</p><p>Second</p>'), onChange);
+    const deleteBtn = [...container.querySelectorAll('button')].find(
+      (b) => b.getAttribute('aria-label') === 'Delete block'
+    ) as HTMLButtonElement;
+    expect(deleteBtn).toBeDefined();
+
+    // Clicking initial Delete button enters confirmation mode
+    act(() => {
+      deleteBtn.click();
+    });
+    expect(container.textContent).toContain('Delete Text?');
+
+    // Confirm button removes the block
+    const confirmBtn = [...container.querySelectorAll('button')].find(
+      (b) => b.textContent === 'Delete'
+    ) as HTMLButtonElement;
+    expect(confirmBtn).toBeDefined();
+    act(() => {
+      confirmBtn.click();
+    });
+    expect(flush(onChange)[0]).toMatchObject({ type: 'paragraph', html: 'Second' });
+  });
+
   it('disables moving the first block up and the last block down', () => {
     render(parseHtml('<p>One</p><p>Two</p>'), vi.fn());
     const up = [...container.querySelectorAll('button')].find(
