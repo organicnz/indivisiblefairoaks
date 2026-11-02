@@ -85,6 +85,28 @@ test.describe('wishlist journey', () => {
   });
 });
 
+test.describe('events search control', () => {
+  // The collapsed trigger carries `size-9`, but the input wrapper beside it
+  // carried BOTH `relative` and a conditional `absolute`. Tailwind emits
+  // `.relative` after `.absolute`, so the wrapper won the cascade, stayed in
+  // flow at `w-full`, and flex-shrank the 36px trigger to 18px: the magnifier
+  // rendered as a half-width sliver at every viewport. A square control is the
+  // invariant; the width assertion is what catches a re-squeeze.
+  test('collapsed search trigger is square, not a squeezed sliver', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/events');
+
+    const trigger = page.getByRole('button', { name: 'Search events' });
+    await expect(trigger).toBeVisible();
+
+    const box = await trigger.boundingBox();
+    if (!box) throw new Error('The events search trigger rendered without a box.');
+
+    expect(Math.abs(box.width - box.height)).toBeLessThan(1);
+    expect(box.width).toBeGreaterThanOrEqual(35);
+  });
+});
+
 test.describe('gallery journey', () => {
   test('gallery hero, search, filters, and lightbox all work', async ({ page }) => {
     await page.goto('/gallery');

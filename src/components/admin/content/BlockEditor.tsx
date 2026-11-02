@@ -1372,14 +1372,20 @@ function BlockBody({
           </table>
         </section>
         {block.rows.length > 0 && (
-          <button
-            type="button"
-            onClick={() => onUpdate(block.id, { rows: block.rows.slice(0, -1) } as Partial<Block>)}
-            className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-accent-red focus-visible:ring-2 focus-visible:ring-primary"
+          <ConfirmAction
+            label="Remove last row"
+            message="Delete the last row of this table?"
+            confirmLabel="Delete"
+            cancelLabel="Cancel"
+            danger
+            idleClassName="mt-2 inline-flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-accent-red focus-visible:ring-2 focus-visible:ring-primary cursor-pointer"
+            onConfirm={() =>
+              onUpdate(block.id, { rows: block.rows.slice(0, -1) } as Partial<Block>)
+            }
           >
             <Trash2 size={12} aria-hidden="true" />
-            Remove last row
-          </button>
+            <span>Remove last row</span>
+          </ConfirmAction>
         )}
       </div>
     );

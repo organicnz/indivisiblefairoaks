@@ -329,9 +329,9 @@ export function InteractiveEventsCalendar({
                 setTimeout(() => searchInputRef.current?.focus(), 50);
               }}
               aria-label="Search events"
-              className="size-9 rounded-full bg-surface-muted/80 dark:bg-slate-800/80 hover:bg-surface-muted dark:hover:bg-slate-750 border border-border dark:border-white/10 flex items-center justify-center text-muted-foreground hover:text-foreground dark:text-ink-muted-on-dark dark:hover:text-white transition-all cursor-pointer shadow-xs"
+              className="size-9 min-w-9 shrink-0 aspect-square rounded-full bg-surface-muted/80 dark:bg-slate-800/80 hover:bg-surface-muted dark:hover:bg-slate-750 border border-border dark:border-white/10 flex items-center justify-center text-muted-foreground hover:text-foreground dark:text-ink-muted-on-dark dark:hover:text-white transition-all cursor-pointer shadow-xs"
             >
-              <Search size={16} />
+              <Search size={16} className="shrink-0" />
             </button>
           )}
 

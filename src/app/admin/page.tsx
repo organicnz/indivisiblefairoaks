@@ -1,12 +1,10 @@
 import {
-  AlertTriangle,
   ArrowRight,
   Calendar,
   FilePlus2,
   FileText,
   Link2,
   Newspaper,
-  Package,
   TrendingUp,
   Users,
 } from 'lucide-react';
@@ -23,10 +21,13 @@ export const metadata = {
   robots: { index: false, follow: false },
 };
 
-type Product = {
-  id: number;
-  name: string;
-  stock_status: string | null;
+type EventRow = {
+  slug: string;
+  title: string;
+  date_label: string;
+  time_label: string;
+  location_name: string;
+  starts_at: string | null;
 };
 
 type ContentRow = {
@@ -41,25 +42,33 @@ type ContentRow = {
 export default async function AdminDashboardPage() {
   const { adminClient } = await requireAdmin();
 
-  const [{ data: products }, { data: content }, { count: memberCount }, dataPoints] =
-    await Promise.all([
-      adminClient.from('products').select('id, name, stock_status').order('name'),
-      adminClient
-        .from('content')
-        .select('id, title, slug, status, type, updated_at')
-        .order('updated_at', { ascending: false })
-        .limit(500),
-      adminClient.from('profiles').select('id', { count: 'exact', head: true }),
-      getDataPoints('admin'),
-    ]);
+  const [
+    { count: eventCount },
+    { data: content },
+    { count: memberCount },
+    { data: upcomingEvents },
+    dataPoints,
+  ] = await Promise.all([
+    adminClient.from('events').select('slug', { count: 'exact', head: true }),
+    adminClient
+      .from('content')
+      .select('id, title, slug, status, type, updated_at')
+      .order('updated_at', { ascending: false })
+      .limit(500),
+    adminClient.from('profiles').select('id', { count: 'exact', head: true }),
+    adminClient
+      .from('events')
+      .select('slug, title, date_label, time_label, location_name, starts_at')
+      .order('starts_at', { ascending: true })
+      .limit(5),
+    getDataPoints('admin'),
+  ]);
 
-  const productRows = (products || []) as Product[];
+  const eventRows = (upcomingEvents || []) as EventRow[];
   const contentRows = (content || []) as ContentRow[];
   const recentContent = contentRows.slice(0, 5);
   const published = contentRows.filter((c) => c.status === 'publish').length;
   const drafts = contentRows.length - published;
-  const outOfStock = productRows.filter((p) => p.stock_status === 'outofstock' || !p.stock_status);
-  const backorder = productRows.filter((p) => p.stock_status === 'onbackorder');
 
   return (
     <div>
@@ -161,10 +170,10 @@ export default async function AdminDashboardPage() {
             icon: FilePlus2,
           },
           {
-            dpKey: 'admin.kpi.products',
-            label: 'Products',
-            value: productRows.length,
-            icon: Package,
+            dpKey: 'admin.kpi.events',
+            label: 'Civic events',
+            value: eventCount ?? 0,
+            icon: Calendar,
           },
           {
             dpKey: 'admin.kpi.members',
@@ -257,65 +266,60 @@ export default async function AdminDashboardPage() {
           )}
         </section>
 
-        {/* Stock alert */}
+        {/* Upcoming events / actions */}
         <section className="bg-surface-card border border-border rounded-3xl p-6 shadow-sm">
-          <h2 className="text-[11px] font-black text-muted-foreground uppercase tracking-[0.25em] mb-6">
-            <DataPoint as="span" name="admin.dashboard.stock_title" initialData={dataPoints}>
-              Stock alerts
-            </DataPoint>
-          </h2>
-          {outOfStock.length === 0 && backorder.length === 0 ? (
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-[11px] font-black text-muted-foreground uppercase tracking-[0.25em]">
+              <DataPoint as="span" name="admin.dashboard.events_title" initialData={dataPoints}>
+                Upcoming Actions
+              </DataPoint>
+            </h2>
+            <Link
+              href="/admin/events"
+              className="inline-flex items-center gap-1 text-[10px] font-black text-muted-foreground uppercase tracking-widest hover:text-primary dark:hover:text-primary-on-dark transition-colors"
+            >
+              <DataPoint as="span" name="admin.dashboard.view_events" initialData={dataPoints}>
+                All events
+              </DataPoint>{' '}
+              <ArrowRight size={11} />
+            </Link>
+          </div>
+          {eventRows.length === 0 ? (
             <p className="text-muted-foreground font-bold text-sm">
-              <DataPoint as="span" name="admin.dashboard.stock_ok" initialData={dataPoints}>
-                All products in stock.
+              <DataPoint as="span" name="admin.dashboard.no_events" initialData={dataPoints}>
+                No upcoming events scheduled.
               </DataPoint>
             </p>
           ) : (
             <ul className="space-y-3">
-              {outOfStock.slice(0, 5).map((p) => (
+              {eventRows.map((evt) => (
                 <li
-                  key={p.id}
-                  className="flex items-center gap-2.5 bg-rose-50 dark:bg-rose-950/40 rounded-2xl px-4 py-3"
+                  key={evt.slug}
+                  className="flex flex-col gap-1 bg-surface-muted rounded-2xl p-3 border border-border"
                 >
-                  <AlertTriangle size={13} className="text-rose-500 dark:text-rose-400 shrink-0" />
-                  <p className="text-sm font-black text-rose-700 dark:text-rose-300 uppercase tracking-wider truncate">
-                    {p.name}
-                  </p>
-                  <span className="ml-auto text-[10px] font-black text-rose-500 dark:text-rose-400 uppercase">
-                    <DataPoint as="span" name="admin.dashboard.stock_out" initialData={dataPoints}>
-                      Out of stock
-                    </DataPoint>
-                  </span>
-                </li>
-              ))}
-              {backorder.slice(0, 5).map((p) => (
-                <li
-                  key={p.id}
-                  className="flex items-center gap-2.5 bg-amber-50 dark:bg-amber-950/40 rounded-2xl px-4 py-3"
-                >
-                  <Package size={13} className="text-amber-500 dark:text-amber-400 shrink-0" />
-                  <p className="text-sm font-black text-amber-700 dark:text-amber-300 uppercase tracking-wider truncate">
-                    {p.name}
-                  </p>
-                  <span className="ml-auto text-[10px] font-black text-amber-500 dark:text-amber-400 uppercase">
-                    <DataPoint
-                      as="span"
-                      name="admin.dashboard.stock_backorder"
-                      initialData={dataPoints}
-                    >
-                      Backorder
-                    </DataPoint>
-                  </span>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs font-black text-foreground uppercase tracking-wide truncate">
+                      {evt.title}
+                    </p>
+                    <span className="text-[10px] font-mono font-bold text-primary dark:text-primary-on-dark shrink-0">
+                      {evt.date_label}
+                    </span>
+                  </div>
+                  {evt.location_name && (
+                    <p className="text-[11px] text-muted-foreground font-medium truncate">
+                      {evt.location_name}
+                    </p>
+                  )}
                 </li>
               ))}
             </ul>
           )}
           <Link
-            href="/admin/products"
+            href="/admin/events"
             className="inline-flex items-center gap-1 text-[10px] font-black text-muted-foreground uppercase tracking-widest hover:text-primary dark:hover:text-primary-on-dark transition-colors mt-4"
           >
-            <DataPoint as="span" name="admin.dashboard.manage_products" initialData={dataPoints}>
-              Manage products
+            <DataPoint as="span" name="admin.dashboard.manage_events" initialData={dataPoints}>
+              Manage events &amp; mobilizations
             </DataPoint>{' '}
             <ArrowRight size={11} />
           </Link>

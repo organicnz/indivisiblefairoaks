@@ -58,10 +58,10 @@ describe('AdminNav', () => {
     expect(hrefs).toContain('/admin/news');
     expect(hrefs).toContain('/admin/links');
     expect(hrefs).toContain('/admin/crm');
-    expect(hrefs).toContain('/admin/products');
-    expect(hrefs).toContain('/admin/customers');
 
-    // The legacy order surface is gone, not merely hidden.
+    // Legacy commerce surfaces are gone, not merely hidden.
+    expect(hrefs).not.toContain('/admin/products');
+    expect(hrefs).not.toContain('/admin/customers');
     expect(hrefs).not.toContain('/admin/orders');
   });
 });

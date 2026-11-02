@@ -1,15 +1,6 @@
 'use client';
 
-import {
-  Calendar,
-  FileText,
-  LayoutDashboard,
-  Link2,
-  Newspaper,
-  Package,
-  Users,
-  UsersRound,
-} from 'lucide-react';
+import { Calendar, FileText, LayoutDashboard, Link2, Newspaper, UsersRound } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
@@ -34,8 +25,6 @@ const BASE_ITEMS: AdminNavItem[] = [
   { href: '/admin/news', label: 'News', icon: Newspaper },
   { href: '/admin/links', label: 'Links', icon: Link2 },
   { href: '/admin/crm', labelKey: 'admin.nav.crm', label: 'Civic CRM', icon: UsersRound },
-  { href: '/admin/products', labelKey: 'admin.nav.products', label: 'Products', icon: Package },
-  { href: '/admin/customers', labelKey: 'admin.nav.customers', label: 'Customers', icon: Users },
 ];
 
 const ITEMS: AdminNavItem[] = BASE_ITEMS;

@@ -1353,10 +1353,9 @@ function DefaultContextZone(props: VisualEditorSidebarProps) {
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-ink-on-dark">
-                  <span>Catalog</span>
+                  <span>Civic content</span>
                   <span className="font-bold">
-                    {backendSummary.products} products · {backendSummary.gallery} photos ·{' '}
-                    {backendSummary.events} events
+                    {backendSummary.events} events · {backendSummary.gallery} photos
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-ink-on-dark">
@@ -1485,9 +1484,17 @@ function DefaultContextZone(props: VisualEditorSidebarProps) {
                       <GripVertical size={11} />
                     </span>
                   )}
-                  <span className="flex-1 truncate font-semibold" title={label}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      props.onJumpToBlock(idx);
+                      props.onOpenVisualComposer('block', idx);
+                    }}
+                    className="flex-1 truncate font-semibold text-left text-ink-on-dark hover:text-accent-gold transition-colors cursor-pointer"
+                    title={`Edit ${label} in sidebar`}
+                  >
                     {label}
-                  </span>
+                  </button>
                   {section && (
                     <button
                       type="button"
