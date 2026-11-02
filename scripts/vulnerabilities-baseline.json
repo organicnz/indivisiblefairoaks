@@ -1,11 +1,101 @@
 {
   "$comment": "Accepted dependency advisories. Each entry records that a human reviewed the advisory and chose a disposition. The gate fails when an advisory is NOT listed here, and also when a listed advisory no longer applies — so a fix must delete its own excuse. Regenerate with: bun scripts/check-vulnerabilities.mjs --update-baseline",
-  "updated": "2026-10-20",
+  "updated": "2026-11-02",
   "accepted": {
-    "GHSA-vfj7-8cjw-p6xm": {
-      "package": "braces",
+    "GHSA-x8mw-p69m-v3mx": {
+      "package": "@fastify/busboy",
       "severity": "high",
-      "reason": "No fixed version is published: braces 3.0.3 is the latest release, so there is nothing to pin to and `bun audit fix` reports it as unfixable. Reachable only through micromatch → fast-glob → @ts-morph/common → ts-morph inside the `vercel` CLI's tree, which is a devDependency and is not shipped. The related brace-expansion advisory in the same subtree did have a fix and has been resolved."
+      "reason": "Reachable only through undici in @vercel/cli-support inside the vercel CLI devDependency. Not shipped to production."
+    },
+    "GHSA-gxm5-99cw-xjw9": {
+      "package": "@fastify/busboy",
+      "severity": "moderate",
+      "reason": "Reachable only through undici in @vercel/cli-support inside the vercel CLI devDependency. Not shipped to production."
+    },
+    "GHSA-g9mf-h72j-4rw9": {
+      "package": "undici",
+      "severity": "moderate",
+      "reason": "Reachable only through @vercel/cli-support inside the vercel CLI devDependency. Not shipped to production."
+    },
+    "GHSA-2mjp-6q6p-2qxm": {
+      "package": "undici",
+      "severity": "moderate",
+      "reason": "Reachable only through @vercel/cli-support inside the vercel CLI devDependency. Not shipped to production."
+    },
+    "GHSA-vrm6-8vpv-qv8q": {
+      "package": "undici",
+      "severity": "high",
+      "reason": "Reachable only through @vercel/cli-support inside the vercel CLI devDependency. Not shipped to production."
+    },
+    "GHSA-v9p9-hfj2-hcw8": {
+      "package": "undici",
+      "severity": "high",
+      "reason": "Reachable only through @vercel/cli-support inside the vercel CLI devDependency. Not shipped to production."
+    },
+    "GHSA-4992-7rv2-5pvq": {
+      "package": "undici",
+      "severity": "moderate",
+      "reason": "Reachable only through @vercel/cli-support inside the vercel CLI devDependency. Not shipped to production."
+    },
+    "GHSA-8xcm-r25x-g524": {
+      "package": "undici",
+      "severity": "moderate",
+      "reason": "Reachable only through @vercel/cli-support inside the vercel CLI devDependency. Not shipped to production."
+    },
+    "GHSA-m8rv-5g2x-5cg5": {
+      "package": "undici",
+      "severity": "moderate",
+      "reason": "Reachable only through @vercel/cli-support inside the vercel CLI devDependency. Not shipped to production."
+    },
+    "GHSA-v3r7-h72x-cjcm": {
+      "package": "undici",
+      "severity": "moderate",
+      "reason": "Reachable only through @vercel/cli-support inside the vercel CLI devDependency. Not shipped to production."
+    },
+    "GHSA-p88m-4jfj-68fv": {
+      "package": "undici",
+      "severity": "moderate",
+      "reason": "Reachable only through @vercel/cli-support inside the vercel CLI devDependency. Not shipped to production."
+    },
+    "GHSA-vxpw-j846-p89q": {
+      "package": "undici",
+      "severity": "high",
+      "reason": "Reachable only through @vercel/cli-support inside the vercel CLI devDependency. Not shipped to production."
+    },
+    "GHSA-g8m3-5g58-fq7m": {
+      "package": "undici",
+      "severity": "low",
+      "reason": "Reachable only through @vercel/cli-support inside the vercel CLI devDependency. Not shipped to production."
+    },
+    "GHSA-35p6-xmwp-9g52": {
+      "package": "undici",
+      "severity": "low",
+      "reason": "Reachable only through @vercel/cli-support inside the vercel CLI devDependency. Not shipped to production."
+    },
+    "GHSA-r53p-7pc4-xj5r": {
+      "package": "undici",
+      "severity": "low",
+      "reason": "Reachable only through @vercel/cli-support inside the vercel CLI devDependency. Not shipped to production."
+    },
+    "GHSA-2m5v-pch6-74hx": {
+      "package": "undici",
+      "severity": "high",
+      "reason": "Reachable only through @vercel/cli-support inside the vercel CLI devDependency. Not shipped to production."
+    },
+    "GHSA-qrxm-fqhp-jwvm": {
+      "package": "undici",
+      "severity": "high",
+      "reason": "Reachable only through @vercel/cli-support inside the vercel CLI devDependency. Not shipped to production."
+    },
+    "GHSA-9fm3-97px-rjf6": {
+      "package": "undici",
+      "severity": "moderate",
+      "reason": "Reachable only through @vercel/cli-support inside the vercel CLI devDependency. Not shipped to production."
+    },
+    "GHSA-mrhx-c7xc-m3w5": {
+      "package": "zod",
+      "severity": "high",
+      "reason": "Reachable only through @vercel/backends and @vercel/cli-auth inside the vercel CLI devDependency. The project's direct runtime dependency is zod ^4.6.7 (clean and patched)."
     }
   }
 }
