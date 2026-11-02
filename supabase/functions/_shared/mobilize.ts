@@ -421,12 +421,47 @@ export function formatTimeLabel(
  */
 export function nextUpcomingTimeslot(
   event: MobilizeEvent,
-  now: Date = new Date()
+  now: Date = new Date(),
+  allowPastFallback = false
 ): MobilizeTimeslot | null {
-  const upcoming = (event.timeslots ?? [])
-    .filter((slot) => Number.isFinite(slot.start_date) && slot.start_date * 1000 > now.getTime())
+  const timeslots =
+    Array.isArray(event.timeslots) && event.timeslots.length > 0
+      ? event.timeslots
+      : (event as unknown as { start_date?: number; end_date?: number }).start_date
+        ? [
+            {
+              id: 1,
+              start_date: (event as unknown as { start_date: number }).start_date,
+              end_date:
+                (event as unknown as { end_date?: number }).end_date ??
+                (event as unknown as { start_date: number }).start_date,
+            },
+          ]
+        : [];
+
+  const upcoming = timeslots
+    .filter((slot) => {
+      const finish =
+        Number.isFinite(slot.end_date) && slot.end_date > slot.start_date
+          ? slot.end_date * 1000
+          : slot.start_date * 1000;
+      return (
+        Number.isFinite(slot.start_date) &&
+        (slot.start_date * 1000 > now.getTime() || finish >= now.getTime())
+      );
+    })
     .sort((a, b) => a.start_date - b.start_date);
-  return upcoming[0] ?? null;
+
+  if (upcoming[0]) return upcoming[0];
+
+  // If allowPastFallback is true (used when an admin explicitly imports an event),
+  // pick the most recent timeslot so that ongoing or recent events can be imported.
+  if (allowPastFallback && timeslots.length > 0) {
+    const sorted = [...timeslots].sort((a, b) => b.start_date - a.start_date);
+    return sorted[0] ?? null;
+  }
+
+  return null;
 }
 
 function clamp(value: string, max: number): string {
@@ -471,9 +506,10 @@ function displayName(event: MobilizeEvent): { locationName: string; address: str
  */
 export function mapMobilizeEvent(
   event: MobilizeEvent,
-  now: Date = new Date()
+  now: Date = new Date(),
+  options: { allowPast?: boolean } = {}
 ): MappedMobilizeEvent | null {
-  const timeslot = nextUpcomingTimeslot(event, now);
+  const timeslot = nextUpcomingTimeslot(event, now, options.allowPast);
   if (!timeslot) return null;
 
   const warnings: string[] = [];

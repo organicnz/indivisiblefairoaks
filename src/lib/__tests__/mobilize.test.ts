@@ -295,6 +295,36 @@ describe('mapMobilizeEvent', () => {
       '6:30 PM – 8:00 PM'
     );
   });
+
+  it('keeps ongoing events visible when start_date is past but end_date is upcoming', () => {
+    const ongoingEvent: MobilizeEvent = {
+      ...CITRUS_HEIGHTS,
+      timeslots: [{ id: 1, start_date: 1780000000, end_date: 1780010000 }],
+    };
+    const during = new Date(1780005000 * 1000);
+    const mapped = mapMobilizeEvent(ongoingEvent, during);
+    expect(mapped).not.toBeNull();
+  });
+
+  it('allows importing past events when allowPast option is true', () => {
+    const past = new Date('2028-01-01T00:00:00Z');
+    expect(mapMobilizeEvent(MONTHLY_GATHERING, past)).toBeNull();
+    const forced = mapMobilizeEvent(MONTHLY_GATHERING, past, { allowPast: true });
+    expect(forced).not.toBeNull();
+    expect(forced?.row.slug).toBe('mobilize-967302');
+  });
+
+  it('synthesizes a timeslot from top-level start_date and end_date if timeslots array is empty', () => {
+    const bareEvent = {
+      ...CITRUS_HEIGHTS,
+      timeslots: [],
+      start_date: 1794364200,
+      end_date: 1794369600,
+    } as unknown as MobilizeEvent;
+    const mapped = mapMobilizeEvent(bareEvent, NOW);
+    expect(mapped).not.toBeNull();
+    expect(mapped?.row.title).toBe(CITRUS_HEIGHTS.title);
+  });
 });
 
 describe('categoryForEventType', () => {

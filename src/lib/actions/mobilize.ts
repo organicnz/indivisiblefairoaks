@@ -375,8 +375,8 @@ export async function importMobilizeEvent(
     const event = await fetchEvent(eventId);
     if (!event) return fail('Mobilize did not return that event (it may have been deleted).');
 
-    const mapped = mapMobilizeEvent(event);
-    if (!mapped) return fail('That event has no upcoming date, so there is nothing to add.');
+    const mapped = mapMobilizeEvent(event, new Date(), { allowPast: true });
+    if (!mapped) return fail('That event has no available date, so there is nothing to add.');
 
     const nowIso = new Date().toISOString();
     const facts = {
@@ -505,8 +505,8 @@ export async function getMobilizeEventPreview(
     const event = await fetchEvent(eventId);
     if (!event) return fail('Mobilize did not return that event (it may have been deleted).');
 
-    const mapped = mapMobilizeEvent(event);
-    if (!mapped) return fail('That event has no upcoming date, so there is nothing to preview.');
+    const mapped = mapMobilizeEvent(event, new Date(), { allowPast: true });
+    if (!mapped) return fail('That event has no available date, so there is nothing to preview.');
 
     return {
       success: true,
