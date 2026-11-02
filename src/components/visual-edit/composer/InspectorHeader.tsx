@@ -1,6 +1,8 @@
 'use client';
 
 import {
+  ArrowDown,
+  ArrowUp,
   Box,
   ChevronLeft,
   ChevronRight,
@@ -51,6 +53,10 @@ export interface InspectorHeaderProps {
   firstFocusRef?: React.RefObject<HTMLButtonElement | null>;
   /** Optional atomic deletion callback for this block or batch. */
   onDeleteBlock?: () => void;
+  /** Reorder this block up/down in the page directly from the composer header. */
+  onMoveBlock?: (direction: 'up' | 'down') => void;
+  canMoveUp?: boolean;
+  canMoveDown?: boolean;
 }
 
 export function InspectorHeader({
@@ -74,6 +80,9 @@ export function InspectorHeader({
   canNavigateNext = false,
   firstFocusRef,
   onDeleteBlock,
+  onMoveBlock,
+  canMoveUp = false,
+  canMoveDown = false,
 }: InspectorHeaderProps) {
   return (
     <>
@@ -142,6 +151,43 @@ export function InspectorHeader({
                 className="rounded-r-lg p-1 text-slate-400 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
               >
                 <ChevronRight size={14} />
+              </button>
+            </div>
+          ) : null}
+
+          {/* Reorder: move the block up/down on the page directly from the composer. */}
+          {onMoveBlock && !isBatchMode ? (
+            <div className="flex items-center rounded-lg border border-white/10 bg-white/5">
+              <button
+                type="button"
+                onClick={() => onMoveBlock('up')}
+                disabled={!canMoveUp}
+                aria-label="Move block up in page order"
+                aria-keyshortcuts="Alt+Shift+ArrowUp"
+                title={
+                  canMoveUp
+                    ? 'Move this block up in the page (⌥⇧↑)'
+                    : 'This is the first block on the page'
+                }
+                className="rounded-l-lg p-1 text-slate-400 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
+              >
+                <ArrowUp size={14} />
+              </button>
+              <span className="h-3 w-px bg-white/15" aria-hidden="true" />
+              <button
+                type="button"
+                onClick={() => onMoveBlock('down')}
+                disabled={!canMoveDown}
+                aria-label="Move block down in page order"
+                aria-keyshortcuts="Alt+Shift+ArrowDown"
+                title={
+                  canMoveDown
+                    ? 'Move this block down in the page (⌥⇧↓)'
+                    : 'This is the last block on the page'
+                }
+                className="rounded-r-lg p-1 text-slate-400 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
+              >
+                <ArrowDown size={14} />
               </button>
             </div>
           ) : null}

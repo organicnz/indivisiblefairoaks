@@ -4468,6 +4468,7 @@ describe('VisualComposerInspector block navigation', () => {
   const mount = async (props: {
     onClose?: () => void;
     onNavigateBlock?: (direction: 'previous' | 'next') => void;
+    onMoveBlock?: (direction: 'up' | 'down') => void;
     canNavigatePrevious?: boolean;
     canNavigateNext?: boolean;
   }) => {
@@ -4480,6 +4481,7 @@ describe('VisualComposerInspector block navigation', () => {
           blockIndex={1}
           onSaveBlock={vi.fn()}
           onNavigateBlock={props.onNavigateBlock}
+          onMoveBlock={props.onMoveBlock}
           canNavigatePrevious={props.canNavigatePrevious}
           canNavigateNext={props.canNavigateNext}
         />
@@ -4528,6 +4530,25 @@ describe('VisualComposerInspector block navigation', () => {
       window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', altKey: true }));
     });
     expect(onNavigateBlock).toHaveBeenCalledWith('previous');
+  });
+
+  it('reorders with Alt+Shift+ArrowDown and Alt+Shift+ArrowUp', async () => {
+    const onMoveBlock = vi.fn();
+    await mount({ onMoveBlock, canNavigatePrevious: true, canNavigateNext: true });
+
+    await act(async () => {
+      window.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'ArrowDown', altKey: true, shiftKey: true })
+      );
+    });
+    expect(onMoveBlock).toHaveBeenCalledWith('down');
+
+    await act(async () => {
+      window.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'ArrowUp', altKey: true, shiftKey: true })
+      );
+    });
+    expect(onMoveBlock).toHaveBeenCalledWith('up');
   });
 
   it('asks before leaving an unsaved draft for another block', async () => {

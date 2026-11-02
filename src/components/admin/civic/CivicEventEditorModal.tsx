@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from '@/components/ui/Dialog';
 import { type CivicEventRecord, saveCivicEvent } from '@/lib/actions/civic';
+import { getMobilizeEventPreview } from '@/lib/actions/mobilize';
 // Issue #149: both directions of the timestamp round-trip are zone-explicit.
 // Writing: a `datetime-local` value is Pacific wall time, not the organizer's
 // device zone. Reading: the editor sees the chapter's clock, not UTC.
@@ -51,6 +52,40 @@ export function CivicEventEditorModal({
   const [rsvpUrl, setRsvpUrl] = useState('');
   const [highlight, setHighlight] = useState(false);
   const [sortOrder, setSortOrder] = useState(10);
+  const [mobilizeUrl, setMobilizeUrl] = useState('');
+  const [fetchingMobilize, setFetchingMobilize] = useState(false);
+
+  const handleAutoFillFromMobilize = async () => {
+    const raw = mobilizeUrl.trim();
+    if (!raw) return;
+    setFetchingMobilize(true);
+    try {
+      const res = await getMobilizeEventPreview(raw);
+      if (!res.success) {
+        toast.error(res.error);
+        return;
+      }
+      const data = res.data;
+      setTitle(data.title);
+      setCategory(data.category);
+      setDateLabel(data.date_label);
+      setTimeLabel(data.time_label);
+      setStartsAt(instantToPacificInput(data.starts_at));
+      setEndsAt(instantToPacificInput(data.ends_at));
+      setLocationName(data.location_name);
+      setAddress(data.address);
+      setDescription(data.description);
+      setRsvpUrl(data.rsvp_url);
+      toast.success(`Auto-filled details for "${data.title}"`);
+      if (data.warnings.length > 0) {
+        toast.message(data.warnings[0]);
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to fetch Mobilize details');
+    } finally {
+      setFetchingMobilize(false);
+    }
+  };
 
   useEffect(() => {
     if (event) {
@@ -183,6 +218,34 @@ export function CivicEventEditorModal({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="overflow-y-auto p-6 space-y-4 flex-1 text-sm">
+          {/* Mobilize 1-Click Auto-Fill (Issue #153) */}
+          <div className="p-3.5 rounded-2xl bg-surface-muted/60 dark:bg-white/5 border border-border dark:border-white/10 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            <div className="flex-1">
+              <label
+                htmlFor="modal-mobilize-url"
+                className="text-[11px] font-bold uppercase tracking-wider text-primary-bright dark:text-accent-gold block mb-1"
+              >
+                Auto-fill from Mobilize Link
+              </label>
+              <input
+                id="modal-mobilize-url"
+                type="url"
+                value={mobilizeUrl}
+                onChange={(e) => setMobilizeUrl(e.target.value)}
+                placeholder="https://www.mobilize.us/nokings/event/1074514/"
+                className="w-full px-3 py-1.5 rounded-lg border border-border dark:border-white/10 bg-background text-xs text-foreground dark:text-white placeholder:text-muted-foreground"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={handleAutoFillFromMobilize}
+              disabled={fetchingMobilize || !mobilizeUrl.trim()}
+              className="self-end sm:self-auto px-3.5 py-2 rounded-xl bg-primary-bright hover:bg-primary-light text-white text-xs font-bold transition-all disabled:opacity-50 shrink-0 cursor-pointer"
+            >
+              {fetchingMobilize ? 'Fetching...' : 'Auto-fill'}
+            </button>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="sm:col-span-2">
               <label

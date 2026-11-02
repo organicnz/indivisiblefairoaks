@@ -6310,6 +6310,11 @@ export function VisualEditOverlay() {
         takenAnchorIds={vcTakenAnchorIds}
         onLocateBlock={revealBlock}
         onNavigateBlock={navigateComposerBlock}
+        onMoveBlock={(dir) => {
+          if (vcBlockIndex !== null) {
+            handleMoveSection(vcBlockIndex, dir);
+          }
+        }}
         canNavigatePrevious={vcBlockIndex !== null && vcBlockIndex > 0}
         canNavigateNext={vcBlockIndex !== null && vcBlockIndex < blocks.length - 1}
         initialMode={vcMode}

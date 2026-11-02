@@ -169,4 +169,51 @@ describe('InspectorHeader Atomic Actions', () => {
 
     expect(onDeleteBlock).toHaveBeenCalledTimes(1);
   });
+
+  it('renders reorder controls and invokes onMoveBlock callback', async () => {
+    const onMoveBlock = vi.fn();
+
+    await act(async () => {
+      root.render(
+        <InspectorHeader
+          titleId="test-title"
+          descId="test-desc"
+          blockIndex={1}
+          blockType="paragraph"
+          inspectorMode="block"
+          setInspectorMode={vi.fn()}
+          hasCopiedStyles={false}
+          onCopyStyles={vi.fn()}
+          onPasteStyles={vi.fn()}
+          onResetStyles={vi.fn()}
+          onClose={vi.fn()}
+          onMoveBlock={onMoveBlock}
+          canMoveUp={true}
+          canMoveDown={true}
+        />
+      );
+    });
+
+    const moveUpBtn = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Move block up in page order"]'
+    );
+    const moveDownBtn = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Move block down in page order"]'
+    );
+
+    expect(moveUpBtn).not.toBeNull();
+    expect(moveDownBtn).not.toBeNull();
+    expect(moveUpBtn?.disabled).toBe(false);
+    expect(moveDownBtn?.disabled).toBe(false);
+
+    await act(async () => {
+      moveUpBtn?.click();
+    });
+    expect(onMoveBlock).toHaveBeenCalledWith('up');
+
+    await act(async () => {
+      moveDownBtn?.click();
+    });
+    expect(onMoveBlock).toHaveBeenCalledWith('down');
+  });
 });

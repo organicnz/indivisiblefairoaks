@@ -12,10 +12,11 @@ import {
   Search,
   Trash2,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import { CivicEventEditorModal } from '@/components/admin/civic/CivicEventEditorModal';
+import { MobilizeImportModal } from '@/components/admin/civic/MobilizeImportModal';
 import { useEditContext } from '@/components/layout/useEditContext';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { useDataPoints } from '@/hooks/useDataPoints';
@@ -139,6 +140,21 @@ export function InteractiveEventsCalendar({
   );
   const [selectedEventForEdit, setSelectedEventForEdit] = useState<CivicEventRecord | null>(null);
   const [isEditorModalOpen, setIsEditorModalOpen] = useState(false);
+  const [isMobilizeModalOpen, setIsMobilizeModalOpen] = useState(false);
+
+  const refreshEvents = useCallback(async () => {
+    try {
+      const res = await fetch('/api/civic/events');
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.events) && data.events.length > 0) {
+          setEventsList(data.events);
+        }
+      }
+    } catch {
+      // Fall back gracefully to existing state
+    }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -309,16 +325,27 @@ export function InteractiveEventsCalendar({
           ))}
         </div>
 
-        {/* In-Page Admin Add Event Trigger */}
+        {/* In-Page Admin Controls */}
         {isAdmin && (
-          <button
-            type="button"
-            onClick={handleOpenCreateModal}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-accent-gold hover:brightness-105 text-ink-strong font-black text-xs uppercase tracking-wider shadow-md transition-all shrink-0 cursor-pointer"
-          >
-            <Plus size={15} />
-            <span>Add Event</span>
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => setIsMobilizeModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-primary-bright hover:bg-primary-light text-white font-bold text-xs uppercase tracking-wider shadow-md transition-all cursor-pointer"
+              title="Directly import any single Mobilize event link (issue #153)"
+            >
+              <Download size={14} />
+              <span>Import Mobilize</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleOpenCreateModal}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-accent-gold hover:brightness-105 text-ink-strong font-black text-xs uppercase tracking-wider shadow-md transition-all shrink-0 cursor-pointer"
+            >
+              <Plus size={15} />
+              <span>Add Event</span>
+            </button>
+          </div>
         )}
       </div>
 
@@ -492,6 +519,15 @@ export function InteractiveEventsCalendar({
           onSaved={handleEventSaved}
         />
       )}
+
+      {/* Admin In-Page Mobilize Event Import Modal (issue #153) */}
+      <MobilizeImportModal
+        isOpen={isMobilizeModalOpen}
+        onClose={() => setIsMobilizeModalOpen(false)}
+        onSuccess={() => {
+          refreshEvents();
+        }}
+      />
     </div>
   );
 }

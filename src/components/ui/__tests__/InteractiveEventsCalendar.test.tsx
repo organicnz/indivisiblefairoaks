@@ -6,6 +6,16 @@ import { InteractiveEventsCalendar } from '@/components/ui/InteractiveEventsCale
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
+const mockEditContext = {
+  isAdmin: false,
+  loading: false,
+  target: null,
+};
+
+vi.mock('@/components/layout/useEditContext', () => ({
+  useEditContext: () => mockEditContext,
+}));
+
 describe('InteractiveEventsCalendar', () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -125,5 +135,24 @@ describe('InteractiveEventsCalendar', () => {
     });
 
     expect(createObjectUrlMock).toHaveBeenCalled();
+  });
+
+  it('renders Import Mobilize button for admins and opens import modal', async () => {
+    mockEditContext.isAdmin = true;
+
+    await act(async () => {
+      root.render(<InteractiveEventsCalendar />);
+    });
+
+    const importBtn = Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find(
+      (b) => b.textContent?.includes('Import Mobilize')
+    );
+    expect(importBtn).toBeDefined();
+
+    await act(async () => {
+      importBtn?.click();
+    });
+
+    expect(document.body.textContent).toContain('Import Mobilize Event');
   });
 });

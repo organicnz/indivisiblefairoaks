@@ -484,6 +484,8 @@ export interface VisualComposerInspectorProps {
    * this panel only says what the draft looks like.
    */
   onPreviewChange?: (draft: ComposerDraftPreview | null) => void;
+  /** Reorder this block up or down on the page directly from the composer. */
+  onMoveBlock?: (direction: 'up' | 'down') => void;
   /** Delete this block from the document, through the same atomic deletion flow as the page. */
   onDeleteBlock?: (blockIndex: number) => void;
   /** Delete every selected block in batch mode. */
@@ -503,6 +505,7 @@ export function VisualComposerInspector({
   takenAnchorIds = [],
   onLocateBlock,
   onNavigateBlock,
+  onMoveBlock,
   canNavigatePrevious = false,
   canNavigateNext = false,
   initialMode = 'block',
@@ -1211,6 +1214,17 @@ export function VisualComposerInspector({
       }
 
       /*
+       * Shift + Up/Down reorders the active block on the page directly
+       * from inside the inspector without losing editing state.
+       */
+      if (e.shiftKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+        if (!onMoveBlock || isBatchMode) return;
+        e.preventDefault();
+        onMoveBlock(e.key === 'ArrowUp' ? 'up' : 'down');
+        return;
+      }
+
+      /*
        * Up and down walk the page. A batch has no single "next block" —
        * navigating would leave the selection behind — so it is not offered
        * there, and the shortcut does nothing rather than half a thing.
@@ -1244,6 +1258,7 @@ export function VisualComposerInspector({
     requestClose,
     requestNavigation,
     onNavigateBlock,
+    onMoveBlock,
     isBatchMode,
   ]);
 
@@ -1544,6 +1559,9 @@ export function VisualComposerInspector({
         onNavigate={isBatchMode ? undefined : handleNavigate}
         canNavigatePrevious={canNavigatePrevious}
         canNavigateNext={canNavigateNext}
+        onMoveBlock={onMoveBlock}
+        canMoveUp={canNavigatePrevious}
+        canMoveDown={canNavigateNext}
         onDeleteBlock={onDeleteBlock || onDeleteBlocks ? handleDeleteFromInspector : undefined}
       />
 

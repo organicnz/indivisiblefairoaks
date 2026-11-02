@@ -467,6 +467,69 @@ export async function importMobilizeEvent(
   }
 }
 
+export interface MobilizePreviewData {
+  title: string;
+  category:
+    | 'Meetings'
+    | 'Resistance Choir'
+    | 'Voter Mobilization'
+    | 'Rallies & Street Action'
+    | 'Community';
+  date_label: string;
+  time_label: string;
+  starts_at: string | null;
+  ends_at: string | null;
+  location_name: string;
+  address: string;
+  description: string;
+  rsvp_url: string;
+  external_url: string;
+  warnings: string[];
+}
+
+/**
+ * Fetches and maps a Mobilize event without saving it, allowing an admin to
+ * auto-fill the event creation modal on /events or inspect before committing.
+ */
+export async function getMobilizeEventPreview(
+  input: string
+): Promise<MobilizeActionResult<MobilizePreviewData>> {
+  try {
+    const eventId = parseMobilizeEventUrl(input);
+    if (!eventId) {
+      return fail(
+        'Paste a Mobilize event link, e.g. https://www.mobilize.us/indivisible/event/1011420/'
+      );
+    }
+
+    const event = await fetchEvent(eventId);
+    if (!event) return fail('Mobilize did not return that event (it may have been deleted).');
+
+    const mapped = mapMobilizeEvent(event);
+    if (!mapped) return fail('That event has no upcoming date, so there is nothing to preview.');
+
+    return {
+      success: true,
+      data: {
+        title: mapped.row.title,
+        category: mapped.row.category,
+        date_label: mapped.row.date_label,
+        time_label: mapped.row.time_label,
+        starts_at: mapped.row.starts_at,
+        ends_at: mapped.row.ends_at,
+        location_name: mapped.row.location_name,
+        address: mapped.row.address,
+        description: mapped.row.description,
+        rsvp_url: mapped.row.rsvp_url,
+        external_url: mapped.row.external_url,
+        warnings: mapped.warnings,
+      },
+    };
+  } catch (err) {
+    return fail(err instanceof Error ? err.message : 'Failed to preview Mobilize event');
+  }
+}
+
 /** `pin` / `exclude` / `null` (clear) — the per-event answer. */
 export async function setMobilizeRule(
   externalId: string,
