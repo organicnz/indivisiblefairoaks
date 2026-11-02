@@ -57,9 +57,20 @@ fn hash21(p: vec2f, t: f32) -> f32 {
   return fract((p3.x + p3.y) * p3.z);
 }
 
+// C2-continuous quintic smootherstep (zero 1st/2nd derivative discontinuities)
+fn smootherstep(e0: f32, e1: f32, x: f32) -> f32 {
+  let t = clamp((x - e0) / max(e1 - e0, 0.00001), 0.0, 1.0);
+  return t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
+}
+
 // ACES-inspired filmic tone-mapping to compress HDR highlights smoothly
-fn tonemap(color: vec3f) -> vec3f {
-  return (color * (1.0 + color * 0.28)) / (1.0 + color);
+fn tonemap(x: vec3f) -> vec3f {
+  let a = 2.51;
+  let b = 0.03;
+  let c = 2.43;
+  let d = 0.59;
+  let e = 0.14;
+  return clamp((x * (a * x + b)) / (x * (c * x + d) + e), vec3f(0.0), vec3f(1.0));
 }
 
 fn sampleWave(uv: vec2f, wave: WaveParams, aspect: f32, time: f32, mouse: vec2f, pointerActive: f32, pointerSpeed: f32) -> vec4f {
@@ -85,18 +96,18 @@ fn sampleWave(uv: vec2f, wave: WaveParams, aspect: f32, time: f32, mouse: vec2f,
   let wave_pos = wave.progress * max_dist;
   let d = dist - wave_pos;
   let wave_width = 0.38 * (1.0 + wave.progress * 0.36);
-  let wave_crest = smoothstep(wave_width, 0.0, abs(d));
+  let wave_crest = smootherstep(wave_width, 0.0, abs(d));
 
   if (wave_crest <= 0.0005) {
     return vec4f(0.0);
   }
 
-  // 3D Volumetric Surface Normal & Glass Rim Fresnel Sheen
+  // 3D Volumetric Surface Normal & Glass Rim Fresnel Sheen with continuous C2 derivative
   let grad_dir = select(vec2f(0.0), p / max(0.0001, dist), dist > 0.0001);
-  let grad_mag = -sign(d) * (1.0 - abs(d) / wave_width) * wave_crest;
+  let grad_mag = -(d / max(0.0001, wave_width)) * wave_crest * 1.45;
   let normal_xy = grad_dir * grad_mag;
-  let normal_z = max(0.05, 1.0 - abs(d) / wave_width);
-  let fresnel = pow(1.0 - normal_z, 3.5) * 0.45;
+  let normal_z = max(0.08, 1.0 - (d * d) / max(0.0001, wave_width * wave_width));
+  let fresnel = pow(clamp(1.0 - normal_z, 0.0, 1.0), 3.5) * 0.45;
 
   // 10x Pro Snell's Law Volumetric Refraction Vector across 7-Band Cauchy dispersion
   let snell_factor = 0.026 * (1.0 - wave.progress * 0.72);
@@ -117,13 +128,13 @@ fn sampleWave(uv: vec2f, wave: WaveParams, aspect: f32, time: f32, mouse: vec2f,
   let d_blue    = length(p_blue)   - (wave_pos - disp * 1.00);
   let d_violet  = length(p_violet) - (wave_pos - disp * 1.50);
 
-  let w_red    = smoothstep(wave_width, 0.0, abs(d_red));
-  let w_amber  = smoothstep(wave_width, 0.0, abs(d_amber));
-  let w_yellow = smoothstep(wave_width, 0.0, abs(d_yellow));
-  let w_green  = smoothstep(wave_width, 0.0, abs(d_green));
-  let w_cyan   = smoothstep(wave_width, 0.0, abs(d_cyan));
-  let w_blue   = smoothstep(wave_width, 0.0, abs(d_blue));
-  let w_violet = smoothstep(wave_width, 0.0, abs(d_violet));
+  let w_red    = smootherstep(wave_width, 0.0, abs(d_red));
+  let w_amber  = smootherstep(wave_width, 0.0, abs(d_amber));
+  let w_yellow = smootherstep(wave_width, 0.0, abs(d_yellow));
+  let w_green  = smootherstep(wave_width, 0.0, abs(d_green));
+  let w_cyan   = smootherstep(wave_width, 0.0, abs(d_cyan));
+  let w_blue   = smootherstep(wave_width, 0.0, abs(d_blue));
+  let w_violet = smootherstep(wave_width, 0.0, abs(d_violet));
 
   var wave_color = vec3f(0.0);
   var ripple = 0.0;
@@ -231,7 +242,7 @@ fn sampleAfterglow(uv: vec2f, wave: WaveParams, aspect: f32, max_dist: f32) -> v
   let p_ag = vec2f((uv.x - wave.origin.x) * aspect, uv.y - wave.origin.y);
   let d_ag = length(p_ag);
   let wp_ag = wave.progress * max_dist;
-  let behind = smoothstep(0.0, 0.08, wp_ag - d_ag);
+  let behind = smootherstep(0.0, 0.08, wp_ag - d_ag);
   let decay = exp(-3.5 * wave.progress) * behind;
   let ag_color = select(
     select(vec3f(0.08, 0.65, 0.45), vec3f(0.92, 0.68, 0.12), wave.theme > 0.5),

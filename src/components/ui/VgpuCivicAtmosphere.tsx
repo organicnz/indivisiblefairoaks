@@ -25,14 +25,27 @@ fn hash21(p: vec2f) -> f32 {
   return fract((p3.x + p3.y) * p3.z);
 }
 
-fn tonemap(c: vec3f) -> vec3f {
-  return (c * (1.0 + c * 0.22)) / (1.0 + c);
+// C2-continuous quintic smootherstep eliminating Mach banding and optical creasing
+fn smootherstep(e0: f32, e1: f32, x: f32) -> f32 {
+  let t = clamp((x - e0) / max(0.00001, e1 - e0), 0.0, 1.0);
+  return t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
 }
 
+// ACES-inspired filmic tone mapping to eliminate harsh digital clipping
+fn tonemap(x: vec3f) -> vec3f {
+  let a = 2.51;
+  let b = 0.03;
+  let c = 2.43;
+  let d = 0.59;
+  let e = 0.14;
+  return clamp((x * (a * x + b)) / (x * (c * x + d) + e), vec3f(0.0), vec3f(1.0));
+}
+
+// C2 quintic Hermite value noise for organic, seamless fluid movement
 fn noise(p: vec2f) -> f32 {
   let i = floor(p);
   let f = fract(p);
-  let u = f * f * (3.0 - 2.0 * f);
+  let u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
 
   let a = hash21(i + vec2f(0.0, 0.0));
   let b = hash21(i + vec2f(1.0, 0.0));
@@ -45,9 +58,9 @@ fn noise(p: vec2f) -> f32 {
 fn fbm(p: vec2f) -> f32 {
   var v = 0.0;
   var a = 0.5;
-  var shift = vec2f(100.0);
+  var shift = vec2f(100.0, 100.0);
   var pos = p;
-  for (var i = 0; i < 4; i++) {
+  for (var i = 0; i < 4; i = i + 1) {
     v += a * noise(pos);
     pos = pos * 2.02 + shift;
     a *= 0.5;
@@ -55,54 +68,62 @@ fn fbm(p: vec2f) -> f32 {
   return v;
 }
 
+// Smooth dual-scale Gaussian volumetric radiance envelope
+fn softLobe(d: f32, coreSigma: f32, haloSigma: f32) -> f32 {
+  let d2 = d * d;
+  let core = exp(-d2 / (2.0 * coreSigma * coreSigma));
+  let halo = exp(-d2 / (2.0 * haloSigma * haloSigma)) * 0.45;
+  return core + halo;
+}
+
 @fragment
 fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let aspect = params.width / max(params.height, 1.0);
   let p = vec2f((uv.x - 0.5) * aspect, uv.y - 0.5);
 
-  let t = params.time * 0.16;
+  let t = params.time * 0.18;
 
   let mouseP = vec2f((params.mouseX - 0.5) * aspect, params.mouseY - 0.5);
   let mouseDist = length(p - mouseP);
-  let mouseGlow = exp(-pow(mouseDist * 2.2, 2.0)) * 0.45 * params.intensity;
+  let mouseGlow = softLobe(mouseDist, 0.22, 0.55) * 0.50 * params.intensity;
 
   // Fluid multi-octave domain warping (advective curl flow)
   let q = vec2f(
-    fbm(p * 1.3 + vec2f(t * 0.35, t * 0.18)),
-    fbm(p * 1.3 + vec2f(-t * 0.28, t * 0.45))
+    fbm(p * 1.1 + vec2f(t * 0.28, t * 0.15)),
+    fbm(p * 1.1 + vec2f(-t * 0.22, t * 0.35))
   );
 
   let r = vec2f(
-    fbm(p * 1.6 + q * 1.3 + vec2f(t * 0.5, -t * 0.25)),
-    fbm(p * 1.6 + q * 1.3 + vec2f(-t * 0.35, t * 0.6))
+    fbm(p * 1.3 + q * 1.1 + vec2f(t * 0.35, -t * 0.18)),
+    fbm(p * 1.3 + q * 1.1 + vec2f(-t * 0.25, t * 0.42))
   );
 
-  let wave = fbm(p + r * 1.8 + vec2f(t * 0.15, -t * 0.3));
+  let wave = fbm(p + r * 1.4 + vec2f(t * 0.12, -t * 0.22));
 
-  // Continuous partition of unity across optical profiles:
-  // themeMode = 2.0 (Dark: Obsidian Kerr Singularity & Relativistic Vortex)
-  // themeMode = 1.0 (Light: Solar Diamond Caustics with Prismatic Dispersion)
-  // themeMode = 0.0 (System: Quantum Bloch Sphere Geodesic Superposition)
+  // Partition of unity across optical profiles:
   let modeDark = clamp(params.themeMode - 1.0, 0.0, 1.0);
   let modeLight = clamp(1.0 - abs(params.themeMode - 1.0), 0.0, 1.0);
   let modeSystem = clamp(1.0 - params.themeMode, 0.0, 1.0);
 
   // 1. Relativistic Kerr vortex warping (Dark mode)
   let kerrAngle = atan2(p.y - mouseP.y, p.x - mouseP.x);
-  let kerrVortex = sin(kerrAngle * 4.0 + mouseDist * 22.0 - t * 3.5) * 0.05 * exp(-pow(mouseDist * 1.8, 2.0)) * modeDark;
+  let kerrVortex = sin(kerrAngle * 3.0 + mouseDist * 16.0 - t * 2.8) * 0.04 * exp(-mouseDist * 1.5) * modeDark;
 
-  // 2. Solar crystal wave interference caustics (Light mode)
-  let k1 = (p.x * 20.0 + t * 2.2);
-  let k2 = (-0.5 * p.x + 0.866 * p.y) * 20.0 - t * 1.8;
-  let caustics = (cos(k1) + cos(k2)) * 0.02 * modeLight;
+  // 2. Solar crystal wave interference caustics (Light mode) - soft, non-gritty
+  let k1 = (p.x * 12.0 + t * 1.6);
+  let k2 = (-0.5 * p.x + 0.866 * p.y) * 12.0 - t * 1.4;
+  let caustics = (cos(k1) + cos(k2)) * 0.015 * modeLight;
 
   // 3. Quantum wave packets & Bloch sphere geodesic superposition (System mode)
   let blochTheta = wave * 3.14159265;
-  let blochPhi = t * 2.5 + dot(p, vec2f(1.618, 1.0)) * 5.0;
-  let quantumFringe = sin(blochTheta) * cos(blochPhi) * 0.035 * modeSystem;
+  let blochPhi = t * 2.0 + dot(p, vec2f(1.618, 1.0)) * 4.0;
+  let quantumFringe = sin(blochTheta) * cos(blochPhi) * 0.028 * modeSystem;
 
   let waveMod = wave + kerrVortex + caustics + quantumFringe;
-  let auroraRibbon = smoothstep(0.32, 0.72, sin(waveMod * 4.2 + t * 0.8) * 0.5 + 0.5);
+  
+  // Volumetric airglow ribbon: soft Gaussian core and expansive halo
+  let ribbonPhase = sin(waveMod * 3.4 + t * 0.6) * 0.5 + 0.5;
+  let auroraRibbon = softLobe(ribbonPhase - 0.5, 0.16, 0.38);
 
   let darkFactor = clamp(params.effectiveTheme, 0.0, 1.0);
 
@@ -134,29 +155,30 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let cyanGlow = lightCyanGlow * modeLight + darkCyanGlow * modeDark + sysEmerald * modeSystem;
   let amberGold = lightAmber * modeLight + darkAmber * modeDark + sysAmber * modeSystem;
 
-  var col = mix(baseDark, midnight, smoothstep(0.05, 0.45, waveMod));
-  col = mix(col, sapphire, smoothstep(0.35, 0.75, waveMod));
-  col = mix(col, cyanGlow, auroraRibbon * 0.45);
-  col = mix(col, amberGold, pow(smoothstep(0.65, 0.95, waveMod), 2.5) * 0.38);
+  var col = mix(baseDark, midnight, smootherstep(0.05, 0.45, waveMod));
+  col = mix(col, sapphire, smootherstep(0.35, 0.75, waveMod));
+  col = mix(col, cyanGlow, auroraRibbon * 0.40);
+  let amberCrest = smootherstep(0.60, 0.92, waveMod);
+  col = mix(col, amberGold, amberCrest * amberCrest * 0.35);
 
   col += cyanGlow * mouseGlow;
   col += amberGold * (mouseGlow * 0.35);
 
-  // Organic twinkling democratic stardust & solar sparkles
-  let starGrid = uv * vec2f(45.0 * aspect, 45.0);
+  // Organic twinkling democratic stardust with smooth Airy-disk envelopes
+  let starGrid = uv * vec2f(36.0 * aspect, 36.0);
   let starCell = floor(starGrid);
   let starRandom = hash21(starCell);
-  if (starRandom > 0.975) {
+  if (starRandom > 0.978) {
     let starPos = fract(starGrid) - 0.5;
     let starDist = length(starPos);
-    let pulse = sin(params.time * 2.0 + starRandom * 6.28) * 0.5 + 0.5;
-    let starLight = exp(-pow(starDist * 14.0, 2.0)) * pulse * 0.6;
-    col += mix(cyanGlow, amberGold, starRandom) * starLight * (0.4 + darkFactor * 0.6);
+    let pulse = sin(params.time * 1.8 + starRandom * 6.28) * 0.5 + 0.5;
+    let starLight = exp(-starDist * starDist * 45.0) * pulse * 0.55;
+    col += mix(cyanGlow, amberGold, starRandom) * starLight * (0.35 + darkFactor * 0.65);
   }
 
-  // Dark-mode vignette; in light mode keep luminous edges
-  let vig = mix(1.0, (1.0 - length(uv - 0.5) * 0.55) * (1.0 - uv.y * 0.25), darkFactor);
-  col *= max(vig, 0.3);
+  // Smooth cinematic falloff that never crushes darks
+  let vig = mix(1.0, 1.0 - pow(length(uv - 0.5) * 0.65, 2.0) * 0.42, darkFactor);
+  col *= max(vig, 0.35);
 
   // Filmic tone-mapping to compress dynamic highlights
   col = tonemap(col);

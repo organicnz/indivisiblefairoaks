@@ -20,16 +20,24 @@ struct Params {
 
 @group(0) @binding(0) var<uniform> params: Params;
 
+// Golden ratio temporal pseudo-random hash
 fn hash21(p: vec2f) -> f32 {
   var p3 = fract(vec3f(p.xyx) * 0.1031);
   p3 += dot(p3, p3.yzx + 33.33);
   return fract((p3.x + p3.y) * p3.z);
 }
 
+// C2-continuous quintic smootherstep (zero 1st/2nd derivative discontinuities)
+fn smootherstep(e0: f32, e1: f32, x: f32) -> f32 {
+  let t = clamp((x - e0) / max(e1 - e0, 0.00001), 0.0, 1.0);
+  return t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
+}
+
+// C2-continuous quintic Hermite value noise
 fn noise(p: vec2f) -> f32 {
   let i = floor(p);
   let f = fract(p);
-  let u = f * f * (3.0 - 2.0 * f);
+  let u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
 
   return mix(
     mix(hash21(i + vec2f(0.0, 0.0)), hash21(i + vec2f(1.0, 0.0)), u.x),
@@ -38,6 +46,7 @@ fn noise(p: vec2f) -> f32 {
   );
 }
 
+// Multi-octave fractional Brownian motion with smooth octave decay
 fn fbm(p: vec2f) -> f32 {
   var v = 0.0;
   var a = 0.5;
@@ -51,24 +60,24 @@ fn fbm(p: vec2f) -> f32 {
   return v;
 }
 
-// C-infinity smooth dual-lobe volumetric envelope (zero razor cusps)
+// C-infinity dual-lobe volumetric Gaussian envelope (zero razor cusps or sharp creases)
 fn dualLobe(d: f32, coreW: f32, haloW: f32) -> f32 {
-  let core = exp(-((d * d) / (coreW * coreW)));
-  let halo = exp(-((d * d) / (haloW * haloW))) * 0.35;
+  let core = exp(-((d * d) / max(coreW * coreW, 0.00001)));
+  let halo = exp(-((d * d) / max(haloW * haloW, 0.00001))) * 0.38;
   return core + halo;
 }
 
-// Multi-octave atmospheric mirage domain warping
+// Multi-octave Kolmogorov atmospheric turbulence domain warping
 fn mirageWarp(p: vec2f, t: f32) -> vec2f {
   let q = vec2f(
-    fbm(p + vec2f(t * 0.05, -t * 0.04)),
-    fbm(p + vec2f(4.2 - t * 0.03, 1.7 + t * 0.05))
+    fbm(p + vec2f(t * 0.045, -t * 0.035)),
+    fbm(p + vec2f(4.2 - t * 0.03, 1.7 + t * 0.045))
   );
   let r = vec2f(
-    fbm(p + 2.6 * q + vec2f(1.5 - t * 0.04, 7.8 + t * 0.03)),
-    fbm(p + 2.6 * q + vec2f(6.4 + t * 0.04, 2.3 - t * 0.05))
+    fbm(p + 2.5 * q + vec2f(1.5 - t * 0.035, 7.8 + t * 0.03)),
+    fbm(p + 2.5 * q + vec2f(6.4 + t * 0.035, 2.3 - t * 0.045))
   );
-  return p + 0.28 * r;
+  return p + 0.26 * r;
 }
 
 // ACES-inspired filmic tone mapping to eliminate harsh digital clipping
@@ -86,7 +95,7 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let aspect = params.width / max(params.height, 1.0);
   let p = vec2f((uv.x - 0.5) * aspect, uv.y - 0.5);
 
-  let t = params.time * 0.38;
+  let t = params.time * 0.36;
   let mouseP = vec2f((params.mouseX - 0.5) * aspect, params.mouseY - 0.5);
   let mouseDist = length(p - mouseP);
 
@@ -96,54 +105,80 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let modeLight = clamp(1.0 - abs(params.themeMode - 1.0), 0.0, 1.0);
   let modeSystem = clamp(1.0 - params.themeMode, 0.0, 1.0);
 
-  // Background atmospheric horizon gradient
-  let bgDarkStart = vec3f(0.012, 0.028, 0.07);
-  let bgDarkEnd   = vec3f(0.035, 0.06, 0.15);
-  let bgLightStart = vec3f(0.93, 0.95, 0.99);
-  let bgLightEnd   = vec3f(0.86, 0.90, 0.96);
+  // Background atmospheric horizon gradient with twilight Rayleigh extinction
+  let bgDarkStart = vec3f(0.012, 0.026, 0.065);
+  let bgDarkEnd   = vec3f(0.032, 0.058, 0.145);
+  let bgLightStart = vec3f(0.935, 0.955, 0.992);
+  let bgLightEnd   = vec3f(0.865, 0.905, 0.965);
   let bgSystemStart = mix(bgLightStart, bgDarkStart, darkFactor);
   let bgSystemEnd   = mix(bgLightEnd, bgDarkEnd, darkFactor);
 
   let bgStart = bgLightStart * modeLight + bgDarkStart * modeDark + bgSystemStart * modeSystem;
   let bgEnd   = bgLightEnd * modeLight + bgDarkEnd * modeDark + bgSystemEnd * modeSystem;
 
-  var col = mix(bgStart, bgEnd, smoothstep(-0.5, 0.5, p.y) * 0.7);
+  let horizonBlend = smootherstep(-0.55, 0.45, p.y) * 0.72;
+  var col = mix(bgStart, bgEnd, horizonBlend);
 
-  let pWarp = mirageWarp(p, t * 0.22);
+  let pWarp = mirageWarp(p, t * 0.20);
 
-  // Volumetric Coherent LIDAR Probing Beam (smooth Gaussian waist + Rayleigh backscattering)
-  let scanX = sin(t * 0.7) * (aspect * 0.38);
-  let beamAngle = -0.15 + sin(t * 0.25) * 0.05;
-  let beamDist = abs((p.x - scanX) - p.y * beamAngle);
+  // 1. Volumetric Coherent LIDAR Probing Beam
+  // Models Gaussian waist expansion: w(y) = w0 * sqrt(1 + ((y - y0) / zR)^2)
+  let scanX = sin(t * 0.65) * (aspect * 0.38) + sin(t * 0.22) * (aspect * 0.08);
+  let beamAngle = -0.14 + sin(t * 0.22) * 0.04;
+  let beamCenter = scanX + (p.y + 0.5) * beamAngle;
+  let beamDist = p.x - beamCenter;
 
-  let lidarBeam = dualLobe(beamDist, 0.035, 0.16) * (0.8 + 0.2 * sin(p.y * 12.0 - t * 4.0));
+  // Expanding beam waist along optical propagation axis
+  let beamWaist = 0.045 + 0.025 * abs(p.y + 0.35);
+  let beamHaloWaist = 0.18 + 0.08 * abs(p.y + 0.35);
+  let beamGlow = dualLobe(beamDist, beamWaist, beamHaloWaist);
 
-  // Volumetric Atmospheric Inversion Layer & Mirage Waves (Fata Morgana refraction)
-  let mirageBaseY = -0.16;
-  let thermalWave = sin(pWarp.x * 6.0 + t * 1.5) * 0.016 + fbm(vec2f(pWarp.x * 2.5, t * 0.3)) * 0.02;
+  // Rayleigh backscattering modulation along the LIDAR beam column
+  let rayleighScatter = 0.82 + 0.18 * sin(p.y * 10.0 - t * 3.8);
+  let lidarBeam = beamGlow * rayleighScatter;
 
-  let mirageLayer1 = dualLobe(abs(pWarp.y - mirageBaseY - thermalWave), 0.04, 0.15);
-  let mirageLayer2 = dualLobe(abs(pWarp.y - (mirageBaseY + 0.07) + thermalWave * 0.6), 0.045, 0.16);
+  // 2. Volumetric Atmospheric Inversion Layer & Fata Morgana Horizon Mirage
+  // Continuous thermal gradient with physical refractive bending
+  let mirageBaseY = -0.15;
+  let thermalWave = sin(pWarp.x * 5.5 + t * 1.4) * 0.018 +
+                    fbm(vec2f(pWarp.x * 2.2, t * 0.28)) * 0.022;
 
-  // Chromatic dispersion across refraction layers:
-  // Emerald green flash (530 nm), Electric cyan (480 nm), Ruby amber (620 nm)
-  let colEmerald = vec3f(0.24, 0.95, 0.58);
-  let colCyan    = vec3f(0.22, 0.82, 0.98);
-  let colAmber   = vec3f(0.98, 0.78, 0.28);
-  let colViolet  = vec3f(0.68, 0.36, 0.96);
+  let mirageDist1 = pWarp.y - mirageBaseY - thermalWave;
+  let mirageDist2 = pWarp.y - (mirageBaseY + 0.075) + thermalWave * 0.65;
 
-  let mirageColor = mix(colEmerald, colCyan, sin(p.x * 3.0 + t) * 0.5 + 0.5) * mirageLayer1 +
-                    mix(colViolet, colAmber, cos(p.x * 3.5 - t) * 0.5 + 0.5) * mirageLayer2;
+  let mirageLayer1 = dualLobe(mirageDist1, 0.052, 0.18);
+  let mirageLayer2 = dualLobe(mirageDist2, 0.058, 0.19);
 
-  // Active Search Optic Lens at cursor (focused caustic with dual-lobe envelope)
-  let searchOptic = dualLobe(mouseDist, 0.07, 0.32) * params.intensity;
+  // 3. Physical Cauchy Chromatic Dispersion & Emerald Green Flash Phenomenon
+  // n(lambda) = A + B / lambda^2 -> green (532 nm), cyan (488 nm), ruby amber (589 nm)
+  let colEmerald = vec3f(0.22, 0.96, 0.55);
+  let colCyan    = vec3f(0.20, 0.84, 0.98);
+  let colAmber   = vec3f(0.98, 0.76, 0.26);
+  let colViolet  = vec3f(0.66, 0.38, 0.96);
 
-  // Total Luminous Emission
-  let totalEmission = lidarBeam * colCyan * 1.35 + mirageColor * 1.35 + searchOptic * mix(colAmber, colCyan, 0.5) * 1.8;
+  // Upper rim grazing dispersion produces the emerald flash
+  let greenFlashHorizon = exp(-((pWarp.y - (mirageBaseY + 0.02)) * (pWarp.y - (mirageBaseY + 0.02))) / 0.0016);
+  let greenFlash = greenFlashHorizon * (0.6 + 0.4 * sin(pWarp.x * 4.0 + t * 2.0));
+
+  let dispersion1 = mix(colEmerald, colCyan, sin(p.x * 2.8 + t * 0.9) * 0.5 + 0.5);
+  let dispersion2 = mix(colViolet, colAmber, cos(p.x * 3.2 - t * 0.8) * 0.5 + 0.5);
+  let mirageColor = dispersion1 * mirageLayer1 + dispersion2 * mirageLayer2 + colEmerald * greenFlash * 0.85;
+
+  // 4. Active Search Optic Lens (Airy disk caustic with soft Bessel rings)
+  let airyPhase = mouseDist * 28.0;
+  let airyRings = cos(airyPhase) * exp(-mouseDist * 7.5) * 0.35;
+  let searchOpticGlow = dualLobe(mouseDist, 0.085, 0.36);
+  let searchOptic = max(0.0, searchOpticGlow + airyRings * smootherstep(0.4, 0.05, mouseDist)) * params.intensity;
+
+  // Total Luminous Refractive Emission
+  let totalEmission = lidarBeam * colCyan * 1.30 +
+                      mirageColor * 1.32 +
+                      searchOptic * mix(colAmber, colCyan, 0.52) * 1.75;
 
   // Theme-adaptive transfer
-  let darkRad = col + totalEmission * mix(0.7, 1.25, params.intensity);
-  let lightRad = col * (1.0 - (mirageLayer1 * 0.2 + lidarBeam * 0.18)) + (lidarBeam * colCyan * 0.65 + mirageColor * 0.65 + searchOptic * colAmber * 0.75);
+  let darkRad = col + totalEmission * mix(0.72, 1.25, params.intensity);
+  let lightRad = col * (1.0 - (mirageLayer1 * 0.18 + lidarBeam * 0.16 + greenFlashHorizon * 0.12)) +
+                 (lidarBeam * colCyan * 0.62 + mirageColor * 0.65 + searchOptic * colAmber * 0.72);
   var radiance = mix(lightRad, darkRad, darkFactor);
 
   radiance = tonemap(radiance);

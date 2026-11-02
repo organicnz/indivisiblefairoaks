@@ -25,10 +25,17 @@ fn hash21(p: vec2f) -> f32 {
   return fract((p3.x + p3.y) * p3.z);
 }
 
+// C2-continuous quintic smootherstep eliminating Mach banding and optical creasing
+fn smootherstep(e0: f32, e1: f32, x: f32) -> f32 {
+  let t = clamp((x - e0) / max(0.00001, e1 - e0), 0.0, 1.0);
+  return t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
+}
+
+// C2 quintic Hermite value noise for organic, seamless fluid movement
 fn noise(p: vec2f) -> f32 {
   let i = floor(p);
   let f = fract(p);
-  let u = f * f * (3.0 - 2.0 * f);
+  let u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
 
   return mix(
     mix(hash21(i + vec2f(0.0, 0.0)), hash21(i + vec2f(1.0, 0.0)), u.x),
@@ -52,30 +59,31 @@ fn fbm(p: vec2f) -> f32 {
 
 // C-infinity smooth dual-lobe volumetric envelope (zero razor cusps)
 fn dualLobe(d: f32, coreW: f32, haloW: f32) -> f32 {
-  let core = exp(-((d * d) / (coreW * coreW)));
-  let halo = exp(-((d * d) / (haloW * haloW))) * 0.35;
+  let d2 = d * d;
+  let core = exp(-d2 / (2.0 * coreW * coreW));
+  let halo = exp(-d2 / (2.0 * haloW * haloW)) * 0.45;
   return core + halo;
 }
 
-// Dispersive Thomson scatter radio wave packet with Gaussian envelope
+// Dispersive Thomson scatter radio wave packet with smooth Gaussian envelope
 fn wavePacket(dist: f32, t: f32, freq: f32, speed: f32) -> f32 {
   let phase = dist * freq - t * speed;
-  let wave = cos(phase) * 0.5 + 0.5;
-  let envelope = exp(-dist * 1.5) * smoothstep(0.05, 0.3, dist);
+  let wave = sin(phase) * 0.5 + 0.5;
+  let envelope = exp(-dist * dist * 3.5) * smootherstep(0.04, 0.28, dist);
   return wave * envelope;
 }
 
 // Multi-octave ionospheric plasma domain warping
 fn plasmaWarp(p: vec2f, t: f32) -> vec2f {
   let q = vec2f(
-    fbm(p + vec2f(t * 0.06, -t * 0.04)),
-    fbm(p + vec2f(4.1 - t * 0.03, 2.7 + t * 0.05))
+    fbm(p + vec2f(t * 0.05, -t * 0.03)),
+    fbm(p + vec2f(4.1 - t * 0.03, 2.7 + t * 0.04))
   );
   let r = vec2f(
-    fbm(p + 2.5 * q + vec2f(1.2 - t * 0.05, 7.3 + t * 0.03)),
-    fbm(p + 2.5 * q + vec2f(6.8 + t * 0.03, 1.9 - t * 0.04))
+    fbm(p + 2.4 * q + vec2f(1.2 - t * 0.04, 7.3 + t * 0.03)),
+    fbm(p + 2.4 * q + vec2f(6.8 + t * 0.03, 1.9 - t * 0.04))
   );
-  return p + 0.28 * r;
+  return p + 0.26 * r;
 }
 
 // ACES-inspired filmic tone mapping to eliminate harsh digital clipping
@@ -93,7 +101,7 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let aspect = params.width / max(params.height, 1.0);
   let p = vec2f((uv.x - 0.5) * aspect, uv.y - 0.5);
 
-  let t = params.time * 0.4;
+  let t = params.time * 0.35;
   let mouseP = vec2f((params.mouseX - 0.5) * aspect, params.mouseY - 0.5);
   let mouseDist = length(p - mouseP);
 
@@ -114,29 +122,29 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let bgStart = bgLightStart * modeLight + bgDarkStart * modeDark + bgSystemStart * modeSystem;
   let bgEnd   = bgLightEnd * modeLight + bgDarkEnd * modeDark + bgSystemEnd * modeSystem;
 
-  var col = mix(bgStart, bgEnd, smoothstep(-0.5, 0.5, p.y) * 0.7);
+  var col = mix(bgStart, bgEnd, smootherstep(-0.5, 0.5, p.y) * 0.7);
 
   // Center beacon location (Sacramento Valley civic nexus)
   let beaconOrigin = vec2f(0.0, -0.15);
-  let pWarp = plasmaWarp(p - beaconOrigin, t * 0.25);
+  let pWarp = plasmaWarp(p - beaconOrigin, t * 0.22);
   let distToBeacon = length(pWarp);
 
   // Volumetric dispersive Thomson scatter radio wavefronts
-  let primaryWave = wavePacket(distToBeacon, t, 12.0, 1.1);
-  let secondaryWave = wavePacket(distToBeacon, t * 1.3, 18.0, 0.9) * 0.6;
+  let primaryWave = wavePacket(distToBeacon, t, 9.0, 0.9);
+  let secondaryWave = wavePacket(distToBeacon, t * 1.2, 13.0, 0.75) * 0.55;
   let radarWave = primaryWave + secondaryWave;
 
   // Beacon nexus luminous core
-  let beaconCore = dualLobe(length(p - beaconOrigin), 0.06, 0.28);
+  let beaconCore = dualLobe(length(p - beaconOrigin), 0.08, 0.35);
 
   // Volumetric Mesospheric Sodium airglow sheet (589 nm)
   let airglowY = p.y - 0.08;
-  let airglowWave = sin(p.x * 4.5 + t * 0.6 + fbm(vec2f(p.x * 2.0, t * 0.15)) * 1.8) * 0.06;
+  let airglowWave = sin(p.x * 3.5 + t * 0.5 + fbm(vec2f(p.x * 1.6, t * 0.12)) * 1.4) * 0.05;
   let airglowDist = abs(airglowY - airglowWave);
-  let airglowSheet = dualLobe(airglowDist, 0.05, 0.16) * (0.65 + 0.35 * sin(p.x * 3.0 + t * 0.4));
+  let airglowSheet = dualLobe(airglowDist, 0.08, 0.24) * (0.65 + 0.35 * sin(p.x * 2.4 + t * 0.3));
 
   // Dynamic resonant probing at cursor
-  let mouseWave = dualLobe(mouseDist, 0.07, 0.32) * (cos(mouseDist * 16.0 - t * 2.5) * 0.5 + 0.5) * params.intensity;
+  let mouseWave = dualLobe(mouseDist, 0.10, 0.40) * (cos(mouseDist * 12.0 - t * 2.0) * 0.5 + 0.5) * params.intensity;
 
   // Emission spectral lines:
   // 1. High-frequency radar carrier cyan (480 nm)
@@ -146,12 +154,12 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   // 3. Violet ionospheric carrier
   let violetCarrier = vec3f(0.60, 0.32, 0.94);
 
-  let signalColor = mix(cyanSignal, goldLayer, smoothstep(-0.2, 0.3, p.y));
-  let totalEmission = radarWave * signalColor * 1.3 + airglowSheet * goldLayer * 1.2 + (beaconCore * 0.7 + mouseWave) * violetCarrier * 1.5;
+  let signalColor = mix(cyanSignal, goldLayer, smootherstep(-0.25, 0.35, p.y));
+  let totalEmission = radarWave * signalColor * 1.35 + airglowSheet * goldLayer * 1.25 + (beaconCore * 0.7 + mouseWave) * violetCarrier * 1.45;
 
   // Theme-adaptive transfer
   let darkRad = col + totalEmission * mix(0.7, 1.2, params.intensity);
-  let lightRad = col * (1.0 - (radarWave * 0.22 + airglowSheet * 0.2)) + (radarWave * cyanSignal * 0.65 + airglowSheet * goldLayer * 0.6 + mouseWave * violetCarrier * 0.7);
+  let lightRad = col * (1.0 - (radarWave * 0.20 + airglowSheet * 0.18)) + (radarWave * cyanSignal * 0.65 + airglowSheet * goldLayer * 0.6 + mouseWave * violetCarrier * 0.7);
   var radiance = mix(lightRad, darkRad, darkFactor);
 
   radiance = tonemap(radiance);

@@ -19,16 +19,24 @@ struct Params {
 
 @group(0) @binding(0) var<uniform> params: Params;
 
+// Golden ratio temporal pseudo-random hash
 fn hash21(p: vec2f) -> f32 {
   var p3 = fract(vec3f(p.xyx) * 0.1031);
   p3 += dot(p3, p3.yzx + 33.33);
   return fract((p3.x + p3.y) * p3.z);
 }
 
+// C2-continuous quintic smootherstep (zero 1st/2nd derivative discontinuities)
+fn smootherstep(e0: f32, e1: f32, x: f32) -> f32 {
+  let t = clamp((x - e0) / max(e1 - e0, 0.00001), 0.0, 1.0);
+  return t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
+}
+
+// C2-continuous quintic Hermite value noise
 fn noise(p: vec2f) -> f32 {
   let i = floor(p);
   let f = fract(p);
-  let u = f * f * (3.0 - 2.0 * f);
+  let u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
 
   return mix(
     mix(hash21(i + vec2f(0.0, 0.0)), hash21(i + vec2f(1.0, 0.0)), u.x),
@@ -37,6 +45,7 @@ fn noise(p: vec2f) -> f32 {
   );
 }
 
+// Multi-octave fractional Brownian motion with smooth octave decay
 fn fbm(p: vec2f) -> f32 {
   var v = 0.0;
   var a = 0.5;
@@ -50,24 +59,24 @@ fn fbm(p: vec2f) -> f32 {
   return v;
 }
 
-// C-infinity smooth dual-lobe volumetric envelope (zero razor cusps)
+// C-infinity dual-lobe volumetric Gaussian envelope (zero razor cusps or sharp creases)
 fn dualLobe(d: f32, coreW: f32, haloW: f32) -> f32 {
-  let core = exp(-((d * d) / (coreW * coreW)));
-  let halo = exp(-((d * d) / (haloW * haloW))) * 0.35;
+  let core = exp(-((d * d) / max(coreW * coreW, 0.00001)));
+  let halo = exp(-((d * d) / max(haloW * haloW, 0.00001))) * 0.38;
   return core + halo;
 }
 
-// Multi-octave acoustic hall domain warping
+// Multi-octave acoustic hall reverberation domain warping
 fn choirWarp(p: vec2f, t: f32) -> vec2f {
   let q = vec2f(
-    fbm(p + vec2f(t * 0.05, -t * 0.04)),
-    fbm(p + vec2f(3.9 - t * 0.03, 1.6 + t * 0.05))
+    fbm(p + vec2f(t * 0.045, -t * 0.035)),
+    fbm(p + vec2f(3.9 - t * 0.03, 1.6 + t * 0.045))
   );
   let r = vec2f(
-    fbm(p + 2.5 * q + vec2f(1.4 - t * 0.04, 7.1 + t * 0.03)),
-    fbm(p + 2.5 * q + vec2f(6.2 + t * 0.04, 2.8 - t * 0.05))
+    fbm(p + 2.5 * q + vec2f(1.4 - t * 0.035, 7.1 + t * 0.03)),
+    fbm(p + 2.5 * q + vec2f(6.2 + t * 0.035, 2.8 - t * 0.045))
   );
-  return p + 0.26 * r;
+  return p + 0.25 * r;
 }
 
 // ACES-inspired filmic tone mapping to eliminate harsh digital clipping
@@ -85,10 +94,10 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let aspect = params.width / max(params.height, 1.0);
   let p = vec2f((uv.x - 0.5) * aspect, uv.y - 0.5);
 
-  let t = params.time * 0.45;
+  let t = params.time * 0.40;
   let mouseP = vec2f((params.mouseX - 0.5) * aspect, params.mouseY - 0.5);
   let mouseDist = length(p - mouseP);
-  let mouseInfluence = dualLobe(mouseDist, 0.08, 0.35) * params.intensity;
+  let mouseInfluence = dualLobe(mouseDist, 0.09, 0.38) * params.intensity;
 
   let darkFactor = clamp(params.effectiveTheme, 0.0, 1.0);
 
@@ -96,53 +105,85 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let modeLight = clamp(1.0 - abs(params.themeMode - 1.0), 0.0, 1.0);
   let modeSystem = clamp(1.0 - params.themeMode, 0.0, 1.0);
 
-  // Background acoustic concert hall ambience
-  let bgDarkStart = vec3f(0.015, 0.032, 0.08);
-  let bgDarkEnd   = vec3f(0.04, 0.068, 0.16);
-  let bgLightStart = vec3f(0.93, 0.95, 0.99);
-  let bgLightEnd   = vec3f(0.86, 0.91, 0.97);
+  // Background acoustic cathedral / concert hall ambience
+  let bgDarkStart = vec3f(0.014, 0.028, 0.075);
+  let bgDarkEnd   = vec3f(0.038, 0.065, 0.155);
+  let bgLightStart = vec3f(0.935, 0.955, 0.992);
+  let bgLightEnd   = vec3f(0.865, 0.912, 0.972);
   let bgSystemStart = mix(bgLightStart, bgDarkStart, darkFactor);
   let bgSystemEnd   = mix(bgLightEnd, bgDarkEnd, darkFactor);
 
   let bgStart = bgLightStart * modeLight + bgDarkStart * modeDark + bgSystemStart * modeSystem;
   let bgEnd   = bgLightEnd * modeLight + bgDarkEnd * modeDark + bgSystemEnd * modeSystem;
 
-  var col = mix(bgStart, bgEnd, smoothstep(-0.5, 0.5, p.y) * 0.7);
+  let hallBlend = smootherstep(-0.55, 0.45, p.y) * 0.72;
+  var col = mix(bgStart, bgEnd, hallBlend);
 
-  let pWarp = choirWarp(p, t * 0.2);
+  let pWarp = choirWarp(p, t * 0.18);
 
-  // 1. Bass Voice: Deep, resonant foundation ribbon (Indigo / Royal Cobalt)
-  let bassW = sin(pWarp.x * 2.2 + t * 0.5) * 0.15 + sin(pWarp.x * 4.4 - t * 0.25) * 0.06 + mouseInfluence * 0.04;
-  let distBass = abs(pWarp.y + 0.08 - bassW);
-  let bassGlow = dualLobe(distBass, 0.065, 0.22);
-  let colBass = vec3f(0.18, 0.45, 0.98) * bassGlow;
+  // Acoustic vibrato oscillation (natural 5 Hz human vocal pulse)
+  let vibrato = sin(t * 5.2) * 0.012;
 
-  // 2. Tenor Voice: Warm, rhythmic community heart ribbon (Amber Gold / Copper)
-  let tenorW = sin(pWarp.x * 3.4 - t * 0.7 + 1.2) * 0.12 + cos(pWarp.x * 6.8 + t * 0.4) * 0.05 - mouseInfluence * 0.03;
-  let distTenor = abs(pWarp.y + 0.02 - tenorW);
-  let tenorGlow = dualLobe(distTenor, 0.055, 0.20);
-  let colTenor = vec3f(0.98, 0.78, 0.25) * tenorGlow;
+  // 1. Bass Voice: Deep, velvety foundation ribbon (Indigo / Royal Cobalt)
+  // Fundamental 55-110 Hz: broad volumetric presence with gentle sub-bass breathing
+  let bassW = sin(pWarp.x * 2.1 + t * 0.48) * 0.15 +
+              sin(pWarp.x * 4.2 - t * 0.24) * 0.055 +
+              vibrato * 0.4 +
+              mouseInfluence * 0.035;
+  let distBass = pWarp.y + 0.08 - bassW;
+  let bassGlow = dualLobe(distBass, 0.078, 0.26);
+  let colBass = vec3f(0.16, 0.44, 0.98) * bassGlow;
 
-  // 3. Alto Voice: Harmonic bridge ribbon (Cyan / Emerald Glow)
-  let altoW = cos(pWarp.x * 4.8 + t * 0.9 + 2.4) * 0.10 + sin(pWarp.x * 9.6 - t * 0.5) * 0.04 + mouseInfluence * 0.03;
-  let distAlto = abs(pWarp.y - 0.04 - altoW);
-  let altoGlow = dualLobe(distAlto, 0.05, 0.18);
-  let colAlto = vec3f(0.16, 0.92, 0.72) * altoGlow;
+  // 2. Tenor Voice: Warm, honeyed community heart ribbon (Amber Gold / Warm Topaz)
+  // Harmonic 130-260 Hz: rhythmic golden warmth with silky overtone resonance
+  let tenorW = sin(pWarp.x * 3.2 - t * 0.65 + 1.25) * 0.125 +
+               cos(pWarp.x * 6.4 + t * 0.38) * 0.048 +
+               vibrato * 0.6 -
+               mouseInfluence * 0.028;
+  let distTenor = pWarp.y + 0.02 - tenorW;
+  let tenorGlow = dualLobe(distTenor, 0.068, 0.24);
+  let colTenor = vec3f(0.98, 0.76, 0.24) * tenorGlow;
 
-  // 4. Soprano Voice: High radiant freedom call ribbon (Brilliant Diamond Ice)
-  let sopW = sin(pWarp.x * 6.8 - t * 1.1 + 4.0) * 0.08 + cos(pWarp.x * 13.6 + t * 0.7) * 0.03 + mouseInfluence * 0.05;
-  let distSop = abs(pWarp.y - 0.10 - sopW);
-  let sopGlow = dualLobe(distSop, 0.045, 0.16);
-  let colSop = vec3f(0.85, 0.95, 1.0) * sopGlow;
+  // 3. Alto Voice: Luminous chest-voice bridge ribbon (Cyan / Emerald Glow)
+  // Harmonic 220-440 Hz: lyrical polyphonic countermelody
+  let altoW = cos(pWarp.x * 4.6 + t * 0.85 + 2.45) * 0.105 +
+              sin(pWarp.x * 9.2 - t * 0.46) * 0.038 +
+              vibrato * 0.8 +
+              mouseInfluence * 0.025;
+  let distAlto = pWarp.y - 0.04 - altoW;
+  let altoGlow = dualLobe(distAlto, 0.062, 0.22);
+  let colAlto = vec3f(0.15, 0.92, 0.70) * altoGlow;
 
-  // Dynamic cursor acoustic resonance
-  let colCursor = vec3f(0.25, 0.82, 0.98) * mouseInfluence * 1.6;
+  // 4. Soprano Voice: Radiant bell-tone freedom call ribbon (Brilliant Diamond Ice)
+  // High radiant 520-1040 Hz: ethereal crystalline silk chiffon with delicate air shimmer
+  let sopW = sin(pWarp.x * 6.4 - t * 1.05 + 4.1) * 0.085 +
+             cos(pWarp.x * 12.8 + t * 0.65) * 0.028 +
+             vibrato +
+             mouseInfluence * 0.045;
+  let distSop = pWarp.y - 0.10 - sopW;
+  let sopGlow = dualLobe(distSop, 0.054, 0.19);
+  let colSop = vec3f(0.86, 0.95, 1.0) * sopGlow;
 
-  let totalAcoustic = (colBass * 1.2 + colTenor * 1.35 + colAlto * 1.2 + colSop * 1.4 + colCursor);
+  // 5. Polyphonic Cross-Resonance Standing Waves (harmonic chord intersections)
+  // Constructive interference nodes between Tenor and Alto, Bass and Soprano
+  let chordInterference = cos(16.0 * (bassW - tenorW) + t * 2.0) * bassGlow * tenorGlow * 1.25 +
+                          cos(20.0 * (altoW - sopW) - t * 2.5) * altoGlow * sopGlow * 1.35;
+  let colChord = vec3f(0.98, 0.90, 0.62) * max(0.0, chordInterference);
+
+  // Dynamic acoustic resonance aura at cursor
+  let colCursor = vec3f(0.24, 0.82, 0.98) * mouseInfluence * 1.55;
+
+  let totalAcoustic = (colBass * 1.15 +
+                       colTenor * 1.30 +
+                       colAlto * 1.18 +
+                       colSop * 1.35 +
+                       colChord * 0.85 +
+                       colCursor);
 
   // Theme-adaptive transfer
-  let darkRad = col + totalAcoustic * mix(0.7, 1.25, params.intensity);
-  let lightRad = col * (1.0 - (bassGlow * 0.16 + tenorGlow * 0.16 + altoGlow * 0.16)) + (colBass * 0.65 + colTenor * 0.68 + colAlto * 0.65 + colSop * 0.72 + colCursor * 0.6);
+  let darkRad = col + totalAcoustic * mix(0.72, 1.25, params.intensity);
+  let lightRad = col * (1.0 - (bassGlow * 0.15 + tenorGlow * 0.15 + altoGlow * 0.15 + sopGlow * 0.12)) +
+                 (colBass * 0.62 + colTenor * 0.66 + colAlto * 0.64 + colSop * 0.70 + colCursor * 0.58);
   var radiance = mix(lightRad, darkRad, darkFactor);
 
   radiance = tonemap(radiance);

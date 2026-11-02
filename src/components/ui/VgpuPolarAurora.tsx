@@ -25,14 +25,27 @@ fn hash21(p: vec2f) -> f32 {
   return fract((p3.x + p3.y) * p3.z);
 }
 
-fn tonemap(c: vec3f) -> vec3f {
-  return (c * (1.0 + c * 0.22)) / (1.0 + c);
+// C2-continuous quintic smootherstep eliminating Mach banding and optical creasing
+fn smootherstep(e0: f32, e1: f32, x: f32) -> f32 {
+  let t = clamp((x - e0) / max(0.00001, e1 - e0), 0.0, 1.0);
+  return t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
 }
 
+// ACES-inspired filmic tone mapping to eliminate harsh digital clipping
+fn tonemap(x: vec3f) -> vec3f {
+  let a = 2.51;
+  let b = 0.03;
+  let c = 2.43;
+  let d = 0.59;
+  let e = 0.14;
+  return clamp((x * (a * x + b)) / (x * (c * x + d) + e), vec3f(0.0), vec3f(1.0));
+}
+
+// C2 quintic Hermite value noise for organic, seamless fluid movement
 fn noise(p: vec2f) -> f32 {
   let i = floor(p);
   let f = fract(p);
-  let u = f * f * (3.0 - 2.0 * f);
+  let u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
 
   return mix(
     mix(hash21(i + vec2f(0.0, 0.0)), hash21(i + vec2f(1.0, 0.0)), u.x),
@@ -54,10 +67,11 @@ fn fbm(p: vec2f) -> f32 {
   return v;
 }
 
-// Dual-lobe atmospheric scattering envelope: smooth Gaussian core + expansive Rayleigh haze
-fn auroralLobe(distY: f32, coreScale: f32, haloScale: f32) -> f32 {
-  let core = exp(-pow(distY * coreScale, 2.0));
-  let halo = exp(-abs(distY) * haloScale) * 0.42;
+// C-infinity dual-scale Gaussian atmospheric scattering envelope (zero razor cusps)
+fn auroralLobe(distY: f32, coreSigma: f32, haloSigma: f32) -> f32 {
+  let d2 = distY * distY;
+  let core = exp(-d2 / (2.0 * coreSigma * coreSigma));
+  let halo = exp(-d2 / (2.0 * haloSigma * haloSigma)) * 0.45;
   return core + halo;
 }
 
@@ -66,7 +80,7 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let aspect = params.width / max(params.height, 1.0);
   let p = vec2f((uv.x - 0.5) * aspect, uv.y - 0.5);
 
-  let t = params.time * 0.40;
+  let t = params.time * 0.36;
   let mouseP = vec2f((params.mouseX - 0.5) * aspect, params.mouseY - 0.5);
   let mouseDist = length(p - mouseP);
 
@@ -88,34 +102,38 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let bgStart = bgLightStart * modeLight + bgDarkStart * modeDark + bgSystemStart * modeSystem;
   let bgEnd   = bgLightEnd * modeLight + bgDarkEnd * modeDark + bgSystemEnd * modeSystem;
 
-  var col = mix(bgStart, bgEnd, smoothstep(-0.5, 0.5, p.y) * 0.7);
+  var col = mix(bgStart, bgEnd, smootherstep(-0.5, 0.5, p.y) * 0.7);
 
   // Interactive solar wind perturbation from cursor (soft magnetic deflection)
-  let solarWind = (mouseP - p) * exp(-pow(mouseDist * 2.2, 2.0)) * 0.35 * params.intensity;
+  let solarWind = (mouseP - p) * exp(-mouseDist * mouseDist * 4.0) * 0.30 * params.intensity;
   let pWarp = p + solarWind;
 
   // Fluid multi-octave domain warping (advective curl turbulence)
   let warpQ = vec2f(
-    fbm(vec2f(pWarp.x * 1.4 + t * 0.25, pWarp.y * 0.8)),
-    fbm(vec2f(pWarp.x * 1.4 - t * 0.20, pWarp.y * 0.8 + 2.5))
+    fbm(vec2f(pWarp.x * 1.2 + t * 0.22, pWarp.y * 0.7)),
+    fbm(vec2f(pWarp.x * 1.2 - t * 0.18, pWarp.y * 0.7 + 2.5))
   );
 
   // Aurora Curtain 1: Primary volumetric drapery fold (120 km altitude oxygen emission)
-  let fold1 = sin(pWarp.x * 1.6 + t * 0.65 + warpQ.x * 1.8) * 0.20;
+  let fold1 = sin(pWarp.x * 1.4 + t * 0.55 + warpQ.x * 1.6) * 0.18;
   let distY1 = pWarp.y - fold1;
-  let rays1 = smoothstep(0.15, 0.85, noise(vec2f(pWarp.x * 16.0 - t * 0.28 + warpQ.y * 0.9, pWarp.y * 1.4))) * 0.85 + 0.35;
-  let curtain1 = auroralLobe(distY1, 6.5, 2.4) * rays1;
+  let rayField1 = noise(vec2f(pWarp.x * 9.0 - t * 0.24 + warpQ.y * 0.7, pWarp.y * 0.9));
+  let rayWave1 = sin(pWarp.x * 11.0 - t * 0.32) * 0.15 + 0.85;
+  let rays1 = rayWave1 * (0.65 + 0.35 * rayField1);
+  let curtain1 = auroralLobe(distY1, 0.14, 0.40) * rays1;
 
   // Aurora Curtain 2: Secondary dancing ribbon (100 km nitrogen-excited shear wave)
-  let fold2 = sin(pWarp.x * 2.2 - t * 0.45 + 1.8 + warpQ.y * 1.5) * 0.16 - 0.10;
+  let fold2 = sin(pWarp.x * 1.9 - t * 0.40 + 1.8 + warpQ.y * 1.3) * 0.15 - 0.08;
   let distY2 = pWarp.y - fold2;
-  let rays2 = smoothstep(0.2, 0.85, noise(vec2f(pWarp.x * 20.0 + t * 0.35 + warpQ.x * 0.8, pWarp.y * 1.6))) * 0.80 + 0.35;
-  let curtain2 = auroralLobe(distY2, 7.5, 2.8) * rays2;
+  let rayField2 = noise(vec2f(pWarp.x * 12.0 + t * 0.28 + warpQ.x * 0.6, pWarp.y * 1.1));
+  let rayWave2 = cos(pWarp.x * 14.0 + t * 0.38) * 0.15 + 0.85;
+  let rays2 = rayWave2 * (0.62 + 0.38 * rayField2);
+  let curtain2 = auroralLobe(distY2, 0.12, 0.36) * rays2;
 
   // Aurora Curtain 3: Distant faint coronal veil (250 km high-altitude thermosphere)
-  let fold3 = cos(pWarp.x * 1.2 + t * 0.3 + 3.2 + warpQ.x * 1.2) * 0.14 + 0.14;
+  let fold3 = cos(pWarp.x * 1.0 + t * 0.25 + 3.2 + warpQ.x * 1.0) * 0.12 + 0.12;
   let distY3 = pWarp.y - fold3;
-  let curtain3 = auroralLobe(distY3, 5.0, 1.8) * 0.55;
+  let curtain3 = auroralLobe(distY3, 0.18, 0.48) * 0.55;
 
   // Physical emission spectral colors:
   // 1. Radiant emerald atomic oxygen transition (557.7 nm)
@@ -128,21 +146,19 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let cyanScatter = vec3f(0.22, 0.78, 0.96);
 
   // Altitude color dispersion along curtain vertical cross-sections
-  let c1Col = mix(violetN2, greenO2, smoothstep(-0.22, 0.04, distY1));
-  let finalC1 = mix(c1Col, crimsonO2, smoothstep(0.04, 0.32, distY1));
+  let c1Col = mix(violetN2, greenO2, smootherstep(-0.25, 0.05, distY1));
+  let finalC1 = mix(c1Col, crimsonO2, smootherstep(0.05, 0.35, distY1));
 
-  let c2Col = mix(violetN2, greenO2, smoothstep(-0.18, 0.06, distY2));
-  let finalC2 = mix(c2Col, crimsonO2, smoothstep(0.06, 0.28, distY2));
+  let c2Col = mix(violetN2, greenO2, smootherstep(-0.20, 0.06, distY2));
+  let finalC2 = mix(c2Col, crimsonO2, smootherstep(0.06, 0.30, distY2));
 
-  let finalC3 = mix(greenO2, crimsonO2, smoothstep(-0.1, 0.25, distY3));
+  let finalC3 = mix(greenO2, crimsonO2, smootherstep(-0.12, 0.28, distY3));
 
   let totalRadiance = (curtain1 * finalC1 + curtain2 * finalC2 + curtain3 * finalC3);
   let totalDensity = (curtain1 + curtain2 * 0.9 + curtain3 * 0.5) * params.intensity;
 
   // Theme-adaptive transfer function:
-  // In Dark Mode: Luminous emission against Arctic night sky
-  // In Light Mode: Saturated prismatic atmospheric scattering (never washing out)
-  let darkEmission = totalRadiance * 1.45;
+  let darkEmission = totalRadiance * 1.40;
   let lightEmission = mix(col * 0.75 + totalRadiance * 0.65, cyanScatter, 0.25);
   let sysEmission = mix(lightEmission, darkEmission, darkFactor);
 
@@ -151,17 +167,17 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
 
   col = mix(col, col + blendedEmission, densityFactor);
 
-  // Twinkling stars with atmospheric scintillation in dark mode
-  let starGrid = floor(pWarp * 55.0);
+  // Soft atmospheric stars in dark mode
+  let starGrid = floor(pWarp * 45.0);
   let starRand = hash21(starGrid);
   if (starRand > 0.982 && darkFactor > 0.35) {
-    let starTwinkle = sin(t * 3.5 + starRand * 25.0) * 0.5 + 0.5;
-    let starPos = fract(pWarp * 55.0) - 0.5;
-    let starGlow = exp(-pow(length(starPos) * 12.0, 2.0)) * starTwinkle * (1.0 - clamp(totalDensity * 0.9, 0.0, 0.8));
+    let starTwinkle = sin(t * 2.8 + starRand * 25.0) * 0.5 + 0.5;
+    let starPos = fract(pWarp * 45.0) - 0.5;
+    let starGlow = exp(-length(starPos) * length(starPos) * 40.0) * starTwinkle * (1.0 - clamp(totalDensity * 0.8, 0.0, 0.7));
     col += vec3f(0.85, 0.92, 1.0) * starGlow * 0.5 * darkFactor;
   }
 
-  // Filmic tone-mapping to compress HDR highlights
+  // Filmic tone-mapping to compress dynamic highlights
   col = tonemap(col);
 
   // Golden-ratio temporal dithering to eliminate 8-bit gradient banding

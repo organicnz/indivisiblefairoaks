@@ -31,8 +31,20 @@ fn hash11(p: f32) -> f32 {
   return fract((p3.x + p3.y) * p3.z);
 }
 
-fn tonemap(c: vec3f) -> vec3f {
-  return (c * (1.0 + c * 0.22)) / (1.0 + c);
+// C2-continuous quintic smootherstep eliminating Mach banding and optical creasing
+fn smootherstep(e0: f32, e1: f32, x: f32) -> f32 {
+  let t = clamp((x - e0) / max(0.00001, e1 - e0), 0.0, 1.0);
+  return t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
+}
+
+// ACES-inspired filmic tone mapping to eliminate harsh digital clipping
+fn tonemap(x: vec3f) -> vec3f {
+  let a = 2.51;
+  let b = 0.03;
+  let c = 2.43;
+  let d = 0.59;
+  let e = 0.14;
+  return clamp((x * (a * x + b)) / (x * (c * x + d) + e), vec3f(0.0), vec3f(1.0));
 }
 
 fn distToSegment(p: vec2f, a: vec2f, b: vec2f) -> f32 {
@@ -42,10 +54,11 @@ fn distToSegment(p: vec2f, a: vec2f, b: vec2f) -> f32 {
   return length(pa - ba * h);
 }
 
-// Relativistic particle track scattering: Gaussian ionization filament + expansive Cherenkov forward cone
+// Relativistic particle track scattering: Gaussian ionization filament + expansive Cherenkov forward cone (zero cusps)
 fn particleTrack(distLine: f32, lifeFade: f32) -> vec2f {
-  let core = exp(-pow(distLine * 24.0, 2.0)) * lifeFade * 1.4;
-  let cone = exp(-abs(distLine) * 5.5) * lifeFade * 0.55;
+  let d2 = distLine * distLine;
+  let core = exp(-d2 / (2.0 * 0.016 * 0.016)) * lifeFade * 1.35;
+  let cone = exp(-d2 / (2.0 * 0.085 * 0.085)) * lifeFade * 0.65;
   return vec2f(core, cone);
 }
 
@@ -54,7 +67,7 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let aspect = params.width / max(params.height, 1.0);
   let p = vec2f((uv.x - 0.5) * aspect, uv.y - 0.5);
 
-  let t = params.time * 0.65;
+  let t = params.time * 0.55;
   let mouseP = vec2f((params.mouseX - 0.5) * aspect, params.mouseY - 0.5);
   let mouseDist = length(p - mouseP);
 
@@ -75,7 +88,7 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let bgStart = bgLightStart * modeLight + bgDarkStart * modeDark + bgSystemStart * modeSystem;
   let bgEnd   = bgLightEnd * modeLight + bgDarkEnd * modeDark + bgSystemEnd * modeSystem;
 
-  var col = mix(bgStart, bgEnd, smoothstep(-0.5, 0.5, p.y) * 0.75);
+  var col = mix(bgStart, bgEnd, smootherstep(-0.5, 0.5, p.y) * 0.75);
 
   var totalCascade = vec3f(0.0);
   var cascadeDensity = 0.0;
@@ -91,7 +104,7 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   // Simulate 8 ongoing extensive air showers (EAS cascades)
   for (var i = 0; i < 8; i = i + 1) {
     let fi = f32(i);
-    let cycleTime = 2.2 + fi * 0.28;
+    let cycleTime = 2.4 + fi * 0.30;
     let localTime = fract((t + fi * 0.73) / cycleTime);
     let epoch = floor((t + fi * 0.73) / cycleTime);
 
@@ -105,21 +118,22 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
     let lengthTrack = 0.42 + hash11(epoch * 59.2 + fi) * 0.32;
     let dir = vec2f(cos(angle), -sin(angle));
 
-    let progress = smoothstep(0.0, 0.65, localTime);
+    let progress = smootherstep(0.0, 0.65, localTime);
     let currentTip = startPoint + dir * (lengthTrack * progress);
     let currentTail = startPoint + dir * (lengthTrack * max(0.0, progress - 0.32));
 
     let distLine = distToSegment(p, currentTail, currentTip);
-    let lifeFade = exp(-pow((localTime - 0.32) * 3.8, 2.0));
+    let dFade = (localTime - 0.35);
+    let lifeFade = exp(-dFade * dFade * 12.0);
 
     let trackProfile = particleTrack(distLine, lifeFade);
     let core = trackProfile.x;
     let cherenkovGlow = trackProfile.y;
 
     // Daughter cascade branching: secondary electron/positron pair
-    let branchTip = currentTip + vec2f(dir.y, -dir.x) * (0.08 * sin(localTime * 12.0));
+    let branchTip = currentTip + vec2f(dir.y, -dir.x) * (0.08 * sin(localTime * 10.0));
     let distBranch = distToSegment(p, currentTip, branchTip);
-    let branchGlow = exp(-pow(distBranch * 20.0, 2.0)) * lifeFade * 0.45;
+    let branchGlow = exp(-distBranch * distBranch / (2.0 * 0.045 * 0.045)) * lifeFade * 0.50;
 
     let particleColor = mix(cherenkovBlue, trackWhite, clamp(core * 1.2, 0.0, 1.0));
     let showerCol = particleColor * core + ionizationViolet * (cherenkovGlow + branchGlow);
@@ -129,15 +143,14 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   }
 
   // Interactive mouse ionization shower (photographic detector interaction)
-  let mouseCore = exp(-pow(mouseDist * 8.0, 2.0)) * 0.75 * params.intensity;
-  let mouseCone = exp(-mouseDist * 2.2) * 0.35 * params.intensity;
+  let mD2 = mouseDist * mouseDist;
+  let mouseCore = exp(-mD2 / (2.0 * 0.06 * 0.06)) * 0.75 * params.intensity;
+  let mouseCone = exp(-mD2 / (2.0 * 0.28 * 0.28)) * 0.45 * params.intensity;
   totalCascade += (trackWhite * mouseCore + cherenkovBlue * mouseCone);
   cascadeDensity += (mouseCore + mouseCone);
 
   // Theme-adaptive composite:
-  // In Dark Mode: Luminous particle tracks crossing cosmic photographic plate
-  // In Light Mode: Saturated electric azure and violet ionization filaments
-  let darkRadiance = totalCascade * 1.45;
+  let darkRadiance = totalCascade * 1.40;
   let lightRadiance = mix(col * 0.78 + totalCascade * 0.65, cherenkovBlue, 0.18 * cascadeDensity);
   let sysRadiance = mix(lightRadiance, darkRadiance, darkFactor);
 
@@ -147,12 +160,12 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   col = mix(col, col + finalRadiance, clamp(cascadeDensity * intensityScale, 0.0, 1.0));
 
   // Distant stars visible through photographic plate with atmospheric scintillation
-  let starHash = hash21(floor(p * 60.0));
+  let starHash = hash21(floor(p * 50.0));
   if (starHash > 0.985 && darkFactor > 0.35) {
-    let twinkle = sin(t * 3.2 + starHash * 20.0) * 0.5 + 0.5;
-    let starPos = fract(p * 60.0) - 0.5;
-    let starAiry = exp(-pow(length(starPos) * 14.0, 2.0)) * twinkle;
-    col += vec3f(0.88, 0.94, 1.0) * starAiry * 0.6 * darkFactor;
+    let twinkle = sin(t * 2.8 + starHash * 20.0) * 0.5 + 0.5;
+    let starPos = fract(p * 50.0) - 0.5;
+    let starAiry = exp(-length(starPos) * length(starPos) * 45.0) * twinkle;
+    col += vec3f(0.88, 0.94, 1.0) * starAiry * 0.55 * darkFactor;
   }
 
   // Filmic tone-mapping to compress dynamic highlights

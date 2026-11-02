@@ -25,10 +25,17 @@ fn hash21(p: vec2f) -> f32 {
   return fract((p3.x + p3.y) * p3.z);
 }
 
+// C2-continuous quintic smootherstep eliminating Mach banding and optical creasing
+fn smootherstep(e0: f32, e1: f32, x: f32) -> f32 {
+  let t = clamp((x - e0) / max(0.00001, e1 - e0), 0.0, 1.0);
+  return t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
+}
+
+// C2 quintic Hermite value noise for organic, seamless fluid movement
 fn noise(p: vec2f) -> f32 {
   let i = floor(p);
   let f = fract(p);
-  let u = f * f * (3.0 - 2.0 * f);
+  let u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
 
   return mix(
     mix(hash21(i + vec2f(0.0, 0.0)), hash21(i + vec2f(1.0, 0.0)), u.x),
@@ -52,8 +59,9 @@ fn fbm(p: vec2f) -> f32 {
 
 // C-infinity smooth dual-lobe volumetric envelope (zero razor cusps)
 fn dualLobe(d: f32, coreW: f32, haloW: f32) -> f32 {
-  let core = exp(-((d * d) / (coreW * coreW)));
-  let halo = exp(-((d * d) / (haloW * haloW))) * 0.35;
+  let d2 = d * d;
+  let core = exp(-d2 / (2.0 * coreW * coreW));
+  let halo = exp(-d2 / (2.0 * haloW * haloW)) * 0.45;
   return core + halo;
 }
 
@@ -64,10 +72,10 @@ fn domainWarp(p: vec2f, t: f32) -> vec2f {
     fbm(p + vec2f(5.2 - t * 0.03, 1.3 + t * 0.06))
   );
   let r = vec2f(
-    fbm(p + 3.0 * q + vec2f(1.7 - t * 0.06, 9.2 + t * 0.04)),
-    fbm(p + 3.0 * q + vec2f(8.3 + t * 0.04, 2.8 - t * 0.05))
+    fbm(p + 2.8 * q + vec2f(1.7 - t * 0.06, 9.2 + t * 0.04)),
+    fbm(p + 2.8 * q + vec2f(8.3 + t * 0.04, 2.8 - t * 0.05))
   );
-  return p + 0.32 * r;
+  return p + 0.30 * r;
 }
 
 // ACES-inspired filmic tone mapping to eliminate harsh digital clipping
@@ -85,7 +93,7 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let aspect = params.width / max(params.height, 1.0);
   let p = vec2f((uv.x - 0.5) * aspect, uv.y - 0.5);
 
-  let t = params.time * 0.35;
+  let t = params.time * 0.32;
   let mouseP = vec2f((params.mouseX - 0.5) * aspect, params.mouseY - 0.5);
   let mouseDist = length(p - mouseP);
 
@@ -106,27 +114,27 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let bgStart = bgLightStart * modeLight + bgDarkStart * modeDark + bgSystemStart * modeSystem;
   let bgEnd   = bgLightEnd * modeLight + bgDarkEnd * modeDark + bgSystemEnd * modeSystem;
 
-  var col = mix(bgStart, bgEnd, smoothstep(-0.5, 0.5, p.y) * 0.8);
+  var col = mix(bgStart, bgEnd, smootherstep(-0.5, 0.5, p.y) * 0.8);
 
   // Central solar limb offset just below the banner
   let sunCenter = vec2f(0.0, -0.42);
-  let pWarp = domainWarp(p - sunCenter, t * 0.2);
+  let pWarp = domainWarp(p - sunCenter, t * 0.18);
   let r = length(pWarp);
   let theta = atan2(pWarp.y, pWarp.x);
 
   // Volumetric Parker spiral coronal helmet streamers
-  let spiralTheta = theta + 0.22 * r;
-  let streamerFbm = fbm(vec2f(spiralTheta * 2.6, r * 1.4 - t * 0.25));
-  let streamerRadial = exp(-r * 1.6) * smoothstep(0.12, 0.42, r);
+  let spiralTheta = theta + 0.20 * r;
+  let streamerFbm = fbm(vec2f(spiralTheta * 2.4, r * 1.3 - t * 0.22));
+  let streamerRadial = exp(-r * 1.3) * smootherstep(0.08, 0.42, r);
   let helmetStreamers = streamerRadial * (0.35 + 0.65 * streamerFbm);
 
   // Volumetric prominence plasma arcade loops (magnetic flux ropes)
-  let loopR = 0.36 + 0.07 * sin(theta * 3.0 + sin(t * 0.4) * 0.5) + 0.03 * fbm(vec2f(theta * 2.0, t * 0.2));
+  let loopR = 0.36 + 0.07 * sin(theta * 3.0 + sin(t * 0.35) * 0.5) + 0.03 * fbm(vec2f(theta * 1.8, t * 0.18));
   let loopDist = abs(r - loopR);
-  let prominence = dualLobe(loopDist, 0.045, 0.14) * smoothstep(0.1, 0.5, p.y - sunCenter.y + 0.4);
+  let prominence = dualLobe(loopDist, 0.075, 0.22) * smootherstep(0.08, 0.45, p.y - sunCenter.y + 0.4);
 
   // Dynamic coronal mass ejection / flare at cursor
-  let flare = dualLobe(mouseDist, 0.09, 0.35) * params.intensity;
+  let flare = dualLobe(mouseDist, 0.12, 0.45) * params.intensity;
 
   // Physical spectral lines:
   // H-Alpha (656.3 nm) deep crimson ruby
@@ -136,14 +144,14 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   // Thomson-scattered K-corona champagne pearl
   let pearlCorona = vec3f(1.0, 0.95, 0.88);
 
-  let plasmaColor = mix(hAlphaRed, heliumGold, smoothstep(0.25, 0.65, r));
-  let coronaColor = mix(plasmaColor, pearlCorona, smoothstep(0.35, 0.85, r));
+  let plasmaColor = mix(hAlphaRed, heliumGold, smootherstep(0.20, 0.60, r));
+  let coronaColor = mix(plasmaColor, pearlCorona, smootherstep(0.32, 0.82, r));
 
-  let totalRadiance = prominence * hAlphaRed * 1.6 + helmetStreamers * coronaColor * 1.3 + flare * heliumGold * 2.0;
+  let totalRadiance = prominence * hAlphaRed * 1.5 + helmetStreamers * coronaColor * 1.3 + flare * heliumGold * 1.8;
 
   // Theme-adaptive transfer: luminous emission in dark mode, spectral absorption/enrichment in light mode
   let darkRad = col + totalRadiance * mix(0.75, 1.25, params.intensity);
-  let lightRad = col * (1.0 - (prominence * 0.28 + helmetStreamers * 0.18)) + (prominence * hAlphaRed * 0.7 + helmetStreamers * heliumGold * 0.6 + flare * heliumGold * 0.75);
+  let lightRad = col * (1.0 - (prominence * 0.25 + helmetStreamers * 0.16)) + (prominence * hAlphaRed * 0.68 + helmetStreamers * heliumGold * 0.58 + flare * heliumGold * 0.72);
   var radiance = mix(lightRad, darkRad, darkFactor);
 
   radiance = tonemap(radiance);

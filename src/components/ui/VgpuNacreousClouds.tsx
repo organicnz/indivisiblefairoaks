@@ -25,14 +25,33 @@ fn hash21(p: vec2f) -> f32 {
   return fract((p3.x + p3.y) * p3.z);
 }
 
-fn tonemap(c: vec3f) -> vec3f {
-  return (c * (1.0 + c * 0.22)) / (1.0 + c);
+// C2-continuous quintic smootherstep eliminating Mach banding and optical creasing
+fn smootherstep(e0: f32, e1: f32, x: f32) -> f32 {
+  let t = clamp((x - e0) / max(0.00001, e1 - e0), 0.0, 1.0);
+  return t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
 }
 
+// C-infinity soft maximum eliminating derivative seams
+fn softMax(a: f32, b: f32, k: f32) -> f32 {
+  let h = clamp(0.5 + 0.5 * (b - a) / max(0.0001, k), 0.0, 1.0);
+  return mix(a, b, h) + k * h * (1.0 - h);
+}
+
+// ACES-inspired filmic tone mapping to eliminate harsh digital clipping
+fn tonemap(x: vec3f) -> vec3f {
+  let a = 2.51;
+  let b = 0.03;
+  let c = 2.43;
+  let d = 0.59;
+  let e = 0.14;
+  return clamp((x * (a * x + b)) / (x * (c * x + d) + e), vec3f(0.0), vec3f(1.0));
+}
+
+// C2 quintic Hermite value noise for organic, seamless fluid movement
 fn noise(p: vec2f) -> f32 {
   let i = floor(p);
   let f = fract(p);
-  let u = f * f * (3.0 - 2.0 * f);
+  let u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
 
   return mix(
     mix(hash21(i + vec2f(0.0, 0.0)), hash21(i + vec2f(1.0, 0.0)), u.x),
@@ -59,7 +78,7 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let aspect = params.width / max(params.height, 1.0);
   let p = vec2f((uv.x - 0.5) * aspect, uv.y - 0.5);
 
-  let t = params.time * 0.32;
+  let t = params.time * 0.28;
   let mouseP = vec2f((params.mouseX - 0.5) * aspect, params.mouseY - 0.5);
   let mouseDist = length(p - mouseP);
 
@@ -80,29 +99,31 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let bgStart = bgLightStart * modeLight + bgDarkStart * modeDark + bgSystemStart * modeSystem;
   let bgEnd   = bgLightEnd * modeLight + bgDarkEnd * modeDark + bgSystemEnd * modeSystem;
 
-  var col = mix(bgStart, bgEnd, smoothstep(-0.5, 0.5, p.y) * 0.7);
+  var col = mix(bgStart, bgEnd, smootherstep(-0.5, 0.5, p.y) * 0.7);
 
   // Gentle barometric perturbation from mouse pointer
-  let mousePush = (mouseP - p) * exp(-pow(mouseDist * 2.2, 2.0)) * 0.28 * params.intensity;
+  let mousePush = (mouseP - p) * exp(-mouseDist * mouseDist * 3.5) * 0.25 * params.intensity;
   let pShifted = p + mousePush;
 
   // Fluid multi-octave domain warping for lenticular stratospheric clouds
   let warpQ = vec2f(
-    fbm(vec2f(pShifted.x * 1.6 + t * 0.15, pShifted.y * 1.2)),
-    fbm(vec2f(pShifted.x * 1.6 - t * 0.12, pShifted.y * 1.2 + 2.4))
+    fbm(vec2f(pShifted.x * 1.3 + t * 0.12, pShifted.y * 1.0)),
+    fbm(vec2f(pShifted.x * 1.3 - t * 0.10, pShifted.y * 1.0 + 2.4))
   );
 
   // Smooth lenticular wave crests with zero sharp creases
-  let wave1 = sin(pShifted.x * 2.2 + t * 0.35 + warpQ.x * 1.6) * 0.18;
-  let wave2 = cos(pShifted.x * 2.8 - t * 0.28 + warpQ.y * 1.4) * 0.15 - 0.08;
+  let wave1 = sin(pShifted.x * 1.8 + t * 0.30 + warpQ.x * 1.4) * 0.16;
+  let wave2 = cos(pShifted.x * 2.2 - t * 0.24 + warpQ.y * 1.2) * 0.14 - 0.08;
 
   // Gaussian thickness profiles for billowy stratospheric ice sheets
-  let distSheet1 = exp(-pow((pShifted.y - wave1 - 0.04) * 4.8, 2.0));
-  let distSheet2 = exp(-pow((pShifted.y - wave2 + 0.10) * 5.4, 2.0));
-  let cloudDensity = max(distSheet1 * 0.88, distSheet2 * 0.78);
+  let d1 = (pShifted.y - wave1 - 0.03);
+  let distSheet1 = exp(-d1 * d1 * 12.0);
+  let d2 = (pShifted.y - wave2 + 0.09);
+  let distSheet2 = exp(-d2 * d2 * 14.0);
+  let cloudDensity = softMax(distSheet1 * 0.88, distSheet2 * 0.78, 0.12);
 
   // Gentle diffraction phase: slow, continuous color dispersion without Moire banding
-  let diffPhase = cloudDensity * 3.5 + pShifted.x * 2.4 + sin(pShifted.y * 3.2 - t * 0.5) * 0.8;
+  let diffPhase = cloudDensity * 2.8 + pShifted.x * 1.8 + sin(pShifted.y * 2.4 - t * 0.4) * 0.6;
 
   // Mother-of-pearl iridescent diffraction spectral palette:
   // 1. Soft Rose Peach (1.0, 0.78, 0.70)
@@ -115,7 +136,7 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let champagneGold = vec3f(0.98, 0.92, 0.65);
 
   let irid1 = sin(diffPhase) * 0.5 + 0.5;
-  let irid2 = cos(diffPhase * 1.1 + 1.4) * 0.5 + 0.5;
+  let irid2 = cos(diffPhase * 1.05 + 1.4) * 0.5 + 0.5;
 
   let pearlescent = mix(
     mix(peachOpal, seafoamAqua, irid1),
@@ -124,9 +145,7 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   );
 
   // Theme-adaptive transfer function:
-  // In Dark Mode: Luminous mother-of-pearl post-sunset cloud glow
-  // In Light Mode: Shimmering iridescent crystal clouds against daylight sky
-  let darkRadiance = pearlescent * cloudDensity * 1.45;
+  let darkRadiance = pearlescent * cloudDensity * 1.40;
   let lightRadiance = mix(col * 0.75 + pearlescent * 0.70, champagneGold, 0.18 * cloudDensity);
   let sysRadiance = mix(lightRadiance, darkRadiance, darkFactor);
 

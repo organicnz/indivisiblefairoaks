@@ -25,14 +25,27 @@ fn hash21(p: vec2f) -> f32 {
   return fract((p3.x + p3.y) * p3.z);
 }
 
-fn tonemap(c: vec3f) -> vec3f {
-  return (c * (1.0 + c * 0.22)) / (1.0 + c);
+// C2-continuous quintic smootherstep eliminating Mach banding and optical creasing
+fn smootherstep(e0: f32, e1: f32, x: f32) -> f32 {
+  let t = clamp((x - e0) / max(0.00001, e1 - e0), 0.0, 1.0);
+  return t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
 }
 
+// ACES-inspired filmic tone mapping to eliminate harsh digital clipping
+fn tonemap(x: vec3f) -> vec3f {
+  let a = 2.51;
+  let b = 0.03;
+  let c = 2.43;
+  let d = 0.59;
+  let e = 0.14;
+  return clamp((x * (a * x + b)) / (x * (c * x + d) + e), vec3f(0.0), vec3f(1.0));
+}
+
+// C2 quintic Hermite value noise for organic, seamless fluid movement
 fn noise(p: vec2f) -> f32 {
   let i = floor(p);
   let f = fract(p);
-  let u = f * f * (3.0 - 2.0 * f);
+  let u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
 
   return mix(
     mix(hash21(i + vec2f(0.0, 0.0)), hash21(i + vec2f(1.0, 0.0)), u.x),
@@ -59,7 +72,7 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let aspect = params.width / max(params.height, 1.0);
   let p = vec2f((uv.x - 0.5) * aspect, uv.y - 0.5);
 
-  let t = params.time * 0.38;
+  let t = params.time * 0.32;
   let mouseP = vec2f((params.mouseX - 0.5) * aspect, params.mouseY - 0.5);
   let mouseDist = length(p - mouseP);
 
@@ -80,32 +93,33 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let bgStart = bgLightStart * modeLight + bgDarkStart * modeDark + bgSystemStart * modeSystem;
   let bgEnd   = bgLightEnd * modeLight + bgDarkEnd * modeDark + bgSystemEnd * modeSystem;
 
-  var col = mix(bgStart, bgEnd, smoothstep(-0.5, 0.5, p.y) * 0.75);
+  var col = mix(bgStart, bgEnd, smootherstep(-0.5, 0.5, p.y) * 0.75);
 
   // Soft atmospheric wind shear from cursor
-  let windShear = (mouseP - p) * exp(-pow(mouseDist * 2.2, 2.0)) * 0.30 * params.intensity;
+  let windShear = (mouseP - p) * exp(-mouseDist * mouseDist * 4.0) * 0.28 * params.intensity;
   let pWarp = p + windShear;
 
-  // Multi-scale atmospheric gravity wave field
-  // Domain warping simulates fluid shear instability at the 85km mesopause
+  // Multi-scale atmospheric gravity wave field with fluid shear instability
   let warpFlow = vec2f(
-    fbm(vec2f(pWarp.x * 2.2 + t * 0.2, pWarp.y * 1.5)),
-    fbm(vec2f(pWarp.x * 2.2 - t * 0.15, pWarp.y * 1.5 + 3.0))
+    fbm(vec2f(pWarp.x * 1.8 + t * 0.18, pWarp.y * 1.2)),
+    fbm(vec2f(pWarp.x * 1.8 - t * 0.14, pWarp.y * 1.2 + 3.0))
   );
 
   // Primary longitudinal gravity wave
-  let wave1 = sin(pWarp.x * 6.5 + pWarp.y * 4.0 - t * 0.85 + warpFlow.x * 1.6);
+  let wave1 = sin(pWarp.x * 4.8 + pWarp.y * 2.8 - t * 0.75 + warpFlow.x * 1.4);
   // Secondary transverse billow train (Kelvin-Helmholtz curls)
-  let wave2 = cos(pWarp.x * 9.5 - pWarp.y * 7.5 + t * 0.65 + warpFlow.y * 1.4);
+  let wave2 = cos(pWarp.x * 6.8 - pWarp.y * 4.5 + t * 0.55 + warpFlow.y * 1.2);
   // Delicate sub-micron ice crystal filaments (organic undulating ripples)
-  let ripples = sin(pWarp.x * 18.0 + pWarp.y * 12.0 - t * 1.1 + warpFlow.x * 1.2) * 0.5 + 0.5;
+  let ripples = sin(pWarp.x * 12.0 + pWarp.y * 8.0 - t * 0.85 + warpFlow.x * 0.8) * 0.5 + 0.5;
 
-  // Height envelopes concentrating clouds in middle-upper mesopause
-  let envelope1 = exp(-pow((pWarp.y - 0.06) * 4.2, 2.0));
-  let envelope2 = exp(-pow((pWarp.y + 0.16) * 5.0, 2.0));
+  // Gaussian height envelopes concentrating clouds in middle-upper mesopause
+  let dEnv1 = (pWarp.y - 0.06);
+  let envelope1 = exp(-dEnv1 * dEnv1 * 14.0);
+  let dEnv2 = (pWarp.y + 0.16);
+  let envelope2 = exp(-dEnv2 * dEnv2 * 18.0);
 
-  let billows1 = smoothstep(-0.2, 0.85, (wave1 + wave2 * 0.65) * 0.6) * (0.65 + ripples * 0.35);
-  let billows2 = smoothstep(-0.25, 0.80, (-wave1 * 0.7 + wave2) * 0.55) * (0.70 + ripples * 0.30);
+  let billows1 = smootherstep(-0.35, 0.85, (wave1 + wave2 * 0.6) * 0.55) * (0.65 + ripples * 0.35);
+  let billows2 = smootherstep(-0.40, 0.80, (-wave1 * 0.65 + wave2) * 0.50) * (0.70 + ripples * 0.30);
 
   let nlcDensity = (billows1 * envelope1 + billows2 * envelope2 * 0.75);
 
@@ -115,12 +129,10 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let deepAzure  = vec3f(0.14, 0.48, 0.92);
   let twilightGold = vec3f(0.98, 0.82, 0.45);
 
-  let nlcColor = mix(iceCyan, iceSilver, smoothstep(0.15, 0.75, nlcDensity));
+  let nlcColor = mix(iceCyan, iceSilver, smootherstep(0.15, 0.75, nlcDensity));
 
   // Theme-adaptive composite:
-  // In Dark Mode: Luminous electric blue night-shining clouds
-  // In Light Mode: Delicate crisp azure and silver ice wave billows
-  let darkRadiance = (nlcColor * nlcDensity * 1.45 + deepAzure * (nlcDensity * 0.5));
+  let darkRadiance = (nlcColor * nlcDensity * 1.40 + deepAzure * (nlcDensity * 0.45));
   let lightRadiance = mix(col * 0.75 + nlcColor * 0.65, twilightGold, 0.15 * nlcDensity);
   let sysRadiance = mix(lightRadiance, darkRadiance, darkFactor);
 

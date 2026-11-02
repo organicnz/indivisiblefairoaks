@@ -19,6 +19,7 @@ struct Params {
 
 @group(0) @binding(0) var<uniform> params: Params;
 
+// Golden ratio temporal pseudo-random hash
 fn hash21(p: vec2f) -> f32 {
   var p3 = fract(vec3f(p.xyx) * 0.1031);
   p3 += dot(p3, p3.yzx + 33.33);
@@ -31,10 +32,16 @@ fn hash22(p: vec2f) -> vec2f {
   return fract((p3.xx + p3.yz) * p3.zy);
 }
 
-// C-infinity smooth dual-lobe volumetric envelope (zero razor cusps)
+// C2-continuous quintic smootherstep (zero 1st/2nd derivative discontinuities)
+fn smootherstep(e0: f32, e1: f32, x: f32) -> f32 {
+  let t = clamp((x - e0) / max(e1 - e0, 0.00001), 0.0, 1.0);
+  return t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
+}
+
+// C-infinity dual-lobe volumetric Gaussian envelope (zero razor cusps or sharp creases)
 fn dualLobe(d: f32, coreW: f32, haloW: f32) -> f32 {
-  let core = exp(-((d * d) / (coreW * coreW)));
-  let halo = exp(-((d * d) / (haloW * haloW))) * 0.35;
+  let core = exp(-((d * d) / max(coreW * coreW, 0.00001)));
+  let halo = exp(-((d * d) / max(haloW * haloW, 0.00001))) * 0.38;
   return core + halo;
 }
 
@@ -53,10 +60,10 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let aspect = params.width / max(params.height, 1.0);
   let p = vec2f((uv.x - 0.5) * aspect, uv.y - 0.5);
 
-  let t = params.time * 0.22;
+  let t = params.time * 0.20;
   let mouseP = vec2f((params.mouseX - 0.5) * aspect, params.mouseY - 0.5);
   let mouseDist = length(p - mouseP);
-  let mouseInfluence = dualLobe(mouseDist, 0.09, 0.35) * params.intensity;
+  let mouseInfluence = dualLobe(mouseDist, 0.10, 0.38) * params.intensity;
 
   let darkFactor = clamp(params.effectiveTheme, 0.0, 1.0);
 
@@ -64,20 +71,21 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let modeLight = clamp(1.0 - abs(params.themeMode - 1.0), 0.0, 1.0);
   let modeSystem = clamp(1.0 - params.themeMode, 0.0, 1.0);
 
-  let bgDarkStart = vec3f(0.015, 0.032, 0.08);
-  let bgDarkEnd   = vec3f(0.04, 0.068, 0.16);
-  let bgLightStart = vec3f(0.93, 0.95, 0.99);
-  let bgLightEnd   = vec3f(0.86, 0.91, 0.97);
+  let bgDarkStart = vec3f(0.014, 0.028, 0.075);
+  let bgDarkEnd   = vec3f(0.038, 0.065, 0.155);
+  let bgLightStart = vec3f(0.935, 0.955, 0.992);
+  let bgLightEnd   = vec3f(0.865, 0.912, 0.972);
   let bgSystemStart = mix(bgLightStart, bgDarkStart, darkFactor);
   let bgSystemEnd   = mix(bgLightEnd, bgDarkEnd, darkFactor);
 
   let bgStart = bgLightStart * modeLight + bgDarkStart * modeDark + bgSystemStart * modeSystem;
   let bgEnd   = bgLightEnd * modeLight + bgDarkEnd * modeDark + bgSystemEnd * modeSystem;
 
-  var col = mix(bgStart, bgEnd, smoothstep(-0.5, 0.5, p.y) * 0.5);
+  let bgBlend = smootherstep(-0.55, 0.45, p.y) * 0.52;
+  var col = mix(bgStart, bgEnd, bgBlend);
 
   // Dynamic Voronoi-like nodal network
-  let cellSize = 5.5;
+  let cellSize = 5.2;
   let gridP = p * cellSize;
   let cellId = floor(gridP);
   let localP = fract(gridP) - 0.5;
@@ -94,8 +102,8 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
       let rand = hash22(cellId + neighbor);
 
       // Orbital oscillation of nodes with smooth phase modulation
-      let quantumPhase = sin(rand.x * 6.28 + t * 1.2) * 0.1 * modeSystem;
-      let nodePos = neighbor + sin(rand * 6.28 + vec2f(t * 1.0, t * 0.7) + quantumPhase) * 0.32;
+      let quantumPhase = sin(rand.x * 6.28 + t * 1.1) * 0.1 * modeSystem;
+      let nodePos = neighbor + sin(rand * 6.28 + vec2f(t * 0.95, t * 0.65) + quantumPhase) * 0.30;
       let diff = nodePos - localP;
       let d = length(diff);
 
@@ -110,35 +118,41 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
     }
   }
 
-  // Draw node points of light (grassroots activists) with Gaussian core + soft halo
-  let nodeGlow = dualLobe(minDist, 0.12, 0.42);
-  let nodeDarkColor   = mix(vec3f(0.20, 0.60, 0.98), vec3f(0.98, 0.78, 0.22), closestRand);
-  let nodeLightColor  = mix(vec3f(0.25, 0.55, 0.95), vec3f(0.95, 0.72, 0.22), closestRand);
-  let nodeSystemColor = mix(vec3f(0.12, 0.88, 0.58), vec3f(0.98, 0.76, 0.20), closestRand);
+  // Draw node points of light (grassroots activists) with Airy diffraction + organic breathing
+  let breathPulse = 0.88 + 0.12 * sin(closestRand * 6.28 + t * 2.2);
+  let nodeAiryHalo = exp(-minDist * 6.5) * (1.0 + 0.25 * cos(minDist * 14.0));
+  let nodeGlow = (dualLobe(minDist, 0.14, 0.45) + nodeAiryHalo * 0.25) * breathPulse;
+
+  let nodeDarkColor   = mix(vec3f(0.20, 0.58, 0.98), vec3f(0.98, 0.78, 0.22), closestRand);
+  let nodeLightColor  = mix(vec3f(0.25, 0.54, 0.94), vec3f(0.95, 0.72, 0.22), closestRand);
+  let nodeSystemColor = mix(vec3f(0.12, 0.88, 0.56), vec3f(0.98, 0.76, 0.20), closestRand);
   let nodeColor = nodeLightColor * modeLight + nodeDarkColor * modeDark + nodeSystemColor * modeSystem;
-  let nodeEmission = nodeColor * nodeGlow * 1.35;
+  let nodeEmission = nodeColor * nodeGlow * 1.30;
 
   // Draw connecting energy filaments between neighboring nodes (coalition ties)
   let filamentDist = secondMinDist - minDist;
-  let filament = dualLobe(filamentDist, 0.14, 0.38) * smoothstep(0.9, 0.2, minDist);
-  let filamentDarkColor  = mix(vec3f(0.18, 0.52, 0.92), vec3f(0.92, 0.68, 0.22), mouseInfluence);
-  let filamentLightColor = mix(vec3f(0.22, 0.50, 0.90), vec3f(0.90, 0.65, 0.22), mouseInfluence);
-  let filamentSystemColor = mix(vec3f(0.14, 0.78, 0.62), vec3f(0.90, 0.68, 0.22), mouseInfluence);
+  let filamentTaper = smootherstep(1.0, 0.15, minDist);
+  let filamentPulse = 0.85 + 0.15 * cos(filamentDist * 16.0 - t * 3.0);
+  let filament = dualLobe(filamentDist, 0.16, 0.42) * filamentTaper * filamentPulse;
+
+  let filamentDarkColor   = mix(vec3f(0.18, 0.50, 0.92), vec3f(0.92, 0.68, 0.22), mouseInfluence);
+  let filamentLightColor  = mix(vec3f(0.22, 0.48, 0.88), vec3f(0.90, 0.65, 0.22), mouseInfluence);
+  let filamentSystemColor = mix(vec3f(0.14, 0.78, 0.60), vec3f(0.90, 0.68, 0.22), mouseInfluence);
   let filamentColor = filamentLightColor * modeLight + filamentDarkColor * modeDark + filamentSystemColor * modeSystem;
-  let filamentEmission = filamentColor * filament * (0.45 + mouseInfluence * 0.55);
+  let filamentEmission = filamentColor * filament * (0.42 + mouseInfluence * 0.58);
 
   // Cursor civic aura & ripple
   let auraCyan = mix(vec3f(0.25, 0.72, 0.98), vec3f(0.22, 0.58, 0.95), darkFactor);
   let auraGold = mix(vec3f(0.98, 0.82, 0.28), vec3f(0.95, 0.75, 0.22), darkFactor);
-  let auraEmerald = vec3f(0.18, 0.90, 0.64);
+  let auraEmerald = vec3f(0.18, 0.90, 0.62);
   let auraColor = (auraCyan * 0.6 + auraGold * 0.4) * (modeLight + modeDark) + (auraEmerald * 0.5 + auraGold * 0.5) * modeSystem;
-  let cursorEmission = auraColor * mouseInfluence * 1.5;
+  let cursorEmission = auraColor * mouseInfluence * 1.45;
 
   let totalEmission = nodeEmission + filamentEmission + cursorEmission;
 
   // Theme-adaptive transfer
-  let darkRad = col + totalEmission * mix(0.7, 1.25, params.intensity);
-  let lightRad = col * (1.0 - (nodeGlow * 0.22 + filament * 0.18)) + (nodeEmission * 0.65 + filamentEmission * 0.62 + cursorEmission * 0.7);
+  let darkRad = col + totalEmission * mix(0.72, 1.25, params.intensity);
+  let lightRad = col * (1.0 - (nodeGlow * 0.20 + filament * 0.16)) + (nodeEmission * 0.62 + filamentEmission * 0.60 + cursorEmission * 0.66);
   var radiance = mix(lightRad, darkRad, darkFactor);
 
   radiance = tonemap(radiance);

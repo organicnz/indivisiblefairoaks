@@ -25,10 +25,17 @@ fn hash21(p: vec2f) -> f32 {
   return fract((p3.x + p3.y) * p3.z);
 }
 
+// C2-continuous quintic smootherstep eliminating Mach banding and optical creasing
+fn smootherstep(e0: f32, e1: f32, x: f32) -> f32 {
+  let t = clamp((x - e0) / max(0.00001, e1 - e0), 0.0, 1.0);
+  return t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
+}
+
+// C2 quintic Hermite value noise for organic, seamless fluid movement
 fn noise(p: vec2f) -> f32 {
   let i = floor(p);
   let f = fract(p);
-  let u = f * f * (3.0 - 2.0 * f);
+  let u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
 
   return mix(
     mix(hash21(i + vec2f(0.0, 0.0)), hash21(i + vec2f(1.0, 0.0)), u.x),
@@ -52,22 +59,23 @@ fn fbm(p: vec2f) -> f32 {
 
 // C-infinity smooth dual-lobe volumetric envelope (zero razor cusps)
 fn dualLobe(d: f32, coreW: f32, haloW: f32) -> f32 {
-  let core = exp(-((d * d) / (coreW * coreW)));
-  let halo = exp(-((d * d) / (haloW * haloW))) * 0.35;
+  let d2 = d * d;
+  let core = exp(-d2 / (2.0 * coreW * coreW));
+  let halo = exp(-d2 / (2.0 * haloW * haloW)) * 0.45;
   return core + halo;
 }
 
 // Multi-octave magnetohydrodynamic domain warping
 fn mhdWarp(p: vec2f, t: f32) -> vec2f {
   let q = vec2f(
-    fbm(p + vec2f(-t * 0.08, t * 0.04)),
-    fbm(p + vec2f(3.8 + t * 0.05, 1.9 - t * 0.03))
+    fbm(p + vec2f(-t * 0.06, t * 0.03)),
+    fbm(p + vec2f(3.8 + t * 0.04, 1.9 - t * 0.02))
   );
   let r = vec2f(
-    fbm(p + 3.0 * q + vec2f(2.4 - t * 0.04, 5.1 + t * 0.06)),
-    fbm(p + 3.0 * q + vec2f(7.2 + t * 0.05, 3.3 - t * 0.04))
+    fbm(p + 2.8 * q + vec2f(2.4 - t * 0.03, 5.1 + t * 0.05)),
+    fbm(p + 2.8 * q + vec2f(7.2 + t * 0.04, 3.3 - t * 0.03))
   );
-  return p + 0.3 * r;
+  return p + 0.28 * r;
 }
 
 // ACES-inspired filmic tone mapping to eliminate harsh digital clipping
@@ -85,7 +93,7 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let aspect = params.width / max(params.height, 1.0);
   let p = vec2f((uv.x - 0.5) * aspect, uv.y - 0.5);
 
-  let t = params.time * 0.4;
+  let t = params.time * 0.35;
   let mouseP = vec2f((params.mouseX - 0.5) * aspect, params.mouseY - 0.5);
   let mouseDist = length(p - mouseP);
 
@@ -106,29 +114,29 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let bgStart = bgLightStart * modeLight + bgDarkStart * modeDark + bgSystemStart * modeSystem;
   let bgEnd   = bgLightEnd * modeLight + bgDarkEnd * modeDark + bgSystemEnd * modeSystem;
 
-  var col = mix(bgStart, bgEnd, smoothstep(-0.5, 0.5, p.y) * 0.7);
+  var col = mix(bgStart, bgEnd, smootherstep(-0.5, 0.5, p.y) * 0.7);
 
-  let pWarp = mhdWarp(p, t * 0.25);
+  let pWarp = mhdWarp(p, t * 0.22);
 
   // Parabolic Bow Shock Stand-off Curve (deflecting incoming solar flux)
-  let bowApexX = -0.16 + sin(t * 0.4) * 0.02;
-  let bowParabola = pow(pWarp.y, 2.0) * 1.6 + bowApexX;
+  let bowApexX = -0.16 + sin(t * 0.35) * 0.02;
+  let bowParabola = pow(pWarp.y, 2.0) * 1.5 + bowApexX;
   let distToBow = abs(pWarp.x - bowParabola);
-  let bowShock = dualLobe(distToBow, 0.045, 0.16) * (0.75 + 0.25 * sin(p.y * 8.0 - t * 1.5));
+  let bowShock = dualLobe(distToBow, 0.075, 0.24) * (0.80 + 0.20 * sin(p.y * 5.0 - t * 1.1));
 
   // Volumetric Dipole Magnetic Flux Tubes protecting coalition core
   let dipoleY = pWarp.y;
   let dipoleX = pWarp.x + 0.12;
   let rDipole = length(vec2f(dipoleX, dipoleY));
-  let fluxPhase = sin(dipoleY * 7.0 + t * 0.6 + fbm(vec2f(dipoleX * 2.0, t * 0.15)) * 1.6);
-  let magneticField = dualLobe(abs(fluxPhase) * 0.2, 0.05, 0.18) * exp(-rDipole * 1.4);
+  let fluxPhase = sin(dipoleY * 5.5 + t * 0.5 + fbm(vec2f(dipoleX * 1.8, t * 0.12)) * 1.4);
+  let magneticField = dualLobe(abs(fluxPhase) * 0.18, 0.08, 0.26) * exp(-rDipole * 1.1);
 
   // Volumetric Magnetosheath boundary layer
-  let magnetopauseDist = abs(pWarp.x - (bowParabola + 0.14));
-  let sheath = dualLobe(magnetopauseDist, 0.06, 0.22) * (0.6 + 0.4 * fbm(vec2f(p.x * 3.0 + t * 0.3, p.y * 3.0)));
+  let magnetopauseDist = abs(pWarp.x - (bowParabola + 0.15));
+  let sheath = dualLobe(magnetopauseDist, 0.09, 0.30) * (0.65 + 0.35 * fbm(vec2f(p.x * 2.5 + t * 0.25, p.y * 2.5)));
 
   // Dynamic deflection flare at cursor
-  let shockCompression = dualLobe(mouseDist, 0.08, 0.32) * params.intensity;
+  let shockCompression = dualLobe(mouseDist, 0.10, 0.38) * params.intensity;
 
   // Emission spectral colors:
   // 1. Electric Cobalt Magnetic Flux (460 nm)
@@ -138,11 +146,11 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   // 3. Violet Plasma Sheath (420 nm)
   let violetSheath = vec3f(0.68, 0.32, 0.95);
 
-  let totalEmission = bowShock * bowGold * 1.4 + magneticField * cobaltFlux * 1.2 + sheath * violetSheath * 1.1 + shockCompression * bowGold * 1.8;
+  let totalEmission = bowShock * bowGold * 1.35 + magneticField * cobaltFlux * 1.25 + sheath * violetSheath * 1.15 + shockCompression * bowGold * 1.65;
 
   // Theme-adaptive transfer
   let darkRad = col + totalEmission * mix(0.7, 1.25, params.intensity);
-  let lightRad = col * (1.0 - (bowShock * 0.25 + magneticField * 0.18)) + (bowShock * bowGold * 0.68 + magneticField * cobaltFlux * 0.62 + shockCompression * bowGold * 0.75);
+  let lightRad = col * (1.0 - (bowShock * 0.22 + magneticField * 0.16)) + (bowShock * bowGold * 0.65 + magneticField * cobaltFlux * 0.60 + shockCompression * bowGold * 0.72);
   var radiance = mix(lightRad, darkRad, darkFactor);
 
   radiance = tonemap(radiance);

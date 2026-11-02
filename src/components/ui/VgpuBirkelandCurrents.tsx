@@ -25,10 +25,17 @@ fn hash21(p: vec2f) -> f32 {
   return fract((p3.x + p3.y) * p3.z);
 }
 
+// C2-continuous quintic smootherstep eliminating Mach banding and optical creasing
+fn smootherstep(e0: f32, e1: f32, x: f32) -> f32 {
+  let t = clamp((x - e0) / max(0.00001, e1 - e0), 0.0, 1.0);
+  return t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
+}
+
+// C2 quintic Hermite value noise for organic, seamless fluid movement
 fn noise(p: vec2f) -> f32 {
   let i = floor(p);
   let f = fract(p);
-  let u = f * f * (3.0 - 2.0 * f);
+  let u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
 
   return mix(
     mix(hash21(i + vec2f(0.0, 0.0)), hash21(i + vec2f(1.0, 0.0)), u.x),
@@ -52,8 +59,9 @@ fn fbm(p: vec2f) -> f32 {
 
 // C-infinity smooth dual-lobe volumetric envelope (zero razor cusps)
 fn dualLobe(d: f32, coreW: f32, haloW: f32) -> f32 {
-  let core = exp(-((d * d) / (coreW * coreW)));
-  let halo = exp(-((d * d) / (haloW * haloW))) * 0.35;
+  let d2 = d * d;
+  let core = exp(-d2 / (2.0 * coreW * coreW));
+  let halo = exp(-d2 / (2.0 * haloW * haloW)) * 0.45;
   return core + halo;
 }
 
@@ -64,10 +72,10 @@ fn helicalWarp(p: vec2f, t: f32) -> vec2f {
     fbm(p + vec2f(5.1 - t * 0.03, 1.4 + t * 0.05))
   );
   let r = vec2f(
-    fbm(p + 2.8 * q + vec2f(2.1 - t * 0.05, 8.4 + t * 0.03)),
-    fbm(p + 2.8 * q + vec2f(7.3 + t * 0.04, 3.2 - t * 0.04))
+    fbm(p + 2.6 * q + vec2f(2.1 - t * 0.04, 8.4 + t * 0.03)),
+    fbm(p + 2.6 * q + vec2f(7.3 + t * 0.03, 3.2 - t * 0.04))
   );
-  return p + 0.3 * r;
+  return p + 0.28 * r;
 }
 
 // ACES-inspired filmic tone mapping to eliminate harsh digital clipping
@@ -85,7 +93,7 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let aspect = params.width / max(params.height, 1.0);
   let p = vec2f((uv.x - 0.5) * aspect, uv.y - 0.5);
 
-  let t = params.time * 0.38;
+  let t = params.time * 0.35;
   let mouseP = vec2f((params.mouseX - 0.5) * aspect, params.mouseY - 0.5);
   let mouseDist = length(p - mouseP);
 
@@ -106,28 +114,28 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let bgStart = bgLightStart * modeLight + bgDarkStart * modeDark + bgSystemStart * modeSystem;
   let bgEnd   = bgLightEnd * modeLight + bgDarkEnd * modeDark + bgSystemEnd * modeSystem;
 
-  var col = mix(bgStart, bgEnd, smoothstep(-0.5, 0.5, p.y) * 0.7);
+  var col = mix(bgStart, bgEnd, smootherstep(-0.5, 0.5, p.y) * 0.7);
 
-  let pWarp = helicalWarp(p, t * 0.25);
+  let pWarp = helicalWarp(p, t * 0.22);
 
   // Dual intertwined helical Birkeland current ropes
-  let helixFreq = 4.2;
-  let helixSpeed = t * 1.2;
+  let helixFreq = 3.2;
+  let helixSpeed = t * 1.0;
   let helixPhase1 = pWarp.x * helixFreq + helixSpeed;
   let helixPhase2 = pWarp.x * helixFreq + helixSpeed + 3.14159;
 
-  let yHelix1 = sin(helixPhase1) * 0.16 + fbm(vec2f(pWarp.x * 1.8, t * 0.15)) * 0.06;
-  let yHelix2 = sin(helixPhase2) * 0.16 + fbm(vec2f(pWarp.x * 1.8 + 1.2, t * 0.15)) * 0.06;
+  let yHelix1 = sin(helixPhase1) * 0.15 + fbm(vec2f(pWarp.x * 1.5, t * 0.12)) * 0.05;
+  let yHelix2 = sin(helixPhase2) * 0.15 + fbm(vec2f(pWarp.x * 1.5 + 1.2, t * 0.12)) * 0.05;
 
   let distH1 = abs(pWarp.y - yHelix1);
   let distH2 = abs(pWarp.y - yHelix2);
 
-  // Volumetric dual-lobe helical current sheaths
-  let currentRope1 = dualLobe(distH1, 0.05, 0.18) * (0.8 + 0.2 * cos(pWarp.x * 3.0 + t));
-  let currentRope2 = dualLobe(distH2, 0.05, 0.18) * (0.8 + 0.2 * sin(pWarp.x * 3.0 - t));
+  // Volumetric dual-lobe helical current sheaths with soft core and halo
+  let currentRope1 = dualLobe(distH1, 0.08, 0.26) * (0.82 + 0.18 * cos(pWarp.x * 2.5 + t));
+  let currentRope2 = dualLobe(distH2, 0.08, 0.26) * (0.82 + 0.18 * sin(p.x * 2.5 - t));
 
   // Dynamic resonant node discharge at cursor
-  let cursorDischarge = dualLobe(mouseDist, 0.08, 0.35) * params.intensity;
+  let cursorDischarge = dualLobe(mouseDist, 0.10, 0.40) * params.intensity;
 
   // Emission spectral colors:
   // 1. Electric Sapphire (470 nm)
@@ -137,14 +145,14 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   // 3. Auroral Amethyst (427.8 nm)
   let amethyst = vec3f(0.76, 0.32, 0.94);
 
-  let colorRope1 = mix(sapphire, emerald, sin(p.x * 2.5 + t) * 0.5 + 0.5);
-  let colorRope2 = mix(amethyst, sapphire, cos(p.x * 2.5 - t) * 0.5 + 0.5);
+  let colorRope1 = mix(sapphire, emerald, sin(p.x * 2.2 + t) * 0.5 + 0.5);
+  let colorRope2 = mix(amethyst, sapphire, cos(p.x * 2.2 - t) * 0.5 + 0.5);
 
-  let totalEmission = currentRope1 * colorRope1 * 1.35 + currentRope2 * colorRope2 * 1.35 + cursorDischarge * emerald * 1.8;
+  let totalEmission = currentRope1 * colorRope1 * 1.35 + currentRope2 * colorRope2 * 1.35 + cursorDischarge * emerald * 1.65;
 
   // Theme-adaptive transfer
   let darkRad = col + totalEmission * mix(0.7, 1.25, params.intensity);
-  let lightRad = col * (1.0 - (currentRope1 * 0.22 + currentRope2 * 0.22)) + (currentRope1 * colorRope1 * 0.65 + currentRope2 * colorRope2 * 0.65 + cursorDischarge * emerald * 0.75);
+  let lightRad = col * (1.0 - (currentRope1 * 0.20 + currentRope2 * 0.20)) + (currentRope1 * colorRope1 * 0.65 + currentRope2 * colorRope2 * 0.65 + cursorDischarge * emerald * 0.72);
   var radiance = mix(lightRad, darkRad, darkFactor);
 
   radiance = tonemap(radiance);

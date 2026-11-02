@@ -25,14 +25,27 @@ fn hash21(p: vec2f) -> f32 {
   return fract((p3.x + p3.y) * p3.z);
 }
 
-fn tonemap(c: vec3f) -> vec3f {
-  return (c * (1.0 + c * 0.22)) / (1.0 + c);
+// C2-continuous quintic smootherstep eliminating Mach banding and optical creasing
+fn smootherstep(e0: f32, e1: f32, x: f32) -> f32 {
+  let t = clamp((x - e0) / max(0.00001, e1 - e0), 0.0, 1.0);
+  return t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
 }
 
+// ACES-inspired filmic tone mapping to eliminate harsh digital clipping
+fn tonemap(x: vec3f) -> vec3f {
+  let a = 2.51;
+  let b = 0.03;
+  let c = 2.43;
+  let d = 0.59;
+  let e = 0.14;
+  return clamp((x * (a * x + b)) / (x * (c * x + d) + e), vec3f(0.0), vec3f(1.0));
+}
+
+// C2 quintic Hermite value noise for organic, seamless fluid movement
 fn noise(p: vec2f) -> f32 {
   let i = floor(p);
   let f = fract(p);
-  let u = f * f * (3.0 - 2.0 * f);
+  let u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
 
   return mix(
     mix(hash21(i + vec2f(0.0, 0.0)), hash21(i + vec2f(1.0, 0.0)), u.x),
@@ -54,12 +67,13 @@ fn fbm(p: vec2f) -> f32 {
   return v;
 }
 
-// Volumetric magnetic flux tube cross section (Gaussian core + diffuse plasma halo)
+// Volumetric magnetic flux tube cross section (smooth Gaussian core + expansive plasma halo, zero cusps)
 fn fluxTube(distField: f32, fi: f32) -> f32 {
-  let coreScale = 14.0 - fi * 0.8;
-  let haloScale = 3.6 - fi * 0.2;
-  let core = exp(-pow(distField * coreScale, 2.0));
-  let halo = exp(-abs(distField) * haloScale) * 0.45;
+  let d2 = distField * distField;
+  let coreSigma = 0.045 + fi * 0.006;
+  let haloSigma = 0.16 + fi * 0.015;
+  let core = exp(-d2 / (2.0 * coreSigma * coreSigma));
+  let halo = exp(-d2 / (2.0 * haloSigma * haloSigma)) * 0.48;
   return core + halo;
 }
 
@@ -68,7 +82,7 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let aspect = params.width / max(params.height, 1.0);
   let p = vec2f((uv.x - 0.5) * aspect, uv.y - 0.5);
 
-  let t = params.time * 0.45;
+  let t = params.time * 0.38;
   let mouseP = vec2f((params.mouseX - 0.5) * aspect, params.mouseY - 0.5);
   let mouseDist = length(p - mouseP);
 
@@ -89,17 +103,17 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let bgStart = bgLightStart * modeLight + bgDarkStart * modeDark + bgSystemStart * modeSystem;
   let bgEnd   = bgLightEnd * modeLight + bgDarkEnd * modeDark + bgSystemEnd * modeSystem;
 
-  var col = mix(bgStart, bgEnd, smoothstep(-0.5, 0.5, p.y) * 0.7);
+  var col = mix(bgStart, bgEnd, smootherstep(-0.5, 0.5, p.y) * 0.7);
 
   // Magnetic Cusp Apex: Located at (0.0, -0.32)
   let cuspCenter = vec2f(0.0, -0.32);
 
   // Soft magnetic reconnection deflection from mouse pointer
-  let mouseForce = (mouseP - p) * exp(-pow(mouseDist * 2.2, 2.0)) * 0.30 * params.intensity;
+  let mouseForce = (mouseP - p) * exp(-mouseDist * mouseDist * 3.5) * 0.28 * params.intensity;
   let pWarped = p + mouseForce;
 
   // Fluid domain warp modeling magnetohydrodynamic turbulence
-  let warpX = fbm(vec2f(pWarped.x * 2.0, t * 0.3)) * 0.04;
+  let warpX = fbm(vec2f(pWarped.x * 1.6, t * 0.25)) * 0.035;
 
   var totalFlux = 0.0;
   var fluxColor = vec3f(0.0);
@@ -119,15 +133,14 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
     let distField = abs(pWarped.y - expectedY);
 
     // Plasma flow along the magnetic flux tube
-    let alongArc = pWarped.x * (1.8 + fi * 0.45);
-    let flowPulse = sin(alongArc * 6.0 - t * (1.4 + fi * 0.25) + fi * 1.2) * 0.5 + 0.5;
-    let waveFbm = noise(vec2f(alongArc * 3.5, t * 0.35 + fi));
+    let alongArc = pWarped.x * (1.6 + fi * 0.35);
+    let flowPulse = sin(alongArc * 5.0 - t * (1.2 + fi * 0.2) + fi * 1.2) * 0.5 + 0.5;
+    let waveFbm = noise(vec2f(alongArc * 2.8, t * 0.28 + fi));
 
-    let fluxLine = fluxTube(distField, fi) * (0.55 + flowPulse * 0.45 * waveFbm);
+    let fluxLine = fluxTube(distField, fi) * (0.60 + flowPulse * 0.40 * waveFbm);
 
     // Color gradient across field lines:
-    // Inner cusp glows with gold/amber civic guidance, outer arches glow with sapphire cyan and violet
-    let archColor = mix(goldCol, mix(cyanCol, violetCol, fi / 7.0), smoothstep(1.0, 5.0, fi));
+    let archColor = mix(goldCol, mix(cyanCol, violetCol, fi / 7.0), smootherstep(1.0, 5.0, fi));
 
     totalFlux += fluxLine;
     fluxColor += fluxLine * archColor;
@@ -135,15 +148,14 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
 
   // Central Polar Cusp Funnel Glow (True North beacon)
   let distCusp = length(pWarped - cuspCenter);
-  let cuspCore = exp(-pow(distCusp * 2.8, 2.0));
-  let cuspHalo = exp(-distCusp * 1.4) * 0.45;
-  let cuspGlow = (cuspCore + cuspHalo) * (sin(t * 1.8) * 0.12 + 0.88);
-  fluxColor += goldCol * cuspGlow * 0.9;
+  let dC2 = distCusp * distCusp;
+  let cuspCore = exp(-dC2 / (2.0 * 0.12 * 0.12));
+  let cuspHalo = exp(-dC2 / (2.0 * 0.38 * 0.38)) * 0.52;
+  let cuspGlow = (cuspCore + cuspHalo) * (sin(t * 1.6) * 0.10 + 0.90);
+  fluxColor += goldCol * cuspGlow * 0.95;
   totalFlux += cuspGlow * 0.65;
 
   // Theme-adaptive composite:
-  // In Dark Mode: Luminous plasma glow against deep magnetosphere
-  // In Light Mode: Saturated radiant amber-cyan guidance arcs
   let darkRadiance = fluxColor * 1.35;
   let lightRadiance = mix(col * 0.8 + fluxColor * 0.6, goldCol, 0.2);
   let sysRadiance = mix(lightRadiance, darkRadiance, darkFactor);
