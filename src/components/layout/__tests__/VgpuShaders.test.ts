@@ -14,6 +14,26 @@ import {
   CONSTELLATION_SHADER,
   WGSL_CONSTELLATION,
 } from '@/components/ui/VgpuCivicConstellation';
+import {
+  ACTION_PULSES_SHADER,
+  WGSL_ACTION_PULSES,
+} from '@/components/ui/VgpuActionPulses';
+import {
+  DEMOCRACY_BEACON_SHADER,
+  WGSL_DEMOCRACY_BEACON,
+} from '@/components/ui/VgpuDemocracyBeacon';
+import {
+  DISPATCH_WAVES_SHADER,
+  WGSL_DISPATCH_WAVES,
+} from '@/components/ui/VgpuDispatchWaves';
+import {
+  RIVER_CANOPY_SHADER,
+  WGSL_RIVER_CANOPY,
+} from '@/components/ui/VgpuRiverCanopy';
+import {
+  APERTURE_PRISM_SHADER,
+  WGSL_APERTURE_PRISM,
+} from '@/components/ui/VgpuAperturePrism';
 
 describe('VGPU WebGPU Shader Compilation & Pipeline Verification', () => {
   it('compiles THEME_WGSL without WGSL errors and executes a multi-wave render pass', async () => {
@@ -212,6 +232,176 @@ describe('VGPU WebGPU Shader Compilation & Pipeline Verification', () => {
       frame(gpu, (f) => {
         f.pass({ target: renderTarget, clear: [0, 0, 0, 1] }, (p) => {
           p.draw(choir);
+        });
+      });
+    }).not.toThrow();
+
+    gpu.dispose();
+  });
+
+  it('compiles WGSL_ACTION_PULSES and executes concentric mobilization render pass', async () => {
+    const gpu = await init();
+    const renderTarget = target(gpu, { size: [256, 256] });
+
+    expect(WGSL_ACTION_PULSES.length).toBeGreaterThan(0);
+    const pulses = effect(gpu, ACTION_PULSES_SHADER, {
+      label: 'test-action-pulses',
+      set: {
+        params: {
+          time: 3.2,
+          width: 256,
+          height: 256,
+          mouseX: 0.5,
+          mouseY: 0.5,
+          intensity: 1.0,
+          themeMode: 2.0,
+          effectiveTheme: 1.0,
+        },
+      },
+    });
+
+    await pulses.compile(renderTarget);
+
+    expect(() => {
+      frame(gpu, (f) => {
+        f.pass({ target: renderTarget, clear: [0, 0, 0, 1] }, (p) => {
+          p.draw(pulses);
+        });
+      });
+    }).not.toThrow();
+
+    gpu.dispose();
+  });
+
+  it('compiles WGSL_DEMOCRACY_BEACON and executes democratic light render pass', async () => {
+    const gpu = await init();
+    const renderTarget = target(gpu, { size: [256, 256] });
+
+    expect(WGSL_DEMOCRACY_BEACON.length).toBeGreaterThan(0);
+    const beacon = effect(gpu, DEMOCRACY_BEACON_SHADER, {
+      label: 'test-democracy-beacon',
+      set: {
+        params: {
+          time: 2.5,
+          width: 256,
+          height: 256,
+          mouseX: 0.5,
+          mouseY: 0.5,
+          intensity: 1.0,
+          themeMode: 1.0,
+          effectiveTheme: 0.0,
+        },
+      },
+    });
+
+    await beacon.compile(renderTarget);
+
+    expect(() => {
+      frame(gpu, (f) => {
+        f.pass({ target: renderTarget, clear: [0, 0, 0, 1] }, (p) => {
+          p.draw(beacon);
+        });
+      });
+    }).not.toThrow();
+
+    gpu.dispose();
+  });
+
+  it('compiles WGSL_DISPATCH_WAVES and executes telegraphic carrier waves render pass', async () => {
+    const gpu = await init();
+    const renderTarget = target(gpu, { size: [256, 256] });
+
+    expect(WGSL_DISPATCH_WAVES.length).toBeGreaterThan(0);
+    const dispatch = effect(gpu, DISPATCH_WAVES_SHADER, {
+      label: 'test-dispatch-waves',
+      set: {
+        params: {
+          time: 4.1,
+          width: 256,
+          height: 256,
+          mouseX: 0.5,
+          mouseY: 0.5,
+          intensity: 1.0,
+          themeMode: 0.0,
+          effectiveTheme: 0.5,
+        },
+      },
+    });
+
+    await dispatch.compile(renderTarget);
+
+    expect(() => {
+      frame(gpu, (f) => {
+        f.pass({ target: renderTarget, clear: [0, 0, 0, 1] }, (p) => {
+          p.draw(dispatch);
+        });
+      });
+    }).not.toThrow();
+
+    gpu.dispose();
+  });
+
+  it('compiles WGSL_RIVER_CANOPY and executes American River currents render pass', async () => {
+    const gpu = await init();
+    const renderTarget = target(gpu, { size: [256, 256] });
+
+    expect(WGSL_RIVER_CANOPY.length).toBeGreaterThan(0);
+    const river = effect(gpu, RIVER_CANOPY_SHADER, {
+      label: 'test-river-canopy',
+      set: {
+        params: {
+          time: 1.8,
+          width: 256,
+          height: 256,
+          mouseX: 0.5,
+          mouseY: 0.5,
+          intensity: 1.0,
+          themeMode: 2.0,
+          effectiveTheme: 1.0,
+        },
+      },
+    });
+
+    await river.compile(renderTarget);
+
+    expect(() => {
+      frame(gpu, (f) => {
+        f.pass({ target: renderTarget, clear: [0, 0, 0, 1] }, (p) => {
+          p.draw(river);
+        });
+      });
+    }).not.toThrow();
+
+    gpu.dispose();
+  });
+
+  it('compiles WGSL_APERTURE_PRISM and executes optical aperture dispersion render pass', async () => {
+    const gpu = await init();
+    const renderTarget = target(gpu, { size: [256, 256] });
+
+    expect(WGSL_APERTURE_PRISM.length).toBeGreaterThan(0);
+    const prism = effect(gpu, APERTURE_PRISM_SHADER, {
+      label: 'test-aperture-prism',
+      set: {
+        params: {
+          time: 6.0,
+          width: 256,
+          height: 256,
+          mouseX: 0.5,
+          mouseY: 0.5,
+          intensity: 1.0,
+          themeMode: 1.0,
+          effectiveTheme: 0.0,
+        },
+      },
+    });
+
+    await prism.compile(renderTarget);
+
+    expect(() => {
+      frame(gpu, (f) => {
+        f.pass({ target: renderTarget, clear: [0, 0, 0, 1] }, (p) => {
+          p.draw(prism);
         });
       });
     }).not.toThrow();

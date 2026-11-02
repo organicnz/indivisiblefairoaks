@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { InteractiveNewslettersList } from '@/components/ui/InteractiveNewslettersList';
 import { InteractivePostsList } from '@/components/ui/InteractivePostsList';
-import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
+import { VgpuDispatchWaves } from '@/components/ui/VgpuDispatchWaves';
 import { pageMetadata } from '@/lib/metadata';
 import { getDataPoints, getNewsletters } from '@/lib/queries/civic';
 import { getPublishedPosts } from '@/lib/queries/content';
@@ -24,9 +24,9 @@ export default async function NewsPage() {
   const initialNewsletters = newslettersRows.length > 0 ? newslettersRows : undefined;
   return (
     <div className="w-full bg-background text-foreground min-h-screen pt-(--header-clearance) pb-20">
-      {/* Header Banner with VGPU Constellation Network */}
+      {/* Header Banner with VGPU Free Press Dispatch Waves */}
       <section className="relative overflow-hidden bg-surface-muted border-b border-border text-foreground dark:bg-secondary dark:text-white py-16">
-        <VgpuCivicConstellation />
+        <VgpuDispatchWaves />
         <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary dark:bg-primary-bright/10 dark:border-primary-on-dark-muted/30 dark:text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
             <Newspaper size={14} className="text-accent-gold" />

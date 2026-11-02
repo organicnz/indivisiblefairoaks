@@ -6,8 +6,8 @@ import GalleryPage from '@/app/gallery/page';
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-vi.mock('@/components/ui/VgpuCivicConstellation', () => ({
-  VgpuCivicConstellation: () => <div data-testid="constellation" />,
+vi.mock('@/components/ui/VgpuAperturePrism', () => ({
+  VgpuAperturePrism: () => <div data-testid="aperture-prism" />,
 }));
 
 vi.mock('@/lib/queries/content-client', () => ({

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { CopyRegion } from '@/components/cms/CopyRegion';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { InteractiveEventsCalendar } from '@/components/ui/InteractiveEventsCalendar';
-import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
+import { VgpuActionPulses } from '@/components/ui/VgpuActionPulses';
 import { pageMetadata } from '@/lib/metadata';
 import { getDataPoints, getEvents } from '@/lib/queries/civic';
 
@@ -23,9 +23,9 @@ export default async function EventsPage() {
   const initialEvents = initialEventsRows.length > 0 ? initialEventsRows : undefined;
   return (
     <div className="w-full bg-background text-foreground min-h-screen pt-(--header-clearance) pb-20">
-      {/* Header Banner with VGPU Constellation Network */}
+      {/* Header Banner with VGPU Action Pulses Wavefronts */}
       <div className="relative overflow-hidden bg-surface-muted border-b border-border text-foreground dark:bg-gradient-to-b dark:from-slate-900 dark:to-slate-950 dark:border-white/10 py-16">
-        <VgpuCivicConstellation />
+        <VgpuActionPulses />
         <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center pointer-events-auto">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary-ink dark:bg-primary-bright/10 dark:border-primary-on-dark-muted/30 dark:text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
             <Calendar size={14} className="text-accent-gold" />
