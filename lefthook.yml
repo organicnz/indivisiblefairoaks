@@ -54,14 +54,14 @@ pre-commit:
     # Body: scripts/hooks/no-debug-logs.mjs
     no-debug-logs:
       priority: 5
-      glob: "{src/app/api/**,src/app/admin/**,proxy}.{ts,tsx}"
+      glob: "{src/app/api/**,src/app/admin/**,proxy,middleware,src/lib/admin-auth}.{ts,tsx}"
       run: bun scripts/hooks/no-debug-logs.mjs {staged_files}
 
     # ── 6. No @ts-ignore / eslint-disable in security-critical paths ─────────
     # Body: scripts/hooks/no-suppressions-in-security-paths.mjs
     no-suppressions-in-security-paths:
       priority: 6
-      glob: "{src/app/api/**,src/app/admin/**,proxy}.{ts,tsx}"
+      glob: "{src/app/api/**,src/app/admin/**,proxy,middleware,src/lib/admin-auth}.{ts,tsx}"
       run: bun scripts/hooks/no-suppressions-in-security-paths.mjs {staged_files}
 
     # ── 7. process.env must not be accessed outside src/lib/env.ts ───────────

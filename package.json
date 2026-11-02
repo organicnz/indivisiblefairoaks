@@ -12,7 +12,7 @@
     "typecheck": "bun --bun tsrs --noEmit",
     "typecheck:watch": "bun --bun tsrs --watch --noEmit",
     "typecheck:stats": "bun --bun tsrs --extendedDiagnostics --noEmit",
-    "typecheck:edge": "deno check --config supabase/functions/deno.json --no-lock supabase/functions/*/index.ts",
+    "typecheck:edge": "deno check --config supabase/functions/deno.json --no-lock supabase/functions/*/*.ts supabase/functions/_shared/*.ts",
     "test": "bun --bun vitest --run",
     "test:e2e": "bun node_modules/@playwright/test/cli.js test",
     "test:watch": "bun --bun vitest",

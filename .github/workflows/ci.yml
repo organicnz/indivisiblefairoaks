@@ -172,7 +172,7 @@ jobs:
           #
           # A path that does not exist in this list is a control that reports
           # success while measuring nothing.
-          if echo "$FILES" | grep -qE '^(src/|e2e/|public/|supabase/|playwright\.config\.ts|next\.config\.ts|middleware\.ts|proxy\.ts|package\.json|bun\.lock|scripts/mock-notify-contact\.mjs|\.github/workflows/)'; then
+          if echo "$FILES" | grep -qE '^(src/|e2e/|public/|supabase/|playwright\.config\.ts|next\.config\.ts|middleware\.ts|proxy\.ts|vitest\.config\.mts|package\.json|bun\.lock|scripts/mock-notify-contact\.mjs|\.github/workflows/)'; then
             echo "runtime=true" >> "$GITHUB_OUTPUT"
           else
             echo "runtime=false" >> "$GITHUB_OUTPUT"

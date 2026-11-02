@@ -43,7 +43,7 @@ if (!rangeDiff.trim()) {
 // A guard that skips the work it exists to do is worse than no guard: it
 // reports success, and the push looks delivered.
 const RUNTIME_PATTERN =
-  /^(src\/|e2e\/|public\/|supabase\/|scripts\/mock-notify-contact\.mjs|playwright\.config\.ts|next\.config\.ts|proxy\.ts|package\.json|bun\.lock)/;
+  /^(src\/|e2e\/|public\/|supabase\/|scripts\/mock-notify-contact\.mjs|playwright\.config\.ts|next\.config\.ts|middleware\.ts|proxy\.ts|vitest\.config\.mts|package\.json|bun\.lock)/;
 
 const touchesRuntime = rangeDiff
   .split('\n')
