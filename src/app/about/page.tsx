@@ -4,7 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { CopyRegion } from '@/components/cms/CopyRegion';
 import { DataPoint } from '@/components/ui/DataPoint';
-import { VgpuRiverCanopy } from '@/components/ui/VgpuRiverCanopy';
+import { VgpuNacreousClouds } from '@/components/ui/VgpuNacreousClouds';
 import { pageMetadata } from '@/lib/metadata';
 import { getDataPoints } from '@/lib/queries/civic';
 
@@ -20,9 +20,9 @@ export default async function AboutPage() {
 
   return (
     <div className="w-full bg-background text-foreground min-h-screen pt-(--header-clearance) pb-20">
-      {/* Header Banner with VGPU American River & Oak Canopy */}
+      {/* Header Banner with VGPU Stratospheric Nacreous Iridescence */}
       <section className="relative overflow-hidden bg-surface-card/90 backdrop-blur-lg border-b border-border text-foreground dark:bg-secondary dark:text-white py-16">
-        <VgpuRiverCanopy />
+        <VgpuNacreousClouds />
         <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center pointer-events-auto">
           <div className="flex justify-center mb-6">
             <Image

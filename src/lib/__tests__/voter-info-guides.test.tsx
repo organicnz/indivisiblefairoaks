@@ -19,8 +19,8 @@ vi.mock('@/components/cms/CopyRegion', () => ({
   ),
 }));
 
-vi.mock('@/components/ui/VgpuDemocracyBeacon', () => ({
-  VgpuDemocracyBeacon: () => <div data-testid="democracy-beacon" />,
+vi.mock('@/components/ui/VgpuGeomagneticCusp', () => ({
+  VgpuGeomagneticCusp: () => <div data-testid="geomagnetic-cusp" />,
 }));
 
 vi.mock('@/components/ui/SacramentoRepresentativeFinder', () => ({

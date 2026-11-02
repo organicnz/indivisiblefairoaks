@@ -16,7 +16,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DataPoint } from '@/components/ui/DataPoint';
-import { VgpuAperturePrism } from '@/components/ui/VgpuAperturePrism';
+import { VgpuCosmicRayCascade } from '@/components/ui/VgpuCosmicRayCascade';
 import { useDataPoints } from '@/hooks/useDataPoints';
 import { type GalleryPhoto, getGalleryPhotos } from '@/lib/queries/content-client';
 
@@ -143,9 +143,9 @@ export default function GalleryPage() {
 
   return (
     <div className="bg-background text-foreground min-h-screen pt-(--header-clearance) pb-20">
-      {/* Hero Header with VGPU Camera Aperture & Prismatic Dispersion */}
+      {/* Hero Header with VGPU Cosmic Ray Cherenkov Filament Cascades */}
       <div className="relative overflow-hidden bg-surface-muted border-b border-border dark:bg-gradient-to-b dark:from-slate-900 dark:to-slate-950 dark:border-white/10 py-16 px-4 sm:px-6 lg:px-8">
-        <VgpuAperturePrism />
+        <VgpuCosmicRayCascade />
         <div className="relative z-10 max-w-7xl mx-auto flex flex-col items-center text-center space-y-4 pointer-events-auto">
           {/* Eyebrow Pill */}
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary dark:bg-primary-bright/15 dark:border-primary-on-dark-muted/30 dark:text-primary-on-dark text-xs font-bold uppercase tracking-wider backdrop-blur-md">

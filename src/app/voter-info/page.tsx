@@ -13,7 +13,7 @@ import type { Metadata } from 'next';
 import { CopyRegion } from '@/components/cms/CopyRegion';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { SacramentoRepresentativeFinder } from '@/components/ui/SacramentoRepresentativeFinder';
-import { VgpuDemocracyBeacon } from '@/components/ui/VgpuDemocracyBeacon';
+import { VgpuGeomagneticCusp } from '@/components/ui/VgpuGeomagneticCusp';
 import { pageMetadata } from '@/lib/metadata';
 import { getDataPoints } from '@/lib/queries/civic';
 
@@ -29,9 +29,9 @@ export default async function VoterInfoPage() {
 
   return (
     <div className="w-full bg-background text-foreground min-h-screen pt-(--header-clearance) pb-20">
-      {/* Header Banner with VGPU Democratic Beacon Rays */}
+      {/* Header Banner with VGPU Geomagnetic Cusp & True North Arcs */}
       <div className="relative overflow-hidden bg-surface-muted border-b border-border text-foreground dark:bg-gradient-to-b dark:from-slate-900 dark:to-slate-950 dark:border-white/10 py-16">
-        <VgpuDemocracyBeacon />
+        <VgpuGeomagneticCusp />
         <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center pointer-events-auto">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary-ink dark:bg-primary-bright/10 dark:border-primary-on-dark-muted/30 dark:text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
             <Vote size={14} className="text-accent-gold" />

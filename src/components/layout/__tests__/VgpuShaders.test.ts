@@ -15,25 +15,25 @@ import {
   WGSL_CONSTELLATION,
 } from '@/components/ui/VgpuCivicConstellation';
 import {
-  ACTION_PULSES_SHADER,
-  WGSL_ACTION_PULSES,
-} from '@/components/ui/VgpuActionPulses';
+  POLAR_AURORA_SHADER,
+  WGSL_POLAR_AURORA,
+} from '@/components/ui/VgpuPolarAurora';
 import {
-  DEMOCRACY_BEACON_SHADER,
-  WGSL_DEMOCRACY_BEACON,
-} from '@/components/ui/VgpuDemocracyBeacon';
+  GEOMAGNETIC_CUSP_SHADER,
+  WGSL_GEOMAGNETIC_CUSP,
+} from '@/components/ui/VgpuGeomagneticCusp';
 import {
-  DISPATCH_WAVES_SHADER,
-  WGSL_DISPATCH_WAVES,
-} from '@/components/ui/VgpuDispatchWaves';
+  NOCTILUCENT_WAVES_SHADER,
+  WGSL_NOCTILUCENT_WAVES,
+} from '@/components/ui/VgpuNoctilucentWaves';
 import {
-  RIVER_CANOPY_SHADER,
-  WGSL_RIVER_CANOPY,
-} from '@/components/ui/VgpuRiverCanopy';
+  NACREOUS_CLOUDS_SHADER,
+  WGSL_NACREOUS_CLOUDS,
+} from '@/components/ui/VgpuNacreousClouds';
 import {
-  APERTURE_PRISM_SHADER,
-  WGSL_APERTURE_PRISM,
-} from '@/components/ui/VgpuAperturePrism';
+  COSMIC_RAY_CASCADE_SHADER,
+  WGSL_COSMIC_RAY_CASCADE,
+} from '@/components/ui/VgpuCosmicRayCascade';
 
 describe('VGPU WebGPU Shader Compilation & Pipeline Verification', () => {
   it('compiles THEME_WGSL without WGSL errors and executes a multi-wave render pass', async () => {
@@ -239,13 +239,13 @@ describe('VGPU WebGPU Shader Compilation & Pipeline Verification', () => {
     gpu.dispose();
   });
 
-  it('compiles WGSL_ACTION_PULSES and executes concentric mobilization render pass', async () => {
+  it('compiles WGSL_POLAR_AURORA and executes auroral curtain render pass', async () => {
     const gpu = await init();
     const renderTarget = target(gpu, { size: [256, 256] });
 
-    expect(WGSL_ACTION_PULSES.length).toBeGreaterThan(0);
-    const pulses = effect(gpu, ACTION_PULSES_SHADER, {
-      label: 'test-action-pulses',
+    expect(WGSL_POLAR_AURORA.length).toBeGreaterThan(0);
+    const aurora = effect(gpu, POLAR_AURORA_SHADER, {
+      label: 'test-polar-aurora',
       set: {
         params: {
           time: 3.2,
@@ -260,12 +260,12 @@ describe('VGPU WebGPU Shader Compilation & Pipeline Verification', () => {
       },
     });
 
-    await pulses.compile(renderTarget);
+    await aurora.compile(renderTarget);
 
     expect(() => {
       frame(gpu, (f) => {
         f.pass({ target: renderTarget, clear: [0, 0, 0, 1] }, (p) => {
-          p.draw(pulses);
+          p.draw(aurora);
         });
       });
     }).not.toThrow();
@@ -273,13 +273,13 @@ describe('VGPU WebGPU Shader Compilation & Pipeline Verification', () => {
     gpu.dispose();
   });
 
-  it('compiles WGSL_DEMOCRACY_BEACON and executes democratic light render pass', async () => {
+  it('compiles WGSL_GEOMAGNETIC_CUSP and executes magnetic dipole plasma funnel render pass', async () => {
     const gpu = await init();
     const renderTarget = target(gpu, { size: [256, 256] });
 
-    expect(WGSL_DEMOCRACY_BEACON.length).toBeGreaterThan(0);
-    const beacon = effect(gpu, DEMOCRACY_BEACON_SHADER, {
-      label: 'test-democracy-beacon',
+    expect(WGSL_GEOMAGNETIC_CUSP.length).toBeGreaterThan(0);
+    const cusp = effect(gpu, GEOMAGNETIC_CUSP_SHADER, {
+      label: 'test-geomagnetic-cusp',
       set: {
         params: {
           time: 2.5,
@@ -294,12 +294,12 @@ describe('VGPU WebGPU Shader Compilation & Pipeline Verification', () => {
       },
     });
 
-    await beacon.compile(renderTarget);
+    await cusp.compile(renderTarget);
 
     expect(() => {
       frame(gpu, (f) => {
         f.pass({ target: renderTarget, clear: [0, 0, 0, 1] }, (p) => {
-          p.draw(beacon);
+          p.draw(cusp);
         });
       });
     }).not.toThrow();
@@ -307,13 +307,13 @@ describe('VGPU WebGPU Shader Compilation & Pipeline Verification', () => {
     gpu.dispose();
   });
 
-  it('compiles WGSL_DISPATCH_WAVES and executes telegraphic carrier waves render pass', async () => {
+  it('compiles WGSL_NOCTILUCENT_WAVES and executes mesospheric gravity billows render pass', async () => {
     const gpu = await init();
     const renderTarget = target(gpu, { size: [256, 256] });
 
-    expect(WGSL_DISPATCH_WAVES.length).toBeGreaterThan(0);
-    const dispatch = effect(gpu, DISPATCH_WAVES_SHADER, {
-      label: 'test-dispatch-waves',
+    expect(WGSL_NOCTILUCENT_WAVES.length).toBeGreaterThan(0);
+    const waves = effect(gpu, NOCTILUCENT_WAVES_SHADER, {
+      label: 'test-noctilucent-waves',
       set: {
         params: {
           time: 4.1,
@@ -328,12 +328,12 @@ describe('VGPU WebGPU Shader Compilation & Pipeline Verification', () => {
       },
     });
 
-    await dispatch.compile(renderTarget);
+    await waves.compile(renderTarget);
 
     expect(() => {
       frame(gpu, (f) => {
         f.pass({ target: renderTarget, clear: [0, 0, 0, 1] }, (p) => {
-          p.draw(dispatch);
+          p.draw(waves);
         });
       });
     }).not.toThrow();
@@ -341,13 +341,13 @@ describe('VGPU WebGPU Shader Compilation & Pipeline Verification', () => {
     gpu.dispose();
   });
 
-  it('compiles WGSL_RIVER_CANOPY and executes American River currents render pass', async () => {
+  it('compiles WGSL_NACREOUS_CLOUDS and executes stratospheric mother-of-pearl render pass', async () => {
     const gpu = await init();
     const renderTarget = target(gpu, { size: [256, 256] });
 
-    expect(WGSL_RIVER_CANOPY.length).toBeGreaterThan(0);
-    const river = effect(gpu, RIVER_CANOPY_SHADER, {
-      label: 'test-river-canopy',
+    expect(WGSL_NACREOUS_CLOUDS.length).toBeGreaterThan(0);
+    const nacreous = effect(gpu, NACREOUS_CLOUDS_SHADER, {
+      label: 'test-nacreous-clouds',
       set: {
         params: {
           time: 1.8,
@@ -362,12 +362,12 @@ describe('VGPU WebGPU Shader Compilation & Pipeline Verification', () => {
       },
     });
 
-    await river.compile(renderTarget);
+    await nacreous.compile(renderTarget);
 
     expect(() => {
       frame(gpu, (f) => {
         f.pass({ target: renderTarget, clear: [0, 0, 0, 1] }, (p) => {
-          p.draw(river);
+          p.draw(nacreous);
         });
       });
     }).not.toThrow();
@@ -375,13 +375,13 @@ describe('VGPU WebGPU Shader Compilation & Pipeline Verification', () => {
     gpu.dispose();
   });
 
-  it('compiles WGSL_APERTURE_PRISM and executes optical aperture dispersion render pass', async () => {
+  it('compiles WGSL_COSMIC_RAY_CASCADE and executes particle shower & ionization render pass', async () => {
     const gpu = await init();
     const renderTarget = target(gpu, { size: [256, 256] });
 
-    expect(WGSL_APERTURE_PRISM.length).toBeGreaterThan(0);
-    const prism = effect(gpu, APERTURE_PRISM_SHADER, {
-      label: 'test-aperture-prism',
+    expect(WGSL_COSMIC_RAY_CASCADE.length).toBeGreaterThan(0);
+    const cosmic = effect(gpu, COSMIC_RAY_CASCADE_SHADER, {
+      label: 'test-cosmic-ray-cascade',
       set: {
         params: {
           time: 6.0,
@@ -396,12 +396,12 @@ describe('VGPU WebGPU Shader Compilation & Pipeline Verification', () => {
       },
     });
 
-    await prism.compile(renderTarget);
+    await cosmic.compile(renderTarget);
 
     expect(() => {
       frame(gpu, (f) => {
         f.pass({ target: renderTarget, clear: [0, 0, 0, 1] }, (p) => {
-          p.draw(prism);
+          p.draw(cosmic);
         });
       });
     }).not.toThrow();
