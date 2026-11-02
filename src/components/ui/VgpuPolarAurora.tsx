@@ -154,16 +154,19 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
 
   let finalC3 = mix(greenO2, crimsonO2, smootherstep(-0.12, 0.28, distY3));
 
-  let totalRadiance = (curtain1 * finalC1 + curtain2 * finalC2 + curtain3 * finalC3);
+  // Center text-legibility shield: preserves high contrast for foreground typography
+  let textShield = mix(0.55, 1.0, smootherstep(0.05, 0.65, length(p * vec2f(0.85, 1.4))));
+
+  let totalRadiance = (curtain1 * finalC1 + curtain2 * finalC2 + curtain3 * finalC3) * textShield;
   let totalDensity = (curtain1 + curtain2 * 0.9 + curtain3 * 0.5) * params.intensity;
 
-  // Theme-adaptive transfer function:
-  let darkEmission = totalRadiance * 1.40;
-  let lightEmission = mix(col * 0.75 + totalRadiance * 0.65, cyanScatter, 0.25);
+  // Theme-adaptive transfer function: soft auroral veil ensuring clear text legibility
+  let darkEmission = totalRadiance * 0.38;
+  let lightEmission = mix(col * 0.90 + totalRadiance * 0.20, cyanScatter, 0.10);
   let sysEmission = mix(lightEmission, darkEmission, darkFactor);
 
   let blendedEmission = lightEmission * modeLight + darkEmission * modeDark + sysEmission * modeSystem;
-  let densityFactor = clamp(totalDensity * mix(0.48, 0.92, darkFactor), 0.0, 1.0);
+  let densityFactor = clamp(totalDensity * mix(0.28, 0.50, darkFactor) * textShield, 0.0, 1.0);
 
   col = mix(col, col + blendedEmission, densityFactor);
 

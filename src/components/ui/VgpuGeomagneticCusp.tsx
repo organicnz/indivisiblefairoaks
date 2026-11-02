@@ -152,18 +152,21 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let cuspCore = exp(-dC2 / (2.0 * 0.12 * 0.12));
   let cuspHalo = exp(-dC2 / (2.0 * 0.38 * 0.38)) * 0.52;
   let cuspGlow = (cuspCore + cuspHalo) * (sin(t * 1.6) * 0.10 + 0.90);
-  fluxColor += goldCol * cuspGlow * 0.95;
-  totalFlux += cuspGlow * 0.65;
+  fluxColor += goldCol * cuspGlow * 0.45;
+  totalFlux += cuspGlow * 0.35;
 
-  // Theme-adaptive composite:
-  let darkRadiance = fluxColor * 1.35;
-  let lightRadiance = mix(col * 0.8 + fluxColor * 0.6, goldCol, 0.2);
+  // Center text-legibility shield: preserves high contrast for foreground typography
+  let textShield = mix(0.55, 1.0, smootherstep(0.05, 0.65, length(p * vec2f(0.85, 1.4))));
+
+  // Theme-adaptive composite: soft magnetic veil ensuring clear text legibility
+  let darkRadiance = fluxColor * 0.38 * textShield;
+  let lightRadiance = mix(col * 0.90 + fluxColor * 0.18, goldCol, 0.08) * textShield;
   let sysRadiance = mix(lightRadiance, darkRadiance, darkFactor);
 
   let finalRadiance = lightRadiance * modeLight + darkRadiance * modeDark + sysRadiance * modeSystem;
-  let intensityScale = mix(0.48, 0.92, darkFactor) * params.intensity;
+  let intensityScale = mix(0.28, 0.48, darkFactor) * params.intensity;
 
-  col = mix(col, col + finalRadiance, clamp(totalFlux * intensityScale, 0.0, 1.0));
+  col = mix(col, col + finalRadiance, clamp(totalFlux * intensityScale * textShield, 0.0, 1.0));
 
   // Filmic tone-mapping to compress dynamic highlights
   col = tonemap(col);

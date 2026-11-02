@@ -148,11 +148,15 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let colorRope1 = mix(sapphire, emerald, sin(p.x * 2.2 + t) * 0.5 + 0.5);
   let colorRope2 = mix(amethyst, sapphire, cos(p.x * 2.2 - t) * 0.5 + 0.5);
 
-  let totalEmission = currentRope1 * colorRope1 * 1.35 + currentRope2 * colorRope2 * 1.35 + cursorDischarge * emerald * 1.65;
+  // Center text-legibility shield: ensures high contrast for foreground typography
+  let textShield = mix(0.55, 1.0, smootherstep(0.05, 0.65, length(p * vec2f(0.85, 1.4))));
 
-  // Theme-adaptive transfer
-  let darkRad = col + totalEmission * mix(0.7, 1.25, params.intensity);
-  let lightRad = col * (1.0 - (currentRope1 * 0.20 + currentRope2 * 0.20)) + (currentRope1 * colorRope1 * 0.65 + currentRope2 * colorRope2 * 0.65 + cursorDischarge * emerald * 0.72);
+  let totalEmission = (currentRope1 * colorRope1 * 0.42 + currentRope2 * colorRope2 * 0.42 + cursorDischarge * emerald * 0.48) * textShield;
+
+  // Theme-adaptive transfer: delicate, elegant ambient glow maintaining high text contrast
+  let darkRad = col + totalEmission * mix(0.35, 0.55, params.intensity);
+  let lightRad = col * (1.0 - (currentRope1 * 0.08 + currentRope2 * 0.08) * textShield) +
+                 (currentRope1 * colorRope1 * 0.18 + currentRope2 * colorRope2 * 0.18 + cursorDischarge * emerald * 0.22) * textShield;
   var radiance = mix(lightRad, darkRad, darkFactor);
 
   radiance = tonemap(radiance);

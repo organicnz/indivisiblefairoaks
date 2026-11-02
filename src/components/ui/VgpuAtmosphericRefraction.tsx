@@ -170,15 +170,18 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let searchOpticGlow = dualLobe(mouseDist, 0.085, 0.36);
   let searchOptic = max(0.0, searchOpticGlow + airyRings * smootherstep(0.4, 0.05, mouseDist)) * params.intensity;
 
-  // Total Luminous Refractive Emission
-  let totalEmission = lidarBeam * colCyan * 1.30 +
-                      mirageColor * 1.32 +
-                      searchOptic * mix(colAmber, colCyan, 0.52) * 1.75;
+  // Center text-legibility shield: preserves high contrast for foreground typography
+  let textShield = mix(0.55, 1.0, smootherstep(0.05, 0.65, length(p * vec2f(0.85, 1.4))));
 
-  // Theme-adaptive transfer
-  let darkRad = col + totalEmission * mix(0.72, 1.25, params.intensity);
-  let lightRad = col * (1.0 - (mirageLayer1 * 0.18 + lidarBeam * 0.16 + greenFlashHorizon * 0.12)) +
-                 (lidarBeam * colCyan * 0.62 + mirageColor * 0.65 + searchOptic * colAmber * 0.72);
+  // Total Luminous Refractive Emission: delicate mirage glow ensuring clear text legibility
+  let totalEmission = (lidarBeam * colCyan * 0.38 +
+                       mirageColor * 0.38 +
+                       searchOptic * mix(colAmber, colCyan, 0.52) * 0.45) * textShield;
+
+  // Theme-adaptive transfer: delicate, elegant ambient glow maintaining high text contrast
+  let darkRad = col + totalEmission * mix(0.35, 0.55, params.intensity);
+  let lightRad = col * (1.0 - (mirageLayer1 * 0.08 + lidarBeam * 0.06 + greenFlashHorizon * 0.05) * textShield) +
+                 (lidarBeam * colCyan * 0.18 + mirageColor * 0.18 + searchOptic * colAmber * 0.20) * textShield;
   var radiance = mix(lightRad, darkRad, darkFactor);
 
   radiance = tonemap(radiance);

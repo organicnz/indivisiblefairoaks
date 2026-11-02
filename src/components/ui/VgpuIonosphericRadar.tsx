@@ -155,11 +155,16 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let violetCarrier = vec3f(0.60, 0.32, 0.94);
 
   let signalColor = mix(cyanSignal, goldLayer, smootherstep(-0.25, 0.35, p.y));
-  let totalEmission = radarWave * signalColor * 1.35 + airglowSheet * goldLayer * 1.25 + (beaconCore * 0.7 + mouseWave) * violetCarrier * 1.45;
 
-  // Theme-adaptive transfer
-  let darkRad = col + totalEmission * mix(0.7, 1.2, params.intensity);
-  let lightRad = col * (1.0 - (radarWave * 0.20 + airglowSheet * 0.18)) + (radarWave * cyanSignal * 0.65 + airglowSheet * goldLayer * 0.6 + mouseWave * violetCarrier * 0.7);
+  // Center text-legibility shield: preserves high contrast for foreground typography
+  let textShield = mix(0.55, 1.0, smootherstep(0.05, 0.65, length(p * vec2f(0.85, 1.4))));
+
+  let totalEmission = (radarWave * signalColor * 0.40 + airglowSheet * goldLayer * 0.35 + (beaconCore * 0.35 + mouseWave) * violetCarrier * 0.42) * textShield;
+
+  // Theme-adaptive transfer: soft atmospheric radar pulse ensuring clear text legibility
+  let darkRad = col + totalEmission * mix(0.35, 0.55, params.intensity);
+  let lightRad = col * (1.0 - (radarWave * 0.08 + airglowSheet * 0.06) * textShield) +
+                 (radarWave * cyanSignal * 0.18 + airglowSheet * goldLayer * 0.16 + mouseWave * violetCarrier * 0.18) * textShield;
   var radiance = mix(lightRad, darkRad, darkFactor);
 
   radiance = tonemap(radiance);

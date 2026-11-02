@@ -147,11 +147,15 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let plasmaColor = mix(hAlphaRed, heliumGold, smootherstep(0.20, 0.60, r));
   let coronaColor = mix(plasmaColor, pearlCorona, smootherstep(0.32, 0.82, r));
 
-  let totalRadiance = prominence * hAlphaRed * 1.5 + helmetStreamers * coronaColor * 1.3 + flare * heliumGold * 1.8;
+  // Center text-legibility shield: preserves high contrast for foreground typography
+  let textShield = mix(0.55, 1.0, smootherstep(0.05, 0.65, length(p * vec2f(0.85, 1.4))));
 
-  // Theme-adaptive transfer: luminous emission in dark mode, spectral absorption/enrichment in light mode
-  let darkRad = col + totalRadiance * mix(0.75, 1.25, params.intensity);
-  let lightRad = col * (1.0 - (prominence * 0.25 + helmetStreamers * 0.16)) + (prominence * hAlphaRed * 0.68 + helmetStreamers * heliumGold * 0.58 + flare * heliumGold * 0.72);
+  let totalRadiance = (prominence * hAlphaRed * 0.40 + helmetStreamers * coronaColor * 0.35 + flare * heliumGold * 0.45) * textShield;
+
+  // Theme-adaptive transfer: delicate, elegant ambient glow maintaining high text contrast
+  let darkRad = col + totalRadiance * mix(0.35, 0.55, params.intensity);
+  let lightRad = col * (1.0 - (prominence * 0.08 + helmetStreamers * 0.06) * textShield) +
+                 (prominence * hAlphaRed * 0.18 + helmetStreamers * heliumGold * 0.16 + flare * heliumGold * 0.20) * textShield;
   var radiance = mix(lightRad, darkRad, darkFactor);
 
   radiance = tonemap(radiance);

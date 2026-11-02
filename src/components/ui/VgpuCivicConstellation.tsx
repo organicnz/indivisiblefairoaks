@@ -139,20 +139,24 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let filamentLightColor  = mix(vec3f(0.22, 0.48, 0.88), vec3f(0.90, 0.65, 0.22), mouseInfluence);
   let filamentSystemColor = mix(vec3f(0.14, 0.78, 0.60), vec3f(0.90, 0.68, 0.22), mouseInfluence);
   let filamentColor = filamentLightColor * modeLight + filamentDarkColor * modeDark + filamentSystemColor * modeSystem;
-  let filamentEmission = filamentColor * filament * (0.42 + mouseInfluence * 0.58);
+  let filamentEmission = filamentColor * filament * (0.22 + mouseInfluence * 0.28);
 
   // Cursor civic aura & ripple
   let auraCyan = mix(vec3f(0.25, 0.72, 0.98), vec3f(0.22, 0.58, 0.95), darkFactor);
   let auraGold = mix(vec3f(0.98, 0.82, 0.28), vec3f(0.95, 0.75, 0.22), darkFactor);
   let auraEmerald = vec3f(0.18, 0.90, 0.62);
   let auraColor = (auraCyan * 0.6 + auraGold * 0.4) * (modeLight + modeDark) + (auraEmerald * 0.5 + auraGold * 0.5) * modeSystem;
-  let cursorEmission = auraColor * mouseInfluence * 1.45;
+  let cursorEmission = auraColor * mouseInfluence * 0.45;
 
-  let totalEmission = nodeEmission + filamentEmission + cursorEmission;
+  // Center text-legibility shield: preserves high contrast for foreground typography
+  let textShield = mix(0.55, 1.0, smootherstep(0.05, 0.65, length(p * vec2f(0.85, 1.4))));
 
-  // Theme-adaptive transfer
-  let darkRad = col + totalEmission * mix(0.72, 1.25, params.intensity);
-  let lightRad = col * (1.0 - (nodeGlow * 0.20 + filament * 0.16)) + (nodeEmission * 0.62 + filamentEmission * 0.60 + cursorEmission * 0.66);
+  let totalEmission = (nodeEmission * 0.45 + filamentEmission * 0.40 + cursorEmission) * textShield;
+
+  // Theme-adaptive transfer: delicate, elegant ambient glow maintaining high text contrast
+  let darkRad = col + totalEmission * mix(0.35, 0.55, params.intensity);
+  let lightRad = col * (1.0 - (nodeGlow * 0.08 + filament * 0.06) * textShield) +
+                 (nodeEmission * 0.20 + filamentEmission * 0.18 + cursorEmission * 0.18) * textShield;
   var radiance = mix(lightRad, darkRad, darkFactor);
 
   radiance = tonemap(radiance);

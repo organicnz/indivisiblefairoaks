@@ -144,20 +144,23 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
 
   // Interactive mouse ionization shower (photographic detector interaction)
   let mD2 = mouseDist * mouseDist;
-  let mouseCore = exp(-mD2 / (2.0 * 0.06 * 0.06)) * 0.75 * params.intensity;
-  let mouseCone = exp(-mD2 / (2.0 * 0.28 * 0.28)) * 0.45 * params.intensity;
+  let mouseCore = exp(-mD2 / (2.0 * 0.06 * 0.06)) * 0.45 * params.intensity;
+  let mouseCone = exp(-mD2 / (2.0 * 0.28 * 0.28)) * 0.25 * params.intensity;
   totalCascade += (trackWhite * mouseCore + cherenkovBlue * mouseCone);
   cascadeDensity += (mouseCore + mouseCone);
 
-  // Theme-adaptive composite:
-  let darkRadiance = totalCascade * 1.40;
-  let lightRadiance = mix(col * 0.78 + totalCascade * 0.65, cherenkovBlue, 0.18 * cascadeDensity);
+  // Center text-legibility shield: preserves high contrast for foreground typography
+  let textShield = mix(0.55, 1.0, smootherstep(0.05, 0.65, length(p * vec2f(0.85, 1.4))));
+
+  // Theme-adaptive composite: soft Cherenkov air shower glow ensuring clear text legibility
+  let darkRadiance = totalCascade * 0.38 * textShield;
+  let lightRadiance = mix(col * 0.90 + totalCascade * 0.18, cherenkovBlue, 0.06 * cascadeDensity) * textShield;
   let sysRadiance = mix(lightRadiance, darkRadiance, darkFactor);
 
   let finalRadiance = lightRadiance * modeLight + darkRadiance * modeDark + sysRadiance * modeSystem;
-  let intensityScale = mix(0.50, 0.94, darkFactor) * params.intensity;
+  let intensityScale = mix(0.28, 0.48, darkFactor) * params.intensity;
 
-  col = mix(col, col + finalRadiance, clamp(cascadeDensity * intensityScale, 0.0, 1.0));
+  col = mix(col, col + finalRadiance, clamp(cascadeDensity * intensityScale * textShield, 0.0, 1.0));
 
   // Distant stars visible through photographic plate with atmospheric scintillation
   let starHash = hash21(floor(p * 50.0));

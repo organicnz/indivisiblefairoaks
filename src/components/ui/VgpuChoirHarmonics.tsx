@@ -173,17 +173,20 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   // Dynamic acoustic resonance aura at cursor
   let colCursor = vec3f(0.24, 0.82, 0.98) * mouseInfluence * 1.55;
 
-  let totalAcoustic = (colBass * 1.15 +
-                       colTenor * 1.30 +
-                       colAlto * 1.18 +
-                       colSop * 1.35 +
-                       colChord * 0.85 +
-                       colCursor);
+  // Center text-legibility shield: preserves high contrast for foreground typography
+  let textShield = mix(0.55, 1.0, smootherstep(0.05, 0.65, length(p * vec2f(0.85, 1.4))));
 
-  // Theme-adaptive transfer
-  let darkRad = col + totalAcoustic * mix(0.72, 1.25, params.intensity);
-  let lightRad = col * (1.0 - (bassGlow * 0.15 + tenorGlow * 0.15 + altoGlow * 0.15 + sopGlow * 0.12)) +
-                 (colBass * 0.62 + colTenor * 0.66 + colAlto * 0.64 + colSop * 0.70 + colCursor * 0.58);
+  let totalAcoustic = (colBass * 0.35 +
+                       colTenor * 0.38 +
+                       colAlto * 0.35 +
+                       colSop * 0.40 +
+                       colChord * 0.25 +
+                       colCursor * 0.42) * textShield;
+
+  // Theme-adaptive transfer: delicate, velvet vocal ribbons preserving text legibility
+  let darkRad = col + totalAcoustic * mix(0.35, 0.55, params.intensity);
+  let lightRad = col * (1.0 - (bassGlow * 0.06 + tenorGlow * 0.06 + altoGlow * 0.06 + sopGlow * 0.05) * textShield) +
+                 (colBass * 0.18 + colTenor * 0.18 + colAlto * 0.18 + colSop * 0.20 + colCursor * 0.16) * textShield;
   var radiance = mix(lightRad, darkRad, darkFactor);
 
   radiance = tonemap(radiance);

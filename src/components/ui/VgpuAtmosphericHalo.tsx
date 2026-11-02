@@ -166,17 +166,21 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let tangentArc = dualLobe(distTangent, 0.06, 0.20) * smootherstep(0.45, 0.0, abs(p.x - tangentApex.x)) * 0.65;
 
   // Central solar glow
-  let solarGlow = dualLobe(r, 0.12, 0.42) * 0.85;
+  let solarGlow = dualLobe(r, 0.12, 0.42) * 0.40;
 
-  // Total optical emission
-  let totalHalo = (haloColor * iceCrystalDensity * 1.25 +
-                   parheliaGlow * colGold * 1.35 +
-                   tangentArc * colIce * 1.1 +
-                   solarGlow * mix(colGold, colIce, 0.5) * 1.15);
+  // Center text-legibility shield: preserves high contrast for foreground typography
+  let textShield = mix(0.55, 1.0, smootherstep(0.05, 0.65, length(p * vec2f(0.85, 1.4))));
 
-  // Theme-adaptive transfer
-  let darkRad = col + totalHalo * mix(0.7, 1.25, params.intensity);
-  let lightRad = col * (1.0 - (goldDispersion * 0.18 + parheliaGlow * 0.16)) + (haloColor * 0.65 + parheliaGlow * colGold * 0.60 + solarGlow * colGold * 0.62);
+  // Total optical emission: soft, delicate ice crystal reflections
+  let totalHalo = (haloColor * iceCrystalDensity * 0.38 +
+                   parheliaGlow * colGold * 0.40 +
+                   tangentArc * colIce * 0.32 +
+                   solarGlow * mix(colGold, colIce, 0.5) * 0.30) * textShield;
+
+  // Theme-adaptive transfer: delicate, elegant ambient glow maintaining high text contrast
+  let darkRad = col + totalHalo * mix(0.35, 0.55, params.intensity);
+  let lightRad = col * (1.0 - (goldDispersion * 0.08 + parheliaGlow * 0.06) * textShield) +
+                 (haloColor * 0.18 + parheliaGlow * colGold * 0.16 + solarGlow * colGold * 0.16) * textShield;
   var radiance = mix(lightRad, darkRad, darkFactor);
 
   radiance = tonemap(radiance);

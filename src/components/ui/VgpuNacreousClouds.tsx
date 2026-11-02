@@ -144,15 +144,18 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
     0.5
   );
 
-  // Theme-adaptive transfer function:
-  let darkRadiance = pearlescent * cloudDensity * 1.40;
-  let lightRadiance = mix(col * 0.75 + pearlescent * 0.70, champagneGold, 0.18 * cloudDensity);
+  // Center text-legibility shield: preserves high contrast for foreground typography
+  let textShield = mix(0.55, 1.0, smootherstep(0.05, 0.65, length(p * vec2f(0.85, 1.4))));
+
+  // Theme-adaptive transfer function: soft nacreous cloud veil ensuring clear text legibility
+  let darkRadiance = pearlescent * (cloudDensity * 0.38) * textShield;
+  let lightRadiance = mix(col * 0.90 + pearlescent * (cloudDensity * 0.18), champagneGold, 0.06 * cloudDensity) * textShield;
   let sysRadiance = mix(lightRadiance, darkRadiance, darkFactor);
 
   let finalRadiance = lightRadiance * modeLight + darkRadiance * modeDark + sysRadiance * modeSystem;
-  let intensityScale = mix(0.48, 0.92, darkFactor) * params.intensity;
+  let intensityScale = mix(0.28, 0.48, darkFactor) * params.intensity;
 
-  col = mix(col, col + finalRadiance, clamp(cloudDensity * intensityScale, 0.0, 1.0));
+  col = mix(col, col + finalRadiance, clamp(cloudDensity * intensityScale * textShield, 0.0, 1.0));
 
   // Filmic tone-mapping to compress dynamic highlights
   col = tonemap(col);

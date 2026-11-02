@@ -155,14 +155,17 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let cyanGlow = lightCyanGlow * modeLight + darkCyanGlow * modeDark + sysEmerald * modeSystem;
   let amberGold = lightAmber * modeLight + darkAmber * modeDark + sysAmber * modeSystem;
 
+  // Center text-legibility shield: preserves high contrast for foreground typography
+  let textShield = mix(0.55, 1.0, smootherstep(0.05, 0.65, length(p * vec2f(0.85, 1.4))));
+
   var col = mix(baseDark, midnight, smootherstep(0.05, 0.45, waveMod));
   col = mix(col, sapphire, smootherstep(0.35, 0.75, waveMod));
-  col = mix(col, cyanGlow, auroraRibbon * 0.40);
+  col = mix(col, cyanGlow, auroraRibbon * 0.22 * textShield);
   let amberCrest = smootherstep(0.60, 0.92, waveMod);
-  col = mix(col, amberGold, amberCrest * amberCrest * 0.35);
+  col = mix(col, amberGold, amberCrest * amberCrest * 0.18 * textShield);
 
-  col += cyanGlow * mouseGlow;
-  col += amberGold * (mouseGlow * 0.35);
+  col += cyanGlow * (mouseGlow * 0.45 * textShield);
+  col += amberGold * (mouseGlow * 0.20 * textShield);
 
   // Organic twinkling democratic stardust with smooth Airy-disk envelopes
   let starGrid = uv * vec2f(36.0 * aspect, 36.0);

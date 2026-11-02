@@ -131,15 +131,18 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
 
   let nlcColor = mix(iceCyan, iceSilver, smootherstep(0.15, 0.75, nlcDensity));
 
-  // Theme-adaptive composite:
-  let darkRadiance = (nlcColor * nlcDensity * 1.40 + deepAzure * (nlcDensity * 0.45));
-  let lightRadiance = mix(col * 0.75 + nlcColor * 0.65, twilightGold, 0.15 * nlcDensity);
+  // Center text-legibility shield: preserves high contrast for foreground typography
+  let textShield = mix(0.55, 1.0, smootherstep(0.05, 0.65, length(p * vec2f(0.85, 1.4))));
+
+  // Theme-adaptive composite: soft mesospheric glow ensuring clear text legibility
+  let darkRadiance = (nlcColor * nlcDensity * 0.38 + deepAzure * (nlcDensity * 0.15)) * textShield;
+  let lightRadiance = mix(col * 0.90 + nlcColor * (nlcDensity * 0.18), twilightGold, 0.06 * nlcDensity) * textShield;
   let sysRadiance = mix(lightRadiance, darkRadiance, darkFactor);
 
   let finalRadiance = lightRadiance * modeLight + darkRadiance * modeDark + sysRadiance * modeSystem;
-  let intensityScale = mix(0.50, 0.94, darkFactor) * params.intensity;
+  let intensityScale = mix(0.28, 0.48, darkFactor) * params.intensity;
 
-  col = mix(col, col + finalRadiance, clamp(nlcDensity * intensityScale, 0.0, 1.0));
+  col = mix(col, col + finalRadiance, clamp(nlcDensity * intensityScale * textShield, 0.0, 1.0));
 
   // Filmic tone-mapping to compress dynamic highlights
   col = tonemap(col);

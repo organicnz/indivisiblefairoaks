@@ -230,7 +230,7 @@ fn sampleWave(uv: vec2f, wave: WaveParams, aspect: f32, time: f32, mouse: vec2f,
 
   // Smooth cinematic falloff towards screen perimeter
   let edge_fade = 1.0 - pow(clamp(dist / max_dist, 0.0, 1.0), 4.0);
-  let alpha = (wave_crest + ripple * 0.5 + fresnel * 0.3) * wave.intensity * 0.45 * edge_fade;
+  let alpha = (wave_crest + ripple * 0.4 + fresnel * 0.25) * wave.intensity * 0.32 * edge_fade;
   return vec4f(wave_color * alpha, alpha);
 }
 
