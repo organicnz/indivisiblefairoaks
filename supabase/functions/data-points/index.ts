@@ -82,8 +82,6 @@ Deno.serve(async (req: Request) => {
       if (groupParam) {
         const lower = groupParam.toLowerCase();
         const aliases: Record<string, string[]> = {
-          product: ['products', 'product'],
-          products: ['products', 'product'],
           link: ['links', 'link'],
           links: ['links', 'link'],
           faq: ['faqs', 'faq'],

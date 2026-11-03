@@ -30,7 +30,7 @@ Deno.serve(async (req: Request) => {
         try {
             const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
             const { error } = await supabase
-                .from('products')
+                .from('content')
                 .select('id')
                 .limit(1)
                 .maybeSingle()
