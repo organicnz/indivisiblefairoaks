@@ -101,6 +101,14 @@ bun run secrets:baseline           # re-accept the current state
 `.github/workflows/secret-audit.yml` runs this daily at 04:37 UTC (deliberately not
 `:00`, when every scheduled workflow in every repository fires at once) and on demand.
 
+The same workflow also asserts one piece of hosted config that is not a secret at
+all: the `_dmarc` policy. `scripts/check-dmarc.mjs` resolves the record over
+DNS-over-HTTPS (dns.google and cloudflare-dns.com, which must agree) and fails
+if enforcement drops below `quarantine`, `rua` stops pointing at the Cloudflare
+DMARC Management collector, or the retired personal mailbox reappears. It needs
+no credential — DNS is public. It exists because the `rua` points hosted state
+that no offline guard can see and it sat wrong for weeks (#161).
+
 ---
 
 ## The three rules that decide which store a value belongs in

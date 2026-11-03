@@ -1369,7 +1369,10 @@ Three properties are load-bearing. Do not "simplify" them away:
 
 `.github/workflows/secret-audit.yml` runs the live reconciliation daily at 04:37 UTC
 (not `:00`, when every scheduled workflow competes for the shared runner fleet) and
-on demand. Outstanding fixes are listed in
+on demand. It also asserts the hosted `_dmarc` policy via DNS-over-HTTPS
+(`scripts/check-dmarc.mjs`, no credentials — DNS is public): enforcement stays
+`quarantine`/`reject` and `rua` stays on the Cloudflare DMARC collector. Outstanding
+fixes are listed in
 [`docs/secrets-and-config.md`](./docs/secrets-and-config.md#outstanding-remediation-from-the-2026-09-27-live-audit).
 Four functions deploy `--no-verify-jwt` and are therefore publicly callable, which
 is why an unread credential sitting in the edge store is a finding, not a nit.
