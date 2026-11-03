@@ -37,8 +37,6 @@ export function useDataPoints(group?: string, initialData: Record<string, string
       if (customEvent.detail?.key) {
         const { key, value } = customEvent.detail;
         const aliases: Record<string, string> = {
-          product: 'products',
-          products: 'products',
           link: 'links',
           links: 'links',
           faq: 'faqs',

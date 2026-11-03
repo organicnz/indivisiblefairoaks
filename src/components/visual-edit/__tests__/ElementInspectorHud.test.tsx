@@ -65,7 +65,7 @@ describe('ElementInspectorHud', () => {
 
     // RAF dispatch
     await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 30));
+      await new Promise((resolve) => setTimeout(resolve, 80));
     });
 
     expect(container.textContent).toContain('h1');

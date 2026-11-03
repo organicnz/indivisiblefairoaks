@@ -67,8 +67,6 @@ export async function GET(req: NextRequest) {
     } else if (group) {
       const lower = group.toLowerCase();
       const aliases: Record<string, string[]> = {
-        product: ['products', 'product'],
-        products: ['products', 'product'],
         link: ['links', 'link'],
         links: ['links', 'link'],
         faq: ['faqs', 'faq'],

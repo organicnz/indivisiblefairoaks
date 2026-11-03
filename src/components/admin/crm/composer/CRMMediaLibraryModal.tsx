@@ -344,7 +344,7 @@ export function CRMMediaLibraryModal({
 
                       {(item.folder === 'crm' ||
                         item.folder === 'content' ||
-                        item.folder === 'products') && (
+                        item.folder === 'gallery') && (
                         <ConfirmAction
                           label="Delete Asset"
                           message={`Permanently remove "${item.name}" from Supabase S3 storage?`}

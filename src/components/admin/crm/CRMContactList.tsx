@@ -1049,7 +1049,7 @@ export function CRMContactList({
               type="button"
               onClick={handleSyncData}
               disabled={syncing}
-              title="Sync historical contacts from contact_submissions, profiles & orders"
+              title="Sync historical contacts from contact_submissions & profiles"
               className="inline-flex items-center gap-1.5 px-3 py-2 bg-surface-muted hover:bg-surface-muted text-foreground rounded-xl font-bold transition-colors disabled:opacity-50"
             >
               <RefreshCw size={13} className={syncing ? 'animate-spin' : ''} />

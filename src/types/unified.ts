@@ -202,7 +202,7 @@ export type {
 // 3. Supabase Storage & Media (S3 bucket)
 // ==========================================
 
-export type MediaFolder = 'crm' | 'content' | 'products' | 'gallery';
+export type MediaFolder = 'crm' | 'content' | 'gallery';
 
 export interface MediaItem {
   id: string;
@@ -379,7 +379,6 @@ export type {
 } from './content-media';
 
 export interface VisualCatalogCounts {
-  products: number;
   galleryPhotos: number;
   events: number;
 }
@@ -394,7 +393,6 @@ export interface BackendSummary {
   crmTotal: number | null;
   segments: number;
   segmentsTruncated: boolean;
-  products: number;
   gallery: number;
   events: number;
   mediaItems: number;

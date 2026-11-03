@@ -161,7 +161,7 @@ describe('useDataPoints and Edge API Integration', () => {
       dataPoints: {
         'wishlist.hero.title': 'My Wishlist',
         'search.header.title': 'Search Results',
-        'products.sidebar.categories': 'Categories',
+        'events.hero.title': 'Upcoming Gatherings',
         'login.gateway.secure': 'Secure Gateway',
         'account.session.title': 'Session Control',
       },
@@ -173,7 +173,7 @@ describe('useDataPoints and Edge API Integration', () => {
         <div>
           <DataPoint name="wishlist.hero.title">Fallback</DataPoint>
           <DataPoint name="search.header.title">Fallback</DataPoint>
-          <DataPoint name="products.sidebar.categories">Fallback</DataPoint>
+          <DataPoint name="events.hero.title">Fallback</DataPoint>
           <DataPoint name="login.gateway.secure">Fallback</DataPoint>
           <DataPoint name="account.session.title">Fallback</DataPoint>
         </div>
@@ -187,8 +187,8 @@ describe('useDataPoints and Edge API Integration', () => {
       'Search Results'
     );
     expect(
-      container.querySelector('[data-data-point="products.sidebar.categories"]')?.textContent
-    ).toBe('Categories');
+      container.querySelector('[data-data-point="events.hero.title"]')?.textContent
+    ).toBe('Upcoming Gatherings');
     expect(container.querySelector('[data-data-point="login.gateway.secure"]')?.textContent).toBe(
       'Secure Gateway'
     );
@@ -246,7 +246,7 @@ describe('useDataPoints and Edge API Integration', () => {
         'home.ticker.pulse': 'Community Pulse',
         'account.btn.sign_in': 'Sign In',
         'header.theme.appearance': 'Appearance',
-        'products.wishlist.in': 'In Wishlist',
+        'voter.header.title': 'Voter Information',
       },
       rows: [],
     });
@@ -261,7 +261,7 @@ describe('useDataPoints and Edge API Integration', () => {
           <DataPoint name="home.ticker.pulse">Pulse</DataPoint>
           <DataPoint name="account.btn.sign_in">Login</DataPoint>
           <DataPoint name="header.theme.appearance">Theme</DataPoint>
-          <DataPoint name="products.wishlist.in">Wishlist</DataPoint>
+          <DataPoint name="voter.header.title">Voter</DataPoint>
         </div>
       );
     });
@@ -287,8 +287,8 @@ describe('useDataPoints and Edge API Integration', () => {
     expect(
       container.querySelector('[data-data-point="header.theme.appearance"]')?.textContent
     ).toBe('Appearance');
-    expect(container.querySelector('[data-data-point="products.wishlist.in"]')?.textContent).toBe(
-      'In Wishlist'
+    expect(container.querySelector('[data-data-point="voter.header.title"]')?.textContent).toBe(
+      'Voter Information'
     );
   });
 });

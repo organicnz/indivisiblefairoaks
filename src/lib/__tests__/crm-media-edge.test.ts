@@ -292,14 +292,14 @@ describe('CRM Supabase S3 Storage Media & Edge Function API', () => {
     it('refuses a namespace that is not a media folder', async () => {
       const res = await deleteCRMMedia('secret/crucial-page.jpg');
       expect(res.success).toBe(false);
-      expect(res.error).toContain('restricted to the crm, content, products media folders');
+      expect(res.error).toContain('restricted to the crm, content, gallery media folders');
       expect(mockStorageFrom.remove).not.toHaveBeenCalled();
     });
 
     it('refuses path traversal attempts', async () => {
       const res = await deleteCRMMedia('crm/../sensitive.jpg');
       expect(res.success).toBe(false);
-      expect(res.error).toContain('restricted to the crm, content, products media folders');
+      expect(res.error).toContain('restricted to the crm, content, gallery media folders');
       expect(mockStorageFrom.remove).not.toHaveBeenCalled();
     });
 

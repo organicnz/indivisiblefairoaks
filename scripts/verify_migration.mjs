@@ -11,16 +11,8 @@ if (!supabaseUrl || !supabaseKey) {
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 const tablesToVerify = [
-  'products',
-  'categories',
-  'product_categories',
   'profiles',
-  'orders',
-  'order_items',
-  'product_variations',
-  'coupons',
   'content',
-  'reviews',
   'gallery_photos',
   'events',
   'partners',
@@ -32,7 +24,7 @@ const tablesToVerify = [
   'crm_broadcasts',
   'crm_tasks',
   'crm_segments',
-  'walle_knowledge_snapshots'
+  'walle_knowledge_snapshots',
 ];
 
 async function verifyMigration() {

@@ -130,12 +130,12 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
       content: null,
       revisions: [],
       revisionsTruncated: false,
-      media: { items: [], folders: ['crm', 'content', 'products'] },
+      media: { items: [], folders: ['crm', 'content', 'gallery'] },
       backend: { database: true, storage: true, edgeFunction: true },
       crmStats: null,
       segments: [],
       segmentsTruncated: false,
-      catalog: { products: 0, galleryPhotos: 0, events: 0 },
+      catalog: { galleryPhotos: 0, events: 0 },
     });
     saveContent.mockResolvedValue({
       success: true,
@@ -649,12 +649,12 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
       content: null,
       revisions: [],
       revisionsTruncated: false,
-      media: { items: [], folders: ['crm', 'content', 'products'] },
+      media: { items: [], folders: ['crm', 'content', 'gallery'] },
       backend: { database: true, storage: true, edgeFunction: false },
       crmStats: null,
       segments: [],
       segmentsTruncated: false,
-      catalog: { products: 0, galleryPhotos: 0, events: 0 },
+      catalog: { galleryPhotos: 0, events: 0 },
     });
 
     await withPage();
@@ -678,12 +678,12 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
       content: null,
       revisions: [],
       revisionsTruncated: false,
-      media: { items: [], folders: ['crm', 'content', 'products'] },
+      media: { items: [], folders: ['crm', 'content', 'gallery'] },
       backend: { database: false, storage: true, edgeFunction: true },
       crmStats: null,
       segments: [],
       segmentsTruncated: false,
-      catalog: { products: 0, galleryPhotos: 0, events: 0 },
+      catalog: { galleryPhotos: 0, events: 0 },
     });
 
     await withPage();

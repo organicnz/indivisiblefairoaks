@@ -68,7 +68,7 @@ describe('Visual Edit Edge API Routes', () => {
         crmStats: { totalContacts: 120 },
         segments: [],
         segmentsTruncated: false,
-        catalog: { products: 5, galleryPhotos: 8, events: 3 },
+        catalog: { galleryPhotos: 8, events: 3 },
       };
 
       getVisualPageContext.mockResolvedValue(mockCtx);

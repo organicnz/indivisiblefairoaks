@@ -18,7 +18,6 @@ interface DataPointProps extends React.HTMLAttributes<HTMLElement> {
  * without altering JSX classes, layout or visual styling.
  */
 const GROUP_ALIASES: Record<string, string> = {
-  product: 'products',
   link: 'links',
   faq: 'faqs',
   partner: 'partners',

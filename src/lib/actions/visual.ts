@@ -64,7 +64,7 @@ export async function getVisualPageContext(input?: {
 }): Promise<VisualPageContext> {
   const { adminClient } = await requireAdmin();
 
-  const emptyMedia: MediaListResult = { items: [], folders: ['crm', 'content', 'products'] };
+  const emptyMedia: MediaListResult = { items: [], folders: ['crm', 'content', 'gallery'] };
 
   // Resolve the content row first — everything else is independent and runs
   // together. A failure in one summary read must not fail the whole open:
@@ -128,14 +128,13 @@ export async function getVisualPageContext(input?: {
       }
     })(),
     (async (): Promise<VisualCatalogCounts> => {
-      const fallback: VisualCatalogCounts = { products: 0, galleryPhotos: 0, events: 0 };
+      const fallback: VisualCatalogCounts = { galleryPhotos: 0, events: 0 };
       try {
         const [gallery, events] = await Promise.all([
           adminClient.from('gallery_photos').select('id', { count: 'exact', head: true }),
           adminClient.from('events').select('slug', { count: 'exact', head: true }),
         ]);
         return {
-          products: 0,
           galleryPhotos: gallery.count ?? 0,
           events: events.count ?? 0,
         };

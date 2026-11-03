@@ -71,7 +71,7 @@ export function WallEChatWidget() {
       role: 'assistant',
       content:
         dataPoints['walle.starter_msg'] ||
-        "Hi! I'm WALL-E. Ask me about our chapter, events, voter resources, or products.",
+        "Hi! I'm WALL-E. Ask me about our chapter, events, voter resources, or actions.",
     },
   ]);
   const [loading, setLoading] = useState(false);
@@ -158,7 +158,7 @@ export function WallEChatWidget() {
         role: 'assistant',
         content:
           dataPoints['walle.starter_msg'] ||
-          "Hi! I'm WALL-E. Ask me about our chapter, events, voter resources, or products.",
+          "Hi! I'm WALL-E. Ask me about our chapter, events, voter resources, or actions.",
       },
     ]);
     setInput('');

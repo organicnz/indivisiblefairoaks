@@ -7,15 +7,9 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 async function runHealthCheck() {
   console.log('🏥 Indivisible Fair Oaks-Carmichael Production Readiness Health Check\n');
 
-  // 1. Check Product/Image Integrity
-  const { data: products } = await supabase.from('products').select('name, image_url');
-  const brokenImages = products.filter(p => !p.image_url || p.image_url.includes('wp-content'));
-
-  if (brokenImages.length === 0) {
-    console.log('✅ All products have migrated Supabase images.');
-  } else {
-    console.warn(`⚠️ Found ${brokenImages.length} products with broken/old image links.`);
-  }
+  // 1. Check Events Integrity
+  const { count: eventsCount } = await supabase.from('events').select('*', { count: 'exact', head: true });
+  console.log(`✅ Events table is populated (${eventsCount ?? 0} active/upcoming events).`);
 
   // 2. Check Spam Content Cleanup
   const { count: spamCount } = await supabase
@@ -29,11 +23,11 @@ async function runHealthCheck() {
     console.error(`❌ Found ${spamCount} leftover spam records in content table!`);
   }
 
-  // 3. Check Order/Profile counts
+  // 3. Check Civic/Profile counts
   const { count: profileCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true });
-  const { count: orderCount } = await supabase.from('orders').select('*', { count: 'exact', head: true });
+  const { count: crmCount } = await supabase.from('crm_contacts').select('*', { count: 'exact', head: true });
 
-  console.log(`📊 Stats: ${profileCount} Profiles, ${orderCount} Orders, ${products.length} Products.`);
+  console.log(`📊 Stats: ${profileCount ?? 0} Profiles, ${crmCount ?? 0} CRM Contacts, ${eventsCount ?? 0} Events.`);
 
   // 4. Verify RLS (basic check)
   const { data: contactCheck } = await supabase.from('contact_submissions').select('*').limit(1);

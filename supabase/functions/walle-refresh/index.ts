@@ -58,7 +58,6 @@ Deno.serve(async (request) => {
     const client = createClient<any>(SUPABASE_URL, SERVICE_KEY)
     const publicData = await Promise.all([
       (async () => ['content', await readPublishedContent(client)] as const)(),
-      (async () => ['products', await readTable(client, 'products', 'name,slug,description,short_description,price,stock_status')] as const)(),
       (async () => ['events', await readTable(client, 'events', 'slug,title,date_label,time_label,location_name,address,description,rsvp_url')] as const)(),
       (async () => ['partners', await readTable(client, 'partners', 'slug,name,category,description,url')] as const)(),
       (async () => ['coalition_links', await readTable(client, 'coalition_links', 'slug,name,category,description,url,badge')] as const)(),

@@ -64,7 +64,7 @@ describe('CRMMediaLibraryModal component', () => {
 
     mockGetCRMMediaFiles.mockResolvedValue({
       items: SAMPLE_MEDIA,
-      folders: ['crm', 'content', 'products'],
+      folders: ['crm', 'content', 'gallery'],
     });
   });
 

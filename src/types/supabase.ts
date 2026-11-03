@@ -14,30 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      categories: {
-        Row: {
-          created_at: string | null
-          id: number
-          name: string
-          slug: string
-          wp_id: number | null
-        }
-        Insert: {
-          created_at?: string | null
-          id?: number
-          name: string
-          slug: string
-          wp_id?: number | null
-        }
-        Update: {
-          created_at?: string | null
-          id?: number
-          name?: string
-          slug?: string
-          wp_id?: number | null
-        }
-        Relationships: []
-      }
       coalition_links: {
         Row: {
           badge: string | null
@@ -269,42 +245,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      coupons: {
-        Row: {
-          amount: number | null
-          code: string
-          created_at: string | null
-          discount_type: string | null
-          expiry_date: string | null
-          id: number
-          stripe_coupon_id: string | null
-          times_used: number | null
-          usage_limit: number | null
-        }
-        Insert: {
-          amount?: number | null
-          code: string
-          created_at?: string | null
-          discount_type?: string | null
-          expiry_date?: string | null
-          id?: number
-          stripe_coupon_id?: string | null
-          times_used?: number | null
-          usage_limit?: number | null
-        }
-        Update: {
-          amount?: number | null
-          code?: string
-          created_at?: string | null
-          discount_type?: string | null
-          expiry_date?: string | null
-          id?: number
-          stripe_coupon_id?: string | null
-          times_used?: number | null
-          usage_limit?: number | null
-        }
-        Relationships: []
       }
       crm_activities: {
         Row: {
@@ -861,120 +801,6 @@ export type Database = {
         }
         Relationships: []
       }
-      order_items: {
-        Row: {
-          created_at: string | null
-          id: number
-          order_id: number | null
-          product_id: number | null
-          product_name: string | null
-          quantity: number | null
-          unit_price: number | null
-        }
-        Insert: {
-          created_at?: string | null
-          id?: number
-          order_id?: number | null
-          product_id?: number | null
-          product_name?: string | null
-          quantity?: number | null
-          unit_price?: number | null
-        }
-        Update: {
-          created_at?: string | null
-          id?: number
-          order_id?: number | null
-          product_id?: number | null
-          product_name?: string | null
-          quantity?: number | null
-          unit_price?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "order_items_order_id_fkey"
-            columns: ["order_id"]
-            isOneToOne: false
-            referencedRelation: "orders"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "order_items_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "products"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      orders: {
-        Row: {
-          admin_notes: string | null
-          billing_address: Json | null
-          coupon_code: string | null
-          created_at: string | null
-          currency: string | null
-          discount_amount: number | null
-          external_id: string | null
-          id: number
-          metadata: Json | null
-          shipping_address: Json | null
-          shipping_amount: number | null
-          source: string
-          status: string | null
-          stripe_payment_intent_id: string | null
-          stripe_session_id: string | null
-          subtotal: number | null
-          total: number | null
-          tracking_number: string | null
-          updated_at: string | null
-          user_id: string | null
-        }
-        Insert: {
-          admin_notes?: string | null
-          billing_address?: Json | null
-          coupon_code?: string | null
-          created_at?: string | null
-          currency?: string | null
-          discount_amount?: number | null
-          external_id?: string | null
-          id?: number
-          metadata?: Json | null
-          shipping_address?: Json | null
-          shipping_amount?: number | null
-          source?: string
-          status?: string | null
-          stripe_payment_intent_id?: string | null
-          stripe_session_id?: string | null
-          subtotal?: number | null
-          total?: number | null
-          tracking_number?: string | null
-          updated_at?: string | null
-          user_id?: string | null
-        }
-        Update: {
-          admin_notes?: string | null
-          billing_address?: Json | null
-          coupon_code?: string | null
-          created_at?: string | null
-          currency?: string | null
-          discount_amount?: number | null
-          external_id?: string | null
-          id?: number
-          metadata?: Json | null
-          shipping_address?: Json | null
-          shipping_amount?: number | null
-          source?: string
-          status?: string | null
-          stripe_payment_intent_id?: string | null
-          stripe_session_id?: string | null
-          subtotal?: number | null
-          total?: number | null
-          tracking_number?: string | null
-          updated_at?: string | null
-          user_id?: string | null
-        }
-        Relationships: []
-      }
       partners: {
         Row: {
           category: string
@@ -1002,158 +828,6 @@ export type Database = {
           slug?: string
           sort_order?: number
           url?: string
-        }
-        Relationships: []
-      }
-      product_categories: {
-        Row: {
-          category_id: number
-          product_id: number
-        }
-        Insert: {
-          category_id: number
-          product_id: number
-        }
-        Update: {
-          category_id?: number
-          product_id?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "product_categories_category_id_fkey"
-            columns: ["category_id"]
-            isOneToOne: false
-            referencedRelation: "categories"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_categories_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "products"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      product_variations: {
-        Row: {
-          attributes: Json | null
-          created_at: string | null
-          dimensions: Json | null
-          id: number
-          image_url: string | null
-          metadata: Json | null
-          price: number | null
-          product_id: number | null
-          sku: string | null
-          stock_status: string | null
-          weight: number | null
-        }
-        Insert: {
-          attributes?: Json | null
-          created_at?: string | null
-          dimensions?: Json | null
-          id?: number
-          image_url?: string | null
-          metadata?: Json | null
-          price?: number | null
-          product_id?: number | null
-          sku?: string | null
-          stock_status?: string | null
-          weight?: number | null
-        }
-        Update: {
-          attributes?: Json | null
-          created_at?: string | null
-          dimensions?: Json | null
-          id?: number
-          image_url?: string | null
-          metadata?: Json | null
-          price?: number | null
-          product_id?: number | null
-          sku?: string | null
-          stock_status?: string | null
-          weight?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "product_variations_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "products"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      products: {
-        Row: {
-          attributes: Json | null
-          created_at: string | null
-          date_created: string | null
-          date_modified: string | null
-          description: string | null
-          dimensions: Json | null
-          gallery_urls: Json | null
-          id: number
-          image_url: string | null
-          metadata: Json | null
-          name: string
-          price: number
-          regular_price: number | null
-          sale_price: number | null
-          search_vector: unknown
-          short_description: string | null
-          sku: string | null
-          slug: string
-          stock_status: string | null
-          weight: number | null
-          wp_id: number | null
-        }
-        Insert: {
-          attributes?: Json | null
-          created_at?: string | null
-          date_created?: string | null
-          date_modified?: string | null
-          description?: string | null
-          dimensions?: Json | null
-          gallery_urls?: Json | null
-          id?: number
-          image_url?: string | null
-          metadata?: Json | null
-          name: string
-          price?: number
-          regular_price?: number | null
-          sale_price?: number | null
-          search_vector?: unknown
-          short_description?: string | null
-          sku?: string | null
-          slug: string
-          stock_status?: string | null
-          weight?: number | null
-          wp_id?: number | null
-        }
-        Update: {
-          attributes?: Json | null
-          created_at?: string | null
-          date_created?: string | null
-          date_modified?: string | null
-          description?: string | null
-          dimensions?: Json | null
-          gallery_urls?: Json | null
-          id?: number
-          image_url?: string | null
-          metadata?: Json | null
-          name?: string
-          price?: number
-          regular_price?: number | null
-          sale_price?: number | null
-          search_vector?: unknown
-          short_description?: string | null
-          sku?: string | null
-          slug?: string
-          stock_status?: string | null
-          weight?: number | null
-          wp_id?: number | null
         }
         Relationships: []
       }
@@ -1202,39 +876,6 @@ export type Database = {
           user_id?: string | null
           username?: string | null
           website?: string | null
-        }
-        Relationships: []
-      }
-      reviews: {
-        Row: {
-          comments: Json | null
-          created_at: string | null
-          id: string
-          pr_number: number
-          repo_full_name: string
-          score: number | null
-          status: string | null
-          summary: string | null
-        }
-        Insert: {
-          comments?: Json | null
-          created_at?: string | null
-          id?: string
-          pr_number: number
-          repo_full_name: string
-          score?: number | null
-          status?: string | null
-          summary?: string | null
-        }
-        Update: {
-          comments?: Json | null
-          created_at?: string | null
-          id?: string
-          pr_number?: number
-          repo_full_name?: string
-          score?: number | null
-          status?: string | null
-          summary?: string | null
         }
         Relationships: []
       }
@@ -1287,10 +928,6 @@ export type Database = {
     Functions: {
       crm_stats: { Args: never; Returns: Json }
       crm_sync_historical_records: { Args: never; Returns: Json }
-      decrement_stock: {
-        Args: { decrement_by?: number; p_id: number }
-        Returns: undefined
-      }
       is_admin: { Args: never; Returns: boolean }
       log_audit: {
         Args: {
@@ -1319,20 +956,6 @@ export type Database = {
           type: string
         }[]
       }
-      search_products: {
-        Args: { max_rows?: number; search_query: string }
-        Returns: {
-          id: number
-          image_url: string
-          name: string
-          price: number
-          rank: number
-          regular_price: number
-          sale_price: number
-          slug: string
-          stock_status: string
-        }[]
-      }
       submit_contact_submission: {
         Args: {
           p_consent_to_email?: boolean
@@ -1342,15 +965,6 @@ export type Database = {
           p_wants_copy?: boolean
         }
         Returns: number
-      }
-      validate_coupon: {
-        Args: { p_code: string }
-        Returns: {
-          amount: number
-          discount_type: string
-          expiry_date: string
-          valid: boolean
-        }[]
       }
     }
     Enums: {

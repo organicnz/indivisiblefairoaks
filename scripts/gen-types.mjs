@@ -27,31 +27,27 @@ function projectRef() {
 // Audiobookshelf, code-review, and other tenant tables share the same
 // Supabase project but must not appear in TypeScript types.
 const APP_TABLES = new Set([
-  'categories',
   'coalition_links',
   'contact_submissions',
   'content',
   'content_media',
   'content_revisions',
-  'coupons',
   'crm_activities',
   'crm_broadcasts',
   'crm_contacts',
+  'crm_email_events',
   'crm_segments',
   'crm_tasks',
+  'data_points',
   'error_reports',
   'events',
+  'faqs',
   'gallery_photos',
   'newsletters',
-  'order_items',
-  'orders',
   'partners',
-  'product_categories',
-  'product_variations',
-  'products',
   'profiles',
-  'reviews',
   'search_rate_limit',
+  'walle_knowledge_snapshots',
 ]);
 
 const ref = projectRef();
@@ -65,13 +61,30 @@ console.log(`Generating types for project ${ref} ...`);
 // stderr is inherited so the Supabase CLI's own progress output still streams
 // to the terminal while stdout is captured.
 const proc = Bun.spawn(
-  ['bun', 'x', 'supabase@latest', 'gen', 'types', 'typescript', '--project-id', ref],
-  { stdout: 'pipe', stderr: 'inherit', stdin: 'ignore' }
+  ['bun', 'x', 'supabase@latest', 'gen', 'types', 'typescript', `--remote=${ref}`],
+  {
+    env: { ...process.env, ...Bun.env },
+    stdout: 'pipe',
+    stderr: 'inherit',
+    stdin: 'ignore',
+  }
 );
 const raw = await new Response(proc.stdout).text();
 const exitCode = await proc.exited;
 if (exitCode !== 0) {
   console.error(`✖  supabase gen types failed (exit ${exitCode})`);
+  if (raw.trim()) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed.error?.message) {
+        console.error(`   ${parsed.error.message}`);
+      } else {
+        console.error(`   ${raw.trim()}`);
+      }
+    } catch {
+      console.error(`   ${raw.trim()}`);
+    }
+  }
   process.exit(exitCode);
 }
 

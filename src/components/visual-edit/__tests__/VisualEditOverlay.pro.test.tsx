@@ -119,7 +119,7 @@ describe('VisualEditOverlay 10x Pro Features', () => {
       crmStats: null,
       segments: [],
       segmentsTruncated: false,
-      catalog: { products: 0, galleryPhotos: 0, events: 0 },
+      catalog: { galleryPhotos: 0, events: 0 },
     });
     saveContent.mockResolvedValue({
       success: true,

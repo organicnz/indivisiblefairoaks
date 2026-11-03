@@ -29,10 +29,7 @@ const ROUTES = [
   '/choir',
   '/partners',
   '/contact',
-  '/products',
   '/login',
-  '/cart',
-  '/wishlist',
   '/search?q=democracy',
 ];
 

@@ -8,7 +8,7 @@ async function auditImages() {
   console.log('🔍 Auditing Supabase Storage vs Database...');
 
   // 1. Get all image references from Database
-  const { data: products } = await supabase.from('products').select('image_url, gallery_urls');
+  const { data: gallery } = await supabase.from('gallery_photos').select('image_url');
   const { data: content } = await supabase.from('content').select('body');
 
   const referencedPaths = new Set();
@@ -21,13 +21,9 @@ async function auditImages() {
     return null;
   };
 
-  products?.forEach(p => {
-    const main = extractPath(p.image_url);
+  gallery?.forEach(g => {
+    const main = extractPath(g.image_url);
     if (main) referencedPaths.add(main);
-    p.gallery_urls?.forEach(url => {
-      const g = extractPath(url);
-      if (g) referencedPaths.add(g);
-    });
   });
 
   content?.forEach(c => {
@@ -45,7 +41,7 @@ async function auditImages() {
   // We'll check the standard WordPress-style year/month structure
   console.log('📂 Scanning storage folders...');
   let allStoragePaths = [];
-  const years = ['2020', '2021', '2022', '2023', '2024', '2025', 'products'];
+  const years = ['2020', '2021', '2022', '2023', '2024', '2025'];
   
   for (const year of years) {
     const { data: months } = await supabase.storage.from('media').list(year);
@@ -69,7 +65,7 @@ async function auditImages() {
   console.log(`📦 Total files found in storage: ${allStoragePaths.length}`);
 
   const unreferenced = allStoragePaths.filter(path => !referencedPaths.has(path));
-  console.log(`⚠️ Unreferenced images (not in products or content): ${unreferenced.length}`);
+  console.log(`⚠️ Unreferenced images (not in gallery or content): ${unreferenced.length}`);
 
   // 3. Show some examples of unreferenced images to see if they are spam
   if (unreferenced.length > 0) {

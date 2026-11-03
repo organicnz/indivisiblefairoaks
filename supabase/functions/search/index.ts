@@ -13,7 +13,7 @@ import { isSpamContent } from '../_shared/spam.ts'
 // Provides:
 //  - Input validation + spam‑keyword rejection on the query string
 //  - Per‑IP rolling‑window rate limiting (configurable via env)
-//  - Calls the existing Supabase FTS RPCs (search_products, search_content)
+//  - Calls the Supabase FTS RPC (search_content)
 //  - Post‑processing spam filter on content titles
 //  - Structured JSON responses with typed rows
 //  - Graceful degradation & detailed logging
@@ -269,41 +269,27 @@ app.post('*', async (c) => {
     })
   }
 
-  // ---- Execute ranked searches in parallel with circuit breaker protection ----
+  // ---- Execute ranked search with circuit breaker protection ----
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
-
-  const productRpc = () =>
-    Promise.resolve(
-      supabase.rpc('search_products', {
-        search_query: cleanQuery,
-        max_rows: 24,
-      })
-    )
 
   const contentRpc = () =>
     Promise.resolve(
       supabase.rpc('search_content', {
         search_query: cleanQuery,
-        max_rows: 10,
+        max_rows: 24,
       })
     )
 
-  const [productsResult, contentResult] = await Promise.all([
-    rpcWithProtection(supabase, productRpc, 'search_products'),
-    rpcWithProtection(supabase, contentRpc, 'search_content'),
-  ])
+  const contentResult = await rpcWithProtection(supabase, contentRpc, 'search_content')
 
   // If circuit breaker is open, return graceful degradation
-  if (productsResult.breakerOpen || contentResult.breakerOpen) {
+  if (contentResult.breakerOpen) {
     await logSearchError(admin, 'Search circuit breaker opened')
-    // Return whatever we can — empty results rather than error
-    // But still include the query and remaining info
     return c.json(
       {
-        products: [],
         posts: [],
         query: cleanQuery,
-        total: { products: 0, posts: 0 },
+        total: { posts: 0 },
         remaining,
         requestId: crypto.randomUUID(),
         circuitBreakerOpen: true,
@@ -317,23 +303,7 @@ app.post('*', async (c) => {
   }
 
   // Map raw RPC results to typed rows — guard against missing data
-  let products: { id: number; name: string; slug: string; price: number; regular_price: number | null; sale_price: number | null; image_url: string | null; stock_status: string | null }[] = []
   let posts: { id: number; title: string; slug: string; type: string | null; created_at: string | null }[] = []
-
-  if (productsResult.data && Array.isArray(productsResult.data)) {
-    ; (products as any[]).push(
-      ...(productsResult.data as any[]).map((row: any) => ({
-        id: row.id,
-        name: row.name,
-        slug: row.slug,
-        price: Number(row.price),
-        regular_price: row.regular_price == null ? null : Number(row.regular_price),
-        sale_price: row.sale_price == null ? null : Number(row.sale_price),
-        image_url: row.image_url,
-        stock_status: row.stock_status,
-      })),
-    )
-  }
 
   if (contentResult.data && Array.isArray(contentResult.data)) {
     ; (posts as any[]).push(
@@ -352,11 +322,10 @@ app.post('*', async (c) => {
 
   // ---- Build response ----
   const total = {
-    products: products.length,
     posts: filteredPosts.length,
   }
 
-  return c.json({ products, posts: filteredPosts, query: cleanQuery, total, remaining, requestId: crypto.randomUUID() }, 200, {
+  return c.json({ posts: filteredPosts, query: cleanQuery, total, remaining, requestId: crypto.randomUUID() }, 200, {
     'request-id': crypto.randomUUID(),
     'x-rate-limit-remaining': String(remaining),
   })

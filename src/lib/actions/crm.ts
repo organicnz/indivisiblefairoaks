@@ -2803,7 +2803,7 @@ const HEADER_PROBE_BYTES = 64 * 1024;
  * there, and every upload it made landed in the CRM namespace where the
  * broadcast reference check — not the content one — was the guard.
  */
-const MEDIA_FOLDERS = ['crm', 'content', 'products'] as const;
+const MEDIA_FOLDERS = ['crm', 'content', 'gallery'] as const;
 /**
  * The union lives in `src/types/crm.ts` now, so the uploader's `folder`, the
  * listing's `folder` and `MediaItem.folder` are one type rather than three

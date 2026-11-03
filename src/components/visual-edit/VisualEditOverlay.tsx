@@ -1373,7 +1373,6 @@ export function VisualEditOverlay() {
         crmTotal: ctx.crmStats?.totalContacts ?? null,
         segments: ctx.segments.length,
         segmentsTruncated: ctx.segmentsTruncated,
-        products: ctx.catalog.products,
         gallery: ctx.catalog.galleryPhotos,
         events: ctx.catalog.events,
         mediaItems: ctx.media.items.length,
