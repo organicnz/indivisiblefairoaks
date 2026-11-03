@@ -143,7 +143,7 @@ Verified against the Cloudflare API on 2026-09-25 (zone `71ef77fe00dfafb4fa2864d
 | `AAAA` | `www` | `100::` | **Proxied** | Cloudflare edge anchor → Google Site (as above) |
 | `MX` | `@` | `aspmx.l.google.com` (1), `alt1` (5), `alt2` (5), `alt3` (10), `alt4` (10) | DNS-Only | Google Workspace inbound |
 | `TXT` | `@` | `v=spf1 include:_spf.google.com ~all` | DNS-Only | **Google only** — does not authorize Resend, see §8 |
-| `TXT` | `_dmarc` | `v=DMARC1; p=none; rua=mailto:tamerlanium@gmail.com; sp=none; aspf=r` | DNS-Only | Monitoring only, no enforcement |
+| `TXT` | `_dmarc` | `v=DMARC1; p=none; rua=mailto:tamerlanium@gmail.com; sp=none; aspf=r` | DNS-Only | Monitoring only, no enforcement. **Superseded 2026-11:** now `p=quarantine; pct=100; sp=quarantine; aspf=r; adkim=r` with a Cloudflare `rua` — see §9 |
 | `TXT` | `@` | `resend-domain-verification=273cfe2f…` | DNS-Only | Resend apex ownership proof |
 | `TXT` | `resend._domainkey` | `p=MIGfMA0GCSq…` | DNS-Only | Resend DKIM — apex sending depends on this |
 | `TXT` | `resend._domainkey.test` | `p=MIGfMA0GCSq…` | DNS-Only | Resend DKIM — staging |
@@ -153,7 +153,7 @@ Verified against the Cloudflare API on 2026-09-25 (zone `71ef77fe00dfafb4fa2864d
 | `MX` | `send.test` | `feedback-smtp.us-east-1.amazonses.com` (10) | DNS-Only | Resend bounce handling (staging) |
 | `TXT` | `send.test` | `v=spf1 include:amazonses.com ~all` | DNS-Only | Resend SPF (staging) |
 | `CNAME` | `rsend.test` | `send.forge.rmta.net` | DNS-Only | Resend mail CNAME (staging) |
-| `TXT` | `google._domainkey` | **MISSING** | — | **Google Workspace DKIM for apex — see §8** |
+| `TXT` | `google._domainkey` | **MISSING (at snapshot time)** | — | **Google Workspace DKIM for apex — see §8. Published since; DKIM PASS — see §9** |
 
 ### Drift Found During This Audit
 Two prior assumptions in this document were wrong. Both are recorded here so the next operator does not act on them:
@@ -178,9 +178,9 @@ Two prior assumptions in this document were wrong. Both are recorded here so the
 
 ## 7. Next Steps & Recommendations
 1. **Email Log CSV Ingestion**: Once Christiana provides the exported log file, parse it to extract the affected sender list.
-2. **Google Workspace DKIM (blocking — see §8)**: Generate the DKIM key in Google Admin Console (`Apps` → `Google Workspace` → `Gmail` → `Authenticate email` → *Start authentication*) and publish the returned value as a `TXT` record at `google._domainkey.indivisiblefairoaks.org`, DNS-only. Confirm the Admin console reports **Authenticate email: verified**.
-3. **DMARC Enforcement**: After a clean reporting window, ramp `_dmarc` from `p=none` to `p=quarantine`, then `p=reject`. Hold `adkim=r` and `aspf=r` (strict alignment) throughout.
-4. **DMARC Reporting Address**: `rua=mailto:tamerlanium@gmail.com` points at a personal mailbox. Move to a role address on the domain so reports outlive any one person.
+2. **Google Workspace DKIM — DONE (verified 2026-11).** `google._domainkey` is published (DNS-only) and aggregate reports show DKIM PASS across Workspace outbound mail (see §9).
+3. **DMARC Enforcement — partially done.** `_dmarc` now publishes `p=quarantine; pct=100; sp=quarantine; aspf=r; adkim=r` (was `p=none`). Remaining: ramp `p=quarantine` → `p=reject` after a clean reporting window. Note: `adkim=r` / `aspf=r` are *relaxed* alignment — the earlier "(strict alignment)" wording in this item was incorrect.
+4. **DMARC Reporting Address — DONE (2026-11-02).** `rua` now points at Cloudflare DMARC Management (`mailto:40ed54b98ce1464780a375b96b26f2c6@dmarc-reports.cloudflare.net`); reports are ingested into the dashboard instead of the personal mailbox. See §9 and issue #161.
 5. **Apex SPF vs. Resend (see §8)**: Decide whether the apex will keep sending application mail. Current SPF authorizes Google only, so Resend-sent mail soft-fails SPF and relies on DKIM alignment alone.
 6. **Staging Review**: Review `test.indivisiblefairoaks.org` with the stakeholder team prior to any future production cutovers.
 
@@ -239,12 +239,23 @@ Verification of subsequent aggregate reports (Google `report_id: 119574803587637
 - Evaluated policy disposition: `none` across all 44 messages (zero quarantined or rejected).
 - Policy enforcement: `p=quarantine`, `sp=quarantine`, `pct=100`, `aspf=r`, `adkim=r`.
 
-### Daily Aggregate Reports (RUA) Management
-The continuation of daily emails from Google and Microsoft is expected behavior under RFC 7489 when an email address is specified in `rua=mailto:tamerlanium@gmail.com`. They are diagnostic telemetry logs, not error notifications.
+### Daily Aggregate Reports (RUA) Management — Resolved (2026-11-02)
+The daily Google / Microsoft aggregate emails were expected RFC 7489 telemetry for as long as `rua=mailto:tamerlanium@gmail.com` was published — diagnostic logs, not error notifications. Issue #161 resolved this by enabling **Cloudflare DMARC Management** and rewriting `rua` to `mailto:40ed54b98ce1464780a375b96b26f2c6@dmarc-reports.cloudflare.net`; reports are now ingested into **Cloudflare Dashboard → Email → DMARC Management** instead of the personal inbox. The other two options were not needed: a Gmail filter is only useful for the pre-cutover stragglers (see below), and dropping `rua` entirely would blind the dashboard while `p=quarantine` is the enforcement policy.
 
-Action items tracked in [#161](https://github.com/organicnz/indivisiblefairoaks/issues/161):
-1. Route `rua` to Cloudflare DMARC Management (`rua=mailto:xxxx@dmarc.cloudflare.com`) for automated parsing into visual dashboards, or
-2. Add a Gmail filter to auto-archive `DMARC Aggregate Report` emails, or
-3. Remove the `rua=` tag from `_dmarc` TXT record in Cloudflare DNS to silence telemetry entirely while preserving `p=quarantine`.
+### Transition Stragglers — Reports Received After the Cutover (2026-11-03)
+Two aggregate reports still landed in the personal inbox on 2026-11-03, **after** the `rua` switch:
+
+| Submitter | Report-ID | Window stated in the report |
+|---|---|---|
+| google.com (`noreply-dmarc-support@google.com`) | `3061533263176186980` | not shown in the mail body (presumably 2026-11-02) |
+| protection.outlook.com (`dmarcreport@microsoft.com`) | `6a58cf0fd8d2400bb237708713282f2b` | 2026-11-01 → 2026-11-02 |
+
+This is the **expected pre-cutover tail, not a regression**: RFC 7489 receivers evaluate the policy in effect at **message-receipt time** and send the aggregate ~24h later, so mail received Nov 1–2 was evaluated against the old record and its reports go to the personal inbox regardless of what DNS says now. Current record, verified 2026-11-03 from 1.1.1.1 / 8.8.8.8 / 9.9.9.9 (TTL ~265s):
+
+```
+v=DMARC1; p=quarantine; pct=100; rua=mailto:40ed54b98ce1464780a375b96b26f2c6@dmarc-reports.cloudflare.net; sp=quarantine; aspf=r; adkim=r
+```
+
+**Decision rule:** if an aggregate report arrives covering a window that starts **on or after 2026-11-03**, it is not the tail. Check, in order: (1) Cloudflare DMARC Management still enabled (`GET /zones/71ef77fe00dfafb4fa2864da8748ed81/email/auth/dmarc-reports`), (2) the `_dmarc` record has not been re-edited, (3) no subdomain publishes a shadowing `_dmarc` with the old gmail `rua` (`sp=` only applies to subdomains without their own record — e.g. `test.`), (4) no `ruf=` failure-report tag was introduced, (5) receiver-side caching (unlikely; TTL ~5 min). If all clean, reopen #161 or file a new issue rather than assuming propagation. Tracked in [#161](https://github.com/organicnz/indivisiblefairoaks/issues/161#issuecomment-6611591836).
 
 

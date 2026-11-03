@@ -163,8 +163,9 @@ Note: Next emits **308** for `redirects()` with `permanent: true`. Google treats
 
 1. Submit `https://indivisiblefairoaks.org/sitemap.xml` in Google Search Console.
 2. Verify the Organization rich result renders (the `NGO` node in the root layout).
-3. Publish Google Workspace DKIM at `google._domainkey` — still outstanding, see
-   recovery log §8. Outbound Google mail currently fails DMARC.
+3. ~~Publish Google Workspace DKIM~~ — **done (2026-11).** `google._domainkey`
+   is published (verified 2026-11-03) and aggregate reports show DKIM PASS for
+   Workspace outbound mail; see recovery log §9.
 4. Leave `test.indivisiblefairoaks.org` deployed but noindex for at least one
    release cycle as a rollback target.
 5. Once comfortable, decommission staging and drop its entries from
@@ -195,8 +196,9 @@ Site is the only zero-cost rollback.
   Resend DKIM alignment alone — a single point of failure. Recovery log §8.
   `_spf.resend.com` is NXDOMAIN, so do **not** add that include; resolving this
   needs a decision, not a mechanical edit.
-- **Apex `google._domainkey` is unpublished**, so every outbound Workspace
-  message fails DKIM.
+- ~~**Apex `google._domainkey` is unpublished**~~ — **done (2026-11).** The
+  record is published (verified 2026-11-03) and aggregate reports show DKIM
+  PASS for Workspace outbound mail. See recovery log §9.
 - **Shipping rates are placeholders** carried over from the previous site's New
   Zealand tariff. See the note in `src/config/commerce.ts` — a business decision.
 - **`HSTS preload`** is set with `includeSubDomains`. Submitting to the preload

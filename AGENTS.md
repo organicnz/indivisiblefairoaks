@@ -1904,7 +1904,7 @@ Deliberately left undone. None block the apex cutover.
    Resend DKIM alignment alone. `_spf.resend.com` is NXDOMAIN, so adding that
    `include` would make the whole record a `permerror`. Resolving this is a
    decision, not a mechanical fix — see the recovery log §8.
-3. **`google._domainkey` is unpublished**, so outbound Workspace mail fails DKIM.
+3. ~~**`google._domainkey` is unpublished**~~ — **resolved (2026-11).** The record is published (verified 2026-11-03) and aggregate reports confirm DKIM PASS for Workspace outbound mail. See [the recovery log](./docs/infrastructure-and-email-recovery-log.md) §9.
 4. **Shipping rates are placeholders** inherited from the previous site's New
    Zealand tariff. See `src/config/commerce.ts`.
 5. **HSTS `preload` + `includeSubDomains`** pins every subdomain to HTTPS for
