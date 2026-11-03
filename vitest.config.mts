@@ -168,6 +168,9 @@ export default defineConfig({
         'src/config/legacy-redirects.ts',
         'src/app/auth/callback/route.ts',
         'src/app/contact/actions.ts',
+        'src/components/ui/MeetingMaterials.tsx',
+        'src/components/ui/SacramentoRepresentativeFinder.tsx',
+        'src/components/visual-edit/VisualDiffModal.tsx',
       ],
 
       // ── Reporters ─────────────────────────────────────────────────────────

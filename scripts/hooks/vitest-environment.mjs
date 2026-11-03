@@ -70,7 +70,6 @@
 import { join, relative, resolve } from 'node:path';
 
 const REPO_ROOT = resolve(import.meta.dirname, '../..');
-const TEST_ROOT = join(REPO_ROOT, 'src');
 const SCRIPTS_DIR = join(REPO_ROOT, 'scripts');
 
 /** The marker that declares a test file's environment. */
@@ -82,7 +81,17 @@ const BUN_USAGE = /\bBun\s*\./;
 /** An import of a `scripts/*.mjs` module from a test. */
 const SCRIPT_IMPORT = /from\s+['"][^'"]*scripts\/([a-z0-9-]+)\.mjs['"]/g;
 
-const EXCLUDED_DIRS = new Set(['node_modules', '.next', '.git', 'coverage', 'dist']);
+const EXCLUDED_DIRS = new Set([
+  'node_modules',
+  '.next',
+  '.git',
+  'coverage',
+  'dist',
+  'e2e',
+  'playwright',
+  '.worktrees',
+  '.trunk',
+]);
 
 /**
  * Every test file in the tree, as absolute paths.
@@ -131,11 +140,13 @@ async function checkFile(path) {
   // see. The default in `vitest.config.mts` is `node` — the cheap one — so
   // an unclassified file is fast rather than slow, but it is still
   // unclassified, and the classification is what the 81/49 split rests on.
-  const marker = source.match(ENVIRONMENT_MARKER);
+  // The marker must be in the top 10 lines of the file for Vitest to respect it.
+  const topLines = source.split('\n').slice(0, 10).join('\n');
+  const marker = topLines.match(ENVIRONMENT_MARKER);
   if (!marker) {
     return {
       file: relativePath,
-      reason: 'does not declare its environment',
+      reason: 'does not declare its environment in its first 10 lines',
       fix:
         'add `// @vitest-environment node` (or `jsdom`) as the first line of the file. ' +
         'Every test file states its environment, so the cost of the environment is a decision ' +
@@ -181,8 +192,11 @@ async function checkFile(path) {
   return null;
 }
 
+const args = process.argv.slice(2).filter((arg) => !arg.startsWith('-'));
+const filesToCheck = args.length > 0 ? args.map((f) => resolve(REPO_ROOT, f)) : await findTestFiles(REPO_ROOT);
+
 const violations = [];
-for (const file of await findTestFiles(TEST_ROOT)) {
+for (const file of filesToCheck) {
   const violation = await checkFile(file);
   if (violation) violations.push(violation);
 }

@@ -99,4 +99,119 @@ describe('VisualDiffModal', () => {
     });
     expect(handleSaveAll).toHaveBeenCalled();
   });
+
+  it('filters between DataPoints and Page Blocks tabs', async () => {
+    const mockDataPoints: ModifiedDataPointItem[] = [
+      { key: 'section.title', initialValue: 'Before', currentValue: 'After' },
+    ];
+    const mockBlocks: ModifiedBlockItem[] = [
+      { blockId: 'b-1', type: 'callout', label: 'Callout Alert' },
+    ];
+
+    await act(async () => {
+      root.render(
+        <VisualDiffModal
+          open={true}
+          onOpenChange={vi.fn()}
+          modifiedDataPoints={mockDataPoints}
+          modifiedBlocks={mockBlocks}
+        />
+      );
+    });
+
+    expect(document.body.textContent).toContain('section.title');
+    expect(document.body.textContent).toContain('Callout Alert');
+
+    // Filter to DataPoints only
+    const dataPointsTab = Array.from(document.body.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('DataPoints')
+    );
+    await act(async () => {
+      dataPointsTab?.click();
+    });
+    expect(document.body.textContent).toContain('section.title');
+    expect(document.body.textContent).not.toContain('Callout Alert');
+
+    // Filter to Page Blocks only
+    const blocksTab = Array.from(document.body.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Page Blocks')
+    );
+    await act(async () => {
+      blocksTab?.click();
+    });
+    expect(document.body.textContent).not.toContain('section.title');
+    expect(document.body.textContent).toContain('Callout Alert');
+
+    // Return to All Changes
+    const allTab = Array.from(document.body.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('All Changes')
+    );
+    await act(async () => {
+      allTab?.click();
+    });
+    expect(document.body.textContent).toContain('section.title');
+    expect(document.body.textContent).toContain('Callout Alert');
+  });
+
+  it('handles empty value fallbacks and close actions', async () => {
+    const handleOpenChange = vi.fn();
+    const mockDataPoints: ModifiedDataPointItem[] = [
+      { key: 'empty.key', initialValue: '', currentValue: '' },
+    ];
+
+    await act(async () => {
+      root.render(
+        <VisualDiffModal
+          open={true}
+          onOpenChange={handleOpenChange}
+          modifiedDataPoints={mockDataPoints}
+        />
+      );
+    });
+
+    // Renders (empty) fallback text
+    expect(document.body.textContent).toContain('(empty)');
+
+    // Click header close button
+    const closeBtn = document.body.querySelector<HTMLButtonElement>('button[aria-label="Close diff modal"]');
+    expect(closeBtn).not.toBeNull();
+    await act(async () => {
+      closeBtn?.click();
+    });
+    expect(handleOpenChange).toHaveBeenCalledWith(false);
+
+    // Click footer close button
+    const footerCloseBtn = Array.from(document.body.querySelectorAll('button')).find((b) =>
+      b.textContent?.trim() === 'Close'
+    );
+    expect(footerCloseBtn).not.toBeNull();
+    await act(async () => {
+      footerCloseBtn?.click();
+    });
+    expect(handleOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it('renders saving state when isSaving is true', async () => {
+    const mockDataPoints: ModifiedDataPointItem[] = [
+      { key: 'key.1', initialValue: 'A', currentValue: 'B' },
+    ];
+
+    await act(async () => {
+      root.render(
+        <VisualDiffModal
+          open={true}
+          onOpenChange={vi.fn()}
+          modifiedDataPoints={mockDataPoints}
+          onSaveAll={vi.fn()}
+          isSaving={true}
+        />
+      );
+    });
+
+    const saveBtn = Array.from(document.body.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Saving…')
+    );
+    expect(saveBtn).not.toBeNull();
+    expect(saveBtn?.disabled).toBe(true);
+  });
 });

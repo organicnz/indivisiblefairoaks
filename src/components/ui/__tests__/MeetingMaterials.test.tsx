@@ -70,5 +70,40 @@ describe('MeetingMaterials Component', () => {
     });
 
     expect(container.textContent).toContain('Presentation by NorCal Resist coalition partners');
+
+    // Select August 2026 town hall
+    const augBtn = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Summer Town Hall & Legislative Advocacy Review')
+    );
+    expect(augBtn).toBeTruthy();
+
+    await act(async () => {
+      augBtn?.click();
+    });
+
+    expect(container.textContent).toContain('Coordinated with Indivisible Yolo and Sacramento chapters');
+    expect(container.textContent).toContain('Join choir practice Thursday evenings at Carmichael Park');
+  });
+
+  it('switches between reviews and handouts tabs back and forth', async () => {
+    await act(async () => {
+      root.render(<MeetingMaterials />);
+    });
+
+    const handoutsBtn = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Printable Handouts')
+    );
+    await act(async () => {
+      handoutsBtn?.click();
+    });
+    expect(container.textContent).toContain('Chapter Meeting Agenda & Action Checklist');
+
+    const reviewsBtn = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Meeting Reviews')
+    );
+    await act(async () => {
+      reviewsBtn?.click();
+    });
+    expect(container.textContent).toContain('General Chapter Meeting: Final Election Push & Ballot Strategy');
   });
 });
