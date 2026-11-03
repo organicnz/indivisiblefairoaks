@@ -72,7 +72,10 @@ export function MfaChallengePage() {
   // `useRef(createClient())` evaluates `createClient()` on *every* render and
   // discards the result — the ref stores the first value but the argument is
   // always called. `useMemo` is the memoisation the comment describes.
-  const supabase = useMemo(() => createClient(), []);
+  const supabase = useMemo(
+    () => (typeof window !== 'undefined' ? createClient() : null),
+    []
+  );
 
   // Where to go once the session is AAL2. `getSafeNextPath` is the same guard
   // the login page and middleware use, so `?next=` cannot become an open
@@ -80,6 +83,7 @@ export function MfaChallengePage() {
   const destination = getSafeNextPath(searchParams.get('next'), '/account') ?? '/account';
 
   useEffect(() => {
+    if (!supabase) return;
     let cancelled = false;
 
     // A hung Supabase call must not leave the user on a spinner forever with no
@@ -94,6 +98,7 @@ export function MfaChallengePage() {
     }, CHECK_TIMEOUT_MS);
 
     async function checkAal() {
+      if (!supabase) return;
       const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
       clearTimeout(settle);
       if (cancelled) return;
@@ -198,6 +203,7 @@ export function MfaChallengePage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!supabase) return;
     setLoading(true);
     setError('');
 

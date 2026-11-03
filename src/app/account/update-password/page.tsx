@@ -26,12 +26,16 @@ export default function UpdatePasswordPage() {
    */
   const [needsStepUp, setNeedsStepUp] = useState<boolean | null>(null);
 
-  const supabase = useMemo(() => createClient(), []);
+  const supabase = useMemo(
+    () => (typeof window !== 'undefined' ? createClient() : null),
+    []
+  );
   const router = useRouter();
 
   // Supabase sends the user here after exchanging the reset code via the
   // auth callback. By the time this page loads the session is already set.
   useEffect(() => {
+    if (!supabase) return;
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
         setSessionReady(true);
@@ -66,7 +70,7 @@ export default function UpdatePasswordPage() {
    * first.
    */
   useEffect(() => {
-    if (!sessionReady) return;
+    if (!sessionReady || !supabase) return;
     let cancelled = false;
 
     (async () => {

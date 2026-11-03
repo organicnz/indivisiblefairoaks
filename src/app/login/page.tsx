@@ -2,7 +2,7 @@
 
 import { ArrowRight, Eye, EyeOff, Fingerprint, Loader2, Lock, Shield } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
 import { useDataPoints } from '@/hooks/useDataPoints';
@@ -23,7 +23,10 @@ function LoginForm() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  const supabase = createClient();
+  const supabase = useMemo(
+    () => (typeof window !== 'undefined' ? createClient() : null),
+    []
+  );
   const router = useRouter();
 
   // Check URL error parameters on mount
@@ -49,6 +52,7 @@ function LoginForm() {
 
   // If already authenticated, redirect to destination
   useEffect(() => {
+    if (!supabase) return;
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
         router.push(targetNext || '/account');
@@ -58,6 +62,7 @@ function LoginForm() {
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!supabase) return;
     setLoading(true);
     setMessage(null);
 
@@ -134,6 +139,7 @@ function LoginForm() {
       setMessage({ type: 'error', text: '❌ Please enter your email address first.' });
       return;
     }
+    if (!supabase) return;
 
     setLoading(true);
     const { error } = await supabase.auth.resetPasswordForEmail(email, {

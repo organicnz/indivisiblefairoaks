@@ -42,12 +42,11 @@ test('a11y: all public pages pass axe in the dark palette', async ({ page }) => 
 
   for (const { path, name } of PAGES) {
     await page.goto(path, { waitUntil: 'load' });
-    await page.waitForTimeout(300);
-
     // The attribute is set before paint by the inline bootstrap script; a page
     // that never took the palette is the failure this gate exists for, and axe
     // would read it as a light page and pass.
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    await page.waitForTimeout(400);
 
     const results = await new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
