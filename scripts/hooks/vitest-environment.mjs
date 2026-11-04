@@ -16,16 +16,27 @@
  * So the environment is now stated per file, on the first line:
  *
  *     // @vitest-environment node
- *     // @vitest-environment jsdom
+ *     // @vitest-environment jsdom-same-realm
  *
- * 81 files run in `node`; the 49 that need a DOM run in `jsdom`. This guard
- * refuses a test file that declares neither, and refuses a `jsdom` file that
- * reaches for `Bun.*`.
+ * The DOM marker is `jsdom-same-realm`, not vitest's builtin `jsdom`:
+ * the builtin constructs the window inside a node:vm context
+ * (`runScripts: "dangerously"` is its unescapable default), and Bun's
+ * node:vm on darwin-arm64 produces a window whose wrappers fail jsdom's
+ * private-field brand check — every jsdom-environment worker crashed
+ * before a single test ran on the arm64 dev machine, on stable and
+ * canary Bun alike. `test/vitest-environment-jsdom-same-realm/` is the
+ * same environment minus the vm realm (the only builtin-blocking knob);
+ * it is load-bearing on macOS and harmless on Linux. A plain `jsdom`
+ * declaration therefore fails this guard with a pointer here.
+ *
+ * 87 files run in `node`; the 116 that need a DOM run in
+ * `jsdom-same-realm`. This guard refuses a test file that declares
+ * neither, and refuses a DOM-environment file that reaches for `Bun.*`.
  *
  * ## Why the classification was not guessed
  *
  * Every test file was run under `--environment=node`, and the ones that
- * failed were marked `jsdom`. Every failure was a DOM dependency —
+ * failed were marked `jsdom-same-realm`. Every failure was a DOM dependency —
  * `ReferenceError: document is not defined`, `window is not defined`,
  * `localStorage is not defined`, `DOMParser is not defined` — and nothing
  * else.
@@ -38,7 +49,7 @@
  *
  * ## The second rule: `Bun.*` requires the `node` environment
  *
- * Vitest's `jsdom` environment replaces the worker's global object with the
+ * The DOM environment replaces the worker's global object with the
  * jsdom window's. The `Bun` global does not survive that swap on every
  * platform. A test file that calls `Bun.file` — or imports a script that
  * does — therefore passes on a developer's macOS machine and fails on the
@@ -73,7 +84,10 @@ const REPO_ROOT = resolve(import.meta.dirname, '../..');
 const SCRIPTS_DIR = join(REPO_ROOT, 'scripts');
 
 /** The marker that declares a test file's environment. */
-const ENVIRONMENT_MARKER = /@vitest-environment\s+(node|jsdom)/;
+const ENVIRONMENT_MARKER = /@vitest-environment\s+(node|jsdom-same-realm)\b/;
+
+/** A bare `jsdom` marker selects vitest's vm-based builtin — broken on Bun/darwin-arm64. (`\b` is NOT enough: `-` is a boundary.) */
+const FORBIDDEN_JSDOM_MARKER = /@vitest-environment\s+jsdom(\s|$)/;
 
 /** A test file that reaches for a Bun API. */
 const BUN_USAGE = /\bBun\s*\./;
@@ -142,13 +156,26 @@ async function checkFile(path) {
   // unclassified, and the classification is what the 81/49 split rests on.
   // The marker must be in the top 10 lines of the file for Vitest to respect it.
   const topLines = source.split('\n').slice(0, 10).join('\n');
+
+  if (FORBIDDEN_JSDOM_MARKER.test(topLines)) {
+    return {
+      file: relativePath,
+      reason:
+        "`jsdom` selects Vitest's vm-based builtin environment — broken on Bun/darwin-arm64",
+      fix:
+        'change the marker to `// @vitest-environment jsdom-same-realm`. The builtin creates the window ' +
+        'inside a node:vm realm; Bun’s vm makes jsdom’s private-field brand check throw before any ' +
+        'test runs. test/vitest-environment-jsdom-same-realm/ is the same environment minus the vm.',
+    };
+  }
+
   const marker = topLines.match(ENVIRONMENT_MARKER);
   if (!marker) {
     return {
       file: relativePath,
       reason: 'does not declare its environment in its first 10 lines',
       fix:
-        'add `// @vitest-environment node` (or `jsdom`) as the first line of the file. ' +
+        'add `// @vitest-environment node` (or `jsdom-same-realm`) as the first line of the file. ' +
         'Every test file states its environment, so the cost of the environment is a decision ' +
         'rather than an inheritance.',
     };
@@ -166,7 +193,7 @@ async function checkFile(path) {
     if (await scriptUsesBun(script)) bunUsingScripts.push(script);
   }
 
-  // Rule 2 — `Bun.*` needs the `node` environment, because the jsdom
+  // Rule 2 — `Bun.*` needs the `node` environment, because the DOM
   // environment replaces the worker's global and the `Bun` global does not
   // survive the swap on every platform.
   if (environment === 'node') return null;
@@ -174,7 +201,7 @@ async function checkFile(path) {
   if (usesBunDirectly) {
     return {
       file: relativePath,
-      reason: 'declares `jsdom` but uses Bun.* directly',
+      reason: 'declares `jsdom-same-realm` but uses Bun.* directly',
       fix: 'change the marker to `// @vitest-environment node`.',
     };
   }
@@ -182,7 +209,7 @@ async function checkFile(path) {
   if (bunUsingScripts.length > 0) {
     return {
       file: relativePath,
-      reason: `declares \`jsdom\` but imports ${bunUsingScripts
+      reason: `declares \`jsdom-same-realm\` but imports ${bunUsingScripts
         .map((s) => `scripts/${s}.mjs`)
         .join(', ')}, which uses Bun.*`,
       fix: 'change the marker to `// @vitest-environment node`.',
@@ -217,7 +244,7 @@ console.error(
     '  that inherits a default pays that cost whether it needs a DOM or not.\n'
 );
 console.error(
-  '  A `jsdom` file that uses `Bun.*` fails on the Linux runner with\n' +
+  '  A `jsdom-same-realm` file that uses `Bun.*` fails on the Linux runner with\n' +
     '    `ReferenceError: Bun is not defined`\n' +
     "  in every test in the file — because Vitest's jsdom environment replaces the\n" +
     "  worker's global with the jsdom window's, and the `Bun` global does not survive\n" +

@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment jsdom-same-realm
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   clearDraft,

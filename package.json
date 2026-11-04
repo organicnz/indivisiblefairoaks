@@ -75,7 +75,8 @@
     "tsrs": "0.20.1-ts7.1.0-beta",
     "typescript": "file:./tools/typescript-shim",
     "vercel": "^65.9.0",
-    "vitest": "5.1.0"
+    "vitest": "5.1.0",
+    "vitest-environment-jsdom-same-realm": "file:./test/vitest-environment-jsdom-same-realm"
   },
   "trustedDependencies": [
     "unrs-resolver"

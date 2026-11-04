@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment jsdom-same-realm
 'use client';
 
 import { act, useState } from 'react';

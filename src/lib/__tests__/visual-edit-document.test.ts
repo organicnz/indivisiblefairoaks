@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment jsdom-same-realm
 
 import { afterEach, describe, expect, it } from 'vitest';
 import { readComposerContentId, VISUAL_EDIT_CONTENT_ID_ATTR } from '@/lib/visual-edit-document';

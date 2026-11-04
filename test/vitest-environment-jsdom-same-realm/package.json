@@ -1,0 +1,11 @@
+{
+  "name": "vitest-environment-jsdom-same-realm",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Vitest jsdom environment without the node:vm realm — fixes Bun/darwin-arm64, where jsdom's private-field brand check fails for cross-realm windows.",
+  "type": "module",
+  "exports": {
+    ".": "./index.mjs",
+    "./package.json": "./package.json"
+  }
+}

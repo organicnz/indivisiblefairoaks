@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment jsdom-same-realm
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   insertLink,

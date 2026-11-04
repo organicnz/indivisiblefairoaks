@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment jsdom-same-realm
 import fc from 'fast-check';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {

@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment jsdom-same-realm
 
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';

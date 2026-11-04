@@ -18,15 +18,18 @@ export default defineConfig({
     //
     // So the classification is now **explicit per file**: every test file
     // declares `// @vitest-environment node` or `// @vitest-environment
-    // jsdom` on its first line, and `scripts/hooks/vitest-environment.mjs`
-    // refuses a file that declares neither. 81 files run in `node`; 49 that
-    // need a DOM run in `jsdom`.
+    // jsdom-same-realm` on its first line, and
+    // `scripts/hooks/vitest-environment.mjs` refuses a file that declares
+    // neither. 87 files run in `node`; 116 that need a DOM run in
+    // `jsdom-same-realm` — Vitest's builtin `jsdom` marker selects the
+    // node:vm-based environment, which throws the EventTarget brand error
+    // on Bun/darwin-arm64 before any test runs. Do not use it.
     //
     // The classification was not guessed. Every file was run under
     // `--environment=node` and the ones that failed — all of them on
     // `ReferenceError: document is not defined`, `window is not defined`,
     // `localStorage is not defined` or `DOMParser is not defined` — were
-    // marked `jsdom`. The failure is loud, which is what makes the
+    // marked (then) `jsdom`. The failure is loud, which is what makes the
     // classification safe: a file that turns out to need a DOM fails at the
     // first `document`, in every test in the file, rather than quietly
     // behaving differently.

@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment jsdom-same-realm
 import { describe, expect, it } from 'vitest';
 import { type Block, serializeBlocks } from '@/lib/blocks';
 import { extractBlocksFromDOM } from '@/lib/visual-edit/extract-blocks-from-dom';

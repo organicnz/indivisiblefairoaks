@@ -219,17 +219,38 @@ So the environment is now stated **per file**, on the first line:
 
 ```ts
 // @vitest-environment node
-// @vitest-environment jsdom
+// @vitest-environment jsdom-same-realm
 ```
 
-81 files run in `node`; the 49 that need a DOM run in `jsdom`.
+87 files run in `node`; the 116 that need a DOM run in `jsdom-same-realm`.
 `scripts/hooks/vitest-environment.mjs` refuses a test file that declares
-neither, and refuses a `jsdom` file that reaches for `Bun.*`. The config's
-default is `node` — the cheap one — so an unclassified file is fast rather
-than slow, and the guard makes sure there is no such file.
+neither, refuses a bare `jsdom` declaration outright (it selects Vitest's
+vm-based builtin — see below), and refuses a DOM-classed file that reaches
+for `Bun.*`. The config's default is `node` — the cheap one — so an
+unclassified file is fast rather than slow, and the guard makes sure there
+is no such file.
+
+**The DOM marker is not Vitest's builtin `jsdom`, and that is deliberate.**
+The builtin constructs the window inside a `node:vm` context
+(`runScripts: "dangerously"` is a destructuring default inside vitest, so no
+config value can turn it off — and jsdom rejects every falsy value outright).
+On Bun for darwin-arm64 that vm realm is broken: the window it creates fails
+jsdom's private-field brand check, so a plain `window.addEventListener()`
+throws `TypeError: 'addEventListener' called on an object that is not a
+valid instance of EventTarget` before a single test runs — on Bun 1.4.2, 1.4.3
+and 1.4.4-canary alike, and with no vitest involved. The Linux x64 runner
+runs the same lockfile green, so this is a Bun/node:vm defect on that
+platform, not a repository bug. `test/vitest-environment-jsdom-same-realm/`
+is the same environment built in the current realm — the only thing jsdom
+changes when `runScripts` is unset — packaged as a local `file:` dev
+dependency like `tools/typescript-shim`. It is load-bearing on macOS and
+harmless on Linux; CI verifies the same arrangement. A `jsdom` docblock now
+fails the environment guard with a pointer here, so the broken path cannot
+come back unnoticed.
 
 **The classification was measured, not guessed.** Every test file was run
-under `--environment=node`, and the ones that failed were marked `jsdom`. All
+under `--environment=node`, and the ones that failed were marked `jsdom`
+(since migrated to `jsdom-same-realm`, below). All
 37 failures were a DOM dependency and nothing else — `ReferenceError:
 document is not defined`, `window is not defined`, `localStorage is not
 defined`, `DOMParser is not defined`. The 12 files that already declared

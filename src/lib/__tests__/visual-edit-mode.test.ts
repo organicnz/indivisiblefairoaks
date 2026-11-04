@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment jsdom-same-realm
 import { describe, expect, it, vi } from 'vitest';
 import { sanitizeWPContent } from '@/lib/sanitize';
 import {
