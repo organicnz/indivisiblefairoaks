@@ -558,21 +558,6 @@ export const QUARANTINE = {
     severity: 'high',
     why: 'Cloudflare Access service credential, read by no function. A secret half of a credential pair.',
   },
-  CLOUDFLARE_API_TOKEN: {
-    owner: OWNERS.platform,
-    severity: 'medium',
-    why: 'Present in both the edge store and GitHub. No workflow or function reads either copy.',
-  },
-  CLOUDFLARE_DNS_ZONE_TOKEN: {
-    owner: OWNERS.platform,
-    severity: 'high',
-    why: 'DNS write token, read by no function. Can repoint the apex and the mail records.',
-  },
-  CLOUDFLARE_ZONE_ID: {
-    owner: OWNERS.platform,
-    severity: 'low',
-    why: 'Zone identifier, not a credential, but undocumented in every manifest.',
-  },
   LLM_PROVIDER: { owner: OWNERS['edge-runtime'], severity: 'low', why: 'Superseded by WALLE_* config. Read by nothing.' },
   LLM_DEFAULT_PROVIDER: { owner: OWNERS['edge-runtime'], severity: 'low', why: 'Superseded by WALLE_* config. Read by nothing.' },
   LLM_FALLBACK_PROVIDER: { owner: OWNERS['edge-runtime'], severity: 'low', why: 'Superseded by WALLE_* config. Read by nothing.' },

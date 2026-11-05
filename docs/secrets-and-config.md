@@ -313,6 +313,16 @@ code. `SUPABASE_DB_URL` (a full Postgres connection string) and
 `CLOUDFLARE_DNS_ZONE_TOKEN` (can repoint the apex and the mail records) are the two
 worth rotating rather than merely deleting.
 
+**2026-11-04 — three of the orphans removed.** `CLOUDFLARE_API_TOKEN`,
+`CLOUDFLARE_DNS_ZONE_TOKEN` and `CLOUDFLARE_ZONE_ID` were unread by every
+function, workflow and script; they have now been removed from Vercel
+(development, preview and production), GitHub Actions, and the Supabase
+edge store, and their baseline and registry entries dropped (#169).
+`CLOUDFLARE_DNS_ZONE_TOKEN` was the high-severity DNS-write token — its
+value is gone from every store, but revoking it in the Cloudflare
+dashboard closes the last copy a human might hold. The remaining
+orphans stand as listed.
+
 ### And — the blind spot
 
 `GH_AUDIT_TOKEN` (fine-grained PAT, scoped to `Actions → Secrets: read`) is
