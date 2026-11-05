@@ -181,7 +181,7 @@ Two prior assumptions in this document were wrong. Both are recorded here so the
 2. **Google Workspace DKIM — DONE (verified 2026-11).** `google._domainkey` is published (DNS-only) and aggregate reports show DKIM PASS across Workspace outbound mail (see §9).
 3. **DMARC Enforcement — partially done.** `_dmarc` now publishes `p=quarantine; pct=100; sp=quarantine; aspf=r; adkim=r` (was `p=none`). Remaining: ramp `p=quarantine` → `p=reject` after a clean reporting window. Note: `adkim=r` / `aspf=r` are *relaxed* alignment — the earlier "(strict alignment)" wording in this item was incorrect.
 4. **DMARC Reporting Address — DONE (2026-11-02).** `rua` now points at Cloudflare DMARC Management (`mailto:40ed54b98ce1464780a375b96b26f2c6@dmarc-reports.cloudflare.net`); reports are ingested into the dashboard instead of the personal mailbox. See §9 and issue #161.
-5. **Apex SPF vs. Resend (see §8)**: Decide whether the apex will keep sending application mail. Current SPF authorizes Google only, so Resend-sent mail soft-fails SPF and relies on DKIM alignment alone.
+5. **Apex SPF vs. Resend — DECIDED (2026-11-05).** Keep DKIM-only alignment; SPF stays Google-only. DKIM alignment is industry standard for third-party senders and is verified passing. Monitored via Cloudflare DMARC Management. See §8 decision block and #172.
 6. **Staging Review**: Review `test.indivisiblefairoaks.org` with the stakeholder team prior to any future production cutovers.
 
 ---
@@ -227,6 +227,22 @@ dig +short -x 209.85.220.41                   # mail-sor-f41.google.com
 The application sends from `contact@indivisiblefairoaks.org` (see `src/lib/email.ts`, `supabase/functions/_shared/email.ts`, `.env.example`), but the apex SPF authorizes Google only. Application mail consequently soft-fails SPF and passes DMARC **solely** through Resend's `resend._domainkey` DKIM alignment. That alignment is valid, but it is a single point of failure — any Resend key rotation or selector change breaks DMARC outright.
 
 **Do not** add `include:_spf.resend.com`: that hostname is now NXDOMAIN, and an unresolvable `include` makes the whole SPF record a `permerror`. The apex is already complete for Resend under its modern CNAME scheme (`send`/`rsend` → `send.forge.rmta.net`, plus a `tracking` CNAME), which covers bounce handling and tracking but **cannot** authorize apex sending — a CNAME at `send.` does not redirect an apex `TXT` SPF record. Resolving apex SPF therefore requires either a deliberate inclusion authorized for this account, or moving application sends to the verified `test.` subdomain. Treat as a decision, not a mechanical fix.
+
+### Decision — Option A: Keep DKIM-Only, Monitor (2026-11-05)
+
+**Decided:** keep the current posture — application mail passes DMARC through `resend._domainkey` DKIM alignment only; SPF on the apex remains Google-only. No DNS or sender-address changes.
+
+**Rationale:**
+- DKIM-only alignment is **industry standard** for third-party transactional senders. SPF alignment on the apex for a service like Resend is the exception, not the norm.
+- DKIM is verified passing (§9: 100% pass rate across all Resend application mail).
+- The residual single-point-of-failure (Resend key/selector rotation) is **monitored** via Cloudflare DMARC Management — any alignment loss surfaces in the dashboard within 24h of the first affected aggregate window.
+- `_spf.resend.com` is NXDOMAIN, so Option C (apex SPF include) is not available from Resend's side.
+- Option B (move sends to `test.` subdomain) would change the chapter-facing sender address and be redone at apex cutover.
+- Option D (defer) postpones a decision that costs nothing to make now.
+
+**Monitoring cadence:** review Cloudflare DMARC dashboard weekly during the `p=quarantine` observation window (see #171). Escalate if any Resend-originated message shows `dkim=fail` disposition.
+
+Tracked in [#172](https://github.com/organicnz/indivisiblefairoaks/issues/172).
 
 ---
 
