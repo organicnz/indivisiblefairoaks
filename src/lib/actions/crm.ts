@@ -352,14 +352,30 @@ export async function getCRMStats(): Promise<CRMStats> {
     return legacyCRMStats(adminClient);
   }
 
-  const row = (data ?? {}) as Record<string, number>;
+  const row = data as Record<string, number> | null;
+  const requiredKeys = [
+    'total_contacts',
+    'active_volunteers',
+    'local_district',
+    'total_donors',
+    'total_donations_cents',
+    'open_tasks',
+  ] as const;
+
+  // An aggregate function without GROUP BY returns exactly one row. Missing
+  // data or a missing key is therefore a broken response, not an empty chapter.
+  // Falling back keeps the contact counts honest instead of showing zeros.
+  if (!row || requiredKeys.some((key) => typeof row[key] !== 'number')) {
+    return legacyCRMStats(adminClient);
+  }
+
   return {
-    totalContacts: row.total_contacts ?? 0,
-    activeVolunteers: row.active_volunteers ?? 0,
-    localDistrict: row.local_district ?? 0,
-    totalDonors: row.total_donors ?? 0,
-    totalDonationsCents: row.total_donations_cents ?? 0,
-    openTasks: row.open_tasks ?? 0,
+    totalContacts: row.total_contacts,
+    activeVolunteers: row.active_volunteers,
+    localDistrict: row.local_district,
+    totalDonors: row.total_donors,
+    totalDonationsCents: row.total_donations_cents,
+    openTasks: row.open_tasks,
   };
 }
 

@@ -295,22 +295,39 @@ describe('Civic CRM Server Actions', () => {
       });
     });
 
-    it('maps absent keys to zero rather than undefined', async () => {
+    it('falls back when the RPC omits aggregate keys', async () => {
       mockAdminClient.rpc = vi.fn().mockResolvedValue({ data: {}, error: null });
+      tables.crm_contacts = {
+        rows: [
+          { id: 'c1', status: 'active_volunteer', district: 'CA-03' },
+          { id: 'c2', status: 'supporter', district: 'CA-12' },
+        ],
+      };
+      tables.crm_tasks = {
+        rows: [
+          { id: 't1', status: 'open' },
+          { id: 't2', status: 'done' },
+        ],
+      };
 
       const stats = await getCRMStats();
-      expect(stats.totalContacts).toBe(0);
-      expect(stats.totalDonationsCents).toBe(0);
+      expect(stats.totalContacts).toBe(2);
+      expect(stats.activeVolunteers).toBe(1);
+      expect(stats.openTasks).toBe(1);
     });
 
-    it('maps null data to zeros rather than failing', async () => {
-      // Unusual path: RPC succeeds but returns null data (no rows). The `?? {}`
-      // fallback ensures every key resolves to 0 rather than throwing.
+    it('falls back when the RPC returns no row', async () => {
+      // An aggregate function without GROUP BY always returns one row. Null data
+      // is a broken response, not a chapter with zero constituents.
       mockAdminClient.rpc = vi.fn().mockResolvedValue({ data: null, error: null });
+      tables.crm_contacts = {
+        rows: [{ id: 'c1', status: 'supporter', district: 'CA-12' }],
+      };
+      tables.crm_tasks = { rows: [{ id: 't1', status: 'open' }] };
 
       const stats = await getCRMStats();
-      expect(stats.totalContacts).toBe(0);
-      expect(stats.openTasks).toBe(0);
+      expect(stats.totalContacts).toBe(1);
+      expect(stats.openTasks).toBe(1);
     });
 
     it('falls back to per-table counts when the migration has not been applied', async () => {
