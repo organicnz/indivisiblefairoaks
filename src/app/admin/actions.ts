@@ -19,12 +19,15 @@ async function requireAdminClient() {
   }
 
   const adminClient = await createAdminClient();
-  const { data: profile } = await adminClient
+  const { data: profile, error: profileError } = await adminClient
     .from('profiles')
     .select('is_admin')
     .or(`id.eq.${user.id},user_id.eq.${user.id}`)
-    .single();
+    .maybeSingle();
 
+  // A failed read is not a denied role. Only an empty profile means the user
+  // has no admin grant; a database failure must remain retryable.
+  if (profileError) throw new Error('Could not verify admin access. Try again.');
   if (!profile?.is_admin) throw new Error('Not authorised');
   return adminClient;
 }
