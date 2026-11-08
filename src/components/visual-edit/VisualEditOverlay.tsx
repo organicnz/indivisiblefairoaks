@@ -3793,6 +3793,11 @@ export function VisualEditOverlay() {
 
   const handleSavePageSettings = async (e: React.FormEvent) => {
     e.preventDefault();
+    const refusal = describeUnsaveableDocument();
+    if (refusal) {
+      toast.error(refusal);
+      return;
+    }
     setSavingBackend(true);
     try {
       // A region's slug is the registry's, not a form field: the editor renders

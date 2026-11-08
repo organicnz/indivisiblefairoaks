@@ -2304,6 +2304,29 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     expect(wholePage?.disabled).toBe(true);
   });
 
+  it('refuses page settings on a coded route before posting the route slug', async () => {
+    pathname.value = '/events';
+    renderPage('<div class="space-y-8"><p>Event copy.</p></div>');
+    getContentBySlugForEdit.mockResolvedValue(null);
+    await mount();
+
+    await act(async () => {
+      openSettingsVisual();
+    });
+
+    const dialog = document.querySelector('[role="dialog"]');
+    expect(dialog?.textContent).toContain('Page Settings');
+    const form = dialog?.querySelector('form');
+    expect(form).not.toBeNull();
+
+    await act(async () => {
+      form?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    });
+
+    expect(saveContent).not.toHaveBeenCalled();
+    expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('written in code'));
+  });
+
   it('still edits a copy region on a coded route with no page row', async () => {
     pathname.value = '/events';
     renderPage('<div data-copy-region="events-trainings"><p>Region copy.</p></div>');
