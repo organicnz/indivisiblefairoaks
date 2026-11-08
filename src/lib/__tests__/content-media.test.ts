@@ -474,6 +474,31 @@ describe('content-media actions', () => {
       expect(tables.content_media.rows).toHaveLength(1);
     });
 
+    it('can retry after a transient database failure clears', async () => {
+      const { deleteContentMediaRow } = await import('@/lib/actions/content-media');
+      const mediaRows = [mediaRow({ id: 'test-id', path: REFERENCED_PATH })];
+      const media: MockTableConfig = {
+        rows: mediaRows,
+        deleteError: { message: 'row lock timeout' },
+      };
+      const { remove } = configure({
+        content: { rows: [publishedRow(42)] },
+        content_media: media,
+        content_revisions: { rows: [] },
+      });
+
+      const first = await deleteContentMediaRow('test-id');
+      expect(first.success).toBe(false);
+      expect(mediaRows).toHaveLength(1);
+
+      media.deleteError = null;
+      const second = await deleteContentMediaRow('test-id');
+
+      expect(second).toEqual({ success: true, data: { deleted: true } });
+      expect(mediaRows).toHaveLength(0);
+      expect(remove).toHaveBeenCalledTimes(2);
+    });
+
     it('returns not found if the media row is gone', async () => {
       const { deleteContentMediaRow } = await import('@/lib/actions/content-media');
       configure({
