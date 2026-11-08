@@ -161,6 +161,33 @@ describe('ContentList publish-state actions', () => {
     expect(routerPush).toHaveBeenCalledWith('/admin/content?q=meeting&hide=unreachable');
   });
 
+  it('keeps typed search text when paging', () => {
+    act(() => {
+      root.render(
+        <ContentList
+          initialRows={[row()]}
+          initialTotal={30}
+          initialPage={1}
+          pageSize={25}
+        />
+      );
+    });
+
+    const input = container.querySelector<HTMLInputElement>('input[type="search"]');
+    expect(input).not.toBeNull();
+    if (!input) return;
+    const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+    act(() => {
+      setValue?.call(input, 'meeting');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    const next = [...container.querySelectorAll('a')].find(
+      (a) => a.textContent?.trim() === 'Next'
+    );
+    expect(next?.getAttribute('href')).toBe('/admin/content?q=meeting&page=2');
+  });
+
   it('reports how many rows the filter is hiding', () => {
     searchParams.current = new URLSearchParams('hide=unreachable');
     act(() => {

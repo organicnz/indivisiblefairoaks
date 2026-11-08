@@ -423,13 +423,13 @@ export function ContentList({
               disabled={initialPage <= 1}
               page={initialPage - 1}
               label="Previous"
-              params={{ status, type, q, hide: hide ? 'unreachable' : '' }}
+              params={{ status, type, q: query.trim(), hide: hide ? 'unreachable' : '' }}
             />
             <PageLink
               disabled={initialPage >= totalPages}
               page={initialPage + 1}
               label="Next"
-              params={{ status, type, q, hide: hide ? 'unreachable' : '' }}
+              params={{ status, type, q: query.trim(), hide: hide ? 'unreachable' : '' }}
             />
           </div>
         )}
