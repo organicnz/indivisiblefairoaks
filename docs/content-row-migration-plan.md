@@ -82,6 +82,20 @@ evidence they are imports rather than authored CMS copy.
    `content_revisions`** first, and check the foreign key's delete behaviour —
    revisions are the only history of the old import.
 
+## Archive export
+
+Before any archive or delete decision, take a read-only snapshot of the rows and
+their history:
+
+```bash
+bun run content:export
+```
+
+That writes `tmp/content-archive-YYYY-MM-DD.json` (or pass `--out <path>`) with
+every unreachable row, its revisions, the excluded slug list, and the project
+host. The command only issues `select`s. **Do not commit the archive** — it is
+production copy for review, not a source file.
+
 ## Reproduction
 
 The row list is a plain read:
