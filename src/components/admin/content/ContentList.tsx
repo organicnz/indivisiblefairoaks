@@ -442,12 +442,14 @@ export function ContentList({
 
       <nav aria-label="Pagination" className="flex items-center justify-between text-sm">
         <p className={isPending ? 'opacity-60' : undefined}>
-          {initialTotal === 0
-            ? 'No results'
-            : `${(initialPage - 1) * pageSize + 1}–${Math.min(
-                initialPage * pageSize,
-                initialTotal
-              )} of ${initialTotal}`}
+          {pageOutOfRange
+            ? 'No rows on this page'
+            : initialTotal === 0
+              ? 'No results'
+              : `${(initialPage - 1) * pageSize + 1}–${Math.min(
+                  initialPage * pageSize,
+                  initialTotal
+                )} of ${initialTotal}`}
         </p>
         {totalPages > 1 && (
           <div className="flex gap-2">

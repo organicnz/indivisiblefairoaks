@@ -212,6 +212,9 @@ describe('ContentList publish-state actions', () => {
     });
 
     expect(container.textContent).toContain('That page is out of range.');
+    expect(container.querySelector('nav[aria-label="Pagination"]')?.textContent).toContain(
+      'No rows on this page'
+    );
     const back = [...container.querySelectorAll('a')].find(
       (link) => link.textContent?.trim() === 'Go to first page'
     );
