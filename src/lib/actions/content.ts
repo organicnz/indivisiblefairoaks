@@ -451,8 +451,20 @@ export async function deleteContent(id: number): Promise<ActionResult> {
     .maybeSingle();
   if (!existing) return fail('That page no longer exists');
 
-  const { error } = await adminClient.from('content').delete().eq('id', id);
+  /*
+   * Ask for the deleted row back. An existence check followed by a DELETE has
+   * a race: if a colleague removes the row in between, PostgREST still returns
+   * no error for a delete that matched nothing, and the old code reported
+   * success for a write that did nothing.
+   */
+  const { data: deleted, error } = await adminClient
+    .from('content')
+    .delete()
+    .eq('id', id)
+    .select('id')
+    .maybeSingle();
   if (error) return fail(error.message);
+  if (!deleted) return fail('That page no longer exists');
   revalidateContent(existing.slug);
   return { success: true };
 }

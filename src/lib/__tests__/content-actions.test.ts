@@ -229,6 +229,23 @@ describe('deleteContent', () => {
     expect(result).toMatchObject({ error: 'That page no longer exists' });
   });
 
+  it('fails when the row disappears before the delete', async () => {
+    let calls = 0;
+    const goodClient = createMockAdminClient({ content: { rows: [{ id: 7, slug: 'gone' }] } });
+    const emptyClient = createMockAdminClient({ content: { rows: [] } });
+    const client = { ...goodClient };
+    client.from = vi.fn((table: string) => {
+      calls += 1;
+      return calls === 1 ? goodClient.from(table) : emptyClient.from(table);
+    });
+    requireAdmin.mockResolvedValue({ adminClient: client });
+
+    const result = await deleteContent(7);
+
+    expect(result.success).toBe(false);
+    expect(result).toMatchObject({ error: 'That page no longer exists' });
+  });
+
   it('surfaces a DB error on the delete operation', async () => {
     // The existence check (SELECT) must succeed, but the DELETE itself fails.
     // This is achieved by making the first `from('content')` call return the
