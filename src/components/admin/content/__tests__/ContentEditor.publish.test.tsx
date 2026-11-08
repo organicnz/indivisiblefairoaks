@@ -145,6 +145,28 @@ describe('Publishing does not discard unsaved edits', () => {
     expect(payload.publishedAt).toBe(publishedAt);
   });
 
+  it('uses the latest stored publication date after the page refreshes', async () => {
+    const firstDate = '2026-09-20T18:00:00.000Z';
+    const refreshedDate = '2026-09-21T18:00:00.000Z';
+    render({ status: 'publish', publishedAt: firstDate });
+    type('Meeting notes — corrected');
+
+    // A same-page refresh can replace the prop without remounting the editor.
+    render({ status: 'publish', publishedAt: refreshedDate });
+
+    const save = [...container.querySelectorAll('button')].find(
+      (button) => button.textContent?.trim() === 'Save'
+    ) as HTMLButtonElement | undefined;
+    expect(save).toBeDefined();
+
+    await act(async () => {
+      if (save) click(save);
+    });
+
+    const payload = saveContent.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(payload.publishedAt).toBe(refreshedDate);
+  });
+
   it('saves the whole document at the new status rather than flipping status alone', async () => {
     render();
 

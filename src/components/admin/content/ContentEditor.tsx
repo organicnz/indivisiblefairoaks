@@ -556,6 +556,7 @@ export function ContentEditor({ initial, siteHost }: Props) {
       featuredImage,
       fields,
       initial.id,
+      initial.publishedAt,
       metaDescription,
       metaTitle,
       slug,
