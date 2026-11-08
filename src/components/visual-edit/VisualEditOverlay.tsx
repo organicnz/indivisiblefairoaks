@@ -2009,7 +2009,15 @@ export function VisualEditOverlay() {
           }
           setContentRow((prev) =>
             prev
-              ? { ...prev, body: newBody, updated_at: res.data?.updatedAt }
+              ? {
+                  ...prev,
+                  body: newBody,
+                  updated_at: res.data?.updatedAt,
+                  published_at:
+                    res.data?.publishedAt ??
+                    prev.published_at ??
+                    (saveStatus === 'publish' ? new Date().toISOString() : null),
+                }
               : {
                   id: res.data?.id || 1,
                   title,
@@ -2155,7 +2163,18 @@ export function VisualEditOverlay() {
       const res = await setContentStatus(contentRow.id, nextStatus as 'publish' | 'draft');
       if (res.success) {
         toast.success(`Page marked as ${nextStatus}`);
-        setContentRow((prev) => (prev ? { ...prev, status: nextStatus } : null));
+        setContentRow((prev) =>
+          prev
+            ? {
+                ...prev,
+                status: nextStatus,
+                published_at:
+                  res.data?.publishedAt ??
+                  prev.published_at ??
+                  (nextStatus === 'publish' ? new Date().toISOString() : null),
+              }
+            : null
+        );
         setPageStatus(nextStatus as 'publish' | 'draft');
         router.refresh();
       } else {
@@ -3858,6 +3877,10 @@ export function VisualEditOverlay() {
                 featured_image: pageFeaturedImage || null,
                 status: pageStatus,
                 updated_at: res.data?.updatedAt,
+                published_at:
+                  res.data?.publishedAt ??
+                  prev.published_at ??
+                  (pageStatus === 'publish' ? new Date().toISOString() : null),
               }
             : {
                 id: res.data?.id || 1,
@@ -3871,7 +3894,9 @@ export function VisualEditOverlay() {
                 metadata: {},
                 updated_at: res.data?.updatedAt,
                 created_at: new Date().toISOString(),
-                published_at: pageStatus === 'publish' ? new Date().toISOString() : null,
+                published_at:
+                  res.data?.publishedAt ??
+                  (pageStatus === 'publish' ? new Date().toISOString() : null),
               }
         );
         setSavedBody(persistedBody);

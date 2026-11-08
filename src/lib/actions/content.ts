@@ -419,7 +419,7 @@ export async function saveContent(
 export async function setContentStatus(
   id: number,
   status: 'publish' | 'draft'
-): Promise<ActionResult<{ id: number }>> {
+): Promise<ActionResult<{ id: number; publishedAt: string | null }>> {
   const { adminClient } = await requireAdmin();
   const { data: existing } = await adminClient
     .from('content')
@@ -450,7 +450,7 @@ export async function setContentStatus(
   if (error) return fail(error.message);
   if (!written) return fail('That page no longer exists');
   revalidateContent(existing.slug);
-  return { success: true, data: { id } };
+  return { success: true, data: { id, publishedAt } };
 }
 
 export async function deleteContent(id: number): Promise<ActionResult> {

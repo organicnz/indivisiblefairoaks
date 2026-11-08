@@ -742,6 +742,43 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     expect(payload?.body).not.toContain('Intro copy.');
   });
 
+  it('keeps the server publication date after a status toggle before the next block save', async () => {
+    const publishedAt = '2026-10-10T18:00:00.000Z';
+    renderPage(rendered);
+    getContentBySlugForEdit.mockResolvedValue({
+      id: 7,
+      title: 'About Us',
+      slug: 'about',
+      excerpt: null,
+      type: 'page',
+      status: 'draft',
+      body,
+      featured_image: null,
+      metadata: {},
+      updated_at: '2026-10-09T00:00:00Z',
+      published_at: null,
+    });
+    setContentStatus.mockResolvedValue({ success: true, data: { id: 7, publishedAt } });
+    await mount();
+
+    const statusButton = container.querySelector<HTMLButtonElement>(
+      'button[title="Click to toggle between Published and Draft"]'
+    );
+    expect(statusButton).not.toBeNull();
+    await act(async () => {
+      statusButton?.click();
+    });
+
+    await act(async () => {
+      window.dispatchEvent(
+        new CustomEvent(VISUAL_EDIT_EVENTS.deleteSection, { detail: { blockIndex: 0 } })
+      );
+    });
+
+    const payload = saveContent.mock.calls.at(-1)?.[0] as { publishedAt?: string } | undefined;
+    expect(payload?.publishedAt).toBe(publishedAt);
+  });
+
   it('displays the live SERP and social card preview in page settings and allows toggling tabs', async () => {
     await withPage();
 
