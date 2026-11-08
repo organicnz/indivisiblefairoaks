@@ -1617,6 +1617,69 @@ describe('Civic CRM Server Actions', () => {
       expect(tables.crm_broadcasts.rows?.[0]?.sent_at).toBeTruthy();
     });
 
+    it('surfaces the database error when the campaign log cannot be created', async () => {
+      const savedId = session.adminUserId;
+      session.adminUserId = 'admin-user-log-error-uuid';
+      try {
+        tables.crm_contacts = {
+          rows: [
+            {
+              id: 'u1',
+              email: 'vol1@example.com',
+              do_not_email: false,
+              status: 'supporter',
+            },
+          ],
+        };
+        tables.crm_broadcasts = { rows: [], error: { message: 'campaign table offline' } };
+
+        const res = await sendCRMBroadcast({ subject: 'Hi', body: 'Hello there' });
+
+        expect(res.success).toBe(false);
+        expect(res.error).toBe('Failed to create broadcast log: campaign table offline');
+        expect(tables.crm_broadcasts.rows).toHaveLength(0);
+      } finally {
+        session.adminUserId = savedId;
+      }
+    });
+
+    it('reports when a failed dispatch also cannot be marked failed', async () => {
+      // The dispatch stopped, but a failed status write would leave the row at
+      // `queued` — the state the composer polls forever and an operator reads as
+      // "still sending". The error must name that state explicitly.
+      const savedId = session.adminUserId;
+      session.adminUserId = 'admin-user-mark-fail-uuid';
+      try {
+        mockEnv.CRM_BROADCAST_FUNCTION_URL = undefined;
+        mockEnv.SUPABASE_SECRET_KEY = undefined;
+        tables.crm_contacts = {
+          rows: [
+            {
+              id: 'u1',
+              email: 'vol1@example.com',
+              do_not_email: false,
+              status: 'supporter',
+            },
+          ],
+        };
+        tables.crm_broadcasts = {
+          rows: [],
+          insert: { id: 'b-mark-fail' },
+          errors: [{ kind: 'eq', column: 'id', error: { message: 'status write denied' } }],
+        };
+
+        const res = await sendCRMBroadcast({ subject: 'Hi', body: 'Hello there' });
+
+        expect(res.success).toBe(false);
+        expect(res.error).toContain('not configured');
+        expect(res.error).toContain('could not be marked failed: status write denied');
+        expect(res.error).toMatch(/may still appear queued/i);
+        expect(tables.crm_broadcasts.rows?.[0]).toMatchObject({ status: 'queued' });
+      } finally {
+        session.adminUserId = savedId;
+      }
+    });
+
     it('fails the broadcast visibly when the sender URL is set but the service key is absent', async () => {
       // The dispatch pre-flight checks the URL and then the key as two separate
       // guards. A deployment that set the function URL but not the service key
@@ -2022,6 +2085,30 @@ describe('sendCRMBroadcastSelfTest', () => {
     // Marked failed for the same reason a real broadcast is: a preview sitting
     // at 'queued' in the campaign log reads as a test that is merely slow.
     expect(broadcastRow()).toMatchObject({ status: 'failed' });
+  });
+
+  it('reports when a failed test cannot be marked failed', async () => {
+    const savedId = session.adminUserId;
+    session.adminUserId = 'admin-user-selftest-mark-fail';
+    try {
+      arrange();
+      mockEnv.CRM_BROADCAST_FUNCTION_URL = undefined;
+      tables.crm_broadcasts = {
+        rows: [],
+        insert: { id: 'test-broadcast-uuid' },
+        errors: [{ kind: 'eq', column: 'id', error: { message: 'status write denied' } }],
+      };
+
+      const res = await sendCRMBroadcastSelfTest({ subject: 'Hi', body: 'There' });
+
+      expect(res.success).toBe(false);
+      expect(res.error).toContain('not configured');
+      expect(res.error).toContain('could not be marked failed: status write denied');
+      expect(res.error).toMatch(/may still appear queued/i);
+      expect(broadcastRow()).toMatchObject({ status: 'queued' });
+    } finally {
+      session.adminUserId = savedId;
+    }
   });
 });
 

@@ -2181,7 +2181,10 @@ export async function sendCRMBroadcast({
     .select('id')
     .single();
 
-  if (bcError || !broadcast) {
+  if (bcError) {
+    return { success: false, error: `Failed to create broadcast log: ${bcError.message}` };
+  }
+  if (!broadcast) {
     return { success: false, error: 'Failed to create broadcast log' };
   }
 
@@ -2192,19 +2195,38 @@ export async function sendCRMBroadcast({
     // `failed_count` is the unsent remainder, matching `markCRMBroadcastFailed`.
     // Without it the row reads "N recipients, none accepted, none rejected"
     // rather than "nothing was attempted" — and nothing was.
-    await adminClient
+    const { data: markedFailed, error: markError } = await adminClient
       .from('crm_broadcasts')
       .update({
         status: 'failed',
         sent_at: new Date().toISOString(),
         failed_count: recipients.length,
       })
-      .eq('id', broadcast.id);
+      .eq('id', broadcast.id)
+      .select('id')
+      .maybeSingle();
+    const startFailure = `Broadcast could not be started: ${dispatched.error}`;
+    if (markError) {
+      return {
+        success: false,
+        recipientCount: recipients.length,
+        broadcastId: broadcast.id,
+        error: `${startFailure}. The campaign could not be marked failed: ${markError.message}. It may still appear queued — mark it failed before retrying.`,
+      };
+    }
+    if (!markedFailed) {
+      return {
+        success: false,
+        recipientCount: recipients.length,
+        broadcastId: broadcast.id,
+        error: `${startFailure}. The campaign could not be marked failed because its row was not found. It may still appear queued — mark it failed before retrying.`,
+      };
+    }
     return {
       success: false,
       recipientCount: recipients.length,
       broadcastId: broadcast.id,
-      error: `Broadcast could not be started: ${dispatched.error}`,
+      error: startFailure,
     };
   }
 
@@ -2279,11 +2301,26 @@ export async function sendCRMBroadcastSelfTest({
 
   const dispatched = await dispatchBroadcastSender(data.id);
   if (!dispatched.ok) {
-    await adminClient
+    const { data: markedFailed, error: markError } = await adminClient
       .from('crm_broadcasts')
       .update({ status: 'failed', sent_at: new Date().toISOString(), failed_count: 1 })
-      .eq('id', data.id);
-    return { success: false, error: `Test could not be sent: ${dispatched.error}` };
+      .eq('id', data.id)
+      .select('id')
+      .maybeSingle();
+    const testFailure = `Test could not be sent: ${dispatched.error}`;
+    if (markError) {
+      return {
+        success: false,
+        error: `${testFailure}. The test row could not be marked failed: ${markError.message}. It may still appear queued.`,
+      };
+    }
+    if (!markedFailed) {
+      return {
+        success: false,
+        error: `${testFailure}. The test row could not be marked failed because it was not found. It may still appear queued.`,
+      };
+    }
+    return { success: false, error: testFailure };
   }
 
   revalidateCRMRoutes();
