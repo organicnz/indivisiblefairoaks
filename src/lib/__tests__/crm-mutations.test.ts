@@ -462,6 +462,22 @@ describe('CRM mutation failure paths', () => {
       });
 
       expect(res.success).toBe(false);
+      expect(res.error).toBe('Contact not found');
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it('surfaces a contact lookup failure instead of saying the contact is missing', async () => {
+      freshAdmin();
+      tables.crm_contacts = { rows: [], error: { message: 'connection reset' } };
+
+      const res = await sendCRMDirectEmail({
+        contactId: 'c1',
+        subject: 'Hi',
+        message: 'There',
+      });
+
+      expect(res.success).toBe(false);
+      expect(res.error).toBe('Could not load contact: connection reset');
       expect(global.fetch).not.toHaveBeenCalled();
     });
 

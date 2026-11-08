@@ -142,6 +142,18 @@ describe('content-media actions', () => {
       await expect(getContentMedia(99)).rejects.toThrow('Content row not found or unpublished');
     });
 
+    it('surfaces a content read failure instead of calling it unpublished', async () => {
+      const { getContentMedia } = await import('@/lib/actions/content-media');
+      configure({
+        content: { rows: [], error: { message: 'connection reset' } },
+        content_media: { rows: [] },
+      });
+
+      await expect(getContentMedia(42)).rejects.toThrow(
+        'Failed to load content: connection reset'
+      );
+    });
+
     it('throws when the media list query fails', async () => {
       const { getContentMedia } = await import('@/lib/actions/content-media');
       configure({

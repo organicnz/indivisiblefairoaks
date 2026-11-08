@@ -1213,14 +1213,24 @@ describe('CRM reads and bookkeeping', () => {
     });
 
     it('throws for a contact that does not exist rather than rendering an empty page', async () => {
-      // `.single()` against zero rows is PostgREST's PGRST116, which the mock
-      // reproduces, and the action turns it into a sentence. Another contact is
-      // in the table so the "not found" is the id filter's doing.
+      // `.maybeSingle()` resolves zero rows as `{ data: null, error: null }`, so
+      // the action has to make the "not found" sentence itself. Another contact
+      // is in the table so the absence is the id filter's doing.
       tables.crm_contacts = { rows: [{ id: 'c2', first_name: 'Sam' }] };
       tables.crm_activities = { rows: [] };
       tables.crm_tasks = { rows: [] };
 
       await expect(getCRMContactDetail('missing')).rejects.toThrow(/not found/i);
+    });
+
+    it('surfaces a contact read failure instead of claiming the contact is missing', async () => {
+      tables.crm_contacts = { rows: [], error: { message: 'connection reset' } };
+      tables.crm_activities = { rows: [] };
+      tables.crm_tasks = { rows: [] };
+
+      await expect(getCRMContactDetail('c1')).rejects.toThrow(
+        'Failed to load contact: connection reset'
+      );
     });
   });
 

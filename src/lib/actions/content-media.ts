@@ -63,7 +63,8 @@ async function assertContentPublished(contentId: number): Promise<void> {
     .eq('status', 'publish')
     .lte('published_at', new Date().toISOString())
     .maybeSingle();
-  if (error || data === null) throw new Error('Content row not found or unpublished');
+  if (error) throw new Error(`Failed to load content: ${error.message}`);
+  if (data === null) throw new Error('Content row not found or unpublished');
 }
 
 /**

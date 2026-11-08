@@ -987,7 +987,7 @@ export async function getCRMContactDetail(id: string): Promise<{
     { count: taskCount, error: taskCountError },
     { count: openTaskCount, error: openTaskCountError },
   ] = await Promise.all([
-    adminClient.from('crm_contacts').select('*').eq('id', id).single(),
+    adminClient.from('crm_contacts').select('*').eq('id', id).maybeSingle(),
     adminClient
       .from('crm_activities')
       .select('*')
@@ -1021,7 +1021,10 @@ export async function getCRMContactDetail(id: string): Promise<{
       .eq('status', 'open'),
   ]);
 
-  if (contactError || !contact) {
+  if (contactError) {
+    throw new Error(`Failed to load contact: ${contactError.message}`);
+  }
+  if (!contact) {
     throw new Error('Contact not found');
   }
 
@@ -1809,9 +1812,12 @@ export async function sendCRMDirectEmail({
     .from('crm_contacts')
     .select('id, email, first_name, last_name, do_not_email, unsubscribe_token')
     .eq('id', contactId)
-    .single();
+    .maybeSingle();
 
-  if (fetchError || !contact) {
+  if (fetchError) {
+    return { success: false, error: `Could not load contact: ${fetchError.message}` };
+  }
+  if (!contact) {
     return { success: false, error: 'Contact not found' };
   }
 
