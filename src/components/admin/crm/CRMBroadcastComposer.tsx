@@ -405,7 +405,27 @@ export function CRMBroadcastComposer({
     const inFlight = initialBroadcasts.find(
       (b) => !b.test_only && (b.status === 'queued' || b.status === 'sending')
     );
-    if (inFlight) void followProgressRef.current(inFlight.id);
+    if (!inFlight) return;
+
+    // Seed the readout from the row we already have. Without this, a failure on
+    // the very first poll leaves `progress` null, so no card renders and the
+    // operator has no Resume control to fall back to.
+    setProgress((current) =>
+      current?.id === inFlight.id
+        ? current
+        : {
+            id: inFlight.id,
+            subject: inFlight.subject ?? null,
+            status: inFlight.status as BroadcastProgress['status'],
+            recipientCount: inFlight.recipient_count ?? 0,
+            sentCount: inFlight.sent_count ?? 0,
+            failedCount: inFlight.failed_count ?? 0,
+            sentAt: inFlight.sent_at ?? null,
+            createdAt: inFlight.created_at ?? new Date().toISOString(),
+            stillWatching: true,
+          }
+    );
+    void followProgressRef.current(inFlight.id);
   }, [initialBroadcasts]);
 
   /**

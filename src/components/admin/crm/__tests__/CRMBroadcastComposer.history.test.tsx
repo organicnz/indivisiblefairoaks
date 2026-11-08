@@ -432,12 +432,16 @@ describe('broadcast composer failure states', () => {
     expect(text()).toContain('Rally this Saturday');
   });
 
-  it('tells the author when the progress feed is lost instead of freezing', async () => {
+  it('shows the last known progress and a resume control when the first poll fails', async () => {
     vi.mocked(getBroadcastProgress).mockRejectedValueOnce(new Error('db down'));
 
     render([broadcast({ status: 'sending', recipient_count: 500, sent_count: 120 })]);
     await settle(100);
 
+    // The row itself is enough to render the readout before the first poll
+    // answers. Recovery must not depend on a previous successful poll.
+    expect(text()).toContain('120 of 500 accepted');
+    expect(text()).toContain('Resume updates');
     expect(toast.error).toHaveBeenCalledWith(
       'Lost the progress feed — reload to check the campaign'
     );
