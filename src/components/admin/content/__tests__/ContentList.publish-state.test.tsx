@@ -221,6 +221,14 @@ describe('ContentList publish-state actions', () => {
     expect(back?.getAttribute('href')).toBe('/admin/content?page=1');
   });
 
+  it('treats a whitespace-only search as unfiltered, matching the server', () => {
+    searchParams.current = new URLSearchParams('q=%20');
+    render([]);
+
+    expect(container.textContent).toContain('No pages yet.');
+    expect(container.textContent).not.toContain('No pages match these filters.');
+  });
+
   it('does not call a filtered empty list the first page', () => {
     searchParams.current = new URLSearchParams('q=missing');
     render([]);
