@@ -95,4 +95,27 @@ describe('ContentList publish-state actions', () => {
     );
     expect(publish).toBeDefined();
   });
+
+  it('marks a slug served by a coded route as unreachable and names the reason', () => {
+    render([row({ slug: 'faqs' })]);
+    const badge = [...container.querySelectorAll('span')].find((span) =>
+      span.textContent?.startsWith('Unreachable')
+    );
+    expect(badge).toBeDefined();
+    expect(badge?.getAttribute('title')).toMatch(/served by a site route/i);
+    expect(container.textContent).toMatch(/their own URL will not show this content/i);
+  });
+
+  it('marks a legacy redirect slug as unreachable with the redirect reason', () => {
+    render([row({ slug: 'about-us' })]);
+    const badge = [...container.querySelectorAll('span')].find((span) =>
+      span.textContent?.startsWith('Unreachable')
+    );
+    expect(badge?.getAttribute('title')).toMatch(/legacy Google Sites path/i);
+  });
+
+  it('leaves an ordinary CMS slug unmarked', () => {
+    render([row()]);
+    expect(container.textContent).not.toContain('Unreachable');
+  });
 });

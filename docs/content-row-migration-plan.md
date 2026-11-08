@@ -1,8 +1,7 @@
 # Content row migration plan
 
-> Status: proposed. Read-only audit complete on 2026-11-08; **no rows were
-> changed**. This plan needs a content-owner decision before anything is
-> archived or deleted.
+> Status: badge shipped. Read-only audit complete on 2026-11-08; **no rows were
+> changed**. Archiving or deleting still needs a content-owner decision.
 
 `content` holds 15 rows. Fourteen cannot be reached at their own slug:
 
@@ -68,10 +67,11 @@ evidence they are imports rather than authored CMS copy.
 2. **Move wanted copy into a live surface.** Use a **copy region** on the
    coded page (`copy-events-trainings` is the existing example) or a new CMS
    page with a free slug. Do not reuse the shadowed slug.
-3. **Archive the rest in the admin UI.** The least destructive option is a
-   computed "Unreachable" badge/filter in `/admin/content`, using the existing
+3. **Archive the rest in the admin UI.** The list now marks every unreachable
+   row with an **Unreachable** badge and a banner, using the existing
    `describeSlugConflict` / `isLegacySlug` helpers. No schema or data change is
-   needed, and it stops the list presenting dead rows as ordinary pages.
+   needed, and it stops the list presenting dead rows as ordinary pages. A
+   dedicated filter is still optional.
 4. **If durable state is preferred**, `content.metadata.archived = true` is
    available without a migration; public reads already cannot resolve these
    slugs. Do **not** use `status = 'draft'` as an archive: it changes publish

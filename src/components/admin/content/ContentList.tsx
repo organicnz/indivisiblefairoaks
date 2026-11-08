@@ -8,7 +8,12 @@ import { toast } from 'sonner';
 import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import { useDataPoints } from '@/hooks/useDataPoints';
 import { type ContentListRow, deleteContent, setContentStatus } from '@/lib/actions/content';
-import { CONTENT_TYPES, contentComposeHref, contentPublicHref } from '@/lib/content';
+import {
+  CONTENT_TYPES,
+  contentComposeHref,
+  contentPublicHref,
+  describeSlugConflict,
+} from '@/lib/content';
 
 const STATUS_BADGE: Record<string, string> = {
   publish: 'bg-emerald-100 text-emerald-800 border-emerald-300',
@@ -184,6 +189,20 @@ export function ContentList({ initialRows, initialTotal, initialPage, pageSize }
         ) : (
           <>
             {/*
+              Fourteen of the imported rows point at slugs a coded route or a
+              legacy redirect already owns. They are still editable, but their
+              own URL will never show them. Say so once, above the table, and
+              mark the individual rows, rather than letting the list present
+              them as ordinary pages.
+            */}
+            {initialRows.some((row) => describeSlugConflict(row.slug)) ? (
+              <p className="border-b border-border bg-amber-50/60 px-4 py-2.5 text-xs text-amber-900">
+                <strong className="font-semibold">Unreachable</strong> rows have a slug served by a
+                coded route or a legacy redirect. Editing them still saves, but their own URL will
+                not show this content.
+              </p>
+            ) : null}
+            {/*
               The table is 46rem wide and so scrolls horizontally on any
               laptop. An `overflow-x-auto` box stopped being focusable in Chrome
               and Firefox, which meant a keyboard user could not scroll it at
@@ -225,12 +244,15 @@ export function ContentList({ initialRows, initialTotal, initialPage, pageSize }
                   {initialRows.map((row) => (
                     <tr key={row.id} className="transition-colors hover:bg-surface-muted/70">
                       <td className="px-4 py-3">
-                        <Link
-                          href={`/admin/content/${row.id}`}
-                          className="font-semibold text-foreground underline-offset-2 hover:text-primary dark:hover:text-primary-on-dark hover:underline focus-visible:ring-2 focus-visible:ring-primary"
-                        >
-                          {row.title}
-                        </Link>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Link
+                            href={`/admin/content/${row.id}`}
+                            className="font-semibold text-foreground underline-offset-2 hover:text-primary dark:hover:text-primary-on-dark hover:underline focus-visible:ring-2 focus-visible:ring-primary"
+                          >
+                            {row.title}
+                          </Link>
+                          <UnreachableBadge slug={row.slug} />
+                        </div>
                         {/* A draft's slug is not yet a live URL, so it is dimmed to
                           match: the path is real, the page behind it is not. */}
                         <p
@@ -382,6 +404,21 @@ export function ContentList({ initialRows, initialTotal, initialPage, pageSize }
         )}
       </nav>
     </div>
+  );
+}
+
+function UnreachableBadge({ slug }: { slug: string }) {
+  const reason = describeSlugConflict(slug);
+  if (!reason) return null;
+
+  return (
+    <span
+      className="rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-800"
+      title={reason}
+    >
+      Unreachable
+      <span className="sr-only">: {reason}</span>
+    </span>
   );
 }
 
