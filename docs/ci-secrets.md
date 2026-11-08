@@ -131,3 +131,7 @@ uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 The SHAs were resolved with `git ls-remote` and the GitHub API against the
 upstream tags. When upgrading an action, re-resolve its tag rather than
 replacing the pin with a floating major version.
+
+The `workflow-yaml` pre-commit guard rejects a staged workflow whose remote
+`uses:` reference is not a full commit SHA, so the policy cannot regress
+silently.
