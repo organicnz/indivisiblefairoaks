@@ -211,12 +211,16 @@ describe('CRM mutation failure paths', () => {
       expect(tables.crm_contacts.rows).toHaveLength(0);
     });
 
-    it('reports success for a row that was already gone, without failing the delete', async () => {
-      // PostgREST deletes zero rows and reports no error, so the action cannot
-      // distinguish "deleted" from "was not there". It must not invent an error.
+    it('reports when the contact was already gone', async () => {
+      // `.select('id').maybeSingle()` makes a no-match observable. Without
+      // asking for the row back, PostgREST reports success for a delete that
+      // removed nothing, and the directory shows a false confirmation.
       tables.crm_contacts = { rows: [] };
 
-      await expect(deleteCRMContact('missing')).resolves.toEqual({ success: true });
+      await expect(deleteCRMContact('missing')).resolves.toEqual({
+        success: false,
+        error: 'That contact no longer exists',
+      });
     });
   });
 

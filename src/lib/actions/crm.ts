@@ -1276,8 +1276,17 @@ export async function saveCRMContact(
 export async function deleteCRMContact(id: string): Promise<{ success: boolean; error?: string }> {
   const { adminClient } = await requireAdmin();
 
-  const { error } = await adminClient.from('crm_contacts').delete().eq('id', id);
+  // Ask for the deleted row back. Without `.select()`, PostgREST reports
+  // success for a delete that matched nothing, and the UI tells the organizer
+  // a stale contact was removed when it never existed.
+  const { data: deleted, error } = await adminClient
+    .from('crm_contacts')
+    .delete()
+    .eq('id', id)
+    .select('id')
+    .maybeSingle();
   if (error) return { success: false, error: error.message };
+  if (!deleted) return { success: false, error: 'That contact no longer exists' };
 
   revalidateCRMRoutes();
   return { success: true };
