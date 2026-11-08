@@ -5481,10 +5481,10 @@ export function VisualEditOverlay() {
                         Civic content
                       </span>
                       <span className="text-base font-black text-foreground">
-                        {backendSummary.events}
+                        {backendSummary.events ?? '—'}
                       </span>
                       <span className="text-[10px] text-muted-foreground block mt-0.5">
-                        {backendSummary.events} events · {backendSummary.gallery} photos
+                        {backendSummary.events ?? '—'} events · {backendSummary.gallery ?? '—'} photos
                       </span>
                     </div>
                   </div>

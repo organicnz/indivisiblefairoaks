@@ -379,8 +379,9 @@ export type {
 } from './content-media';
 
 export interface VisualCatalogCounts {
-  galleryPhotos: number;
-  events: number;
+  /** Null means the count query failed or omitted its exact count — not zero. */
+  galleryPhotos: number | null;
+  events: number | null;
 }
 
 /**
@@ -393,8 +394,8 @@ export interface BackendSummary {
   crmTotal: number | null;
   segments: number;
   segmentsTruncated: boolean;
-  gallery: number;
-  events: number;
+  gallery: number | null;
+  events: number | null;
   mediaItems: number;
   mediaTruncated: boolean;
   revisionsTruncated: boolean;

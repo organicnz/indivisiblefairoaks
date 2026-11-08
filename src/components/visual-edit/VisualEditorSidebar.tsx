@@ -1605,7 +1605,7 @@ function DefaultContextZone(props: VisualEditorSidebarProps) {
                 <div className="flex items-center justify-between text-ink-on-dark">
                   <span>Civic content</span>
                   <span className="font-bold">
-                    {backendSummary.events} events · {backendSummary.gallery} photos
+                    {backendSummary.events ?? '—'} events · {backendSummary.gallery ?? '—'} photos
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-ink-on-dark">
