@@ -112,6 +112,18 @@ describe('CRM mutation failure paths', () => {
       expect(res.error).toMatch(/no longer exists/i);
     });
 
+    it('surfaces a lookup failure instead of claiming the contact is gone', async () => {
+      tables.crm_contacts = { rows: [], error: { message: 'connection reset' } };
+
+      const res = await saveCRMContact({
+        id: '11111111-2222-4333-8444-555555555555',
+        email: 'a@b.co',
+        first_name: 'Robin',
+      });
+
+      expect(res).toMatchObject({ success: false, error: 'connection reset' });
+    });
+
     it('rejects an email that is not an email before touching the database', async () => {
       const res = await saveCRMContact({ email: 'not-an-email', first_name: 'Robin' });
       expect(res.success).toBe(false);

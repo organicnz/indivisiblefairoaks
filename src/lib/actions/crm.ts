@@ -1108,18 +1108,13 @@ export async function saveCRMContact(
       .from('crm_contacts')
       .select('status, email, tags, notes, updated_at')
       .eq('id', id)
-      .single();
+      .maybeSingle();
 
     // A volunteer has this form open on a contact a colleague deleted, merged
-    // away, or that the historical sync re-keyed. Two failures used to follow
-    // from that and both were unhelpful: the read's error was discarded, so the
-    // code went on to UPDATE a row that matches nothing, got `data: null` back,
-    // and threw on `updated.id` — an unhandled TypeError, which is a 500 and an
-    // error boundary, not a sentence. `saveContent` refuses the same situation
-    // with "That page no longer exists", and this is the same page.
-    if (previousError || !previous) {
-      return { success: false, error: 'That contact no longer exists' };
-    }
+    // away, or that the historical sync re-keyed. A read failure must not be
+    // reported as a deletion; only an empty result is that sentence.
+    if (previousError) return { success: false, error: previousError.message };
+    if (!previous) return { success: false, error: 'That contact no longer exists' };
 
     const statusChanged = previous.status !== data.status;
 
@@ -1144,7 +1139,9 @@ export async function saveCRMContact(
     if (expectedUpdatedAt) updateQuery = updateQuery.eq('updated_at', expectedUpdatedAt);
     else updateQuery = updateQuery.is('updated_at', null);
 
-    const { data: updated, error } = await updateQuery.select('id').maybeSingle();
+    const { data: updated, error } = await updateQuery
+      .select('id, updated_at')
+      .maybeSingle();
 
     // The read above already proved the row exists, so "matched no row" here can
     // only mean the precondition failed — somebody else saved in between. That is
@@ -1172,14 +1169,10 @@ export async function saveCRMContact(
     });
 
     revalidateCRMRoutes(id);
-    // The new version, so the editor's next save is based on what the trigger
-    // just wrote rather than on the timestamp it arrived with.
-    const { data: fresh } = await adminClient
-      .from('crm_contacts')
-      .select('updated_at')
-      .eq('id', id)
-      .single();
-    return { success: true, contactId: updated.id, updatedAt: fresh?.updated_at ?? null };
+    // The update's own SELECT returns the trigger-written value, so the editor's
+    // next save is based on the database's version without a second read that
+    // could fail after the write has already committed.
+    return { success: true, contactId: updated.id, updatedAt: updated.updated_at ?? null };
   }
 
   // Insert new contact. `updated_at` is dropped for the same reason as the update

@@ -260,15 +260,20 @@ export async function previewMobilizeSource(
         parsed.data.highPriorityOnly ?? feed?.highPriorityOnly ?? settings.high_priority_only,
     };
 
-    const { data: ruleRows } = await client
+    const { data: ruleRows, error: rulesError } = await client
       .from('mobilize_event_rules')
       .select('external_id, action');
+    // Missing rules would show events that an organizer explicitly excluded.
+    if (rulesError) return fail(rulesError.message);
     const rules = (ruleRows ?? []) as MobilizeEventRule[];
 
-    const { data: importedRows } = await client
+    const { data: importedRows, error: importedError } = await client
       .from('events')
       .select('external_id')
       .not('external_id', 'is', null);
+    // Missing import markers would label every event as new and invite a
+    // duplicate import. Surface the read failure instead.
+    if (importedError) return fail(importedError.message);
     const imported = new Set(
       (importedRows ?? []).map((row: { external_id: string }) => String(row.external_id))
     );

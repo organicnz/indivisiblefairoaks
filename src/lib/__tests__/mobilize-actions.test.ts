@@ -8,7 +8,7 @@ vi.mock('server-only', () => ({}));
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn(), revalidateTag: vi.fn() }));
 vi.mock('@/lib/env', () => ({ env: {} }));
 
-const { importMobilizeEvent } = await import('@/lib/actions/mobilize');
+const { importMobilizeEvent, previewMobilizeSource } = await import('@/lib/actions/mobilize');
 const { createMockAdminClient } = await import('./supabase-mock');
 import type { MockTableConfig } from './supabase-mock';
 
@@ -121,5 +121,35 @@ describe('importMobilizeEvent ownership reads', () => {
 
     expect(res).toMatchObject({ success: false, error: 'connection reset' });
     expect(tables.events.rows).toHaveLength(0);
+  });
+});
+
+describe('previewMobilizeSource reads', () => {
+  it('does not show a preview when the rule read fails', async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
+    const tables: Record<string, MockTableConfig> = {
+      mobilize_event_rules: { rows: [], error: { message: 'connection reset' } },
+    };
+    requireAdmin.mockResolvedValue({ adminClient: createMockAdminClient(tables) });
+
+    const res = await previewMobilizeSource();
+
+    expect(res).toMatchObject({ success: false, error: 'connection reset' });
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('does not mark every event as new when import markers cannot be read', async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
+    const tables: Record<string, MockTableConfig> = {
+      events: { rows: [], error: { message: 'connection reset' } },
+    };
+    requireAdmin.mockResolvedValue({ adminClient: createMockAdminClient(tables) });
+
+    const res = await previewMobilizeSource();
+
+    expect(res).toMatchObject({ success: false, error: 'connection reset' });
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 });
