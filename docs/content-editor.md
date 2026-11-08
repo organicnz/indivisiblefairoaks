@@ -795,7 +795,3 @@ handle used to be a decorative `<span>`.
   composer's poll is derived from the recipient ceiling rather than a fixed count,
   then stops and says the *view* has stopped updating. That is a statement about
   the tab, not the send. See [`crm-operations.md`](./crm-operations.md) § Recovery.
-- **No concurrent-edit detection.** Two organizers on the same page are
-  last-write-wins with no warning, and a revision restores cleanly enough that
-  the loss is only visible by reading. A `content.updated_at` precondition on
-  `saveContent` would catch it; it is not built.
