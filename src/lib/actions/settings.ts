@@ -57,7 +57,9 @@ export async function updateUserSettingsAction(settings: Partial<UserSettings>) 
       .eq('email', user.email)
       .single();
 
-    if (!emailError) {
+    if (emailError) {
+      fetchError = emailError;
+    } else {
       profile = emailData;
       fetchError = null;
     }
@@ -65,8 +67,10 @@ export async function updateUserSettingsAction(settings: Partial<UserSettings>) 
 
   if (fetchError && fetchError.code !== 'PGRST116') {
     console.error('Fetch error in updateUserSettingsAction:', fetchError);
-    // Instead of failing, we'll proceed with just the new settings to ensure the user can save.
-    // The upsert later will handle the database-side merge or create.
+    // The upsert replaces the whole `settings` object rather than merging it
+    // server-side. Writing after a failed read would drop every setting the
+    // caller did not send, so stop before the write instead.
+    return { error: 'Could not read your current settings. Try again before saving.' };
   }
 
   const updatedSettings = {

@@ -363,8 +363,7 @@ describe('Property 3: Email fallback — profile lookup by email when user_id mi
     expect(writtenSettings.marketing_emails).toBe(true);
   });
 
-  it('proceeds when a non-PGRST116 fetch error occurs (resilient path)', async () => {
-    // A non-row-not-found error (e.g. network timeout) — action still attempts upsert
+  it('rejects the write when a non-PGRST116 profile fetch fails', async () => {
     mockSingle.mockResolvedValue({
       data: null,
       error: { code: '08006', message: 'Connection failure' },
@@ -372,8 +371,29 @@ describe('Property 3: Email fallback — profile lookup by email when user_id mi
 
     const result = await updateUserSettingsAction({ order_updates: false });
 
-    // Should still succeed — the upsert proceeds with just the new settings
-    expect(result).toMatchObject({ success: true });
+    expect(result).toEqual({
+      error: 'Could not read your current settings. Try again before saving.',
+    });
+    expect(mockUpsert).not.toHaveBeenCalled();
+  });
+
+  it('rejects the write when the email fallback read fails', async () => {
+    mockSingle
+      .mockResolvedValueOnce({
+        data: null,
+        error: { code: 'PGRST116', message: 'Row not found' },
+      })
+      .mockResolvedValueOnce({
+        data: null,
+        error: { code: '08006', message: 'Connection failure' },
+      });
+
+    const result = await updateUserSettingsAction({ order_updates: false });
+
+    expect(result).toEqual({
+      error: 'Could not read your current settings. Try again before saving.',
+    });
+    expect(mockUpsert).not.toHaveBeenCalled();
   });
 });
 
