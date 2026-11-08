@@ -566,7 +566,10 @@ async function fetchContactPage(
   if (result.error) {
     return { contacts: [], totalCount: 0, error: result.error.message };
   }
-  return { contacts: (result.data as CRMContact[]) || [], totalCount: result.count || 0 };
+  if (result.count === null) {
+    return { contacts: [], totalCount: 0, error: 'total count unavailable' };
+  }
+  return { contacts: (result.data as CRMContact[]) || [], totalCount: result.count };
 }
 
 export async function getCRMContacts(params: GetCRMContactsParams = {}): Promise<{
@@ -732,7 +735,10 @@ export async function getCRMTasks({
   if (error) {
     throw new Error(`Failed to load tasks: ${error.message}`);
   }
-  return { tasks: (data as CRMTaskWithContact[]) || [], totalCount: count || 0 };
+  if (count === null) {
+    throw new Error('Failed to load tasks: total count unavailable');
+  }
+  return { tasks: (data as CRMTaskWithContact[]) || [], totalCount: count };
 }
 
 export async function getCRMTasksForContact(contactId: string): Promise<CRMTask[]> {
@@ -888,7 +894,10 @@ export async function getCRMSegments(): Promise<{ segments: CRMSegment[]; trunca
     .order('id', { ascending: false })
     .limit(SEGMENT_LIMIT);
   if (error) throw new Error(`Failed to load segments: ${error.message}`);
-  return { segments: data || [], truncated: (count ?? 0) > (data?.length ?? 0) };
+  if (count === null) {
+    throw new Error('Failed to load segments: total count unavailable');
+  }
+  return { segments: data || [], truncated: count > (data?.length ?? 0) };
 }
 
 export async function saveCRMSegment(

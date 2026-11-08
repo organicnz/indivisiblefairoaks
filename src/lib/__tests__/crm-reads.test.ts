@@ -695,6 +695,17 @@ describe('CRM reads and bookkeeping', () => {
       expect(truncated).toBe(false);
     });
 
+    it('fails instead of reporting a complete list when the segment count is unavailable', async () => {
+      tables.crm_segments = {
+        rows: [{ id: 's1', name: 'Choir', created_at: '2026-09-30T00:00:00.000Z' }],
+        count: null,
+      };
+
+      await expect(getCRMSegments()).rejects.toThrow(
+        /Failed to load segments.*total count unavailable/i
+      );
+    });
+
     it('throws when the segments query fails', async () => {
       tables.crm_segments = { rows: [], error: { message: 'relation not found' } };
 
@@ -845,6 +856,14 @@ describe('CRM reads and bookkeeping', () => {
       // Newest first, and the first page: a second page would not start at the
       // newest contact.
       expect(res.contacts[0]?.id).toBe('c149');
+    });
+
+    it('fails instead of reporting zero when the contact count is unavailable', async () => {
+      tables.crm_contacts = { rows: [{ id: 'c1', email: 'a@example.org' }], count: null };
+
+      await expect(getCRMContacts()).rejects.toThrow(
+        /failed to load crm contacts.*total count unavailable/i
+      );
     });
 
     it('throws when the contacts query fails rather than returning an empty directory', async () => {
@@ -1129,6 +1148,14 @@ describe('CRM reads and bookkeeping', () => {
 
         expect(res.tasks).toHaveLength(2);
         expect(res.totalCount).toBe(2);
+      });
+
+      it('fails instead of reporting zero when the task count is unavailable', async () => {
+        tables.crm_tasks = { rows: [{ id: 't1', status: 'open' }], count: null };
+
+        await expect(getCRMTasks({ scope: 'open' })).rejects.toThrow(
+          /Failed to load tasks.*total count unavailable/i
+        );
       });
 
       it('throws when the task query errors', async () => {
