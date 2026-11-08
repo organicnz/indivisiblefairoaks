@@ -118,4 +118,24 @@ test.describe('gallery journey', () => {
     await page.getByRole('button', { name: 'Close image viewer' }).click();
     await expect(page.getByRole('dialog')).toHaveCount(0);
   });
+
+  test('a failed gallery photo shows the accessible fallback', async ({ page }) => {
+    await page.route('**/_next/image**', async (route) => {
+      await route.fulfill({
+        status: 503,
+        contentType: 'text/plain',
+        body: 'image unavailable',
+      });
+    });
+
+    await page.goto('/gallery');
+    const photos = page.locator('[data-gallery-photo]');
+    await expect.poll(() => photos.count(), { timeout: 10_000 }).toBeGreaterThan(0);
+
+    const firstPhoto = photos.first();
+    await expect(firstPhoto.getByTestId('gallery-image-fallback')).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(firstPhoto.locator('img')).toHaveCount(0);
+  });
 });
