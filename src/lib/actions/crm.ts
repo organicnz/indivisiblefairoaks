@@ -2141,8 +2141,14 @@ export async function deleteCRMBroadcastDraft(
   if (existing.status !== 'draft') {
     return { success: false, error: 'Only unsent drafts can be deleted' };
   }
-  const { error } = await adminClient.from('crm_broadcasts').delete().eq('id', id);
+  const { data: deleted, error } = await adminClient
+    .from('crm_broadcasts')
+    .delete()
+    .eq('id', id)
+    .select('id')
+    .maybeSingle();
   if (error) return { success: false, error: error.message };
+  if (!deleted) return { success: false, error: 'That broadcast no longer exists' };
   revalidateCRMRoutes();
   return { success: true };
 }

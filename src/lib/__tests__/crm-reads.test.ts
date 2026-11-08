@@ -660,6 +660,33 @@ describe('CRM reads and bookkeeping', () => {
       expect(res).toEqual({ success: true });
       expect(tables.crm_broadcasts.rows?.map((b) => b.id)).toEqual(['b2']);
     });
+
+    it('reports a draft removed between the read and the delete', async () => {
+      // The read finds a draft, but the delete matches nothing — another admin
+      // removed it after the check. A delete that matched no rows still returns
+      // no error, so without asking for the row back this reported success.
+      mockAdminClient.from.mockImplementation((table: string) => {
+        expect(table).toBe('crm_broadcasts');
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({ data: { status: 'draft' }, error: null }),
+            }),
+          }),
+          delete: () => ({
+            eq: () => ({
+              select: () => ({
+                maybeSingle: async () => ({ data: null, error: null }),
+              }),
+            }),
+          }),
+        };
+      });
+
+      const res = await deleteCRMBroadcastDraft('b1');
+
+      expect(res).toEqual({ success: false, error: 'That broadcast no longer exists' });
+    });
   });
 
   describe('segments', () => {
