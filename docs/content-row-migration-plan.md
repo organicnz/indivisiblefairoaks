@@ -44,9 +44,11 @@ from the row.
 | `shipping-returns` | page | 780 | `/shipping-returns` → `/` | 0% | **No route and no redirect target of its own**; the slug is reserved but the page sends visitors home. |
 | `faqs` | page | 990 | `/faqs` | 3% | Coded FAQ page; old answers are not used. |
 
-All 14 bodies still contain the old Google Sites navigation text
-("Search this site", "Embedded Files", "Skip to main content"), which is
-evidence they are imports rather than authored CMS copy.
+Nine of the 14 bodies still contain the old Google Sites navigation text
+("Search this site", "Embedded Files", "Skip to main content"); the other five
+(`about-us`, `privacy-policy`, `terms-and-conditions`, `shipping-returns`,
+`faqs`) were cleaned. The chrome is evidence those nine are imports rather than
+authored CMS copy.
 
 ## What this means
 
