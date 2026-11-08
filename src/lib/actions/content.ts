@@ -480,11 +480,14 @@ export async function duplicateContent(id: number): Promise<ActionResult<{ id: n
 
   const baseSlug = `${source.slug}-copy`;
   let slug = baseSlug;
-  for (let attempt = 2; attempt <= 25; attempt += 1) {
+  for (let attempt = 1; attempt <= 25; attempt += 1) {
+    // Check the first candidate, then the numbered suffixes through -25.
+    // The old `attempt = 2` loop stopped after checking -24 and refused even
+    // when -25 was free.
+    slug = attempt === 1 ? baseSlug : `${baseSlug}-${attempt}`;
     const conflict = await assertSlugAvailable(slug, adminClient);
     if (!conflict) break;
     if (attempt === 25) return fail('Could not find a free slug for the copy');
-    slug = `${baseSlug}-${attempt}`;
   }
 
   const { data: created, error } = await adminClient

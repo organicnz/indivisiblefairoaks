@@ -328,6 +328,42 @@ describe('duplicateContent', () => {
     expect(result).toMatchObject({ error: 'That page no longer exists' });
   });
 
+  it('tries the final available copy suffix', async () => {
+    const source = {
+      id: 10,
+      slug: 'my-page',
+      title: 'My page',
+      body: '<p>body</p>',
+      excerpt: null,
+      type: 'page',
+      status: 'draft',
+      published_at: null,
+      featured_image: null,
+      metadata: {},
+    };
+    // Occupy `my-page-copy` and `-2` through `-24`; `-25` must still be tried.
+    const occupied = Array.from({ length: 24 }, (_, index) => ({
+      id: 20 + index,
+      slug: index === 0 ? 'my-page-copy' : `my-page-copy-${index + 1}`,
+      title: `Occupied ${index}`,
+    }));
+    const insertedRows: Record<string, unknown>[] = [];
+    requireAdmin.mockResolvedValue({
+      adminClient: createMockAdminClient({
+        content: {
+          rows: [source, ...occupied],
+          insert: { id: 99 },
+          onInsert: (row) => insertedRows.push({ ...row }),
+        },
+      }),
+    });
+
+    const result = await duplicateContent(10);
+
+    expect(result).toMatchObject({ success: true });
+    expect(insertedRows[0]?.slug).toBe('my-page-copy-25');
+  });
+
   it('advances the slug suffix when the first copy slug is already taken', async () => {
     // The loop tries `slug-copy`, then `slug-copy-2`, etc.
     // With one collision the copy should land on `slug-copy-2`.
