@@ -1504,13 +1504,13 @@ export function VisualEditOverlay() {
       }
       setBackendSummary({
         crmTotal: ctx.crmStats?.totalContacts ?? null,
-        segments: ctx.segments.length,
+        segments: ctx.segmentsUnavailable ? null : ctx.segments.length,
         segmentsTruncated: ctx.segmentsTruncated,
         gallery: ctx.catalog.galleryPhotos,
         events: ctx.catalog.events,
-        mediaItems: ctx.media.items.length,
-        mediaTruncated: ctx.media.items.length >= 60,
-        revisionsTruncated: ctx.revisionsTruncated,
+        mediaItems: ctx.mediaUnavailable ? null : ctx.media.items.length,
+        mediaTruncated: ctx.mediaUnavailable ? false : ctx.media.items.length >= 60,
+        revisionsTruncated: ctx.revisionsUnavailable ? null : ctx.revisionsTruncated,
       });
     } catch {
       // Summary is enrichment, not the probe — a failure keeps the old one.
@@ -5472,8 +5472,10 @@ export function VisualEditOverlay() {
                         {backendSummary.crmTotal ?? '—'}
                       </span>
                       <span className="text-[10px] text-muted-foreground block mt-0.5">
-                        {backendSummary.segments} segments
-                        {backendSummary.segmentsTruncated ? '+' : ''}
+                        {backendSummary.segments ?? '—'} segments
+                        {backendSummary.segments !== null && backendSummary.segmentsTruncated
+                          ? '+'
+                          : ''}
                       </span>
                     </div>
                     <div className="p-2 rounded-xl bg-background border border-border">

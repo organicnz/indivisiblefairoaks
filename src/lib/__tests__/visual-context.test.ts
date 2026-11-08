@@ -88,4 +88,42 @@ describe('getVisualPageContext catalog counts', () => {
 
     expect(ctx.catalog).toEqual({ galleryPhotos: 2, events: null });
   });
+
+  it('marks media unavailable when the media read fails', async () => {
+    setAdmin({ count: 2 }, { count: 5 });
+    mocks.getCRMMediaFiles.mockRejectedValue(new Error('media down'));
+
+    const ctx = await getVisualPageContext({ pathname: '/' });
+
+    expect(ctx.mediaUnavailable).toBe(true);
+    expect(ctx.media.items).toEqual([]);
+  });
+
+  it('marks segments unavailable when the segment read fails', async () => {
+    setAdmin({ count: 2 }, { count: 5 });
+    mocks.getCRMSegments.mockRejectedValue(new Error('segments down'));
+
+    const ctx = await getVisualPageContext({ pathname: '/' });
+
+    expect(ctx.segmentsUnavailable).toBe(true);
+    expect(ctx.segments).toEqual([]);
+  });
+
+  it('marks revisions unavailable when the revision read fails', async () => {
+    setAdmin({ count: 2 }, { count: 5 });
+    mocks.getContentBySlugForEdit.mockResolvedValue({
+      id: 7,
+      slug: 'about',
+      title: 'About',
+    });
+    mocks.getContentRevisions.mockResolvedValue({
+      success: false,
+      error: 'revisions down',
+    });
+
+    const ctx = await getVisualPageContext({ pathname: '/about' });
+
+    expect(ctx.revisionsUnavailable).toBe(true);
+    expect(ctx.revisions).toEqual([]);
+  });
 });

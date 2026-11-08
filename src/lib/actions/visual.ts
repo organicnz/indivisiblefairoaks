@@ -83,21 +83,26 @@ export async function getVisualPageContext(input?: {
 
   const [revisionsRes, mediaRes, healthRes, statsRes, segmentsRes, catalogRes] = await Promise.all([
     (async () => {
-      if (!content) return { revisions: [] as ContentRevision[], truncated: false };
+      if (!content)
+        return { revisions: [] as ContentRevision[], truncated: false, unavailable: false };
       try {
         const res = await getContentRevisions(content.id, 20);
         if (!res.success || !res.data)
-          return { revisions: [] as ContentRevision[], truncated: false };
-        return { revisions: res.data.revisions, truncated: res.data.revisions.length >= 20 };
+          return { revisions: [] as ContentRevision[], truncated: false, unavailable: true };
+        return {
+          revisions: res.data.revisions,
+          truncated: res.data.revisions.length >= 20,
+          unavailable: false,
+        };
       } catch {
-        return { revisions: [] as ContentRevision[], truncated: false };
+        return { revisions: [] as ContentRevision[], truncated: false, unavailable: true };
       }
     })(),
-    (async (): Promise<MediaListResult> => {
+    (async (): Promise<{ media: MediaListResult; unavailable: boolean }> => {
       try {
-        return await getCRMMediaFiles({ folder: 'all', limit: 60 });
+        return { media: await getCRMMediaFiles({ folder: 'all', limit: 60 }), unavailable: false };
       } catch {
-        return emptyMedia;
+        return { media: emptyMedia, unavailable: true };
       }
     })(),
     (async (): Promise<BackendStatus> => {
@@ -119,12 +124,16 @@ export async function getVisualPageContext(input?: {
         return null;
       }
     })(),
-    (async (): Promise<{ segments: CRMSegment[]; truncated: boolean }> => {
+    (async (): Promise<{
+      segments: CRMSegment[];
+      truncated: boolean;
+      unavailable: boolean;
+    }> => {
       try {
         const res = await getCRMSegments();
-        return { segments: res.segments, truncated: res.truncated };
+        return { segments: res.segments, truncated: res.truncated, unavailable: false };
       } catch {
-        return { segments: [], truncated: false };
+        return { segments: [], truncated: false, unavailable: true };
       }
     })(),
     (async (): Promise<VisualCatalogCounts> => {
@@ -148,11 +157,14 @@ export async function getVisualPageContext(input?: {
     content: content as VisualPageContext['content'],
     revisions: revisionsRes.revisions as VisualPageContext['revisions'],
     revisionsTruncated: revisionsRes.truncated,
-    media: mediaRes,
+    revisionsUnavailable: revisionsRes.unavailable,
+    media: mediaRes.media,
+    mediaUnavailable: mediaRes.unavailable,
     backend: healthRes,
     crmStats: statsRes,
     segments: segmentsRes.segments,
     segmentsTruncated: segmentsRes.truncated,
+    segmentsUnavailable: segmentsRes.unavailable,
     catalog: catalogRes,
   };
 }

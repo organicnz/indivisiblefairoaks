@@ -392,13 +392,13 @@ export interface VisualCatalogCounts {
  */
 export interface BackendSummary {
   crmTotal: number | null;
-  segments: number;
+  segments: number | null;
   segmentsTruncated: boolean;
   gallery: number | null;
   events: number | null;
-  mediaItems: number;
+  mediaItems: number | null;
   mediaTruncated: boolean;
-  revisionsTruncated: boolean;
+  revisionsTruncated: boolean | null;
 }
 
 /**
@@ -411,11 +411,17 @@ export interface VisualPageContext {
   content: VisualContentRow | null;
   revisions: Database['public']['Tables']['content_revisions']['Row'][];
   revisionsTruncated: boolean;
+  /** True when the revision read failed; the empty array is not a real history. */
+  revisionsUnavailable?: boolean;
   media: MediaListResult;
+  /** True when the media listing failed; the empty list is not a real library. */
+  mediaUnavailable?: boolean;
   backend: BackendStatus;
   crmStats: CRMStats | null;
   segments: CRMSegment[];
   segmentsTruncated: boolean;
+  /** True when the segment read failed; the empty array is not a real list. */
+  segmentsUnavailable?: boolean;
   catalog: VisualCatalogCounts;
 }
 

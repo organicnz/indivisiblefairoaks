@@ -1597,8 +1597,10 @@ function DefaultContextZone(props: VisualEditorSidebarProps) {
                     {backendSummary.crmTotal ?? '—'}
                     <span className="font-medium text-ink-muted-on-dark">
                       {' '}
-                      · {backendSummary.segments} segments
-                      {backendSummary.segmentsTruncated ? '+' : ''}
+                      · {backendSummary.segments ?? '—'} segments
+                      {backendSummary.segments !== null && backendSummary.segmentsTruncated
+                        ? '+'
+                        : ''}
                     </span>
                   </span>
                 </div>
@@ -1611,8 +1613,8 @@ function DefaultContextZone(props: VisualEditorSidebarProps) {
                 <div className="flex items-center justify-between text-ink-on-dark">
                   <span>Media library</span>
                   <span className="font-bold">
-                    {backendSummary.mediaItems} recent files
-                    {backendSummary.mediaTruncated ? '+' : ''}
+                    {backendSummary.mediaItems ?? '—'} recent files
+                    {backendSummary.mediaItems !== null && backendSummary.mediaTruncated ? '+' : ''}
                   </span>
                 </div>
                 {(backendSummary.mediaTruncated ||
