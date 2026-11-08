@@ -244,7 +244,12 @@ async function assertSlugAvailable(
   const conflict = describeSlugConflict(slug);
   if (conflict) return conflict;
 
-  const { data } = await client.from('content').select('id').eq('slug', slug).maybeSingle();
+  const { data, error } = await client
+    .from('content')
+    .select('id')
+    .eq('slug', slug)
+    .maybeSingle();
+  if (error) return 'Could not check whether that slug is available. Try again.';
   if (data && data.id !== excludeId) {
     return `/${slug} is already used by another page.`;
   }
@@ -315,11 +320,12 @@ export async function saveContent(
    */
   let previous: { slug: string } | null = null;
   if (data.id !== undefined) {
-    const { data: existing } = await adminClient
+    const { data: existing, error: existingError } = await adminClient
       .from('content')
       .select('slug')
       .eq('id', data.id)
       .maybeSingle();
+    if (existingError) return fail(existingError.message);
     if (!existing) return fail('That page no longer exists');
     previous = existing;
   }
@@ -421,11 +427,12 @@ export async function setContentStatus(
   status: 'publish' | 'draft'
 ): Promise<ActionResult<{ id: number; publishedAt: string | null }>> {
   const { adminClient } = await requireAdmin();
-  const { data: existing } = await adminClient
+  const { data: existing, error: existingError } = await adminClient
     .from('content')
     .select('slug, published_at')
     .eq('id', id)
     .maybeSingle();
+  if (existingError) return fail(existingError.message);
   if (!existing) return fail('That page no longer exists');
 
   // Un-publishing a draft keeps the original publication date so restoring it
@@ -455,11 +462,12 @@ export async function setContentStatus(
 
 export async function deleteContent(id: number): Promise<ActionResult> {
   const { adminClient } = await requireAdmin();
-  const { data: existing } = await adminClient
+  const { data: existing, error: existingError } = await adminClient
     .from('content')
     .select('slug')
     .eq('id', id)
     .maybeSingle();
+  if (existingError) return fail(existingError.message);
   if (!existing) return fail('That page no longer exists');
 
   /*
@@ -486,7 +494,12 @@ export async function deleteContent(id: number): Promise<ActionResult> {
  */
 export async function duplicateContent(id: number): Promise<ActionResult<{ id: number }>> {
   const { adminClient } = await requireAdmin();
-  const { data: source } = await adminClient.from('content').select('*').eq('id', id).maybeSingle();
+  const { data: source, error: sourceError } = await adminClient
+    .from('content')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle();
+  if (sourceError) return fail(sourceError.message);
   if (!source) return fail('That page no longer exists');
 
   const baseSlug = `${source.slug}-copy`;

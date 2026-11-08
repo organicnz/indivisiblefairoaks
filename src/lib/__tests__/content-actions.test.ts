@@ -42,6 +42,7 @@ const {
   duplicateContent,
   getContentRevisions,
   saveContent,
+  setContentStatus,
 } = await import('@/lib/actions/content');
 const { createMockAdminClient, defaultInsertedUpdatedAt } = await import('./supabase-mock');
 const { MAX_BODY_BYTES } = await import('@/lib/content');
@@ -420,8 +421,8 @@ describe('duplicateContent', () => {
     const client = { ...goodClient };
     client.from = vi.fn((table: string) => {
       calls += 1;
-      // First call: SELECT the source. Any subsequent call goes to the bad client.
-      return calls === 1 ? goodClient.from(table) : badClient.from(table);
+      // Call 1 reads the source, call 2 probes the copy slug, call 3 inserts.
+      return calls <= 2 ? goodClient.from(table) : badClient.from(table);
     });
     requireAdmin.mockResolvedValue({ adminClient: client });
 
@@ -452,8 +453,8 @@ describe('duplicateContent', () => {
     const client = { ...goodClient };
     client.from = vi.fn((table: string) => {
       calls += 1;
-      // The source lookup and the free-slug probe succeed; the insert races.
-      return calls === 1 ? goodClient.from(table) : badClient.from(table);
+      // The source lookup (1) and free-slug probe (2) succeed; the insert (3) races.
+      return calls <= 2 ? goodClient.from(table) : badClient.from(table);
     });
     requireAdmin.mockResolvedValue({ adminClient: client });
 
@@ -601,15 +602,19 @@ describe('saveContent — featured image validation', () => {
   });
 
   it('fails when the slug is already in use (23505 duplicate on insert)', async () => {
-    // A unique-constraint violation on the slug column while doing an INSERT.
-    requireAdmin.mockResolvedValue({
-      adminClient: createMockAdminClient({
-        content: {
-          rows: [],
-          error: { message: 'duplicate key', code: '23505' },
-        },
-      }),
+    // The pre-check probes the slug first; only the INSERT gets the constraint
+    // error. A table-wide error would now correctly stop at the probe instead.
+    let calls = 0;
+    const goodClient = createMockAdminClient({ content: { rows: [] } });
+    const badClient = createMockAdminClient({
+      content: { error: { message: 'duplicate key', code: '23505' } },
     });
+    const client = { ...goodClient };
+    client.from = vi.fn((table: string) => {
+      calls += 1;
+      return calls === 1 ? goodClient.from(table) : badClient.from(table);
+    });
+    requireAdmin.mockResolvedValue({ adminClient: client });
 
     const result = await saveContent({
       title: 'New page',
@@ -867,5 +872,69 @@ describe('saveContent — insert publishes with a timestamp', () => {
     expect(result).toMatchObject({ success: true });
     // The row inserted into the backing array must carry a published_at.
     expect(rows[0]?.published_at).toBeTruthy();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Read failures must not be reported as missing rows
+// ---------------------------------------------------------------------------
+
+describe('content actions — existence read failures', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('surfaces a save lookup error instead of claiming the page was deleted', async () => {
+    requireAdmin.mockResolvedValue({
+      adminClient: createMockAdminClient({
+        content: { error: { message: 'connection failed' } },
+      }),
+    });
+
+    const result = await saveContent({
+      id: 7,
+      title: 'Page',
+      slug: 'page',
+      status: 'draft',
+      type: 'page',
+      metadata: {},
+    });
+
+    expect(result).toMatchObject({ success: false, error: 'connection failed' });
+    expect(result).not.toMatchObject({ error: 'That page no longer exists' });
+  });
+
+  it('surfaces a status lookup error', async () => {
+    requireAdmin.mockResolvedValue({
+      adminClient: createMockAdminClient({
+        content: { error: { message: 'connection failed' } },
+      }),
+    });
+
+    const result = await setContentStatus(7, 'publish');
+
+    expect(result).toMatchObject({ success: false, error: 'connection failed' });
+  });
+
+  it('surfaces a delete lookup error', async () => {
+    requireAdmin.mockResolvedValue({
+      adminClient: createMockAdminClient({
+        content: { error: { message: 'connection failed' } },
+      }),
+    });
+
+    const result = await deleteContent(7);
+
+    expect(result).toMatchObject({ success: false, error: 'connection failed' });
+  });
+
+  it('surfaces a duplicate lookup error', async () => {
+    requireAdmin.mockResolvedValue({
+      adminClient: createMockAdminClient({
+        content: { error: { message: 'connection failed' } },
+      }),
+    });
+
+    const result = await duplicateContent(7);
+
+    expect(result).toMatchObject({ success: false, error: 'connection failed' });
   });
 });

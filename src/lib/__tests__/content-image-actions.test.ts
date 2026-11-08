@@ -330,12 +330,18 @@ describe('saveContent — non-23505 insert error', () => {
     // The 23505 branch is already covered in content-actions.test.ts.
     // This covers the fallthrough: a non-constraint error on insert.
     const client = makeClient({});
-    // Wire the DB query builder to return an error that is NOT a 23505.
-    const base = createMockClient({
+    // The slug probe must succeed; only the INSERT returns the generic error.
+    // A table-wide error would now correctly stop at the probe instead.
+    let calls = 0;
+    const goodClient = createMockClient({ content: { rows: [] } });
+    const badClient = createMockClient({
       content: { rows: [], error: { message: 'connection reset', code: '08006' } },
     });
-    Object.assign(client, base);
-    client.from = base.from;
+    Object.assign(client, goodClient);
+    client.from = vi.fn((table: string) => {
+      calls += 1;
+      return calls === 1 ? goodClient.from(table) : badClient.from(table);
+    });
     requireAdmin.mockResolvedValue({ adminClient: client });
 
     const result = await saveContent({
