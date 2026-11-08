@@ -33,6 +33,7 @@ interface Props {
   initialPage: number;
   pageSize: number;
   hideUnreachable?: boolean;
+  hiddenCount?: number;
 }
 
 export function ContentList({
@@ -41,6 +42,7 @@ export function ContentList({
   initialPage,
   pageSize,
   hideUnreachable = false,
+  hiddenCount = 0,
 }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -181,6 +183,11 @@ export function ContentList({
             />
             Hide unreachable
           </label>
+          {hide && hiddenCount > 0 ? (
+            <span className="text-xs text-muted-foreground">
+              {hiddenCount} unreachable {hiddenCount === 1 ? 'row' : 'rows'} hidden
+            </span>
+          ) : null}
           <button
             type="submit"
             className="rounded-xl border border-border px-4 py-2.5 text-sm font-semibold text-foreground transition-colors hover:border-border focus-visible:ring-2 focus-visible:ring-primary"

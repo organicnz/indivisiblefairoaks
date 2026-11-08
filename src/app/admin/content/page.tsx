@@ -41,7 +41,7 @@ export default async function AdminContentPage({
   const page = Math.max(1, Number.parseInt(params.page ?? '1', 10) || 1);
   const hideUnreachable = params.hide === 'unreachable';
 
-  const { rows, totalCount } = await getContentList({
+  const { rows, totalCount, hiddenCount } = await getContentList({
     status,
     type,
     query,
@@ -60,6 +60,7 @@ export default async function AdminContentPage({
         initialPage={page}
         pageSize={PAGE_SIZE}
         hideUnreachable={hideUnreachable}
+        hiddenCount={hiddenCount}
       />
     </Suspense>
   );

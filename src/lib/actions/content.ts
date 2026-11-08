@@ -119,6 +119,8 @@ export interface ContentListResult {
   totalCount: number;
   page: number;
   pageSize: number;
+  /** Rows matching the same filters that the unreachable exclusion hides. */
+  hiddenCount: number;
 }
 
 const LIST_COLUMNS =
@@ -139,6 +141,13 @@ export async function getContentList({
   let queryBuilder = adminClient.from('content').select(LIST_COLUMNS, { count: 'exact' });
   if (status !== 'all') queryBuilder = queryBuilder.eq('status', status);
   if (type !== 'all') queryBuilder = queryBuilder.eq('type', type);
+
+  // `or` is PostgREST filter syntax, so strip its structural characters from the
+  // user's text exactly as the CRM search and content queries already do.
+  const trimmed = query.trim();
+  const safe = trimmed.replace(/[,()]/g, ' ').replace(/\s+/g, ' ').trim();
+
+  let hiddenCount = 0;
   if (hideUnreachable) {
     // Server-side, not a client-side slice: a pager whose count includes rows it
     // never renders is worse than no filter. Slugs come from static config, and
@@ -148,16 +157,26 @@ export async function getContentList({
     if (hidden.length > 0) {
       const list = hidden.map((slug) => `"${slug}"`).join(',');
       queryBuilder = queryBuilder.not('slug', 'in', `(${list})`);
+
+      // The second query answers the only question the filtered total cannot:
+      // how much is the filter hiding? It has to carry the same search/status/
+      // type filters, or the number would describe a different list.
+      let hiddenBuilder = adminClient
+        .from('content')
+        .select('id', { count: 'exact', head: true });
+      if (status !== 'all') hiddenBuilder = hiddenBuilder.eq('status', status);
+      if (type !== 'all') hiddenBuilder = hiddenBuilder.eq('type', type);
+      if (safe) {
+        hiddenBuilder = hiddenBuilder.or(`title.ilike.%${safe}%,slug.ilike.%${safe}%`);
+      }
+      const { count: hiddenRows, error: hiddenError } = await hiddenBuilder.in('slug', hidden);
+      if (hiddenError) throw new Error(`Failed to count hidden content: ${hiddenError.message}`);
+      hiddenCount = hiddenRows ?? 0;
     }
   }
-  const trimmed = query.trim();
-  if (trimmed) {
-    // `or` is PostgREST filter syntax, so strip its structural characters from
-    // the user's text exactly as the CRM search and content queries already do.
-    const safe = trimmed.replace(/[,()]/g, ' ').replace(/\s+/g, ' ').trim();
-    if (safe) {
-      queryBuilder = queryBuilder.or(`title.ilike.%${safe}%,slug.ilike.%${safe}%`);
-    }
+
+  if (safe) {
+    queryBuilder = queryBuilder.or(`title.ilike.%${safe}%,slug.ilike.%${safe}%`);
   }
 
   const { data, error, count } = await queryBuilder
@@ -170,6 +189,7 @@ export async function getContentList({
     totalCount: count ?? 0,
     page: safePage,
     pageSize: safePageSize,
+    hiddenCount,
   };
 }
 

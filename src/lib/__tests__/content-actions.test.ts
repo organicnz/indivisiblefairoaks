@@ -190,9 +190,11 @@ describe('getContentList', () => {
 
     expect(filtered.rows.map((row) => row.slug)).toEqual(['meeting-notes']);
     expect(filtered.totalCount).toBe(1);
+    expect(filtered.hiddenCount).toBe(2);
 
     const unfiltered = await getContentList();
     expect(unfiltered.rows).toHaveLength(3);
+    expect(unfiltered.hiddenCount).toBe(0);
   });
 });
 

@@ -140,4 +140,20 @@ describe('ContentList publish-state actions', () => {
     render([row({ slug: 'faqs' })]);
     expect(container.querySelector<HTMLInputElement>('input[type="checkbox"]')?.checked).toBe(true);
   });
+
+  it('reports how many rows the filter is hiding', () => {
+    searchParams.current = new URLSearchParams('hide=unreachable');
+    act(() => {
+      root.render(
+        <ContentList
+          initialRows={[row()]}
+          initialTotal={1}
+          initialPage={1}
+          pageSize={25}
+          hiddenCount={14}
+        />
+      );
+    });
+    expect(container.textContent).toContain('14 unreachable rows hidden');
+  });
 });

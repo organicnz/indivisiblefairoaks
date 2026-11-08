@@ -70,10 +70,10 @@ evidence they are imports rather than authored CMS copy.
    page with a free slug. Do not reuse the shadowed slug.
 3. **Archive the rest in the admin UI.** The list now marks every unreachable
    row with an **Unreachable** badge and a banner, and offers a server-side
-   **Hide unreachable** filter so the page count and pager stay correct. Both
-   use the existing `describeSlugConflict` / `isLegacySlug` helpers; no schema
-   or data change is needed, and the list stops presenting dead rows as
-   ordinary pages.
+   **Hide unreachable** filter so the page count and pager stay correct; while
+   active it reports how many matching rows are hidden. Both use the existing
+   `describeSlugConflict` / `isLegacySlug` helpers; no schema or data change is
+   needed, and the list stops presenting dead rows as ordinary pages.
 4. **If durable state is preferred**, `content.metadata.archived = true` is
    available without a migration; public reads already cannot resolve these
    slugs. Do **not** use `status = 'draft'` as an archive: it changes publish
