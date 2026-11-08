@@ -2197,6 +2197,32 @@ describe('sendCRMBroadcastSelfTest', () => {
     expect(broadcastRow()).toMatchObject({ status: 'failed' });
   });
 
+  it('does not overwrite a test row that finished before the failure was recorded', async () => {
+    const savedId = session.adminUserId;
+    session.adminUserId = 'admin-user-selftest-race';
+    try {
+      arrange();
+      mockEnv.CRM_BROADCAST_FUNCTION_URL = undefined;
+      const broadcastRows: Record<string, unknown>[] = [];
+      tables.crm_broadcasts = {
+        rows: broadcastRows,
+        insert: { id: 'test-broadcast-uuid' },
+        beforeUpdate: () => {
+          const row = broadcastRows[0];
+          if (row) row.status = 'sent';
+        },
+      };
+
+      const res = await sendCRMBroadcastSelfTest({ subject: 'Hi', body: 'There' });
+
+      expect(res.success).toBe(false);
+      expect(res.error).toMatch(/already finished/i);
+      expect(broadcastRows[0]).toMatchObject({ status: 'sent' });
+    } finally {
+      session.adminUserId = savedId;
+    }
+  });
+
   it('reports when a failed test cannot be marked failed', async () => {
     const savedId = session.adminUserId;
     session.adminUserId = 'admin-user-selftest-mark-fail';
