@@ -144,6 +144,48 @@ describe('CRM mutation failure paths', () => {
       expect(res.success).toBe(false);
       expect(res.error).not.toMatch(/23505/);
     });
+
+    it('keeps a successful update and warns when its timeline entry fails', async () => {
+      const validUuid = 'a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d';
+      tables.crm_contacts = {
+        rows: [
+          {
+            id: validUuid,
+            email: 'old@example.com',
+            status: 'supporter',
+            tags: [],
+            notes: null,
+          },
+        ],
+      };
+      tables.crm_activities = { rows: [], error: { message: 'audit table offline' } };
+
+      const res = await saveCRMContact({
+        id: validUuid,
+        email: 'jane@example.com',
+        status: 'organizer',
+        tags: [],
+      });
+
+      expect(res).toMatchObject({ success: true, contactId: validUuid });
+      expect(res.warning).toMatch(/timeline entry could not be recorded/i);
+      // The contact change is the primary write and must still have landed.
+      expect(tables.crm_contacts.rows?.[0]?.status).toBe('organizer');
+    });
+
+    it('keeps a successful create and warns when its timeline entry fails', async () => {
+      tables.crm_contacts = { rows: [], insert: { id: 'new-contact-123' } };
+      tables.crm_activities = { rows: [], error: { message: 'audit table offline' } };
+
+      const res = await saveCRMContact({
+        email: 'new@example.com',
+        first_name: 'Robin',
+      });
+
+      expect(res).toMatchObject({ success: true, contactId: 'new-contact-123' });
+      expect(res.warning).toMatch(/timeline entry could not be recorded/i);
+      expect(tables.crm_contacts.rows?.[0]?.email).toBe('new@example.com');
+    });
   });
 
   describe('deleteCRMContact', () => {
@@ -282,6 +324,18 @@ describe('CRM mutation failure paths', () => {
       await importCRMContacts({ csv });
 
       expect(tables.crm_contacts.rows).toHaveLength(0);
+    });
+
+    it('warns when contacts imported but their timeline entries failed', async () => {
+      tables.crm_contacts = { rows: [] };
+      tables.crm_activities = { rows: [], error: { message: 'audit table offline' } };
+
+      const res = await importCRMContacts({ csv });
+
+      expect(res.success).toBe(true);
+      expect(res.imported).toBe(2);
+      expect(res.warning).toMatch(/timeline entries could not be recorded/i);
+      expect(tables.crm_contacts.rows).toHaveLength(2);
     });
 
     it('carries the address column, so a restored backup keeps it', async () => {
@@ -432,6 +486,27 @@ describe('CRM mutation failure paths', () => {
       expect(res.success).toBe(false);
       // The activity row must not claim a delivery that did not happen.
       expect(activities).toHaveLength(0);
+    });
+
+    it('warns when the email was sent but its timeline entry failed', async () => {
+      freshAdmin();
+      tables.crm_contacts = {
+        rows: [{ id: 'c1', email: 'a@b.co', do_not_email: false, first_name: 'Robin' }],
+      };
+      tables.crm_activities = { rows: [], error: { message: 'audit table offline' } };
+      installFetchMock(
+        vi.fn().mockResolvedValue({
+          ok: true,
+          status: 200,
+          json: async () => ({ id: 'e1' }),
+          text: async () => '{"id":"e1"}',
+        })
+      );
+
+      const res = await sendCRMDirectEmail({ contactId: 'c1', subject: 'Hi', message: 'There' });
+
+      expect(res.success).toBe(true);
+      expect(res.warning).toMatch(/timeline entry could not be recorded/i);
     });
 
     it('builds the plain-text alternative from the configured site, not a literal', async () => {

@@ -1368,6 +1368,20 @@ describe('CRM reads and bookkeeping', () => {
       });
     });
 
+    it('keeps the consent change and warns when its timeline entry fails', async () => {
+      tables.crm_contacts = {
+        rows: [{ id: 'c1', email: 'robin@example.org', do_not_email: false }],
+      };
+      tables.crm_activities = { rows: [], error: { message: 'audit table offline' } };
+
+      const res = await setCRMEmailConsent({ contactId: 'c1', doNotEmail: 'opted_out' });
+
+      expect(res.success).toBe(true);
+      expect(res.warning).toMatch(/timeline entry could not be recorded/i);
+      // Consent is the primary write; the warning must not roll it back.
+      expect(tables.crm_contacts.rows?.[0]?.do_not_email).toBe(true);
+    });
+
     /**
      * Restoring consent keeps the unsubscribe timestamp.
      *

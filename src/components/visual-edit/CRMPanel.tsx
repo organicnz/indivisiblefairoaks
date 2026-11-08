@@ -413,6 +413,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({
       const res = await setCRMEmailConsent({ contactId: id, doNotEmail: consent });
       if (res.success) {
         toast.success('Consent updated');
+        if (res.warning) toast.warning(res.warning);
         if (selectedContact && selectedContact.id === id) {
           const nextDoNotEmail =
             consent === 'opted_out' ? true : consent === 'opted_in' ? false : null;
@@ -457,6 +458,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({
             : null
         );
         toast.success(`Status updated to ${status.replace('_', ' ')}`);
+        if (res.warning) toast.warning(res.warning);
         loadContacts();
       } else {
         toast.error(res.error ?? 'Failed to update status');
@@ -506,6 +508,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({
         setNewTagInput('');
         setIsAddingTag(false);
         toast.success(`Tag "${tag}" added`);
+        if (res.warning) toast.warning(res.warning);
         loadContacts();
         loadTags();
       } else {
@@ -550,6 +553,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({
             : null
         );
         toast.success(`Tag "${tagToRemove}" removed`);
+        if (res.warning) toast.warning(res.warning);
         loadContacts();
         loadTags();
       } else {

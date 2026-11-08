@@ -127,6 +127,7 @@ export function CRMContactEditorModal({ contact, isOpen, onClose, onSaved }: Pro
 
     baseVersionRef.current = res.updatedAt ?? null;
     toast.success(contact ? 'Constituent updated' : 'Constituent created');
+    if (res.warning) toast.warning(res.warning);
     onSaved?.();
     router.refresh();
     onClose();

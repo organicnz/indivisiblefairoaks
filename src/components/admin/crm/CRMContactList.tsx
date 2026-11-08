@@ -394,6 +394,7 @@ export function CRMContactList({
       });
       if (res.success) {
         toast.success(`Updated status for ${contact.first_name || contact.email}`);
+        if (res.warning) toast.warning(res.warning);
         router.refresh();
       } else {
         toast.error(res.error || 'Failed to update status');
@@ -440,6 +441,7 @@ export function CRMContactList({
               ? `Email consent recorded for ${contact.first_name || contact.email}`
               : `Consent reset to unasked for ${contact.first_name || contact.email}`
         );
+        if (res.warning) toast.warning(res.warning);
         router.refresh();
       } else {
         toast.error(res.error || 'Failed to update consent');
@@ -473,6 +475,7 @@ export function CRMContactList({
       });
       if (res.success) {
         toast.success(`Added tag #${clean}`);
+        if (res.warning) toast.warning(res.warning);
         setAddingTagContactId(null);
         setInlineTagInput('');
         router.refresh();
@@ -497,6 +500,7 @@ export function CRMContactList({
       });
       if (res.success) {
         toast.success(`Removed tag #${tagToRemove}`);
+        if (res.warning) toast.warning(res.warning);
         router.refresh();
       } else {
         toast.error(res.error || 'Failed to remove tag');

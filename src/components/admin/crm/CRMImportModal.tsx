@@ -66,6 +66,7 @@ export function CRMImportModal({ isOpen, onClose }: Props) {
             ? `Imported ${res.imported ?? 0}, skipped ${res.skipped ?? 0} existing, ${invalid} row(s) had problems`
             : `Imported ${res.imported ?? 0}, skipped ${res.skipped ?? 0} existing`
         );
+        if (res.warning) toast.warning(res.warning);
         router.refresh();
       }
     } catch {
@@ -79,6 +80,7 @@ export function CRMImportModal({ isOpen, onClose }: Props) {
     const rows: { tone: 'bad' | 'warn' | 'ok'; text: string }[] = [];
     if (!lastResult) return rows;
     if (lastResult.imported) rows.push({ tone: 'ok', text: `${lastResult.imported} imported` });
+    if (lastResult.warning) rows.push({ tone: 'warn', text: lastResult.warning });
     if (lastResult.skipped)
       rows.push({ tone: 'warn', text: `${lastResult.skipped} already in the directory, skipped` });
     if (lastResult.invalidRows)

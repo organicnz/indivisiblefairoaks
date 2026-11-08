@@ -200,6 +200,7 @@ export function CRMDetailClient({
               ? 'Email consent restored'
               : 'Consent reset to "never asked"'
         );
+        if (res.warning) toast.warning(res.warning);
         router.refresh();
       } else {
         toast.error(res.error || 'Failed to update consent');
@@ -228,6 +229,7 @@ export function CRMDetailClient({
 
       if (res.success) {
         toast.success(`Email dispatched to ${contact.email} via Resend`);
+        if (res.warning) toast.warning(res.warning);
         setEmailSubject('');
         setEmailMessage('');
         setActiveTab('timeline');
@@ -345,6 +347,7 @@ export function CRMDetailClient({
       });
       if (res.success) {
         toast.success('Constituent updated');
+        if (res.warning) toast.warning(res.warning);
         setIsInlineEditing(false);
         router.refresh();
       } else {
@@ -380,6 +383,7 @@ export function CRMDetailClient({
       });
       if (res.success) {
         toast.success(`Tag #${raw} added`);
+        if (res.warning) toast.warning(res.warning);
         setNewTagInput('');
         setIsAddingTag(false);
         router.refresh();
@@ -407,6 +411,7 @@ export function CRMDetailClient({
       });
       if (res.success) {
         toast.success(`Tag #${tagToRemove} removed`);
+        if (res.warning) toast.warning(res.warning);
         router.refresh();
       } else {
         toast.error(res.error || 'Failed to remove tag');

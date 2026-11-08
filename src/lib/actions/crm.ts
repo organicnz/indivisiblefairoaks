@@ -961,6 +961,9 @@ const CONTACT_ACTIVITY_LIMIT = 50;
 
 const CONTACT_TASK_LIMIT = 50;
 
+const CRM_ACTIVITY_WARNING =
+  'Saved, but the CRM timeline entry could not be recorded. The activity log is incomplete.';
+
 export async function getCRMContactDetail(id: string): Promise<{
   contact: CRMContact;
   activities: CRMActivity[];
@@ -1066,6 +1069,12 @@ export type SaveCRMContactResult = {
    * than on a timestamp its own clock produced.
    */
   updatedAt?: string | null;
+  /**
+   * Set when the contact write succeeded but its timeline entry did not. The
+   * caller must report this as a warning, never as a failed save: retrying would
+   * duplicate the contact change.
+   */
+  warning?: string;
 };
 
 export async function saveCRMContact(
@@ -1157,7 +1166,7 @@ export async function saveCRMContact(
     if (error) return { success: false, error: error.message };
     if (!updated) return { success: false, error: 'That contact no longer exists' };
 
-    await adminClient.from('crm_activities').insert({
+    const { error: activityError } = await adminClient.from('crm_activities').insert({
       contact_id: id,
       type: 'status_change',
       title: statusChanged ? 'Status Changed' : 'Constituent Profile Updated',
@@ -1172,7 +1181,12 @@ export async function saveCRMContact(
     // The update's own SELECT returns the trigger-written value, so the editor's
     // next save is based on the database's version without a second read that
     // could fail after the write has already committed.
-    return { success: true, contactId: updated.id, updatedAt: updated.updated_at ?? null };
+    return {
+      success: true,
+      contactId: updated.id,
+      updatedAt: updated.updated_at ?? null,
+      ...(activityError ? { warning: CRM_ACTIVITY_WARNING } : {}),
+    };
   }
 
   // Insert new contact. `updated_at` is dropped for the same reason as the update
@@ -1191,7 +1205,7 @@ export async function saveCRMContact(
 
   if (error) return { success: false, error: error.message };
 
-  await adminClient.from('crm_activities').insert({
+  const { error: activityError } = await adminClient.from('crm_activities').insert({
     contact_id: created.id,
     type: 'note',
     title: 'Constituent Created',
@@ -1200,7 +1214,11 @@ export async function saveCRMContact(
   });
 
   revalidateCRMRoutes(created.id);
-  return { success: true, contactId: created.id };
+  return {
+    success: true,
+    contactId: created.id,
+    ...(activityError ? { warning: CRM_ACTIVITY_WARNING } : {}),
+  };
 }
 
 export async function deleteCRMContact(id: string): Promise<{ success: boolean; error?: string }> {
@@ -1468,7 +1486,7 @@ export async function setCRMEmailConsent({
 }: {
   contactId: string;
   doNotEmail: ConsentDecision;
-}): Promise<{ success: boolean; error?: string }> {
+}): Promise<{ success: boolean; error?: string; warning?: string }> {
   const { adminClient, adminUserId } = await requireAdmin();
   const now = new Date().toISOString();
 
@@ -1518,7 +1536,7 @@ export async function setCRMEmailConsent({
     },
   };
 
-  await adminClient.from('crm_activities').insert({
+  const { error: activityError } = await adminClient.from('crm_activities').insert({
     contact_id: contactId,
     type: 'note',
     ...ACTIVITY[doNotEmail],
@@ -1526,7 +1544,10 @@ export async function setCRMEmailConsent({
   });
 
   revalidateCRMRoutes(contactId);
-  return { success: true };
+  return {
+    success: true,
+    ...(activityError ? { warning: CRM_ACTIVITY_WARNING } : {}),
+  };
 }
 
 export async function importCRMContacts({ csv }: { csv: string }): Promise<{
@@ -1540,6 +1561,8 @@ export async function importCRMContacts({ csv }: { csv: string }): Promise<{
   invalidRows?: number;
   errors?: CRMImportError[];
   error?: string;
+  /** Set when contacts landed but their timeline entries did not. */
+  warning?: string;
 }> {
   const { adminClient, adminUserId } = await requireAdmin();
 
@@ -1623,6 +1646,7 @@ export async function importCRMContacts({ csv }: { csv: string }): Promise<{
 
   // Chunked inserts (PostgREST default max array params).
   const CHUNK = 100;
+  let activityFailed = false;
   for (let i = 0; i < toInsert.length; i += CHUNK) {
     const chunk = toInsert.slice(i, i + CHUNK);
     // The generated `Insert` type says `do_not_email?: boolean` until migration
@@ -1648,7 +1672,7 @@ export async function importCRMContacts({ csv }: { csv: string }): Promise<{
     imported += ids.length;
 
     if (ids.length > 0) {
-      await adminClient.from('crm_activities').insert(
+      const { error: activityError } = await adminClient.from('crm_activities').insert(
         ids.map((contactId) => ({
           contact_id: contactId,
           type: 'import',
@@ -1657,6 +1681,7 @@ export async function importCRMContacts({ csv }: { csv: string }): Promise<{
           created_by: adminUserId,
         }))
       );
+      if (activityError) activityFailed = true;
     }
   }
 
@@ -1677,6 +1702,12 @@ export async function importCRMContacts({ csv }: { csv: string }): Promise<{
       : insertFailed
         ? 'All inserts failed — no contacts were imported'
         : undefined,
+    ...(activityFailed
+      ? {
+          warning:
+            'Imported, but one or more CRM timeline entries could not be recorded. The activity log is incomplete.',
+        }
+      : {}),
   };
 }
 
@@ -1761,7 +1792,7 @@ export async function sendCRMDirectEmail({
   contactId: string;
   subject: string;
   message: string;
-}): Promise<{ success: boolean; error?: string }> {
+}): Promise<{ success: boolean; error?: string; warning?: string }> {
   const blocked = sendBlockedInE2E();
   if (blocked) return blocked;
 
@@ -1860,7 +1891,7 @@ export async function sendCRMDirectEmail({
 
   const now = new Date().toISOString();
 
-  await Promise.all([
+  const [contactUpdate, activityInsert] = await Promise.all([
     adminClient.from('crm_contacts').update({ last_contacted_at: now }).eq('id', contactId),
     adminClient.from('crm_activities').insert({
       contact_id: contactId,
@@ -1872,8 +1903,18 @@ export async function sendCRMDirectEmail({
     }),
   ]);
 
+  const postSendWarnings: string[] = [];
+  if (contactUpdate.error) {
+    postSendWarnings.push("the contact's last-contacted date could not be updated");
+  }
+  if (activityInsert.error) {
+    postSendWarnings.push('its CRM timeline entry could not be recorded');
+  }
+
   revalidateCRMRoutes(contactId);
-  return { success: true };
+  return postSendWarnings.length > 0
+    ? { success: true, warning: `The email was sent, but ${postSendWarnings.join(' and ')}.` }
+    : { success: true };
 }
 
 /**
