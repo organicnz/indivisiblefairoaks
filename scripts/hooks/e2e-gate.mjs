@@ -63,6 +63,25 @@ if (!(await Bun.file('.next/BUILD_ID').exists())) {
   process.exit(1);
 }
 
+// The local counterpart of CI's browser install. An evicted browser cache
+// otherwise surfaces as a launch failure after the build has already passed.
+// `install` is idempotent and returns in under a second when the pinned
+// browser is present; a genuine install failure stops the gate with an
+// actionable message instead of a Playwright launch trace.
+console.log('🎭  Ensuring Playwright Chromium is installed...');
+const browserInstall = run(['bun', 'run', 'e2e:install'], {
+  stdout: 'inherit',
+  stderr: 'inherit',
+});
+
+if (browserInstall.exitCode !== 0) {
+  console.log('');
+  console.log('✖  Playwright Chromium could not be installed — e2e cannot run.');
+  console.log('   Check network access and retry the push.');
+  console.log('');
+  process.exit(1);
+}
+
 console.log('🎭  Playwright e2e delivery gate (workers=2)...');
 // workers=2: higher parallelism caused intermittent header-clearance
 // flakes under load; CI keeps CI=true → retries + 2 workers in config.
