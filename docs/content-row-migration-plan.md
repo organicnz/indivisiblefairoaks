@@ -1,8 +1,9 @@
 # Content row migration plan
 
-> Status: badge and filter shipped. Read-only audit complete on 2026-11-08;
-> **no rows were changed**. Archiving or deleting still needs a content-owner
-> decision.
+> Status: badge, filter, archive export, and per-row disposition table shipped.
+> Read-only audit complete on 2026-11-08; **no rows were changed**. Archiving
+> or deleting still needs a content-owner decision. The row-by-row table is
+> [`content-row-disposition.md`](./content-row-disposition.md).
 
 `content` holds 15 rows. Fourteen cannot be reached at their own slug:
 
@@ -54,17 +55,17 @@ evidence they are imports rather than authored CMS copy.
 - **The legacy rows are doing their job as redirects' leftovers.** The 301s in
   `next.config.ts` preserve old links; the rows themselves are not what those
   links land on.
-- **Three places may still hold unique content a person should read before
-  archiving**: the mission statement in `home`, the shipping/returns policy in
-  `shipping-returns` (the only copy of it), and the old FAQ/legal answers. Do
-  not assume "0% overlap" means "nothing worth keeping" — it means "not on the
-  current page".
+- **A few places may still hold unique content a person should read before
+  archiving**: the mission statement in `home`, the short blurb in `about-us`,
+  the shipping/returns policy in `shipping-returns` (the only copy of it), and
+  the old FAQ/legal answers. Do not assume "0% overlap" means "nothing worth
+  keeping" — it means "not on the current page".
 
 ## Recommended sequence
 
-1. **Content-owner review.** Read the five rows above (`home`, `faqs`,
-   `privacy-policy`, `shipping-returns`, `terms-and-conditions`) and mark any
-   sentence that must survive.
+1. **Content-owner review.** Read the six review rows in the disposition table
+   (`home`, `about-us`, `faqs`, `privacy-policy`, `shipping-returns`,
+   `terms-and-conditions`) and mark any sentence that must survive.
 2. **Move wanted copy into a live surface.** Use a **copy region** on the
    coded page (`copy-events-trainings` is the existing example) or a new CMS
    page with a free slug. Do not reuse the shadowed slug.
