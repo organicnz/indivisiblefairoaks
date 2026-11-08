@@ -574,6 +574,15 @@ describe('CRM mutation failure paths', () => {
       expect(res.error).toBe('task update failed');
     });
 
+    it('reports a task that no longer exists', async () => {
+      tables.crm_tasks = { rows: [] };
+      const res = await updateCRMTask({
+        id: '11111111-2222-4333-8444-555555555555',
+        title: 'New Title',
+      });
+      expect(res).toEqual({ success: false, error: 'That follow-up no longer exists' });
+    });
+
     it('updates an existing task with done status and all fields', async () => {
       tables.crm_tasks = {
         rows: [{ id: '11111111-2222-4333-8444-555555555555', title: 'Old Title', status: 'open' }],
@@ -646,6 +655,16 @@ describe('CRM mutation failure paths', () => {
       expect(res.error).toBe('note update failed');
     });
 
+    it('reports a note that no longer exists', async () => {
+      tables.crm_activities = { rows: [] };
+      const res = await updateCRMNote({
+        activityId: 'act-1',
+        title: 'Updated Note',
+        description: 'New details',
+      });
+      expect(res).toEqual({ success: false, error: 'That note no longer exists' });
+    });
+
     it('updates note content when valid', async () => {
       tables.crm_activities = {
         rows: [{ id: 'act-1', type: 'note', title: 'Original', description: 'Desc' }],
@@ -683,6 +702,12 @@ describe('CRM mutation failure paths', () => {
       };
       const res = await deleteCRMNote('act-1');
       expect(res.success).toBe(true);
+    });
+
+    it('reports a note that no longer exists when deleting', async () => {
+      tables.crm_activities = { rows: [] };
+      const res = await deleteCRMNote('act-1');
+      expect(res).toEqual({ success: false, error: 'That note no longer exists' });
     });
   });
 

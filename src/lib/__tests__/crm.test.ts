@@ -864,6 +864,15 @@ describe('Civic CRM Server Actions', () => {
       expect(tables.crm_tasks.rows?.[0]).toMatchObject({ status: 'open', completed_at: null });
     });
 
+    it('reports a missing task when changing status', async () => {
+      tables.crm_tasks = { rows: [] };
+      const res = await setCRMTaskStatus({
+        id: 'a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d',
+        status: 'done',
+      });
+      expect(res).toEqual({ success: false, error: 'That follow-up no longer exists' });
+    });
+
     it('deletes a task by id', async () => {
       // Two tasks, so "the row is gone" and "the table is empty" cannot be
       // confused. The old assertion — that `.delete()` had been called and
@@ -879,6 +888,12 @@ describe('Civic CRM Server Actions', () => {
       const res = await deleteCRMTask('task-1');
       expect(res.success).toBe(true);
       expect(tables.crm_tasks.rows?.map((t) => t.id)).toEqual(['task-2']);
+    });
+
+    it('reports a missing task when deleting', async () => {
+      tables.crm_tasks = { rows: [] };
+      const res = await deleteCRMTask('task-1');
+      expect(res).toEqual({ success: false, error: 'That follow-up no longer exists' });
     });
 
     it('lists open tasks scoped with status filter', async () => {

@@ -769,10 +769,11 @@ export async function setCRMTaskStatus({
     })
     .eq('id', parsed.data.id)
     .select('contact_id')
-    .single();
+    .maybeSingle();
 
   if (error) return { success: false, error: error.message };
-  revalidateCRMRoutes(data?.contact_id);
+  if (!data) return { success: false, error: 'That follow-up no longer exists' };
+  revalidateCRMRoutes(data.contact_id);
   return { success: true };
 }
 
@@ -783,10 +784,11 @@ export async function deleteCRMTask(id: string): Promise<{ success: boolean; err
     .delete()
     .eq('id', id)
     .select('contact_id')
-    .single();
+    .maybeSingle();
 
   if (error) return { success: false, error: error.message };
-  revalidateCRMRoutes(data?.contact_id);
+  if (!data) return { success: false, error: 'That follow-up no longer exists' };
+  revalidateCRMRoutes(data.contact_id);
   return { success: true };
 }
 
@@ -817,10 +819,11 @@ export async function updateCRMTask(
     .update(updatePayload)
     .eq('id', id)
     .select('contact_id')
-    .single();
+    .maybeSingle();
 
   if (error) return { success: false, error: error.message };
-  revalidateCRMRoutes(data?.contact_id || contactId);
+  if (!data) return { success: false, error: 'That follow-up no longer exists' };
+  revalidateCRMRoutes(data.contact_id || contactId);
   return { success: true };
 }
 
@@ -1442,11 +1445,12 @@ export async function updateCRMNote({
     .eq('id', activityId)
     .eq('type', 'note')
     .select('contact_id')
-    .single();
+    .maybeSingle();
 
   if (error) return { success: false, error: error.message };
+  if (!data) return { success: false, error: 'That note no longer exists' };
 
-  revalidateCRMRoutes(data?.contact_id);
+  revalidateCRMRoutes(data.contact_id);
   return { success: true };
 }
 
@@ -1461,11 +1465,12 @@ export async function deleteCRMNote(
     .eq('id', activityId)
     .eq('type', 'note')
     .select('contact_id')
-    .single();
+    .maybeSingle();
 
   if (error) return { success: false, error: error.message };
+  if (!data) return { success: false, error: 'That note no longer exists' };
 
-  revalidateCRMRoutes(data?.contact_id);
+  revalidateCRMRoutes(data.contact_id);
   return { success: true };
 }
 
