@@ -3154,19 +3154,26 @@ async function mediaReferenceReason(
     return null;
   }
 
-  if (folder === 'content') {
+  if (folder === 'content' || folder === 'gallery') {
     const url = getStorageUrl(path, 'media');
-    const [body, featured, revisions] = await Promise.all([
+    const [broadcasts, body, featured, revisions] = await Promise.all([
+      adminClient.from('crm_broadcasts').select('id').like('body', `%${path}%`).limit(1),
       adminClient.from('content').select('id').like('body', `%${path}%`).limit(1),
       adminClient.from('content').select('id').eq('featured_image', url).limit(1),
       adminClient.from('content_revisions').select('id').like('body', `%${path}%`).limit(1),
     ]);
-    const referenced =
+    if (broadcasts.error || body.error || featured.error || revisions.error) {
+      return 'Could not verify whether this image is still in use';
+    }
+    const referencedByPage =
       (body.data?.length ?? 0) > 0 ||
       (featured.data?.length ?? 0) > 0 ||
       (revisions.data?.length ?? 0) > 0;
-    if (referenced) {
+    if (referencedByPage) {
       return 'This image is still used by a page or one of its revisions and cannot be deleted yet.';
+    }
+    if ((broadcasts.data?.length ?? 0) > 0) {
+      return 'This image is still used in a saved broadcast and cannot be deleted yet.';
     }
     return null;
   }

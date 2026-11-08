@@ -376,6 +376,50 @@ describe('CRM Supabase S3 Storage Media & Edge Function API', () => {
       expect(mockStorageFrom.remove).not.toHaveBeenCalled();
     });
 
+    it('fails safely when a content reference check errors', async () => {
+      mockAdminClient.from.mockImplementation((table: string) => ({
+        select: vi.fn(() => ({
+          like: vi.fn(() => ({
+            limit: vi.fn().mockResolvedValue(
+              table === 'content'
+                ? { data: null, error: { message: 'db down' } }
+                : { data: [], error: null }
+            ),
+          })),
+          eq: vi.fn(() => ({
+            limit: vi.fn().mockResolvedValue({ data: [], error: null }),
+          })),
+        })),
+      }));
+
+      const res = await deleteCRMMedia('content/crucial-page.jpg');
+      expect(res.success).toBe(false);
+      expect(res.error).toContain('Could not verify');
+      expect(mockStorageFrom.remove).not.toHaveBeenCalled();
+    });
+
+    it('refuses a gallery/ asset a page still references', async () => {
+      mockAdminClient.from.mockImplementation((table: string) => ({
+        select: vi.fn(() => ({
+          like: vi.fn(() => ({
+            limit: vi.fn().mockResolvedValue(
+              table === 'content'
+                ? { data: [{ id: 7 }], error: null }
+                : { data: [], error: null }
+            ),
+          })),
+          eq: vi.fn(() => ({
+            limit: vi.fn().mockResolvedValue({ data: [], error: null }),
+          })),
+        })),
+      }));
+
+      const res = await deleteCRMMedia('gallery/photo.jpg');
+      expect(res.success).toBe(false);
+      expect(res.error).toContain('still used by a page');
+      expect(mockStorageFrom.remove).not.toHaveBeenCalled();
+    });
+
     it('removes allowed crm/ assets no broadcast references', async () => {
       // `mediaReferenceReason` checks broadcasts + content + revisions for a
       // `crm/` path, so all three reads resolve empty here.
