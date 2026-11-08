@@ -18,7 +18,7 @@ import { sanitizeWPContent } from '@/lib/sanitize';
  *
  * The in-page editor resolves its document from the pathname, which works while
  * the URL names the row. Every migrated page fails that test: its slug is
- * shadowed by a coded route or a legacy 301, so the composer had no reachable
+ * shadowed by a coded route or a legacy redirect, so the composer had no reachable
  * surface for the content that actually exists. This route is that surface — a
  * page rendered from the row itself, with the site's real typography and the
  * visual-edit root, addressable by id rather than by a path that may redirect.

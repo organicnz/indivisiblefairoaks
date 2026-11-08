@@ -115,7 +115,7 @@ const routeHeaders = [
 
 // Legacy Google Sites URLs. The chapter's site ran on Google Sites before this app;
 // those paths are still linked from newsletters, printed flyers and search results.
-// Each maps to its real equivalent here as a 301 so link equity transfers instead of
+// Each maps to its real equivalent here as a 308 so link equity transfers instead of
 // landing the visitor on one of six near-duplicate CMS pages. The map lives in
 // `src/config/legacy-redirects.ts` so runtime code can consult the same list when
 // enumerating CMS slugs — the two cannot drift.

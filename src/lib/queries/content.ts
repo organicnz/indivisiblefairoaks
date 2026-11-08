@@ -53,7 +53,7 @@ export async function getAllPublishedSlugs() {
       .select('slug')
       .eq('status', 'publish')
       .or(buildVisibilityFilter(new Date().toISOString()));
-    // Drop slugs owned by a legacy 301. Those paths are served by the redirect map
+    // Drop slugs owned by a legacy redirect. Those paths are served by the redirect map
     // in next.config.ts, so prerendering them here would build a page that can never
     // be reached — and would advertise a duplicate in the sitemap.
     //

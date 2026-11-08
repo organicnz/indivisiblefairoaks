@@ -89,7 +89,7 @@ export function slugifyTitle(title: string): string {
  *
  * Two classes of conflict, both silent failures if left unchecked: a real App
  * Router segment shadowing the CMS route, and a legacy Google Sites path whose
- * 301 in next.config.ts would win over the live page.
+ * 308 in next.config.ts would win over the live page.
  */
 export function describeSlugConflict(slug: string): string | null {
   if (RESERVED_SLUGS.has(slug)) {
@@ -132,7 +132,7 @@ export interface ContentLinkRow {
  *   but it renders inside `/`; its own path is filtered out of the sitemap and
  *   `[slug]` for exactly that reason. Linking it as a page produced a 200
  *   "Page Not Found" from the only row that actually drives the homepage.
- * - **A reserved or legacy slug is shadowed.** The coded route or the 301 in
+ * - **A reserved or legacy slug is shadowed.** The coded route or the 308 in
  *   `next.config.ts` wins, so `/${slug}` opens something that is not this row.
  *   The workspace banner explains this; a View link should not contradict it.
  * - **A draft has no public page.** `getPublishedContent` filters it out, so the

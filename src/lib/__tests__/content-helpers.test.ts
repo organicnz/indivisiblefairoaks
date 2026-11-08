@@ -68,7 +68,7 @@ describe('describeSlugConflict', () => {
     }
   });
 
-  it('rejects legacy Google Sites paths whose 301 would win', () => {
+  it('rejects legacy Google Sites paths whose 308 would win', () => {
     // next.config.ts serves these as permanent redirects, so a page here could
     // never be reached — and would be advertised twice in the sitemap.
     for (const slug of ['about-us', 'resistance-choir', 'voter-information', 'upcoming-events']) {
@@ -122,7 +122,7 @@ describe('contentPublicHref', () => {
     expect(contentPublicHref({ slug: 'copy-orphan', status: 'publish' })).toBeNull();
   });
 
-  it('returns null for a slug a coded route or legacy 301 shadows', () => {
+  it('returns null for a slug a coded route or legacy redirect shadows', () => {
     // `/${slug}` opens the coded page or the redirect, not this row, so a View
     // link would be a promise the row cannot keep.
     expect(contentPublicHref({ slug: 'about', status: 'publish' })).toBeNull();

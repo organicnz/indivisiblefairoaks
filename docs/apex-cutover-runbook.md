@@ -139,7 +139,7 @@ curl -s $HOST/sitemap.xml | grep -c '/products/'
 # 4. Every route has a social card
 curl -s $HOST/ | grep -o 'og:image[^>]*'
 
-# 5. Legacy URLs 301 to their replacements
+# 5. Legacy URLs redirect to their replacements
 for p in about-us resistance-choir voter-information upcoming-events \
          newsletters coalition-links home; do
   printf '%-22s ' "$p"; curl -s -o /dev/null -w '%{http_code} -> %{redirect_url}\n' "$HOST/$p"

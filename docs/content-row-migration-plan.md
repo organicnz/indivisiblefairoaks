@@ -52,7 +52,7 @@ evidence they are imports rather than authored CMS copy.
 
 - **No coded page depends on these rows.** The live copy is in the route
   components, not in `content`.
-- **The legacy rows are doing their job as redirects' leftovers.** The 301s in
+- **The legacy rows are doing their job as redirects' leftovers.** The redirects in
   `next.config.ts` preserve old links; the rows themselves are not what those
   links land on.
 - **A few places may still hold unique content a person should read before
@@ -112,7 +112,7 @@ order by id;
 ```
 
 Reachability is derived, not stored: `describeSlugConflict(slug)` returns a
-message for reserved routes, and `isLegacySlug(slug)` covers the ten 301s.
+message for reserved routes, and `isLegacySlug(slug)` covers the ten legacy redirects.
 The overlap figures came from a one-off read-only fetch of each destination and
 the row's visible text; no writes were made.
 
