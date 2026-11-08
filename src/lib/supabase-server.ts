@@ -85,10 +85,23 @@ export const createAdminClient = async () => {
 };
 
 /**
+ * Supabase's SSR client stores the session in `sb-<project-ref>-auth-token`,
+ * split into numbered chunks when large. A cookie-less request is a static
+ * prerender or a signed-out visitor: there is no user to load, and building
+ * the SSR client makes `getUser()` read the current clock inside the prerender.
+ */
+function hasSupabaseAuthCookie(cookieList: { name: string }[]): boolean {
+  return cookieList.some(({ name }) => /^sb-.+-auth-token(?:\.\d+)?$/.test(name));
+}
+
+/**
  * Server-side settings fetcher with caching
  */
 export const getSettings = cache(async () => {
   try {
+    const cookieStore = await cookies();
+    if (!hasSupabaseAuthCookie(cookieStore.getAll())) return null;
+
     const supabase = await createServerClient();
     const {
       data: { user },
