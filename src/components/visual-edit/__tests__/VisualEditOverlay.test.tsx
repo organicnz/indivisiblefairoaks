@@ -2,7 +2,11 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { VisualEditOverlay } from '@/components/visual-edit/VisualEditOverlay';
+import {
+  VisualEditOverlay,
+  resolveBlockContentRoot,
+} from '@/components/visual-edit/VisualEditOverlay';
+import { MAX_BODY_BYTES } from '@/lib/content';
 import {
   openDiagnosticsVisual,
   openSettingsVisual,
@@ -2073,5 +2077,157 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     // The row is the selected block — the composer opens its column editor,
     // not a leaf's content form.
     expect(document.body.textContent).toContain('Row Layout');
+  });
+
+  it('rejects an oversized body before it reaches the server', async () => {
+    /*
+     * Regression test for "This page is too large to save": the client-side
+     * pre-check in handlePersistBlocks must reject an oversized body before
+     * calling saveContent, so the operator gets an actionable message instead
+     * of an opaque Zod rejection.
+     */
+    await withPage();
+    await openComposerOnFirstBlock();
+
+    const bigText = 'word '.repeat(20000); // ~120 KB, well over MAX_BODY_BYTES
+    await changeComposerCopy(bigText);
+
+    await act(async () => {
+      byText('Save Block')?.click();
+    });
+
+    const saveButton = container.querySelector<HTMLButtonElement>(
+      'button[title^="Write this document to Supabase"]'
+    );
+    expect(saveButton).not.toBeNull();
+    await act(async () => {
+      saveButton?.click();
+    });
+
+    expect(toast.error).toHaveBeenCalledWith(
+      expect.stringContaining('too large to save')
+    );
+
+    // No saveContent call may carry an oversized body.
+    for (const call of saveContent.mock.calls) {
+      const body = (call[0] as { body?: string }).body;
+      expect(body?.length).toBeLessThanOrEqual(MAX_BODY_BYTES);
+    }
+  });
+
+  it('writes only the edited paragraph, not the whole section, on a coded page', async () => {
+    /*
+     * A coded route has no CMS row, so its blocks are extracted from the DOM
+     * and a block's address is the <section> that renders it. Committing an
+     * inline edit used to read that section's innerHTML — siblings included —
+     * and store it as one paragraph's `html`, which is what pushed real pages
+     * past MAX_BODY_BYTES.
+     */
+    const filler = 'Section sidebar filler. '.repeat(300); // ~7.5 KB of a sibling
+    renderPage(`<section><p>Intro copy.</p><div>${filler}</div></section>`);
+    getContentBySlugForEdit.mockResolvedValue(null);
+    await mount();
+
+    const paragraph = document.querySelector<HTMLElement>('[data-visual-edit-root] section p');
+    expect(paragraph).not.toBeNull();
+
+    await act(async () => {
+      paragraph?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+    expect(document.body.getAttribute('data-editorial-mode')).toBe('active');
+    // jsdom does not reflect `contentEditable` to the attribute; the session's
+    // own class is the observable signal that the paragraph is being edited.
+    expect(paragraph?.classList.contains('visual-inline-active')).toBe(true);
+
+    await act(async () => {
+      if (paragraph) paragraph.innerHTML = 'Edited intro.';
+      paragraph?.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    // ⌘↵ commits the inline session — the same path the editor's save gesture
+    // takes.
+    await act(async () => {
+      window.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Enter', metaKey: true, bubbles: true })
+      );
+    });
+
+    const written = saveContent.mock.calls.at(-1)?.[0].body as string;
+    expect(written).toContain('Edited intro.');
+    expect(written).not.toContain('Section sidebar filler.');
+    expect(written.length).toBeLessThan(filler.length);
+  });
+
+  it('keeps the paragraph around an edited link, not just the link’s own markup', async () => {
+    /*
+     * The other half of the section fix: the climb must stop at the paragraph,
+     * not at the link. Reading the session element's own innerHTML would save
+     * the link's text as the whole paragraph — the data-loss shape the block
+     * root read exists to prevent.
+     */
+    renderPage(
+      '<section><p>Read the <a href="/voter-guide">voter guide</a> before you vote.</p></section>'
+    );
+    getContentBySlugForEdit.mockResolvedValue(null);
+    await mount();
+
+    const link = document.querySelector<HTMLAnchorElement>(
+      '[data-visual-edit-root] section p a'
+    );
+    expect(link).not.toBeNull();
+
+    await act(async () => {
+      link?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+    expect(link?.classList.contains('visual-inline-active')).toBe(true);
+
+    await act(async () => {
+      if (link) link.textContent = 'voter guide 2026';
+      link?.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    await act(async () => {
+      window.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Enter', metaKey: true, bubbles: true })
+      );
+    });
+
+    const written = saveContent.mock.calls.at(-1)?.[0].body as string;
+    expect(written).toContain('voter guide 2026');
+    // The surrounding sentence survives: the block is the paragraph, not the
+    // link that was being edited.
+    expect(written).toContain('Read the ');
+    expect(written).toContain('before you vote.');
+  });
+
+  describe('resolveBlockContentRoot', () => {
+    const section = document.createElement('section');
+    const paragraph = document.createElement('p');
+    const link = document.createElement('a');
+    paragraph.append('Read the ', link);
+    section.append(paragraph);
+
+    it('climbs from an inline element to the paragraph inside the section', () => {
+      expect(resolveBlockContentRoot(link, section)).toBe(paragraph);
+    });
+
+    it('refuses the layout wrapper as a block content root', () => {
+      // The <section> is a block's DOM address, not its content: reading it
+      // would capture every sibling block too.
+      expect(resolveBlockContentRoot(section, section)).toBeNull();
+    });
+
+    it('accepts a textual block root', () => {
+      expect(resolveBlockContentRoot(paragraph, paragraph)).toBe(paragraph);
+    });
+
+    it('accepts the cw- div roots the serializer writes for callouts and buttons', () => {
+      const callout = document.createElement('div');
+      callout.className = 'cw cw-callout cw-callout--info';
+      const inner = document.createElement('p');
+      callout.append(inner);
+      expect(resolveBlockContentRoot(inner, callout)).toBe(inner);
+      expect(resolveBlockContentRoot(callout, callout)).toBe(callout);
+    });
   });
 });

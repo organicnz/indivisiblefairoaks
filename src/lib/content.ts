@@ -9,8 +9,29 @@ import {
 export const CONTENT_TYPES = ['page', 'post', 'action', 'event'] as const;
 export type ContentType = (typeof CONTENT_TYPES)[number];
 
-/** 64 KiB is ~10,000 words — far more than any page on this site needs. */
+/**
+ * The largest `content.body` the editor will save.
+ *
+ * 64 Ki is ~10,000 words — far more than any page on this site needs. The unit
+ * is a character count, not bytes: Zod's `.max()` counts UTF-16 code units and
+ * the column is `text`, so this ceiling is "far bigger than any page", not a
+ * storage limit. The name stays because the limit is quoted as 64 KiB
+ * throughout; `describeOversizedBody` reports the exact count, so nobody has to
+ * reconcile the two.
+ */
 export const MAX_BODY_BYTES = 64 * 1024;
+
+/**
+ * Why a body cannot be saved, or null when it can.
+ *
+ * The server boundary (`contentSchema`) and every client-side pre-check use
+ * this one message, so the operator sees the same measured size whichever path
+ * caught the problem — and sees it before an opaque Zod issue reaches a toast.
+ */
+export function describeOversizedBody(body: string, what = 'page'): string | null {
+  if (body.length <= MAX_BODY_BYTES) return null;
+  return `This ${what} is too large to save (${body.length} characters; limit ${MAX_BODY_BYTES}). Edit a smaller section or split the document.`;
+}
 
 /**
  * Paths that already resolve to a real App Router route.

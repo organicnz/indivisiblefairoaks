@@ -56,6 +56,7 @@ import {
 } from '@/lib/actions/content';
 import { getCRMEdgeFunctionHealth, uploadCRMMedia } from '@/lib/actions/crm';
 import { getVisualPageContext } from '@/lib/actions/visual';
+import { describeOversizedBody } from '@/lib/content';
 import { moveBlockItem } from '@/lib/block-order';
 import {
   applyBlockShell,
@@ -160,6 +161,81 @@ import { VisualEditorSidebar } from './VisualEditorSidebar';
  */
 
 export const VISUAL_EDIT_ROOT_ATTR = 'data-visual-edit-root';
+
+/**
+ * Elements whose `innerHTML` is a block's own editable content.
+ *
+ * A block's root in the DOM is normally one of these: a paragraph is a `<p>`, a
+ * heading an `<h2>`, a callout a `<div class="cw-callout">`. Reading such an
+ * element's `innerHTML` is exactly reading the content the block model stores.
+ *
+ * A `<section>`, `<div>` or `<main>` *layout* wrapper is deliberately absent.
+ * On a coded page a block's DOM address is the section that renders it, so
+ * reading the wrapper's `innerHTML` would save every sibling block as one
+ * block's `html` — inflating the body past `MAX_BODY_BYTES` and making "This
+ * page is too large to save" fire on every later save.
+ */
+const TEXT_CONTENT_TAGS: ReadonlySet<string> = new Set([
+  'p',
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'blockquote',
+  'pre',
+  'li',
+  'dd',
+  'dt',
+  'figcaption',
+  'td',
+  'th',
+]);
+
+/**
+ * Divs that are a block's own root even though the tag is generic.
+ *
+ * `serializeBlock` gives a callout and a button a `<div>` root carrying a `cw-`
+ * structural class, so those two are content, not layout.
+ */
+const TEXT_CONTENT_ROOT_CLASSES = ['cw-callout', 'cw-action'] as const;
+
+function isTextContentRoot(element: HTMLElement): boolean {
+  if (TEXT_CONTENT_TAGS.has(element.tagName.toLowerCase())) return true;
+  return TEXT_CONTENT_ROOT_CLASSES.some((className) => element.classList.contains(className));
+}
+
+/**
+ * The element whose `innerHTML` is the content of the block being committed.
+ *
+ * The inline session's element is often a child of the block's rendered root —
+ * a link or a `<strong>` inside a paragraph — so the block's own content is
+ * read from the nearest textual ancestor rather than from the session element.
+ *
+ * Climbing stops at the block root, and the block root is accepted only when it
+ * is itself a content root (`<p>`, `<h2>`, a `cw-callout` div, …). That bound is
+ * the fix for "This page is too large to save": on a coded page the block
+ * resolves to a `<section>`, and a `<section>`'s `innerHTML` is the whole
+ * section, not the block.
+ *
+ * Returns null when no content root can be found — the caller must not persist
+ * a layout wrapper's markup as a block's content.
+ */
+export function resolveBlockContentRoot(
+  element: HTMLElement,
+  blockRoot: HTMLElement | null
+): HTMLElement | null {
+  if (!blockRoot || !blockRoot.contains(element)) {
+    return isTextContentRoot(element) ? element : null;
+  }
+  let node: HTMLElement | null = element;
+  while (node && node !== blockRoot) {
+    if (isTextContentRoot(node)) return node;
+    node = node.parentElement;
+  }
+  return isTextContentRoot(blockRoot) ? blockRoot : null;
+}
 
 export type ViewportMode = 'desktop' | 'tablet' | 'mobile';
 
@@ -1300,12 +1376,21 @@ export function VisualEditOverlay() {
           ? extractBlocksFromDOM(root)
           : [{ id: nextBlockId(), type: 'paragraph' as const, html: 'Add section copy here...' }];
 
+    const initialBody = serializeBlocks(initialBlocks);
+    // Same pre-check as the block save: a first save extracts the live DOM, and
+    // that path is the most likely place for an oversized body to originate.
+    const oversized = describeOversizedBody(initialBody);
+    if (oversized) {
+      toast.error(oversized);
+      return;
+    }
+
     setSavingBackend(true);
     try {
       const res = await saveContentWithEdgeApi({
         title,
         slug,
-        body: serializeBlocks(initialBlocks),
+        body: initialBody,
         type: 'page',
         status: 'publish',
       });
@@ -1812,6 +1897,15 @@ export function VisualEditOverlay() {
       const newBody = serializeBlocks(newBlocks);
 
       try {
+        // Client-side pre-check: catch an oversized body before it reaches the
+        // server, so the operator gets an actionable message instead of an opaque
+        // Zod rejection. The server-side MAX_BODY_BYTES check remains the boundary.
+        const oversized = describeOversizedBody(newBody);
+        if (oversized) {
+          toast.error(oversized);
+          return { success: false, error: oversized };
+        }
+
         // The row already knows its slug; a region with no row yet falls back to
         // the region's own slug, never the page's, so a first save of a region
         // cannot land on the page document.
@@ -2249,10 +2343,19 @@ export function VisualEditOverlay() {
        * session element sits inside it.
        */
       const blockRoot = blockIndex !== null ? locate(blockIndex) : null;
-      const blockHtml =
-        blockRoot && blockRoot !== element && blockRoot.contains(element)
-          ? blockRoot.innerHTML
-          : updatedHtml;
+      /*
+       * A block with no block-sized content root cannot be written without
+       * capturing its layout wrapper — the section on a coded page. Roll the
+       * edit back and say so instead of persisting a whole section as one
+       * block's content.
+       */
+      const contentRoot = resolveBlockContentRoot(element, blockRoot);
+      if (blockIndex !== null && !contentRoot) {
+        element.innerHTML = initialHtml;
+        toast.info('Edit the text inside this section — the section frame is not a block.');
+        return;
+      }
+      const blockHtml = contentRoot ? contentRoot.innerHTML : updatedHtml;
 
       if (hrefChanged && anchorInElement) {
         if (blockIndex !== null && blocksRef.current[blockIndex]?.type === 'button') {

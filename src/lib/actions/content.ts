@@ -7,6 +7,7 @@ import { requireAdmin } from '@/lib/admin-auth';
 import {
   CONTENT_TYPES,
   type ContentType,
+  describeOversizedBody,
   describeSlugConflict,
   MAX_BODY_BYTES,
 } from '@/lib/content';
@@ -218,6 +219,18 @@ export async function saveContent(
   rawInput: ContentInput
 ): Promise<ActionResult<{ id: number; updatedAt: string | null }>> {
   const { adminClient } = await requireAdmin();
+  /*
+   * The server-side counterpart of the editor's pre-check.
+   *
+   * `contentSchema` keeps the hard boundary, but its bare message says only
+   * that the page is too large. Reporting the measured count here means every
+   * caller — the visual-edit route, the server action, a future surface — gets
+   * the same actionable text as the client, not just the editor's toast.
+   */
+  const oversizedBody = describeOversizedBody(
+    typeof rawInput.body === 'string' ? rawInput.body : ''
+  );
+  if (oversizedBody) return fail(oversizedBody);
   const parsed = contentSchema.safeParse(rawInput);
   if (!parsed.success) return fail(parsed.error.issues[0]?.message || 'Invalid input');
   const data = parsed.data;

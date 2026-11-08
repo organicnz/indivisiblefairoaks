@@ -4,6 +4,7 @@ import { useCallback } from 'react';
 import { toast } from 'sonner';
 import type { ActionResult, ContentInput } from '@/lib/actions/content';
 import type { Block } from '@/lib/blocks';
+import { describeOversizedBody } from '@/lib/content';
 import { copyRegionSlug } from '@/lib/copy-regions';
 
 /**
@@ -91,6 +92,15 @@ export function useBlockWriter(args: UseBlockWriterArgs) {
         return false;
       }
       const body = regionContainer.innerHTML;
+      // Client-side pre-check: catch an oversized body before it reaches the
+      // server, so the operator gets an actionable message instead of an opaque
+      // Zod rejection.
+      const oversized = describeOversizedBody(body, 'copy region');
+      if (oversized) {
+        toast.error(oversized);
+        onRollback?.();
+        return false;
+      }
       setSavingBackend(true);
       try {
         const res = await saveContentWithEdgeApi({

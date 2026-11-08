@@ -44,6 +44,7 @@ const {
   saveContent,
 } = await import('@/lib/actions/content');
 const { createMockAdminClient, defaultInsertedUpdatedAt } = await import('./supabase-mock');
+const { MAX_BODY_BYTES } = await import('@/lib/content');
 
 // ---------------------------------------------------------------------------
 // getContentForEdit
@@ -568,6 +569,41 @@ describe('saveContent — update: page not found', () => {
 
     expect(result.success).toBe(false);
     expect(result).toMatchObject({ error: 'db write error' });
+  });
+});
+
+describe('saveContent — body size boundary', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('rejects an oversized body with the measured count, before writing', async () => {
+    /*
+     * The client pre-checks are a courtesy; this is the boundary. It must name
+     * the real size, because the bare "This page is too large to save" gave an
+     * operator no way to tell a runaway capture from a genuinely long page.
+     */
+    const rows: Record<string, unknown>[] = [];
+    requireAdmin.mockResolvedValue({
+      adminClient: createMockAdminClient({
+        content: { rows, insert: { id: 1 }, onInsert: defaultInsertedUpdatedAt() },
+      }),
+    });
+
+    const result = await saveContent({
+      title: 'Runaway page',
+      slug: 'runaway-page',
+      status: 'draft',
+      type: 'page',
+      metadata: {},
+      body: 'x'.repeat(MAX_BODY_BYTES + 1),
+    });
+
+    expect(result.success).toBe(false);
+    expect(result).toMatchObject({
+      error: expect.stringContaining(`${MAX_BODY_BYTES + 1} characters`),
+    });
+    expect(result).toMatchObject({ error: expect.stringContaining('too large to save') });
+    // Rejected before any write, not after an INSERT that then had to be undone.
+    expect(rows).toHaveLength(0);
   });
 });
 

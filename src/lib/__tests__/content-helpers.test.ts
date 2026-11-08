@@ -6,6 +6,7 @@ import {
   CONTENT_TYPES,
   contentComposeHref,
   contentPublicHref,
+  describeOversizedBody,
   describeSlugConflict,
   MAX_BODY_BYTES,
   readingStats,
@@ -174,5 +175,24 @@ describe('MAX_BODY_BYTES', () => {
     // a runaway paste or a loop posting a megabyte into one row.
     expect(MAX_BODY_BYTES).toBe(64 * 1024);
     expect(MAX_BODY_BYTES).toBeLessThanOrEqual(256 * 1024);
+  });
+});
+
+describe('describeOversizedBody', () => {
+  it('allows a body at the limit and rejects one character over it', () => {
+    expect(describeOversizedBody('x'.repeat(MAX_BODY_BYTES))).toBeNull();
+
+    const message = describeOversizedBody('x'.repeat(MAX_BODY_BYTES + 1));
+    expect(message).toContain('too large to save');
+    // The exact count, not a rounded KB figure: one character over the limit
+    // must not read as "64 KB over the 64 KB limit".
+    expect(message).toContain(`${MAX_BODY_BYTES + 1} characters`);
+    expect(message).toContain(`limit ${MAX_BODY_BYTES}`);
+  });
+
+  it('names the document kind it was asked about', () => {
+    expect(describeOversizedBody('x'.repeat(MAX_BODY_BYTES + 1), 'copy region')).toContain(
+      'This copy region is too large to save'
+    );
   });
 });
