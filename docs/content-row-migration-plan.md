@@ -94,8 +94,10 @@ bun run content:export
 
 That writes `tmp/content-archive-YYYY-MM-DD.json` (or pass `--out <path>`) with
 every unreachable row, its revisions, the excluded slug list, and the project
-host. The command only issues `select`s. **Do not commit the archive** — it is
-production copy for review, not a source file.
+host. The file is written with mode `0600`. An existing path is refused unless
+you pass `--force`, so a second export cannot silently replace a reviewed
+snapshot. The command only issues `select`s. **Do not commit the archive** — it
+is production copy for review, not a source file.
 
 To see which rows the disposition table currently classifies as candidates,
 run `bun run content:archive:preview`. It is also read-only and reports the six

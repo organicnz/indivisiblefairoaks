@@ -9,11 +9,12 @@
  * Usage:
  *   bun scripts/export-content-rows.mjs
  *   bun scripts/export-content-rows.mjs --out tmp/my-archive.json
+ *   bun scripts/export-content-rows.mjs --out tmp/my-archive.json --force
  *
  * The default path is under `tmp/`, which is not committed. The archive holds
  * production copy; treat it as a review artifact, not a source file.
  */
-import { mkdir, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { createClient } from '@supabase/supabase-js';
 import { loadEnvLocal } from './load-env-local.mjs';
@@ -35,6 +36,7 @@ for (const [name, value] of [
 }
 
 const args = process.argv.slice(2);
+const force = args.includes('--force');
 const outIndex = args.indexOf('--out');
 const out =
   outIndex >= 0
@@ -81,7 +83,22 @@ const payload = {
 };
 
 await mkdir(path.dirname(out), { recursive: true });
-await writeFile(out, `${JSON.stringify(payload, null, 2)}\n`, { mode: 0o600 });
+try {
+  await writeFile(out, `${JSON.stringify(payload, null, 2)}\n`, {
+    mode: 0o600,
+    flag: force ? 'w' : 'wx',
+  });
+} catch (error) {
+  if (!force && error?.code === 'EEXIST') {
+    console.error(`Refusing to overwrite existing archive: ${out}`);
+    console.error('Pass --force to replace it.');
+    process.exit(1);
+  }
+  throw error;
+}
+// `mode` only applies when the file is created; chmod also protects an
+// existing archive that was previously written with broader permissions.
+await chmod(out, 0o600);
 
 console.log(
   `Exported ${payload.rowCount} unreachable rows and ${payload.revisionCount} revisions to ${out}`
