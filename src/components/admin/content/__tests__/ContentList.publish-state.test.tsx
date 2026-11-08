@@ -188,6 +188,28 @@ describe('ContentList publish-state actions', () => {
     expect(next?.getAttribute('href')).toBe('/admin/content?q=meeting&page=2');
   });
 
+  it('clears all filters in one action', async () => {
+    searchParams.current = new URLSearchParams('q=meeting&status=draft&hide=unreachable');
+    render([row()]);
+
+    const clear = [...container.querySelectorAll('button')].find(
+      (button) => button.textContent?.trim() === 'Clear filters'
+    );
+    expect(clear).toBeDefined();
+
+    await act(async () => {
+      clear?.click();
+    });
+
+    expect(routerPush).toHaveBeenCalledWith('/admin/content');
+  });
+
+  it('does not call a filtered empty list the first page', () => {
+    searchParams.current = new URLSearchParams('q=missing');
+    render([]);
+    expect(container.textContent).toContain('Create a new page');
+  });
+
   it('reports how many rows the filter is hiding', () => {
     searchParams.current = new URLSearchParams('hide=unreachable');
     act(() => {

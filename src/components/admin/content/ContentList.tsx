@@ -57,6 +57,7 @@ export function ContentList({
   const type = searchParams.get('type') ?? 'all';
   const q = searchParams.get('q') ?? '';
   const hide = searchParams.get('hide') === 'unreachable' || hideUnreachable;
+  const hasFilters = Boolean(query.trim() || q || status !== 'all' || type !== 'all' || hide);
 
   const push = useCallback(
     (next: { status?: string; type?: string; q?: string; hide?: string }) => {
@@ -66,10 +67,16 @@ export function ContentList({
       if (merged.type !== 'all') params.set('type', merged.type);
       if (merged.q) params.set('q', merged.q);
       if (merged.hide === 'unreachable') params.set('hide', 'unreachable');
-      startTransition(() => router.push(`/admin/content?${params.toString()}`));
+      const qs = params.toString();
+      startTransition(() => router.push(qs ? `/admin/content?${qs}` : '/admin/content'));
     },
     [hide, q, router, status, type]
   );
+
+  const clearFilters = () => {
+    setQuery('');
+    push({ status: 'all', type: 'all', q: '', hide: '' });
+  };
 
   useEffect(() => {
     setQuery(q);
@@ -190,6 +197,15 @@ export function ContentList({
               {hiddenCount} unreachable {hiddenCount === 1 ? 'row' : 'rows'} hidden
             </span>
           ) : null}
+          {hasFilters ? (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="text-xs font-semibold text-primary underline underline-offset-2 hover:no-underline focus-visible:ring-2 focus-visible:ring-primary dark:text-primary-on-dark"
+            >
+              Clear filters
+            </button>
+          ) : null}
           <button
             type="submit"
             className="rounded-xl border border-border px-4 py-2.5 text-sm font-semibold text-foreground transition-colors hover:border-border focus-visible:ring-2 focus-visible:ring-primary"
@@ -214,7 +230,7 @@ export function ContentList({
               href="/admin/content/new"
               className="mt-3 inline-block text-sm font-semibold text-primary dark:text-primary-on-dark underline underline-offset-2 focus-visible:ring-2 focus-visible:ring-primary"
             >
-              Create the first page
+              {hasFilters ? 'Create a new page' : 'Create the first page'}
             </Link>
           </div>
         ) : (
