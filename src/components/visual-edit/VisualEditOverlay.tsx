@@ -1970,13 +1970,15 @@ export function VisualEditOverlay() {
           target?.label ||
           slug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
+        const saveStatus: 'publish' | 'draft' =
+          contentRow?.status === 'publish' ? 'publish' : 'draft';
         const res = await saveContentWithEdgeApi({
           id: contentRow?.id,
           title,
           slug,
           excerpt: contentRow?.excerpt || null,
           type: (contentRow?.type as 'page' | 'post') || 'page',
-          status: (contentRow?.status === 'publish' ? 'publish' : 'draft') as 'publish' | 'draft',
+          status: saveStatus,
           body: newBody,
           featuredImage: contentRow?.featured_image || pageFeaturedImage || null,
           expectedUpdatedAt: contentRow?.updated_at ?? undefined,
@@ -2000,13 +2002,13 @@ export function VisualEditOverlay() {
                   slug,
                   excerpt: null,
                   type: 'page',
-                  status: 'publish',
+                  status: saveStatus,
                   body: newBody,
                   featured_image: pageFeaturedImage || null,
                   metadata: {},
                   updated_at: res.data?.updatedAt,
                   created_at: new Date().toISOString(),
-                  published_at: new Date().toISOString(),
+                  published_at: saveStatus === 'publish' ? new Date().toISOString() : null,
                 }
           );
           /**
@@ -3849,7 +3851,7 @@ export function VisualEditOverlay() {
                 metadata: {},
                 updated_at: res.data?.updatedAt,
                 created_at: new Date().toISOString(),
-                published_at: new Date().toISOString(),
+                published_at: pageStatus === 'publish' ? new Date().toISOString() : null,
               }
         );
         setIsSettingsOpen(false);
