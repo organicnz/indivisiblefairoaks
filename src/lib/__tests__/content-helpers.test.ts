@@ -11,6 +11,7 @@ import {
   MAX_BODY_BYTES,
   readingStats,
   slugifyTitle,
+  unreachableContentSlugs,
 } from '@/lib/content';
 
 describe('slugifyTitle', () => {
@@ -73,6 +74,20 @@ describe('describeSlugConflict', () => {
     for (const slug of ['about-us', 'resistance-choir', 'voter-information', 'upcoming-events']) {
       expect(describeSlugConflict(slug), `/${slug} is a legacy redirect`).toMatch(/legacy/);
     }
+  });
+
+  it('lists every unreachable slug once for the admin filter', () => {
+    const slugs = unreachableContentSlugs();
+    expect(slugs).toContain('faqs');
+    expect(slugs).toContain('events');
+    expect(slugs).toContain('about-us');
+    expect(slugs).not.toContain('');
+    expect(new Set(slugs).size).toBe(slugs.length);
+  });
+
+  it('leaves normal CMS pages and copy regions out of the filter', () => {
+    expect(unreachableContentSlugs()).not.toContain('meeting-notes');
+    expect(unreachableContentSlugs()).not.toContain('copy-home-hero');
   });
 
   it('agrees with the redirect map itself', () => {

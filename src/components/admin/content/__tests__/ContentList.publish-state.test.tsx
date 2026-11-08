@@ -7,12 +7,14 @@ import type { ContentListRow } from '@/lib/actions/content';
 
 const deleteContent = vi.hoisted(() => vi.fn());
 const setContentStatus = vi.hoisted(() => vi.fn());
+const routerPush = vi.hoisted(() => vi.fn());
+const searchParams = vi.hoisted(() => ({ current: null as URLSearchParams | null }));
 
 vi.mock('@/lib/actions/content', () => ({ deleteContent, setContentStatus }));
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }),
-  useSearchParams: () => new URLSearchParams(),
+  useRouter: () => ({ refresh: vi.fn(), push: routerPush }),
+  useSearchParams: () => searchParams.current ?? new URLSearchParams(),
 }));
 
 /**
@@ -45,6 +47,8 @@ describe('ContentList publish-state actions', () => {
   let root: Root;
 
   beforeEach(() => {
+    routerPush.mockClear();
+    searchParams.current = new URLSearchParams();
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
@@ -117,5 +121,23 @@ describe('ContentList publish-state actions', () => {
   it('leaves an ordinary CMS slug unmarked', () => {
     render([row()]);
     expect(container.textContent).not.toContain('Unreachable');
+  });
+
+  it('toggles the unreachable filter through the URL so paging stays server-side', async () => {
+    render([row({ slug: 'faqs' })]);
+    const checkbox = container.querySelector<HTMLInputElement>('input[type="checkbox"]');
+    expect(checkbox).not.toBeNull();
+
+    await act(async () => {
+      checkbox?.click();
+    });
+
+    expect(routerPush).toHaveBeenCalledWith('/admin/content?hide=unreachable');
+  });
+
+  it('reads the unreachable filter from the URL', () => {
+    searchParams.current = new URLSearchParams('hide=unreachable');
+    render([row({ slug: 'faqs' })]);
+    expect(container.querySelector<HTMLInputElement>('input[type="checkbox"]')?.checked).toBe(true);
   });
 });

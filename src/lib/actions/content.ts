@@ -10,6 +10,7 @@ import {
   describeOversizedBody,
   describeSlugConflict,
   MAX_BODY_BYTES,
+  unreachableContentSlugs,
 } from '@/lib/content';
 import { env } from '@/lib/env';
 import { measureImageSize } from '@/lib/image-size';
@@ -109,6 +110,8 @@ export interface ContentListParams {
   query?: string;
   page?: number;
   pageSize?: number;
+  /** Exclude slugs a coded route or legacy redirect already owns. */
+  hideUnreachable?: boolean;
 }
 
 export interface ContentListResult {
@@ -127,6 +130,7 @@ export async function getContentList({
   query = '',
   page = 1,
   pageSize = 25,
+  hideUnreachable = false,
 }: ContentListParams = {}): Promise<ContentListResult> {
   const { adminClient } = await requireAdmin();
   const safePage = Math.max(1, page);
@@ -135,6 +139,17 @@ export async function getContentList({
   let queryBuilder = adminClient.from('content').select(LIST_COLUMNS, { count: 'exact' });
   if (status !== 'all') queryBuilder = queryBuilder.eq('status', status);
   if (type !== 'all') queryBuilder = queryBuilder.eq('type', type);
+  if (hideUnreachable) {
+    // Server-side, not a client-side slice: a pager whose count includes rows it
+    // never renders is worse than no filter. Slugs come from static config, and
+    // the schema forbids quotes/commas in a slug, so the quoted list cannot
+    // inject PostgREST syntax.
+    const hidden = unreachableContentSlugs();
+    if (hidden.length > 0) {
+      const list = hidden.map((slug) => `"${slug}"`).join(',');
+      queryBuilder = queryBuilder.not('slug', 'in', `(${list})`);
+    }
+  }
   const trimmed = query.trim();
   if (trimmed) {
     // `or` is PostgREST filter syntax, so strip its structural characters from

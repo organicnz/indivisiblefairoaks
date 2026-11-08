@@ -166,6 +166,34 @@ describe('getContentList', () => {
     expect(result.totalCount).toBe(1);
     expect(result.rows.map((row) => row.id)).toEqual([1]);
   });
+
+  it('excludes reserved and legacy slugs when hideUnreachable is set', async () => {
+    const base = {
+      excerpt: null,
+      type: 'page',
+      status: 'publish',
+      published_at: null,
+      featured_image: null,
+      updated_at: '2026-01-02T00:00:00.000Z',
+      created_at: '2026-01-01T00:00:00.000Z',
+    };
+    const rows = [
+      { id: 1, title: 'Live page', slug: 'meeting-notes', ...base },
+      { id: 2, title: 'FAQ', slug: 'faqs', ...base },
+      { id: 3, title: 'About', slug: 'about-us', ...base },
+    ];
+    requireAdmin.mockResolvedValue({
+      adminClient: createMockAdminClient({ content: { rows } }),
+    });
+
+    const filtered = await getContentList({ hideUnreachable: true });
+
+    expect(filtered.rows.map((row) => row.slug)).toEqual(['meeting-notes']);
+    expect(filtered.totalCount).toBe(1);
+
+    const unfiltered = await getContentList();
+    expect(unfiltered.rows).toHaveLength(3);
+  });
 });
 
 // ---------------------------------------------------------------------------

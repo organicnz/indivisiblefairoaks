@@ -32,9 +32,16 @@ interface Props {
   initialTotal: number;
   initialPage: number;
   pageSize: number;
+  hideUnreachable?: boolean;
 }
 
-export function ContentList({ initialRows, initialTotal, initialPage, pageSize }: Props) {
+export function ContentList({
+  initialRows,
+  initialTotal,
+  initialPage,
+  pageSize,
+  hideUnreachable = false,
+}: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { dataPoints } = useDataPoints('admin');
@@ -47,17 +54,19 @@ export function ContentList({ initialRows, initialTotal, initialPage, pageSize }
   const status = searchParams.get('status') ?? 'all';
   const type = searchParams.get('type') ?? 'all';
   const q = searchParams.get('q') ?? '';
+  const hide = searchParams.get('hide') === 'unreachable' || hideUnreachable;
 
   const push = useCallback(
-    (next: { status?: string; type?: string; q?: string }) => {
+    (next: { status?: string; type?: string; q?: string; hide?: string }) => {
       const params = new URLSearchParams();
-      const merged = { status, type, q, ...next };
+      const merged = { status, type, q, hide, ...next };
       if (merged.status !== 'all') params.set('status', merged.status);
       if (merged.type !== 'all') params.set('type', merged.type);
       if (merged.q) params.set('q', merged.q);
+      if (merged.hide === 'unreachable') params.set('hide', 'unreachable');
       startTransition(() => router.push(`/admin/content?${params.toString()}`));
     },
-    [q, router, status, type]
+    [hide, q, router, status, type]
   );
 
   useEffect(() => {
@@ -162,12 +171,23 @@ export function ContentList({ initialRows, initialTotal, initialPage, pageSize }
             </option>
           ))}
         </select>
-        <button
-          type="submit"
-          className="rounded-xl border border-border px-4 py-2.5 text-sm font-semibold text-foreground transition-colors hover:border-border focus-visible:ring-2 focus-visible:ring-primary"
-        >
-          Apply
-        </button>
+        <div className="flex flex-wrap items-center justify-end gap-3">
+          <label className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
+            <input
+              type="checkbox"
+              checked={hide}
+              onChange={(e) => push({ hide: e.target.checked ? 'unreachable' : '' })}
+              className="h-4 w-4 rounded border-border accent-primary focus-visible:ring-2 focus-visible:ring-primary"
+            />
+            Hide unreachable
+          </label>
+          <button
+            type="submit"
+            className="rounded-xl border border-border px-4 py-2.5 text-sm font-semibold text-foreground transition-colors hover:border-border focus-visible:ring-2 focus-visible:ring-primary"
+          >
+            Apply
+          </button>
+        </div>
       </form>
 
       <div className="overflow-hidden rounded-2xl border border-border bg-surface-card shadow-xs">
@@ -175,8 +195,10 @@ export function ContentList({ initialRows, initialTotal, initialPage, pageSize }
           <div className="px-6 py-16 text-center">
             <FileText size={32} className="mx-auto mb-3 text-muted-foreground" aria-hidden="true" />
             <p className="text-sm font-medium text-muted-foreground">
-              {q || status !== 'all' || type !== 'all'
-                ? 'No pages match these filters.'
+              {q || status !== 'all' || type !== 'all' || hide
+                ? hide
+                  ? 'No reachable pages match these filters.'
+                  : 'No pages match these filters.'
                 : 'No pages yet.'}
             </p>
             <Link
@@ -392,13 +414,13 @@ export function ContentList({ initialRows, initialTotal, initialPage, pageSize }
               disabled={initialPage <= 1}
               page={initialPage - 1}
               label="Previous"
-              params={{ status, type, q }}
+              params={{ status, type, q, hide: hide ? 'unreachable' : '' }}
             />
             <PageLink
               disabled={initialPage >= totalPages}
               page={initialPage + 1}
               label="Next"
-              params={{ status, type, q }}
+              params={{ status, type, q, hide: hide ? 'unreachable' : '' }}
             />
           </div>
         )}
@@ -431,12 +453,13 @@ function PageLink({
   page: number;
   label: string;
   disabled: boolean;
-  params: { status: string; type: string; q: string };
+  params: { status: string; type: string; q: string; hide: string };
 }) {
   const search = new URLSearchParams();
   if (params.status !== 'all') search.set('status', params.status);
   if (params.type !== 'all') search.set('type', params.type);
   if (params.q) search.set('q', params.q);
+  if (params.hide === 'unreachable') search.set('hide', 'unreachable');
   search.set('page', String(page));
 
   if (disabled) {

@@ -1,4 +1,4 @@
-import { isLegacySlug } from '@/config/legacy-redirects';
+import { isLegacySlug, LEGACY_SLUGS } from '@/config/legacy-redirects';
 import { ROUTES } from '@/config/routes';
 import {
   copyRegionComposeHref,
@@ -99,6 +99,21 @@ export function describeSlugConflict(slug: string): string | null {
     return `/${slug} is a legacy Google Sites path that permanently redirects elsewhere, so this page would never be reachable. Pick a different slug.`;
   }
   return null;
+}
+
+/**
+ * Every slug a coded route or legacy redirect already owns.
+ *
+ * The admin list's "Hide unreachable" filter sends this list to PostgREST as a
+ * single `not in` predicate, so the count and the page window describe the same
+ * filtered set. The list is derived from the same two sources as
+ * `describeSlugConflict`; the empty string is dropped because `/` is a route,
+ * not an addressable slug.
+ */
+export function unreachableContentSlugs(): string[] {
+  return [...new Set([...RESERVED_SLUGS, ...LEGACY_SLUGS])]
+    .filter((slug) => slug.length > 0)
+    .sort();
 }
 
 /** The minimum a row needs for its links to be resolved correctly. */

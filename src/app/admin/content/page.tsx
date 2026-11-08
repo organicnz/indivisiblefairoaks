@@ -24,7 +24,13 @@ function isContentType(value: string): value is ContentType {
 export default async function AdminContentPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; type?: string; q?: string; page?: string }>;
+  searchParams: Promise<{
+    status?: string;
+    type?: string;
+    q?: string;
+    page?: string;
+    hide?: string;
+  }>;
 }) {
   await requireAdmin();
   const params = await searchParams;
@@ -33,6 +39,7 @@ export default async function AdminContentPage({
   const type = params.type && isContentType(params.type) ? params.type : 'all';
   const query = (params.q ?? '').trim();
   const page = Math.max(1, Number.parseInt(params.page ?? '1', 10) || 1);
+  const hideUnreachable = params.hide === 'unreachable';
 
   const { rows, totalCount } = await getContentList({
     status,
@@ -52,6 +59,7 @@ export default async function AdminContentPage({
         initialTotal={totalCount}
         initialPage={page}
         pageSize={PAGE_SIZE}
+        hideUnreachable={hideUnreachable}
       />
     </Suspense>
   );

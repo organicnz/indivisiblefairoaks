@@ -45,7 +45,7 @@ import { vi } from 'vitest';
 
 /** A filter recorded by `.eq()` / `.is()` / `.like()`, applied by the terminal. */
 interface Filter {
-  kind: 'eq' | 'is' | 'like' | 'ilike' | 'lte' | 'neq' | 'lt' | 'in' | 'notIs';
+  kind: 'eq' | 'is' | 'like' | 'ilike' | 'lte' | 'neq' | 'lt' | 'in' | 'notIn' | 'notIs';
   column: string;
   value: unknown;
 }
@@ -158,6 +158,13 @@ function matches(row: Record<string, unknown>, filters: readonly Filter[]): bool
       if (!Array.isArray(value)) return false;
       if (actual === null || actual === undefined) return false;
       return value.includes(actual);
+    }
+    if (kind === 'notIn') {
+      // `NOT IN (...)`: a null column is UNKNOWN, not true, so it is excluded
+      // rather than kept as "not one of these".
+      if (!Array.isArray(value)) return false;
+      if (actual === null || actual === undefined) return false;
+      return !value.includes(actual);
     }
     if (kind === 'neq') {
       // Same shape, opposite sign: `s <> 'active'` is UNKNOWN — not true — when
@@ -316,12 +323,13 @@ export class MockQueryBuilder {
   /**
    * `.not(column, operator, value)` — the PostgREST `not.<op>.<value>` form.
    *
-   * Only `is` is modelled, because only `is` is used with it:
-   * `not.is.false` is SQL `IS NOT FALSE`, which is true for `NULL` as well as for
-   * `true`. That is the one that matters — it is how a query says "every state
-   * except this one", which `.neq` cannot express at all.
+   * `is` and `in` are modelled. `not.is.false` is SQL `IS NOT FALSE`, true for
+   * `NULL` as well as `true`; it is how a query says "every state except this
+   * one", which `.neq` cannot express. `not.in` is what the content list's
+   * "Hide unreachable" filter uses to exclude every reserved and legacy slug in
+   * one predicate.
    *
-   * `.neq` and this are genuinely different, which is the trap:
+   * `.neq` and `not.is` are genuinely different, which is the trap:
    * `.neq(col, false)` is `col <> false`, and a NULL row is UNKNOWN rather than
    * true, so it is **excluded** — the opposite of what "everything except opted
    * in" means. Getting that backwards turns a consent audit into a mail run.
@@ -334,6 +342,21 @@ export class MockQueryBuilder {
      * NOT` semantics — the exact inversion the `neq`-vs-`not` note above
      * warns about, manufactured by the mock itself.
      */
+    if (operator === 'in') {
+      if (typeof value !== 'string') {
+        this.unmodelledFilter = true;
+        return this;
+      }
+      const list = value
+        .trim()
+        .replace(/^\(/, '')
+        .replace(/\)$/, '')
+        .split(',')
+        .map((entry) => entry.trim().replace(/^["']|["']$/g, ''))
+        .filter((entry) => entry.length > 0);
+      this.filters.push({ kind: 'notIn', column, value: list });
+      return this;
+    }
     if (operator !== 'is') {
       this.unmodelledFilter = true;
       return this;
