@@ -376,13 +376,32 @@ async function legacyCRMStats(adminClient: AdminClient): Promise<CRMStats> {
       .in('district', ['CA-03', 'CA-06']),
     adminClient.from('crm_tasks').select('*', { count: 'exact', head: true }).eq('status', 'open'),
   ]);
+
+  for (const result of [total, volunteers, local, tasks]) {
+    if (result.error) {
+      throw new Error(`Failed to load CRM stats: ${result.error.message}`);
+    }
+  }
+
+  // A count is only null when the request did not ask for one or the response
+  // was incomplete. Both mean the KPI cards cannot be trusted, and reporting
+  // zero would turn a database fault into "this chapter has no constituents".
+  if (
+    total.count === null ||
+    volunteers.count === null ||
+    local.count === null ||
+    tasks.count === null
+  ) {
+    throw new Error('Failed to load CRM stats: a count was unavailable');
+  }
+
   return {
-    totalContacts: total.count ?? 0,
-    activeVolunteers: volunteers.count ?? 0,
-    localDistrict: local.count ?? 0,
+    totalContacts: total.count,
+    activeVolunteers: volunteers.count,
+    localDistrict: local.count,
     totalDonors: 0,
     totalDonationsCents: 0,
-    openTasks: tasks.count ?? 0,
+    openTasks: tasks.count,
   };
 }
 

@@ -355,7 +355,7 @@ describe('Civic CRM Server Actions', () => {
       expect(stats.totalDonationsCents).toBe(0);
     });
 
-    it('returns all-zeros when the RPC fails and every fallback query also fails', async () => {
+    it('surfaces a failure when the RPC and fallback counts are unavailable', async () => {
       mockAdminClient.rpc = vi.fn().mockResolvedValue({
         data: null,
         error: { message: 'function does not exist' },
@@ -363,13 +363,9 @@ describe('Civic CRM Server Actions', () => {
       tables.crm_contacts = { rows: [], error: { message: 'connection reset' } };
       tables.crm_tasks = { rows: [], error: { message: 'connection reset' } };
 
-      const stats = await getCRMStats();
-
-      expect(stats.totalContacts).toBe(0);
-      expect(stats.activeVolunteers).toBe(0);
-      expect(stats.localDistrict).toBe(0);
-      expect(stats.openTasks).toBe(0);
-      expect(stats.totalDonationsCents).toBe(0);
+      await expect(getCRMStats()).rejects.toThrow(
+        /Failed to load CRM stats.*connection reset/i
+      );
     });
   });
 
