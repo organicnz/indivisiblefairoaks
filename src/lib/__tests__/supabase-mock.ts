@@ -99,6 +99,11 @@ export interface MockTableConfig {
   /** Force an error for the terminal operation, to exercise the failure path. */
   error?: { message: string; code?: string } | null;
   /**
+   * Override the exact count reported by a read. `null` models a successful
+   * response that omitted the count, which callers must not treat as zero.
+   */
+  count?: number | null;
+  /**
    * Errors keyed on the *filter* that triggers them.
    *
    * `error` fails every query against the table, which is right for a single read
@@ -553,10 +558,11 @@ export class MockQueryBuilder {
     // `head: true` asks for the count and no rows — which is how the KPI cards
     // are read. Returning rows there would let a test pass against a page of
     // data the real query never fetches.
-    if (this.headOnly) return { error: null, count: filtered.length, data: null };
+    const reportCount = config.count === undefined ? filtered.length : config.count;
+    if (this.headOnly) return { error: null, count: reportCount, data: null };
 
     const projected = page.map((row) => this.#project(row));
-    return { error: null, count: filtered.length, data: projected };
+    return { error: null, count: reportCount, data: projected };
   }
 
   /** Narrow to the requested columns, leaving `*` and `''` as the whole row. */

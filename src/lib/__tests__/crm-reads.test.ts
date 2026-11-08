@@ -237,6 +237,17 @@ describe('CRM reads and bookkeeping', () => {
       expect(history.totalCount).toBe(72);
     });
 
+    it('fails instead of reporting zero when the history count is unavailable', async () => {
+      tables.crm_broadcasts = {
+        rows: [{ id: 'b1', status: 'sent', created_at: '2026-09-01T00:00:00.000Z' }],
+        count: null,
+      };
+
+      await expect(getCRMBroadcastHistoryPage()).rejects.toThrow(
+        /Failed to fetch broadcast history.*total count unavailable/i
+      );
+    });
+
     it('clamps a nonsense page from the URL rather than rendering an empty history', async () => {
       /*
        * `Math.max(1, Math.trunc(NaN))` is `NaN` — both `Math.trunc` and `Math.max`
@@ -546,6 +557,14 @@ describe('CRM reads and bookkeeping', () => {
       expect(res.events).toHaveLength(200);
       expect(res.totalCount).toBe(201);
       expect(res.truncated).toBe(true);
+    });
+
+    it('fails instead of under-reporting when the event count is unavailable', async () => {
+      tables.crm_email_events = { rows: [eventRows[0]], count: null };
+
+      await expect(getBroadcastEmailEvents('b1')).rejects.toThrow(
+        /Failed to read delivery events.*total count unavailable/i
+      );
     });
 
     it('throws when the events read itself fails', async () => {
@@ -1537,8 +1556,7 @@ describe('CRM defensive defaults', () => {
   it('returns zero rather than undefined when the recipient count comes back null', async () => {
     // The row-based mock cannot express this input. `head: true` answers
     // `count: filtered.length`, which is a number for every row set including
-    // the empty one, so there is no way to hand the action a null count from
-    // here and the `count ?? 0` branch is unreachable through it.
+    // the empty one. The missing-count branch is covered separately below.
     //
     // What is still observable — and what the branch exists to protect — is the
     // return *type*: this number is rendered straight into a heading, and
@@ -1695,6 +1713,14 @@ describe('CRM defensive defaults', () => {
 
     await expect(getBroadcastRecipientCount({})).rejects.toThrow(
       /failed to count broadcast recipients/i
+    );
+  });
+
+  it('fails instead of reporting zero when the recipient count is unavailable', async () => {
+    tables.crm_contacts = { rows: [{ id: 'c1', do_not_email: false }], count: null };
+
+    await expect(getBroadcastRecipientCount({})).rejects.toThrow(
+      /failed to count broadcast recipients.*total count unavailable/i
     );
   });
 

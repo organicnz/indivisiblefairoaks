@@ -2651,6 +2651,9 @@ export async function getBroadcastEmailEvents(
     .order('occurred_at', { ascending: false })
     .limit(BROADCAST_EMAIL_EVENTS_LIMIT);
   if (error) throw new Error(`Failed to read delivery events: ${error.message}`);
+  if (count === null) {
+    throw new Error('Failed to read delivery events: total count unavailable');
+  }
 
   const rows = data ?? [];
   const contactIds = [...new Set(rows.map((row) => row.contact_id).filter(Boolean))];
@@ -2664,7 +2667,7 @@ export async function getBroadcastEmailEvents(
     emails = new Map((contacts ?? []).map((contact) => [contact.id, contact.email]));
   }
 
-  const totalCount = count ?? rows.length;
+  const totalCount = count;
   return {
     events: rows.map((row) => ({
       id: row.id,
@@ -2780,8 +2783,11 @@ export async function getCRMBroadcastHistoryPage({
   if (error) {
     throw new Error(`Failed to fetch broadcast history: ${error.message}`);
   }
+  if (count === null) {
+    throw new Error('Failed to fetch broadcast history: total count unavailable');
+  }
 
-  return { broadcasts: data || [], totalCount: count ?? 0, page: current };
+  return { broadcasts: data || [], totalCount: count, page: current };
 }
 
 /** Unsent work in progress, newest first. Resumable, and removable. */
@@ -2906,8 +2912,14 @@ export async function getBroadcastRecipientCount({
   if (excludedError) {
     throw new Error(`Failed to count excluded recipients: ${excludedError.message}`);
   }
+  if (count === null) {
+    throw new Error('Failed to count broadcast recipients: total count unavailable');
+  }
+  if (excluded === null) {
+    throw new Error('Failed to count excluded recipients: total count unavailable');
+  }
 
-  return { count: count ?? 0, excludedCount: excluded ?? 0 };
+  return { count, excludedCount: excluded };
 }
 
 // ---------------------------------------------------------------------------
