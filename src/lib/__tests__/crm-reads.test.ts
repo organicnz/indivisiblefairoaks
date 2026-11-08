@@ -792,7 +792,7 @@ describe('CRM reads and bookkeeping', () => {
       expect(tables.crm_segments.rows?.map((s) => s.id)).toEqual(['s2']);
     });
 
-    it('returns an error when the segment was concurrently deleted (PGRST116)', async () => {
+    it('returns a clear error when the segment was concurrently deleted', async () => {
       tables.crm_segments = {
         rows: [],
       };
@@ -802,8 +802,7 @@ describe('CRM reads and bookkeeping', () => {
         name: 'Updated name',
       });
 
-      expect(res.success).toBe(false);
-      expect(res.error).toBeTruthy();
+      expect(res).toEqual({ success: false, error: 'That segment no longer exists' });
     });
   });
 

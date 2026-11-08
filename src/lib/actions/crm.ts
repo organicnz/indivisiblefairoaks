@@ -158,7 +158,7 @@ const updateTaskSchema = z.object({
  * and while the field was absent an opt-out filter could be applied but not
  * saved — so the only way to re-run it was to remember the dropdown.
  */
-/** Shape of the `.select('id').single()` result both segment writes return. */
+/** Shape of the `.select('id')` result both segment writes return. */
 type SegmentWriteResult = {
   data: { id: string } | null;
   error: { message: string; code?: string } | null;
@@ -894,12 +894,14 @@ export async function saveCRMSegment(
         ) => {
           select: (cols: string) => {
             single: () => Promise<SegmentWriteResult>;
+            maybeSingle: () => Promise<SegmentWriteResult>;
           };
         };
       };
       insert: (values: typeof row) => {
         select: (cols: string) => {
           single: () => Promise<SegmentWriteResult>;
+          maybeSingle: () => Promise<SegmentWriteResult>;
         };
       };
     };
@@ -911,11 +913,11 @@ export async function saveCRMSegment(
       .update(row)
       .eq('id', id)
       .select('id')
-      .single();
+      .maybeSingle();
     if (error) return { success: false, error: error.message };
-    // Belt and braces: a concurrent delete between the read and the write matches
-    // no row, which `.single()` reports as an error — but a defensive check here
-    // costs nothing and the alternative is `data.id` on a null.
+    // A concurrent delete between the read and the write matches no row. Asking
+    // for `maybeSingle()` makes that empty result observable instead of turning
+    // it into a raw PGRST116 error the organizer cannot act on.
     if (!data) return { success: false, error: 'That segment no longer exists' };
     revalidateCRMRoutes();
     return { success: true, segmentId: data.id };
