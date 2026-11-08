@@ -1516,12 +1516,15 @@ export async function setCRMEmailConsent({
     updated_at: now,
   } as CRMContactUpdate;
 
-  const { error } = await adminClient
+  const { data: updated, error } = await adminClient
     .from('crm_contacts')
     .update(consentPayload)
-    .eq('id', contactId);
+    .eq('id', contactId)
+    .select('id')
+    .maybeSingle();
 
   if (error) return { success: false, error: error.message };
+  if (!updated) return { success: false, error: 'That contact no longer exists' };
 
   const ACTIVITY: Record<ConsentDecision, { title: string; description: string }> = {
     opted_out: {

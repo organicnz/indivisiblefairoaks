@@ -1440,6 +1440,19 @@ describe('CRM reads and bookkeeping', () => {
       expect(activities[0]).toMatchObject({ title: 'Email Consent Marked Unknown' });
     });
 
+    it('refuses consent when the contact no longer exists', async () => {
+      const activities: Record<string, unknown>[] = [];
+      tables.crm_contacts = { rows: [] };
+      tables.crm_activities = { rows: [], insert: {}, onInsert: (row) => activities.push(row) };
+
+      const res = await setCRMEmailConsent({ contactId: 'missing', doNotEmail: 'opted_out' });
+
+      expect(res.success).toBe(false);
+      expect(res.error).toBe('That contact no longer exists');
+      // No timeline entry for a contact that is not there.
+      expect(activities).toHaveLength(0);
+    });
+
     it('reports a failure instead of showing an opt-out that did not stick', async () => {
       // Consent is the one flag in this database that a person relies on for
       // their own privacy, so a failed write must not look like a success — and
