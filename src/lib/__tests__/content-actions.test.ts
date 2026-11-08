@@ -430,6 +430,40 @@ describe('duplicateContent', () => {
     expect(result.success).toBe(false);
     expect(result).toMatchObject({ error: 'constraint violation' });
   });
+
+  it('turns a duplicate-slug copy insert into the readable conflict message', async () => {
+    const source = {
+      id: 10,
+      slug: 'race-page',
+      title: 'Race page',
+      body: '',
+      excerpt: null,
+      type: 'page',
+      status: 'draft',
+      published_at: null,
+      featured_image: null,
+      metadata: {},
+    };
+    let calls = 0;
+    const goodClient = createMockAdminClient({ content: { rows: [source] } });
+    const badClient = createMockAdminClient({
+      content: { error: { message: 'duplicate key', code: '23505' } },
+    });
+    const client = { ...goodClient };
+    client.from = vi.fn((table: string) => {
+      calls += 1;
+      // The source lookup and the free-slug probe succeed; the insert races.
+      return calls === 1 ? goodClient.from(table) : badClient.from(table);
+    });
+    requireAdmin.mockResolvedValue({ adminClient: client });
+
+    const result = await duplicateContent(10);
+
+    expect(result.success).toBe(false);
+    expect(result).toMatchObject({
+      error: '/race-page-copy is already used by another page.',
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------

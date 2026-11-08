@@ -510,7 +510,12 @@ export async function duplicateContent(id: number): Promise<ActionResult<{ id: n
     })
     .select('id')
     .single();
-  if (error) return fail(error.message);
+  if (error) {
+    if (error.code === '23505') {
+      return fail(`/${slug} is already used by another page.`);
+    }
+    return fail(error.message);
+  }
   revalidateContent(slug);
   return { success: true, data: { id: created.id } };
 }
