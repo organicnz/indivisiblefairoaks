@@ -53,8 +53,9 @@ export function ContentList({
 
   // The list is driven entirely by the URL so a filtered view is shareable and
   // survives a refresh. Local input only seeds the search box.
-  const status = searchParams.get('status') ?? 'all';
-  const type = searchParams.get('type') ?? 'all';
+  const statusParam = searchParams.get('status');
+  const status = statusParam === 'publish' || statusParam === 'draft' ? statusParam : 'all';
+  const type = CONTENT_TYPES.find((option) => option === searchParams.get('type')) ?? 'all';
   const q = searchParams.get('q') ?? '';
   const hide = searchParams.get('hide') === 'unreachable' || hideUnreachable;
   const hasAppliedFilters = Boolean(q.trim() || status !== 'all' || type !== 'all' || hide);

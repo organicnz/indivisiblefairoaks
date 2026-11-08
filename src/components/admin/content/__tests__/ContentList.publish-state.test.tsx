@@ -226,6 +226,21 @@ describe('ContentList publish-state actions', () => {
     expect(container.textContent).toContain('Create the first page');
   });
 
+  it('normalizes invalid status and type filters', () => {
+    searchParams.current = new URLSearchParams('status=bogus&type=bogus');
+    render([row()]);
+
+    const status = container.querySelector<HTMLSelectElement>(
+      'select[aria-label="Filter by status"]'
+    );
+    const type = container.querySelector<HTMLSelectElement>(
+      'select[aria-label="Filter by type"]'
+    );
+    expect(status?.value).toBe('all');
+    expect(type?.value).toBe('all');
+    expect(container.textContent).not.toContain('Clear filters');
+  });
+
   it('reports how many rows the filter is hiding', () => {
     searchParams.current = new URLSearchParams('hide=unreachable');
     act(() => {
