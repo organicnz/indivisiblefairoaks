@@ -613,6 +613,44 @@ describe('saveContent — update: page not found', () => {
     expect(result).toMatchObject({ error: 'That page no longer exists' });
   });
 
+  it('turns a duplicate-slug update error into the readable conflict message', async () => {
+    const row = {
+      id: 7,
+      slug: 'old-slug',
+      title: 'Page',
+      type: 'page',
+      status: 'draft',
+      updated_at: '2026-01-01T00:00:00.000Z',
+    };
+    requireAdmin.mockResolvedValue({
+      adminClient: createMockAdminClient({
+        content: {
+          rows: [row],
+          errors: [
+            {
+              kind: 'eq',
+              column: 'updated_at',
+              error: { message: 'duplicate key', code: '23505' },
+            },
+          ],
+        },
+      }),
+    });
+
+    const result = await saveContent({
+      id: 7,
+      title: 'Page',
+      slug: 'new-slug',
+      status: 'draft',
+      type: 'page',
+      metadata: {},
+      expectedUpdatedAt: '2026-01-01T00:00:00.000Z',
+    });
+
+    expect(result.success).toBe(false);
+    expect(result).toMatchObject({ error: '/new-slug is already used by another page.' });
+  });
+
   it('fails with a DB error on the update', async () => {
     const row = {
       id: 7,

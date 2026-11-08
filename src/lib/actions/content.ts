@@ -370,7 +370,12 @@ export async function saveContent(
 
     const { data: written, error } = await update.select('id, updated_at').maybeSingle();
 
-    if (error) return fail(error.message);
+    if (error) {
+      if (error.code === '23505') {
+        return fail(`/${data.slug} is already used by another page.`);
+      }
+      return fail(error.message);
+    }
     if (!written) {
       // Either a colleague saved in between, or the row was deleted outright.
       // Distinguishing the two costs a second round trip on a path that fires
