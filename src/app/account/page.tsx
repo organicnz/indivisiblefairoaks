@@ -1,6 +1,7 @@
 import { AlertTriangle, ArrowRight, Shield, Users } from 'lucide-react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { connection } from 'next/server';
 import { AccountTabShell } from '@/components/account/AccountTabShell';
 import { LogoutButton } from '@/components/account/LogoutButton';
 import { MfaSettings } from '@/components/account/MfaSettings';
@@ -24,6 +25,9 @@ const ALLOWED_TABS = new Set(['settings']);
 export default async function AccountPage(props: {
   searchParams: Promise<Record<string, string>>;
 }) {
+  // Per-user auth and MFA state are request-time. Keep prefetch and partial
+  // prerender from reaching Supabase's session clock before this read.
+  await connection();
   const supabase = await createServerClient();
   const {
     data: { user },

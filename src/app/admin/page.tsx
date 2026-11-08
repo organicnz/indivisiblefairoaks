@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { DataPoint } from '@/components/ui/DataPoint';
-import { requireAdmin } from '@/lib/admin-auth';
+import { requireAdminPage } from '@/lib/admin-auth';
 import { getDataPoints } from '@/lib/queries/civic';
 
 // Deliberate Cache Components opt-out (Block): admin dashboard with live counts behind requireAdmin().
@@ -40,7 +40,7 @@ type ContentRow = {
 };
 
 export default async function AdminDashboardPage() {
-  const { adminClient } = await requireAdmin();
+  const { adminClient } = await requireAdminPage();
 
   const [
     { count: eventCount },

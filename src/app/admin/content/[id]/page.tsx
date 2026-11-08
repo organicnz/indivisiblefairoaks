@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { ContentEditor } from '@/components/admin/content/ContentEditor';
 import { getContentForEdit } from '@/lib/actions/content';
-import { requireAdmin } from '@/lib/admin-auth';
+import { requireAdminPage } from '@/lib/admin-auth';
 import { env } from '@/lib/env';
 
 export const instant = false;
@@ -29,7 +29,7 @@ export default async function AdminContentEditPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requireAdmin();
+  await requireAdminPage();
   const { id } = await params;
   const numericId = Number.parseInt(id, 10);
   if (Number.isNaN(numericId)) notFound();

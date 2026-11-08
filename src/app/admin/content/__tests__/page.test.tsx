@@ -5,7 +5,7 @@ const getContentList = vi.hoisted(() => vi.fn());
 const requireAdmin = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/actions/content', () => ({ getContentList }));
-vi.mock('@/lib/admin-auth', () => ({ requireAdmin }));
+vi.mock('@/lib/admin-auth', () => ({ requireAdminPage: requireAdmin }));
 vi.mock('@/components/admin/content/ContentList', () => ({
   ContentList: () => null,
 }));

@@ -1,6 +1,6 @@
 import { Calendar } from 'lucide-react';
 import { EventsAdminTabs } from '@/components/admin/civic/EventsAdminTabs';
-import { requireAdmin } from '@/lib/admin-auth';
+import { requireAdminPage } from '@/lib/admin-auth';
 
 export const instant = false;
 
@@ -14,7 +14,7 @@ export async function generateMetadata() {
 }
 
 export default async function AdminEventsPage() {
-  await requireAdmin();
+  await requireAdminPage();
 
   return (
     <div className="space-y-6">

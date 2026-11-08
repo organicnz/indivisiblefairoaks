@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { CRMDetailClient } from '@/components/admin/crm/CRMDetailClient';
 import { getCRMContactDetail } from '@/lib/actions/crm';
-import { requireAdmin } from '@/lib/admin-auth';
+import { requireAdminPage } from '@/lib/admin-auth';
 
 // Deliberate Cache Components opt-out (Block): admin surface behind requireAdmin() session gate.
 export const instant = false;
@@ -26,7 +26,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 }
 
 export default async function AdminCRMDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireAdmin();
+  await requireAdminPage();
   const { id } = await params;
 
   try {

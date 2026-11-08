@@ -1,13 +1,13 @@
 import { AdminNav } from '@/components/admin/AdminNav';
 import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
-import { requireAdmin } from '@/lib/admin-auth';
+import { requireAdminPage } from '@/lib/admin-auth';
 import { isE2EMode } from '@/lib/e2e-mode';
 
-// Deliberate Cache Components opt-out (Block): requireAdmin() session gate covers every admin segment.
+// Deliberate Cache Components opt-out (Block): requireAdminPage() session gate covers every admin segment.
 export const instant = false;
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  await requireAdmin();
+  await requireAdminPage();
   return (
     <div className="relative overflow-hidden bg-surface-card min-h-screen pt-(--header-h) pb-16">
       <VgpuCivicConstellation className="pointer-events-none opacity-20" />

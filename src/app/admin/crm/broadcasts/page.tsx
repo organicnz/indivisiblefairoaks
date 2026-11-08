@@ -6,7 +6,7 @@ import {
   getCRMExistingTags,
   getCRMSegments,
 } from '@/lib/actions/crm';
-import { requireAdmin } from '@/lib/admin-auth';
+import { requireAdminPage } from '@/lib/admin-auth';
 
 // Deliberate Cache Components opt-out (Block): admin surface behind requireAdmin() session gate.
 export const instant = false;
@@ -25,7 +25,7 @@ export default async function AdminCRMBroadcastsPage({
 }: {
   searchParams: Promise<{ page?: string }>;
 }) {
-  await requireAdmin();
+  await requireAdminPage();
   const params = await searchParams;
 
   /*

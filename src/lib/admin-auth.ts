@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import { connection } from 'next/server';
 import { cache } from 'react';
 import { assertMfaVerified, isStepUpChallenge } from '@/lib/mfa-guard';
 import { getSafeNextPath } from '@/lib/safe-redirect';
@@ -28,6 +29,19 @@ export type AdminSession = {
  * straight through.
  */
 export const requireAdmin = cache(requireAdminUncached);
+
+/**
+ * Page/layout variant of the admin gate.
+ *
+ * `requireAdmin` is also called from server actions, where a rendering
+ * dynamic signal is not the right tool. Admin routes call this wrapper so the
+ * session read is explicitly request-time before a prefetch or partial shell
+ * can reach Supabase's `getUser()`.
+ */
+export async function requireAdminPage(nextPath = '/admin'): Promise<AdminSession> {
+  await connection();
+  return requireAdmin(nextPath);
+}
 
 async function requireAdminUncached(nextPath = '/admin'): Promise<AdminSession> {
   /*

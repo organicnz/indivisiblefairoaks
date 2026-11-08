@@ -1,6 +1,6 @@
 import { Newspaper } from 'lucide-react';
 import { CivicNewsletterManager } from '@/components/admin/civic/CivicNewsletterManager';
-import { requireAdmin } from '@/lib/admin-auth';
+import { requireAdminPage } from '@/lib/admin-auth';
 
 export const instant = false;
 
@@ -14,7 +14,7 @@ export async function generateMetadata() {
 }
 
 export default async function AdminNewsPage() {
-  await requireAdmin();
+  await requireAdminPage();
 
   return (
     <div className="space-y-6">

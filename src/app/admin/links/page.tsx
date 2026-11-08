@@ -1,6 +1,6 @@
 import { Link2 } from 'lucide-react';
 import { CivicLinkManager } from '@/components/admin/civic/CivicLinkManager';
-import { requireAdmin } from '@/lib/admin-auth';
+import { requireAdminPage } from '@/lib/admin-auth';
 
 export const instant = false;
 
@@ -14,7 +14,7 @@ export async function generateMetadata() {
 }
 
 export default async function AdminLinksPage() {
-  await requireAdmin();
+  await requireAdminPage();
 
   return (
     <div className="space-y-6">

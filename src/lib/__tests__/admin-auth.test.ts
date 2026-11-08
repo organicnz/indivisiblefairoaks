@@ -1,15 +1,22 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { isAdminUser, requireAdmin } from '@/lib/admin-auth';
+import { isAdminUser, requireAdmin, requireAdminPage } from '@/lib/admin-auth';
 
-const { mockRedirect, mockCreateServerClient, mockCreateAdminClient } = vi.hoisted(() => ({
-  mockRedirect: vi.fn(),
-  mockCreateServerClient: vi.fn(),
-  mockCreateAdminClient: vi.fn(),
-}));
+const { mockRedirect, mockCreateServerClient, mockCreateAdminClient, mockConnection } = vi.hoisted(
+  () => ({
+    mockRedirect: vi.fn(),
+    mockCreateServerClient: vi.fn(),
+    mockCreateAdminClient: vi.fn(),
+    mockConnection: vi.fn(),
+  })
+);
 
 vi.mock('next/navigation', () => ({
   redirect: (url: string) => mockRedirect(url),
+}));
+
+vi.mock('next/server', () => ({
+  connection: mockConnection,
 }));
 
 vi.mock('@/lib/supabase-server', () => ({
@@ -75,6 +82,7 @@ function mockProfileClient(profile: { is_admin: boolean; email?: string } | null
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockConnection.mockResolvedValue(undefined);
   mockRedirect.mockImplementation((url: string) => {
     throw new RedirectSentinel(url);
   });
@@ -213,6 +221,26 @@ describe('requireAdmin', () => {
     mockCreateAdminClient.mockResolvedValue(mockProfileClient({ is_admin: false }));
 
     expect(await redirectUrl(() => requireAdmin())).toBe('/account?error=admin_required');
+  });
+});
+
+describe('requireAdminPage', () => {
+  it('waits for a request before reading the admin session', async () => {
+    const order: string[] = [];
+    mockConnection.mockImplementation(async () => {
+      order.push('connection');
+    });
+    mockCreateServerClient.mockImplementation(async () => {
+      order.push('session');
+      return mockSessionClient({ factors: { all: [] } });
+    });
+    mockCreateAdminClient.mockResolvedValue(
+      mockProfileClient({ is_admin: true, email: 'a@example.com' })
+    );
+
+    await requireAdminPage();
+
+    expect(order).toEqual(['connection', 'session']);
   });
 });
 

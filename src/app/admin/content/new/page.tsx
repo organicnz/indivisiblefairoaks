@@ -1,5 +1,5 @@
 import { ContentEditor } from '@/components/admin/content/ContentEditor';
-import { requireAdmin } from '@/lib/admin-auth';
+import { requireAdminPage } from '@/lib/admin-auth';
 import { CONTENT_TYPES, type ContentType } from '@/lib/content';
 import { env } from '@/lib/env';
 
@@ -20,7 +20,7 @@ export async function generateMetadata({ searchParams }: AdminContentNewPageProp
 }
 
 export default async function AdminContentNewPage({ searchParams }: AdminContentNewPageProps) {
-  await requireAdmin();
+  await requireAdminPage();
   const params = await searchParams;
   const requestedType = params?.type as ContentType | undefined;
   const initialType: ContentType =

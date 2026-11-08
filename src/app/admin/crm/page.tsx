@@ -16,7 +16,7 @@ import {
   getCRMSegments,
   getCRMStats,
 } from '@/lib/actions/crm';
-import { requireAdmin } from '@/lib/admin-auth';
+import { requireAdminPage } from '@/lib/admin-auth';
 import { parseConsentFilter } from '@/lib/crm-filters';
 import { CRM_DIRECTORY_PAGE_SIZE } from '@/lib/crm-limits';
 import { getDataPoints } from '@/lib/queries/civic';
@@ -45,7 +45,7 @@ export default async function AdminCRMPage({
     page?: string;
   }>;
 }) {
-  await requireAdmin();
+  await requireAdminPage();
   const params = await searchParams;
 
   const currentQuery = (params.q || '').trim();

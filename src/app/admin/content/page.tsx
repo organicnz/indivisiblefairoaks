@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 import { ContentList } from '@/components/admin/content/ContentList';
 import { getContentList } from '@/lib/actions/content';
-import { requireAdmin } from '@/lib/admin-auth';
+import { requireAdminPage } from '@/lib/admin-auth';
 import { CONTENT_TYPES, type ContentType } from '@/lib/content';
 
 export const instant = false;
@@ -32,7 +32,7 @@ export default async function AdminContentPage({
     hide?: string;
   }>;
 }) {
-  await requireAdmin();
+  await requireAdminPage();
   const params = await searchParams;
 
   const status = params.status === 'publish' || params.status === 'draft' ? params.status : 'all';

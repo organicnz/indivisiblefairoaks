@@ -2,7 +2,7 @@ import { CalendarCheck } from 'lucide-react';
 import type { Metadata } from 'next';
 import { CRMTasksClient } from '@/components/admin/crm/CRMTasksClient';
 import { getCRMTasks, type TaskScope } from '@/lib/actions/crm';
-import { requireAdmin } from '@/lib/admin-auth';
+import { requireAdminPage } from '@/lib/admin-auth';
 
 // Deliberate Cache Components opt-out (Block): admin surface behind requireAdmin() session gate.
 export const instant = false;
@@ -22,7 +22,7 @@ export default async function AdminCRMTasksPage({
 }: {
   searchParams: Promise<{ scope?: string; page?: string }>;
 }) {
-  await requireAdmin();
+  await requireAdminPage();
   const params = await searchParams;
   const scope: TaskScope = VALID_SCOPES.includes(params.scope as TaskScope)
     ? (params.scope as TaskScope)

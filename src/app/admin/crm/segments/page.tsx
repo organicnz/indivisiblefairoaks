@@ -1,6 +1,6 @@
 import { CRMSegmentManager } from '@/components/admin/crm/CRMSegmentManager';
 import { getCRMSegments } from '@/lib/actions/crm';
-import { requireAdmin } from '@/lib/admin-auth';
+import { requireAdminPage } from '@/lib/admin-auth';
 import { pageMetadata } from '@/lib/metadata';
 
 // Deliberate Cache Components opt-out (Block): admin surface behind requireAdmin() session gate.
@@ -16,7 +16,7 @@ export async function generateMetadata() {
 }
 
 export default async function AdminCRMSegmentsPage() {
-  await requireAdmin();
+  await requireAdminPage();
   const { segments, truncated } = await getCRMSegments();
   return <CRMSegmentManager initialSegments={segments} truncated={truncated} />;
 }
