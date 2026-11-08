@@ -1325,8 +1325,11 @@ export async function bulkUpdateCRMContacts({
       .in('id', contactIds);
 
     if (error) return { success: false, error: error.message };
+    if (count === 0) {
+      return { success: false, error: 'None of the selected constituents still exist' };
+    }
     revalidateCRMRoutes();
-    return { success: true, updatedCount: count ?? contactIds.length };
+    return { success: true, updatedCount: count ?? 0 };
   }
 
   // When modifying tags, fetch existing tags, apply set modifications, and persist
@@ -1336,6 +1339,9 @@ export async function bulkUpdateCRMContacts({
     .in('id', contactIds);
 
   if (fetchErr) return { success: false, error: fetchErr.message };
+  if (!contacts?.length) {
+    return { success: false, error: 'None of the selected constituents still exist' };
+  }
 
   const normAdd = addTags ? normalizeTags(addTags) : [];
   const normRemove = new Set((removeTags || []).map((t) => t.trim().toLowerCase()));
@@ -1371,7 +1377,7 @@ export async function bulkUpdateCRMContacts({
   }
 
   revalidateCRMRoutes();
-  return { success: true, updatedCount: contacts?.length ?? 0 };
+  return { success: true, updatedCount: contacts.length };
 }
 
 export async function bulkDeleteCRMContacts(
@@ -1389,9 +1395,12 @@ export async function bulkDeleteCRMContacts(
     .in('id', contactIds);
 
   if (error) return { success: false, error: error.message };
+  if (count === 0) {
+    return { success: false, error: 'None of the selected constituents still exist' };
+  }
 
   revalidateCRMRoutes();
-  return { success: true, deletedCount: count ?? contactIds.length };
+  return { success: true, deletedCount: count ?? 0 };
 }
 
 export async function addCRMNote({

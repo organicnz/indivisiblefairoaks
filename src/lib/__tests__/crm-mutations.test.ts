@@ -748,6 +748,16 @@ describe('CRM mutation failure paths', () => {
         district: 'District 4',
       });
       expect(res.success).toBe(true);
+      expect(res.updatedCount).toBe(2);
+    });
+
+    it('reports when no selected contacts remain for a direct bulk update', async () => {
+      tables.crm_contacts = { rows: [] };
+      const res = await bulkUpdateCRMContacts({ contactIds: ['c1'], status: 'supporter' });
+      expect(res).toEqual({
+        success: false,
+        error: 'None of the selected constituents still exist',
+      });
     });
 
     it('rejects an invalid consent value during bulk update', async () => {
@@ -820,6 +830,27 @@ describe('CRM mutation failure paths', () => {
       });
       expect(res.success).toBe(false);
       expect(res.error).toBe('fetch contacts failed');
+    });
+
+    it('reports when no selected contacts remain for a tag update', async () => {
+      tables.crm_contacts = { rows: [] };
+      const res = await bulkUpdateCRMContacts({ contactIds: ['c1'], addTags: ['new-tag'] });
+      expect(res).toEqual({
+        success: false,
+        error: 'None of the selected constituents still exist',
+      });
+    });
+
+    it('reports the count actually updated when part of the tag selection is gone', async () => {
+      tables.crm_contacts = {
+        rows: [{ id: 'c1', status: 'supporter', tags: [] }],
+      };
+      const res = await bulkUpdateCRMContacts({
+        contactIds: ['c1', 'c2'],
+        addTags: ['new-tag'],
+      });
+      expect(res.success).toBe(true);
+      expect(res.updatedCount).toBe(1);
     });
 
     it('reports a per-contact update failure instead of reporting success', async () => {
@@ -909,6 +940,16 @@ describe('CRM mutation failure paths', () => {
       };
       const res = await bulkDeleteCRMContacts(['c1', 'c2']);
       expect(res.success).toBe(true);
+      expect(res.deletedCount).toBe(2);
+    });
+
+    it('reports when no selected contacts remain for a bulk delete', async () => {
+      tables.crm_contacts = { rows: [] };
+      const res = await bulkDeleteCRMContacts(['c1', 'c2']);
+      expect(res).toEqual({
+        success: false,
+        error: 'None of the selected constituents still exist',
+      });
     });
   });
 });
