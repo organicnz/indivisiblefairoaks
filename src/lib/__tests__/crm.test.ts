@@ -1691,6 +1691,42 @@ describe('Civic CRM Server Actions', () => {
       expect(tables.crm_broadcasts.rows?.[0]?.sent_at).toBeTruthy();
     });
 
+    it('does not overwrite a campaign that finished before the failure was recorded', async () => {
+      const savedId = session.adminUserId;
+      session.adminUserId = 'admin-user-broadcast-race-uuid';
+      try {
+        mockEnv.CRM_BROADCAST_FUNCTION_URL = undefined;
+        tables.crm_contacts = {
+          rows: [
+            {
+              id: 'u-race',
+              email: 'race@example.com',
+              do_not_email: false,
+              status: 'supporter',
+            },
+          ],
+        };
+        const broadcastRows: Record<string, unknown>[] = [];
+        tables.crm_broadcasts = {
+          rows: broadcastRows,
+          insert: { id: 'b-race' },
+          beforeUpdate: () => {
+            const row = broadcastRows[0];
+            if (row) row.status = 'sent';
+          },
+        };
+
+        const res = await sendCRMBroadcast({ subject: 'Hi', body: 'Hello there' });
+
+        expect(res.success).toBe(false);
+        expect(res.broadcastId).toBe('b-race');
+        expect(res.error).toMatch(/already finished/i);
+        expect(broadcastRows[0]).toMatchObject({ status: 'sent' });
+      } finally {
+        session.adminUserId = savedId;
+      }
+    });
+
     it('surfaces the database error when the campaign log cannot be created', async () => {
       const savedId = session.adminUserId;
       session.adminUserId = 'admin-user-log-error-uuid';

@@ -2293,6 +2293,9 @@ export async function sendCRMBroadcast({
         failed_count: recipients.length,
       })
       .eq('id', broadcast.id)
+      // Only stamp a campaign that is still pending. If the sender finished
+      // first, overwriting `sent` with `failed` would erase the true outcome.
+      .in('status', ['queued', 'sending'])
       .select('id')
       .maybeSingle();
     const startFailure = `Broadcast could not be started: ${dispatched.error}`;
@@ -2309,7 +2312,7 @@ export async function sendCRMBroadcast({
         success: false,
         recipientCount: recipients.length,
         broadcastId: broadcast.id,
-        error: `${startFailure}. The campaign could not be marked failed because its row was not found. It may still appear queued — mark it failed before retrying.`,
+        error: `${startFailure}. The campaign could not be marked failed because it already finished or its row was not found. Check the campaign log before retrying.`,
       };
     }
     return {
@@ -2395,6 +2398,9 @@ export async function sendCRMBroadcastSelfTest({
       .from('crm_broadcasts')
       .update({ status: 'failed', sent_at: new Date().toISOString(), failed_count: 1 })
       .eq('id', data.id)
+      // Same atomic guard as a real broadcast: a finished preview must not be
+      // rewritten as failed by a late failure response.
+      .in('status', ['queued', 'sending'])
       .select('id')
       .maybeSingle();
     const testFailure = `Test could not be sent: ${dispatched.error}`;
@@ -2407,7 +2413,7 @@ export async function sendCRMBroadcastSelfTest({
     if (!markedFailed) {
       return {
         success: false,
-        error: `${testFailure}. The test row could not be marked failed because it was not found. It may still appear queued.`,
+        error: `${testFailure}. The test row could not be marked failed because it already finished or was not found. Check the campaign log before retrying.`,
       };
     }
     return { success: false, error: testFailure };
