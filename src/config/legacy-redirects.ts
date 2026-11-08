@@ -38,3 +38,8 @@ export const LEGACY_SLUGS: ReadonlySet<string> = new Set(
 export function isLegacySlug(slug: string): boolean {
   return LEGACY_SLUGS.has(slug);
 }
+
+/** Where a legacy path redirects, or null when it is not a legacy slug. */
+export function legacyRedirectDestination(slug: string): string | null {
+  return LEGACY_REDIRECTS.find((redirect) => redirect.source === `/${slug}`)?.destination ?? null;
+}

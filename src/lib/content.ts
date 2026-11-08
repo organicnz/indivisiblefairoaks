@@ -1,4 +1,8 @@
-import { isLegacySlug, LEGACY_SLUGS } from '@/config/legacy-redirects';
+import {
+  isLegacySlug,
+  LEGACY_SLUGS,
+  legacyRedirectDestination,
+} from '@/config/legacy-redirects';
 import { ROUTES } from '@/config/routes';
 import {
   copyRegionComposeHref,
@@ -96,7 +100,8 @@ export function describeSlugConflict(slug: string): string | null {
     return `/${slug} is already served by a site route. Pick a different slug.`;
   }
   if (isLegacySlug(slug)) {
-    return `/${slug} is a legacy Google Sites path that permanently redirects elsewhere, so this page would never be reachable. Pick a different slug.`;
+    const destination = legacyRedirectDestination(slug);
+    return `/${slug} is a legacy Google Sites path that permanently redirects${destination ? ` to ${destination}` : ' elsewhere'}, so this page would never be reachable. Pick a different slug.`;
   }
   return null;
 }

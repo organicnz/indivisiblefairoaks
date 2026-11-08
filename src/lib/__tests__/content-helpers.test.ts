@@ -118,6 +118,11 @@ describe('contentPublicHref', () => {
     expect(contentPublicHref({ slug: 'copy-home-hero', status: 'publish' })).toBe('/');
   });
 
+  it('names the destination of a legacy redirect', () => {
+    expect(describeSlugConflict('about-us')).toContain('to /about');
+    expect(describeSlugConflict('newsletters')).toContain('to /news');
+  });
+
   it('returns null for a region no page renders', () => {
     expect(contentPublicHref({ slug: 'copy-orphan', status: 'publish' })).toBeNull();
   });
