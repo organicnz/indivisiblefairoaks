@@ -3828,6 +3828,10 @@ export function VisualEditOverlay() {
             .toLowerCase();
       }
 
+      // Settings writes the whole row, so it must write the document on screen.
+      // `contentRow.body` is the last body loaded or saved; using it here
+      // overwrote every unsaved block edit made before the modal was opened.
+      const persistedBody = serializeBlocks(blocks);
       const res = await saveContentWithEdgeApi({
         id: contentRow?.id,
         title: pageTitle,
@@ -3835,7 +3839,7 @@ export function VisualEditOverlay() {
         excerpt: contentRow?.excerpt || null,
         type: (contentRow?.type as 'page' | 'post') || 'page',
         status: pageStatus,
-        body: contentRow?.body || serializeBlocks(blocks),
+        body: persistedBody,
         featuredImage: pageFeaturedImage || null,
         publishedAt: contentRow?.published_at ?? undefined,
         expectedUpdatedAt: contentRow?.updated_at ?? undefined,
@@ -3850,6 +3854,7 @@ export function VisualEditOverlay() {
                 ...prev,
                 title: pageTitle,
                 slug,
+                body: persistedBody,
                 featured_image: pageFeaturedImage || null,
                 status: pageStatus,
                 updated_at: res.data?.updatedAt,
@@ -3861,7 +3866,7 @@ export function VisualEditOverlay() {
                 excerpt: null,
                 type: 'page',
                 status: pageStatus,
-                body: serializeBlocks(blocks),
+                body: persistedBody,
                 featured_image: pageFeaturedImage || null,
                 metadata: {},
                 updated_at: res.data?.updatedAt,
@@ -3869,6 +3874,9 @@ export function VisualEditOverlay() {
                 published_at: pageStatus === 'publish' ? new Date().toISOString() : null,
               }
         );
+        setSavedBody(persistedBody);
+        setRecoveredDraft(null);
+        clearDraft(draftScope);
         setIsSettingsOpen(false);
         router.refresh();
       } else {

@@ -713,6 +713,35 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     expect(dialog?.textContent).toContain('Supabase S3 Storage');
   });
 
+  it('saves the current block document through Page Settings, not the stale row body', async () => {
+    await withPage();
+
+    // Apply a real unsaved paragraph edit, then open the settings modal. The
+    // modal writes the whole row, so its body must come from these blocks rather
+    // than from the body loaded before the edit.
+    await openComposerOnFirstBlock();
+    await changeComposerCopy('Fresh intro copy.');
+    await act(async () => {
+      byText('Save Block')?.click();
+    });
+
+    await act(async () => {
+      openSettingsVisual();
+    });
+
+    const dialog = document.querySelector('[role="dialog"]');
+    const form = dialog?.querySelector('form');
+    expect(form).not.toBeNull();
+
+    await act(async () => {
+      form?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    });
+
+    const payload = saveContent.mock.calls.at(-1)?.[0] as { body?: string } | undefined;
+    expect(payload?.body).toContain('Fresh intro copy.');
+    expect(payload?.body).not.toContain('Intro copy.');
+  });
+
   it('displays the live SERP and social card preview in page settings and allows toggling tabs', async () => {
     await withPage();
 
