@@ -56,7 +56,7 @@ import {
 } from '@/lib/actions/content';
 import { getCRMEdgeFunctionHealth, uploadCRMMedia } from '@/lib/actions/crm';
 import { getVisualPageContext } from '@/lib/actions/visual';
-import { describeOversizedBody } from '@/lib/content';
+import { describeOversizedBody, describeSlugConflict } from '@/lib/content';
 import { moveBlockItem } from '@/lib/block-order';
 import {
   applyBlockShell,
@@ -508,6 +508,36 @@ export function VisualEditOverlay() {
    */
   const [sections, setSections] = useState<VisualSection[]>([]);
   const [contentRow, setContentRow] = useState<VisualContentRow | null>(null);
+
+  /**
+   * Why a page-level edit on this document cannot be saved, if it cannot.
+   *
+   * The editable unit on a coded route is a copy region: the route's own text
+   * is JSX, so it has no `content` row and a page-level save would post the
+   * route's slug — which `assertSlugAvailable` refuses, because a row there
+   * would be shadowed by the route. The old failure surfaced after the operator
+   * had typed, as "Pick a different slug", which reads as a naming mistake
+   * rather than "this text is not editable". Say what is wrong before the write,
+   * and point at the regions that are.
+   */
+  const describeUnsaveableDocument = useCallback((): string | null => {
+    if (contentRow || activeRegionId) return null;
+    let slug = documentSlug;
+    if (!slug) {
+      slug =
+        pathname === '/' || pathname === ''
+          ? 'home'
+          : pathname
+              .replace(/^\//, '')
+              .replace(/[^a-z0-9-]/gi, '-')
+              .toLowerCase();
+    }
+    if (!describeSlugConflict(slug)) return null;
+    const labels = pageRegions.map((region) => region.label).filter(Boolean);
+    return labels.length > 0
+      ? `This page’s text is written in code, so page-level edits cannot be saved. Edit one of its copy regions instead: ${labels.join(', ')}.`
+      : 'This page’s text is written in code, so page-level edits cannot be saved. This page has no editable copy regions.';
+  }, [contentRow, activeRegionId, documentSlug, pathname, pageRegions]);
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [backendStatus, setBackendStatus] = useState<BackendStatus | null>(null);
   const [statusLoading, setStatusLoading] = useState(false);
@@ -1362,6 +1392,11 @@ export function VisualEditOverlay() {
     // A region always uses its own slug — writing `copy-home-hero` under the
     // page's slug would shadow a route and silently vanish.
     const slug = documentSlug ?? 'home';
+    const refusal = describeUnsaveableDocument();
+    if (refusal) {
+      toast.error(refusal);
+      return;
+    }
     const title =
       (activeRegionId ? activeRegion?.label : null) ||
       document.querySelector('h1')?.textContent?.trim() ||
@@ -1906,6 +1941,14 @@ export function VisualEditOverlay() {
           return { success: false, error: oversized };
         }
 
+        // A page-level document with nowhere to land is refused before the
+        // request, not after the server rejects the route's slug.
+        const refusal = describeUnsaveableDocument();
+        if (refusal) {
+          toast.error(refusal);
+          return { success: false, error: refusal };
+        }
+
         // The row already knows its slug; a region with no row yet falls back to
         // the region's own slug, never the page's, so a first save of a region
         // cannot land on the page document.
@@ -2010,6 +2053,7 @@ export function VisualEditOverlay() {
       activeRegion,
       activeRegionId,
       contentRow,
+      describeUnsaveableDocument,
       documentSlug,
       draftScope,
       pageFeaturedImage,
@@ -2355,6 +2399,20 @@ export function VisualEditOverlay() {
         toast.info('Edit the text inside this section — the section frame is not a block.');
         return;
       }
+      /*
+       * Roll back a page-level edit that has no document to be saved into.
+       * The guard inside `handlePersistBlocks` would stop the request, but the
+       * typed text is already in the live DOM; leaving it there shows a change
+       * that will disappear on the next load.
+       */
+      if (blockIndex !== null) {
+        const refusal = describeUnsaveableDocument();
+        if (refusal) {
+          element.innerHTML = initialHtml;
+          toast.error(refusal);
+          return;
+        }
+      }
       const blockHtml = contentRoot ? contentRoot.innerHTML : updatedHtml;
 
       if (hrefChanged && anchorInElement) {
@@ -2425,7 +2483,7 @@ export function VisualEditOverlay() {
 
       toast.success('Section text updated');
     },
-    [router, writeToBlock, writeToCopyRegion, locate]
+    [router, writeToBlock, writeToCopyRegion, locate, describeUnsaveableDocument]
   );
 
   const handleSaveImageAlt = useCallback(

@@ -572,6 +572,87 @@ describe('saveContent — update: page not found', () => {
   });
 });
 
+describe('saveContent — an update keeps the row’s own slug', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('saves a row whose existing slug is a legacy redirect or a site route', async () => {
+    /*
+     * Every seeded row is in this position: `faqs` is shadowed by a route and
+     * the Google Sites imports (`about-us`, `newsletters`, `home`) redirect.
+     * The conflict checks describe claiming a *new* path, so applying them to
+     * the unchanged slug made the whole CMS read-only.
+     */
+    const rows = [
+      {
+        id: 7,
+        slug: 'faqs',
+        title: 'FAQs',
+        type: 'page',
+        status: 'draft',
+        body: '<p>old</p>',
+        excerpt: null,
+        featured_image: null,
+        metadata: {},
+        updated_at: '2026-01-01T00:00:00.000Z',
+      },
+    ];
+    requireAdmin.mockResolvedValue({
+      adminClient: createMockAdminClient({
+        content: {
+          rows,
+          onUpdate: (row) => {
+            row.updated_at = '2026-01-02T00:00:00.000Z';
+          },
+        },
+      }),
+    });
+
+    const result = await saveContent({
+      id: 7,
+      title: 'FAQs',
+      slug: 'faqs',
+      status: 'draft',
+      type: 'page',
+      metadata: {},
+      expectedUpdatedAt: '2026-01-01T00:00:00.000Z',
+    });
+
+    expect(result).toMatchObject({ success: true });
+    expect(rows[0]?.title).toBe('FAQs');
+    expect(rows[0]?.updated_at).toBe('2026-01-02T00:00:00.000Z');
+  });
+
+  it('still refuses to rename a row onto a reserved slug', async () => {
+    const rows = [
+      {
+        id: 7,
+        slug: 'my-page',
+        title: 'My page',
+        type: 'page',
+        status: 'draft',
+        updated_at: '2026-01-01T00:00:00.000Z',
+      },
+    ];
+    requireAdmin.mockResolvedValue({
+      adminClient: createMockAdminClient({ content: { rows } }),
+    });
+
+    const result = await saveContent({
+      id: 7,
+      title: 'My page',
+      slug: 'faqs',
+      status: 'draft',
+      type: 'page',
+      metadata: {},
+      expectedUpdatedAt: '2026-01-01T00:00:00.000Z',
+    });
+
+    expect(result.success).toBe(false);
+    expect(result).toMatchObject({ error: expect.stringContaining('/faqs') });
+    expect(rows[0]?.slug).toBe('my-page');
+  });
+});
+
 describe('saveContent — body size boundary', () => {
   beforeEach(() => vi.clearAllMocks());
 

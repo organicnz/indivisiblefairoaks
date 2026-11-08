@@ -188,8 +188,24 @@ export async function getContentBySlugForEdit(slug: string): Promise<ContentRow 
 async function assertSlugAvailable(
   slug: string,
   client: Awaited<ReturnType<typeof requireAdmin>>['adminClient'],
-  excludeId?: number
+  excludeId?: number,
+  currentSlug?: string | null
 ): Promise<string | null> {
+  /*
+   * A row already owns its slug.
+   *
+   * The conflict checks below answer "may this page claim this path?", and a
+   * row that is being updated has already claimed it. Applying them to the
+   * unchanged slug made every seeded row unsaveable: `content` still holds
+   * rows from the Google Sites import (`about-us`, `newsletters`, `home`) and
+   * route-shadowed rows (`faqs`), and each one reports its own slug as a
+   * legacy redirect or a site route. Editing the copy on such a page failed
+   * with "Pick a different slug" — advice that would move the page to a URL
+   * nobody links to. Keep the checks for a *changed* slug, where they are what
+   * stops a page from landing somewhere unreachable.
+   */
+  if (excludeId !== undefined && currentSlug === slug) return null;
+
   const conflict = describeSlugConflict(slug);
   if (conflict) return conflict;
 
@@ -254,7 +270,31 @@ export async function saveContent(
     }
   }
 
-  const slugConflict = await assertSlugAvailable(data.slug, adminClient, data.id);
+  /*
+   * Read the stored slug before judging the submitted one.
+   *
+   * An update keeps its slug, and that must be distinguishable from a rename:
+   * the conflict checks belong to the new path, not to the row's own. The row
+   * is also the existence check, so a missing id is reported here rather than
+   * after the write is composed.
+   */
+  let previous: { slug: string } | null = null;
+  if (data.id !== undefined) {
+    const { data: existing } = await adminClient
+      .from('content')
+      .select('slug')
+      .eq('id', data.id)
+      .maybeSingle();
+    if (!existing) return fail('That page no longer exists');
+    previous = existing;
+  }
+
+  const slugConflict = await assertSlugAvailable(
+    data.slug,
+    adminClient,
+    data.id,
+    previous?.slug
+  );
   if (slugConflict) return fail(slugConflict);
 
   const row = {
@@ -276,14 +316,7 @@ export async function saveContent(
     metadata: data.metadata,
   };
 
-  if (data.id) {
-    const { data: previous } = await adminClient
-      .from('content')
-      .select('slug')
-      .eq('id', data.id)
-      .maybeSingle();
-    if (!previous) return fail('That page no longer exists');
-
+  if (data.id !== undefined) {
     // The precondition rides on the same UPDATE rather than on a separate
     // SELECT-then-UPDATE. Checking first would leave a window between the two
     // statements in which a colleague's save lands and is then overwritten —
@@ -313,7 +346,7 @@ export async function saveContent(
       );
     }
 
-    revalidateContent(data.slug, previous.slug);
+    revalidateContent(data.slug, previous?.slug);
     // The `updated_at` the trigger just wrote, not a timestamp generated here.
     // The editor has to learn the new value or its next autosave would conflict
     // with itself — which is the failure mode that would make this feature

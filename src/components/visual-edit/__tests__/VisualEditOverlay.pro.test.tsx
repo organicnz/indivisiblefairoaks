@@ -584,6 +584,21 @@ describe('VisualEditOverlay 10x Pro Features', () => {
     main.appendChild(p2);
     document.body.appendChild(main);
 
+    // Reordering is a page-level write: a coded route has no row to hold it,
+    // so this document is CMS-backed even though its DOM is hand-built here.
+    getContentBySlugForEdit.mockResolvedValue({
+      id: 42,
+      title: 'Gallery Showcase',
+      slug: 'gallery',
+      excerpt: null,
+      type: 'page',
+      status: 'publish',
+      body: '<p>Section Alpha</p><p>Section Beta</p>',
+      featured_image: null,
+      metadata: {},
+      updated_at: '2026-10-25T00:00:00Z',
+    });
+
     await mount();
 
     const blockItems = document.querySelectorAll('[data-testid="sidebar-block-item"]');

@@ -2115,17 +2115,27 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     }
   });
 
-  it('writes only the edited paragraph, not the whole section, on a coded page', async () => {
+  it('writes only the edited paragraph, not the whole section around it', async () => {
     /*
-     * A coded route has no CMS row, so its blocks are extracted from the DOM
-     * and a block's address is the <section> that renders it. Committing an
-     * inline edit used to read that section's innerHTML — siblings included —
-     * and store it as one paragraph's `html`, which is what pushed real pages
-     * past MAX_BODY_BYTES.
+     * A block's address is the <section> that renders it, and that section can
+     * hold unrelated markup. Committing an inline edit used to read the
+     * section's innerHTML — siblings included — and store it as one
+     * paragraph's `html`, which is what pushed real pages past MAX_BODY_BYTES.
      */
     const filler = 'Section sidebar filler. '.repeat(300); // ~7.5 KB of a sibling
     renderPage(`<section><p>Intro copy.</p><div>${filler}</div></section>`);
-    getContentBySlugForEdit.mockResolvedValue(null);
+    getContentBySlugForEdit.mockResolvedValue({
+      id: 7,
+      title: 'About Us',
+      slug: 'about',
+      excerpt: null,
+      type: 'page',
+      status: 'publish',
+      body: '<p>Intro copy.</p>',
+      featured_image: null,
+      metadata: {},
+      updated_at: '2026-10-09T00:00:00Z',
+    });
     await mount();
 
     const paragraph = document.querySelector<HTMLElement>('[data-visual-edit-root] section p');
@@ -2168,7 +2178,18 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     renderPage(
       '<section><p>Read the <a href="/voter-guide">voter guide</a> before you vote.</p></section>'
     );
-    getContentBySlugForEdit.mockResolvedValue(null);
+    getContentBySlugForEdit.mockResolvedValue({
+      id: 7,
+      title: 'About Us',
+      slug: 'about',
+      excerpt: null,
+      type: 'page',
+      status: 'publish',
+      body: '<p>Read the <a href="/voter-guide">voter guide</a> before you vote.</p>',
+      featured_image: null,
+      metadata: {},
+      updated_at: '2026-10-09T00:00:00Z',
+    });
     await mount();
 
     const link = document.querySelector<HTMLAnchorElement>(
@@ -2210,7 +2231,18 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     const filler = 'Event card filler. '.repeat(3600); // ~68 KB, over the limit
     expect(filler.length).toBeGreaterThan(MAX_BODY_BYTES);
     renderPage(`<div class="space-y-8"><p>Edited event copy.</p><div>${filler}</div></div>`);
-    getContentBySlugForEdit.mockResolvedValue(null);
+    getContentBySlugForEdit.mockResolvedValue({
+      id: 7,
+      title: 'About Us',
+      slug: 'about',
+      excerpt: null,
+      type: 'page',
+      status: 'publish',
+      body: '<p>Edited event copy.</p>',
+      featured_image: null,
+      metadata: {},
+      updated_at: '2026-10-09T00:00:00Z',
+    });
     await mount();
 
     const paragraph = document.querySelector<HTMLElement>('[data-visual-edit-root] p');
@@ -2236,6 +2268,43 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     expect(written).toContain('Edited event copy, saved.');
     expect(written.length).toBeLessThan(1000);
     expect(toast.error).not.toHaveBeenCalledWith(expect.stringContaining('too large to save'));
+  });
+
+  it('refuses a page-level edit on a coded route before posting the route slug', async () => {
+    /*
+     * /events is a coded route with copy regions and no page row. Its text is
+     * JSX, so a page-level save posts slug `events`, which the server refuses
+     * as a route shadow. The operator used to learn that after typing; now the
+     * edit is rolled back and the regions that do work are named.
+     */
+    pathname.value = '/events';
+    renderPage('<div class="space-y-8"><p>Edited event copy.</p></div>');
+    getContentBySlugForEdit.mockResolvedValue(null);
+    await mount();
+
+    const paragraph = document.querySelector<HTMLElement>('[data-visual-edit-root] p');
+    expect(paragraph).not.toBeNull();
+
+    await act(async () => {
+      paragraph?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+    expect(paragraph?.classList.contains('visual-inline-active')).toBe(true);
+
+    await act(async () => {
+      if (paragraph) paragraph.innerHTML = 'Edited event copy, blocked.';
+      paragraph?.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    await act(async () => {
+      window.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Enter', metaKey: true, bubbles: true })
+      );
+    });
+
+    expect(saveContent).not.toHaveBeenCalled();
+    expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('written in code'));
+    // The rejected text is not left in the live DOM as if it had saved.
+    expect(paragraph?.textContent).toBe('Edited event copy.');
   });
 
   describe('resolveBlockContentRoot', () => {
