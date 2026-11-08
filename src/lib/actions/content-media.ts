@@ -204,7 +204,15 @@ export async function deleteContentMediaRow(
   if (storageErr) return { success: false, error: `Storage delete failed: ${storageErr.message}` };
 
   const { error: dbErr } = await client.from('content_media').delete().eq('id', id);
-  if (dbErr) return { success: false, error: dbErr.message };
+  if (dbErr) {
+    // The storage object is already gone. Returning the raw database error
+    // would leave the organizer guessing whether the media still exists; say
+    // which half completed and that retrying will finish the cleanup.
+    return {
+      success: false,
+      error: `The file was removed from storage, but the media record could not be deleted: ${dbErr.message}. Retry the delete to finish cleanup.`,
+    };
+  }
 
   return { success: true, data: { deleted: true } };
 }

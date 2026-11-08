@@ -98,6 +98,8 @@ export interface MockTableConfig {
   onInsert?: (row: Record<string, unknown>) => void;
   /** Force an error for the terminal operation, to exercise the failure path. */
   error?: { message: string; code?: string } | null;
+  /** Fail only the delete, after reads against the same table have succeeded. */
+  deleteError?: { message: string; code?: string } | null;
   /**
    * Override the exact count reported by a read. `null` models a successful
    * response that omitted the count, which callers must not treat as zero.
@@ -465,6 +467,7 @@ export class MockQueryBuilder {
     }
 
     if (this.mode === 'delete') {
+      if (config.deleteError) return { error: config.deleteError, count: null, data: null };
       const found = config.rows ?? [];
       const affected = found.filter((row) => matches(row, this.filters));
       // Removed from the backing array rather than blanked: a caller that

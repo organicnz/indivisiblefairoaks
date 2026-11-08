@@ -452,6 +452,28 @@ describe('content-media actions', () => {
       expect(result.error).toContain('bucket unavailable');
     });
 
+    it('reports a database failure after the file was removed, leaving the row for retry', async () => {
+      const { deleteContentMediaRow } = await import('@/lib/actions/content-media');
+      const tables = {
+        content: { rows: [publishedRow(42)] },
+        content_media: {
+          rows: [mediaRow({ id: 'test-id', path: REFERENCED_PATH })],
+          deleteError: { message: 'row lock timeout' },
+        },
+        content_revisions: { rows: [] },
+      };
+      const { remove } = configure(tables);
+
+      const result = await deleteContentMediaRow('test-id');
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('file was removed from storage');
+      expect(result.error).toContain('row lock timeout');
+      expect(result.error).toContain('Retry');
+      expect(remove).toHaveBeenCalledWith([REFERENCED_PATH]);
+      expect(tables.content_media.rows).toHaveLength(1);
+    });
+
     it('returns not found if the media row is gone', async () => {
       const { deleteContentMediaRow } = await import('@/lib/actions/content-media');
       configure({
