@@ -375,6 +375,67 @@ describe('content-media actions', () => {
       expect(result.error).toContain('content revisions');
     });
 
+    it('refuses deletion when the content body reference check fails', async () => {
+      const { deleteContentMediaRow } = await import('@/lib/actions/content-media');
+      const { remove } = configure({
+        content: {
+          rows: [publishedRow(42)],
+          errors: [
+            { kind: 'ilike', column: 'body', error: { message: 'body scan failed' } },
+          ],
+        },
+        content_media: { rows: [mediaRow({ id: 'test-id', path: REFERENCED_PATH })] },
+        content_revisions: { rows: [] },
+      });
+
+      const result = await deleteContentMediaRow('test-id');
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Could not verify media references: body scan failed');
+      expect(remove).not.toHaveBeenCalled();
+    });
+
+    it('refuses deletion when the featured-image reference check fails', async () => {
+      const { deleteContentMediaRow } = await import('@/lib/actions/content-media');
+      const { remove } = configure({
+        content: {
+          rows: [publishedRow(42)],
+          errors: [
+            {
+              kind: 'eq',
+              column: 'featured_image',
+              error: { message: 'hero scan failed' },
+            },
+          ],
+        },
+        content_media: { rows: [mediaRow({ id: 'test-id', path: REFERENCED_PATH })] },
+        content_revisions: { rows: [] },
+      });
+
+      const result = await deleteContentMediaRow('test-id');
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Could not verify media references: hero scan failed');
+      expect(remove).not.toHaveBeenCalled();
+    });
+
+    it('refuses deletion when the revision reference check fails', async () => {
+      const { deleteContentMediaRow } = await import('@/lib/actions/content-media');
+      const { remove } = configure({
+        content: { rows: [publishedRow(42)] },
+        content_media: { rows: [mediaRow({ id: 'test-id', path: REFERENCED_PATH })] },
+        content_revisions: {
+          rows: [],
+          errors: [
+            { kind: 'ilike', column: 'body', error: { message: 'revision scan failed' } },
+          ],
+        },
+      });
+
+      const result = await deleteContentMediaRow('test-id');
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Could not verify media references: revision scan failed');
+      expect(remove).not.toHaveBeenCalled();
+    });
+
     it('surfaces a storage failure rather than deleting the row', async () => {
       const { deleteContentMediaRow } = await import('@/lib/actions/content-media');
       configure(

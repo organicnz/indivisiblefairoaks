@@ -169,6 +169,14 @@ export async function deleteContentMediaRow(
     client.from('content_revisions').select('id').ilike('body', `%${path}%`).limit(1),
   ]);
 
+  const referenceError = bodyRef.error ?? heroRef.error ?? revRef.error;
+  if (referenceError) {
+    return {
+      success: false,
+      error: `Could not verify media references: ${referenceError.message}`,
+    };
+  }
+
   if (bodyRef.data && bodyRef.data.length > 0) {
     return {
       success: false,
