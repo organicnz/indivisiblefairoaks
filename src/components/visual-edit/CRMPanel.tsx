@@ -613,7 +613,9 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({
       });
       if (res.success) {
         toast.success(
-          `Updated status for ${res.updatedCount ?? selectedContactIds.size} constituents`
+          res.updatedCount === undefined
+            ? 'Updated the selected constituents'
+            : `Updated status for ${res.updatedCount} constituents`
         );
         setSelectedContactIds(new Set());
         loadContacts();
@@ -637,7 +639,9 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({
       });
       if (res.success) {
         toast.success(
-          `Updated consent for ${res.updatedCount ?? selectedContactIds.size} constituents`
+          res.updatedCount === undefined
+            ? 'Updated consent for the selected constituents'
+            : `Updated consent for ${res.updatedCount} constituents`
         );
         setSelectedContactIds(new Set());
         loadContacts();
@@ -662,7 +666,9 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({
       });
       if (res.success) {
         toast.success(
-          `Added tag #${tag} to ${res.updatedCount ?? selectedContactIds.size} constituents`
+          res.updatedCount === undefined
+            ? `Added tag #${tag} to the selected constituents`
+            : `Added tag #${tag} to ${res.updatedCount} constituents`
         );
         setBulkTagInput('');
         setSelectedContactIds(new Set());
@@ -689,7 +695,9 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({
       });
       if (res.success) {
         toast.success(
-          `Assigned district ${district} to ${res.updatedCount ?? selectedContactIds.size} constituents`
+          res.updatedCount === undefined
+            ? `Assigned district ${district} to the selected constituents`
+            : `Assigned district ${district} to ${res.updatedCount} constituents`
         );
         setBulkDistrictInput('');
         setSelectedContactIds(new Set());
@@ -711,7 +719,11 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({
       const ids = Array.from(selectedContactIds);
       const res = await bulkDeleteCRMContacts(ids);
       if (res.success) {
-        toast.success(`Deleted ${res.deletedCount ?? ids.length} constituents`);
+        toast.success(
+          res.deletedCount === undefined
+            ? 'Deleted the selected constituents'
+            : `Deleted ${res.deletedCount} constituents`
+        );
         if (selectedContact && ids.includes(selectedContact.id)) {
           setSelectedContact(null);
         }

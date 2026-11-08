@@ -751,6 +751,21 @@ describe('CRM mutation failure paths', () => {
       expect(res.updatedCount).toBe(2);
     });
 
+    it('does not report zero when a direct bulk update omits its count', async () => {
+      tables.crm_contacts = {
+        rows: [{ id: 'c1', status: 'supporter', tags: [] }],
+        writeCount: null,
+      };
+
+      const res = await bulkUpdateCRMContacts({
+        contactIds: ['c1'],
+        status: 'active_volunteer',
+      });
+
+      expect(res).toEqual({ success: true });
+      expect(tables.crm_contacts.rows?.[0]?.status).toBe('active_volunteer');
+    });
+
     it('reports when no selected contacts remain for a direct bulk update', async () => {
       tables.crm_contacts = { rows: [] };
       const res = await bulkUpdateCRMContacts({ contactIds: ['c1'], status: 'supporter' });
@@ -941,6 +956,18 @@ describe('CRM mutation failure paths', () => {
       const res = await bulkDeleteCRMContacts(['c1', 'c2']);
       expect(res.success).toBe(true);
       expect(res.deletedCount).toBe(2);
+    });
+
+    it('does not report zero when a bulk delete omits its count', async () => {
+      tables.crm_contacts = {
+        rows: [{ id: 'c1', email: 'a@b.co' }],
+        writeCount: null,
+      };
+
+      const res = await bulkDeleteCRMContacts(['c1']);
+
+      expect(res).toEqual({ success: true });
+      expect(tables.crm_contacts.rows).toHaveLength(0);
     });
 
     it('reports when no selected contacts remain for a bulk delete', async () => {

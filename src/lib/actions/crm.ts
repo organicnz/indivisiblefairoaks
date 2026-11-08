@@ -1375,7 +1375,9 @@ export async function bulkUpdateCRMContacts({
       return { success: false, error: 'None of the selected constituents still exist' };
     }
     revalidateCRMRoutes();
-    return { success: true, updatedCount: count ?? 0 };
+    // A missing exact count is not zero. The update has already succeeded, so
+    // omit the number rather than telling the organizer nothing changed.
+    return { success: true, ...(count === null ? {} : { updatedCount: count }) };
   }
 
   // When modifying tags, fetch existing tags, apply set modifications, and persist
@@ -1446,7 +1448,9 @@ export async function bulkDeleteCRMContacts(
   }
 
   revalidateCRMRoutes();
-  return { success: true, deletedCount: count ?? 0 };
+  // Same rule as the update above: do not turn an unavailable count into a
+  // claim that zero constituents were deleted.
+  return { success: true, ...(count === null ? {} : { deletedCount: count }) };
 }
 
 export async function addCRMNote({

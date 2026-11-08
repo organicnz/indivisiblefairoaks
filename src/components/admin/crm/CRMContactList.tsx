@@ -522,7 +522,11 @@ export function CRMContactList({
         status: newStatus,
       });
       if (res.success) {
-        toast.success(`Updated status for ${res.updatedCount ?? ids.length} constituents`);
+        toast.success(
+          res.updatedCount === undefined
+            ? 'Updated the selected constituents'
+            : `Updated status for ${res.updatedCount} constituents`
+        );
         setSelectedIds(new Set());
         router.refresh();
       } else {
@@ -546,7 +550,11 @@ export function CRMContactList({
         addTags: [trimmed],
       });
       if (res.success) {
-        toast.success(`Added tag #${trimmed} to ${res.updatedCount ?? ids.length} constituents`);
+        toast.success(
+          res.updatedCount === undefined
+            ? `Added tag #${trimmed} to the selected constituents`
+            : `Added tag #${trimmed} to ${res.updatedCount} constituents`
+        );
         setBulkTagInput('');
         setSelectedIds(new Set());
         router.refresh();
@@ -568,7 +576,11 @@ export function CRMContactList({
       const ids = Array.from(selectedIds);
       const res = await bulkUpdateCRMContacts({ contactIds: ids, district: trimmed });
       if (res.success) {
-        toast.success(`Set district for ${res.updatedCount ?? ids.length} constituents`);
+        toast.success(
+          res.updatedCount === undefined
+            ? 'Set district for the selected constituents'
+            : `Set district for ${res.updatedCount} constituents`
+        );
         setBulkDistrictInput('');
         setSelectedIds(new Set());
         router.refresh();
@@ -596,7 +608,9 @@ export function CRMContactList({
               ? 'opted in'
               : 'marked unasked';
         toast.success(
-          `${label === 'marked unasked' ? 'Marked' : 'Opted'} ${res.updatedCount ?? ids.length} constituents ${label === 'marked unasked' ? 'as never asked' : label}`
+          res.updatedCount === undefined
+            ? 'Updated consent for the selected constituents'
+            : `${label === 'marked unasked' ? 'Marked' : 'Opted'} ${res.updatedCount} constituents ${label === 'marked unasked' ? 'as never asked' : label}`
         );
         setSelectedIds(new Set());
         router.refresh();
@@ -647,7 +661,11 @@ export function CRMContactList({
       const ids = Array.from(selectedIds);
       const res = await bulkDeleteCRMContacts(ids);
       if (res.success) {
-        toast.success(`Deleted ${res.deletedCount ?? ids.length} constituents`);
+        toast.success(
+          res.deletedCount === undefined
+            ? 'Deleted the selected constituents'
+            : `Deleted ${res.deletedCount} constituents`
+        );
         setSelectedIds(new Set());
         router.refresh();
       } else {

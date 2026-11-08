@@ -104,6 +104,12 @@ export interface MockTableConfig {
    */
   count?: number | null;
   /**
+   * Override the count reported by an update or delete. `null` models a
+   * successful write whose response omitted the count, which callers must not
+   * turn into zero or a false “none exist” error.
+   */
+  writeCount?: number | null;
+  /**
    * Errors keyed on the *filter* that triggers them.
    *
    * `error` fails every query against the table, which is right for a single read
@@ -476,10 +482,11 @@ export class MockQueryBuilder {
       // failure for a delete that had worked — a mock narrower than the client
       // failing correct code, which is the failure mode this file exists to
       // prevent.
-      if (this.columns === null) return { error: null, count: affected.length, data: null };
+      const affectedCount = config.writeCount === undefined ? affected.length : config.writeCount;
+      if (this.columns === null) return { error: null, count: affectedCount, data: null };
       return {
         error: null,
-        count: affected.length,
+        count: affectedCount,
         data: affected.map((row) => this.#project(row)),
       };
     }
@@ -526,10 +533,11 @@ export class MockQueryBuilder {
       // No `.select()`: PostgREST returns nothing, and the caller cannot tell a
       // no-match write from a successful one. That is precisely why the actions
       // ask for the row back.
-      if (this.columns === null) return { error: null, count: affected.length, data: null };
+      const affectedCount = config.writeCount === undefined ? affected.length : config.writeCount;
+      if (this.columns === null) return { error: null, count: affectedCount, data: null };
       return {
         error: null,
-        count: affected.length,
+        count: affectedCount,
         data: affected.length === 0 ? null : this.#project(affected[0] as Record<string, unknown>),
       };
     }
