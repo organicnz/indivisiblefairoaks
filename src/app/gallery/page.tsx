@@ -387,7 +387,7 @@ export default function GalleryPage() {
                       <MapPin size={12} className="text-accent dark:text-accent-gold shrink-0" />
                       <span className="truncate">{photo.location}</span>
                     </span>
-                    <span className="font-mono text-[10px] text-slate-500 shrink-0">
+                    <span className="font-mono text-[10px] shrink-0">
                       {photo.date}
                     </span>
                   </div>
