@@ -8,49 +8,76 @@ const SHA = 'a'.repeat(40);
 
 describe('findUnpinnedActionRefs', () => {
   it('accepts full commit SHAs and refs that are not registry actions', () => {
-    const text = [
-      'jobs:',
-      '  checks:',
-      '    steps:',
-      `      - uses: actions/checkout@${SHA} # v7`,
-      '      - uses: ./.github/actions/local',
-      '      - uses: docker://alpine:3.20',
-      `      - uses: owner/repo/.github/workflows/reusable.yml@${SHA}`,
-    ].join('\n');
+    const workflow = {
+      jobs: {
+        checks: {
+          steps: [
+            { uses: `actions/checkout@${SHA}` },
+            { uses: './.github/actions/local' },
+            { uses: 'docker://alpine:3.20' },
+            { uses: `owner/repo/.github/workflows/reusable.yml@${SHA}` },
+          ],
+        },
+        reusable: { uses: `owner/repo/.github/workflows/reusable.yml@${SHA}` },
+      },
+    };
 
-    expect(findUnpinnedActionRefs(text)).toEqual([]);
+    expect(findUnpinnedActionRefs(workflow)).toEqual([]);
   });
 
-  it('reports floating tags, branches, short SHAs, and missing refs with line numbers', () => {
-    const text = [
-      'jobs:',
-      '  checks:',
-      '    steps:',
-      '      - uses: actions/checkout@v7',
-      '      - uses: "actions/cache@main"',
-      "      - uses: 'actions/upload-artifact@abc1234'",
-      '      - uses: example/action',
-    ].join('\n');
+  it('reports floating tags, branches, short SHAs, missing refs, and reusable refs', () => {
+    const workflow = {
+      jobs: {
+        checks: {
+          steps: [
+            { uses: 'actions/checkout@v7' },
+            { uses: 'actions/cache@main' },
+            { uses: 'actions/upload-artifact@abc1234' },
+            { uses: 'example/action' },
+            {
+              uses: `actions/checkout@${SHA}`,
+              with: { uses: 'actions/checkout@v7' },
+            },
+          ],
+        },
+        reusable: { uses: 'owner/repo/.github/workflows/reusable.yml@main' },
+      },
+    };
 
-    expect(
-      findUnpinnedActionRefs(text).map(({ line, ref, reason }) => ({ line, ref, reason }))
-    ).toEqual([
-      { line: 4, ref: 'actions/checkout@v7', reason: 'not a full commit SHA' },
-      { line: 5, ref: 'actions/cache@main', reason: 'not a full commit SHA' },
-      { line: 6, ref: 'actions/upload-artifact@abc1234', reason: 'not a full commit SHA' },
-      { line: 7, ref: 'example/action', reason: 'missing @ref' },
+    expect(findUnpinnedActionRefs(workflow)).toEqual([
+      {
+        path: 'jobs.checks.steps[0].uses',
+        ref: 'actions/checkout@v7',
+        reason: 'not a full commit SHA',
+      },
+      {
+        path: 'jobs.checks.steps[1].uses',
+        ref: 'actions/cache@main',
+        reason: 'not a full commit SHA',
+      },
+      {
+        path: 'jobs.checks.steps[2].uses',
+        ref: 'actions/upload-artifact@abc1234',
+        reason: 'not a full commit SHA',
+      },
+      {
+        path: 'jobs.checks.steps[3].uses',
+        ref: 'example/action',
+        reason: 'missing @ref',
+      },
+      {
+        path: 'jobs.reusable.uses',
+        ref: 'owner/repo/.github/workflows/reusable.yml@main',
+        reason: 'not a full commit SHA',
+      },
     ]);
   });
 
-  it('does not mistake comments for action references', () => {
-    const text = [
-      '# uses: actions/checkout@v7',
-      'jobs:',
-      '  checks:',
-      '    steps:',
-      `      - uses: actions/checkout@${SHA}`,
-    ].join('\n');
+  it('reports a non-string uses field instead of silently skipping it', () => {
+    const workflow = { jobs: { checks: { steps: [{ uses: null }] } } };
 
-    expect(findUnpinnedActionRefs(text)).toEqual([]);
+    expect(findUnpinnedActionRefs(workflow)).toEqual([
+      { path: 'jobs.checks.steps[0].uses', ref: 'null', reason: 'not a string' },
+    ]);
   });
 });

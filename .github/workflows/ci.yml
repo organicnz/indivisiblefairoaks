@@ -226,6 +226,12 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      # Workflow files are code too. This scans every workflow, not only the
+      # staged subset, so a floating action ref cannot bypass the pre-commit
+      # guard with --no-verify.
+      - name: Workflow YAML and action pinning
+        run: bun scripts/hooks/workflow-yaml.mjs .github/workflows/*.yml
+
       # `bun <binary>`, not `bunx <binary>`. `bunx` can fall back to the
       # registry when a package is not installed locally, and a linter that
       # silently ran a different version than the lockfile pins is exactly the

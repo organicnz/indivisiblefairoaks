@@ -132,6 +132,6 @@ The SHAs were resolved with `git ls-remote` and the GitHub API against the
 upstream tags. When upgrading an action, re-resolve its tag rather than
 replacing the pin with a floating major version.
 
-The `workflow-yaml` pre-commit guard rejects a staged workflow whose remote
-`uses:` reference is not a full commit SHA, so the policy cannot regress
-silently.
+The `workflow-yaml` guard rejects a remote `uses:` reference that is not a full
+commit SHA. It runs on staged workflows at commit time and over every workflow
+in the lint job, so a floating ref cannot bypass the policy with `--no-verify`.

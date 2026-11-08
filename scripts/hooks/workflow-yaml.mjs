@@ -8,7 +8,8 @@
  *
  * The same pass rejects a remote `uses:` reference that is not a full
  * commit SHA; a floating tag or branch can change CI without a repository
- * change.
+ * change. The scanner walks the parsed job and step structure, so folded
+ * scalars, quoted values, and reusable-workflow refs are checked alike.
  *
  * The parse is `Bun.YAML.parse`, so there is no Ruby dependency, no
  * subprocess, and no second language in a repository whose entire toolchain
@@ -25,9 +26,9 @@ const pinningErrors = [];
 for (const file of files) {
   try {
     const text = await Bun.file(file).text();
-    Bun.YAML.parse(text);
-    for (const finding of findUnpinnedActionRefs(text)) {
-      pinningErrors.push(`  ${file}:${finding.line}  ${finding.ref}`);
+    const workflow = Bun.YAML.parse(text);
+    for (const finding of findUnpinnedActionRefs(workflow)) {
+      pinningErrors.push(`  ${file}  ${finding.path}  ${finding.ref}`);
     }
   } catch {
     yamlErrors.push(`  ${file} (invalid YAML)`);
