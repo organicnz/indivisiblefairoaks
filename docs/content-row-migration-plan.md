@@ -71,16 +71,17 @@ authored CMS copy.
 2. **Move wanted copy into a live surface.** Use a **copy region** on the
    coded page (`copy-events-trainings` is the existing example) or a new CMS
    page with a free slug. Do not reuse the shadowed slug.
-3. **Archive the rest in the admin UI.** The list now marks every unreachable
+3. **Review the rest in the admin UI.** The list now marks every unreachable
    row with an **Unreachable** badge and a banner, and offers a server-side
    **Hide unreachable** filter so the page count and pager stay correct; while
    active it reports how many matching rows are hidden. Both use the existing
    `describeSlugConflict` / `isLegacySlug` helpers; no schema or data change is
    needed, and the list stops presenting dead rows as ordinary pages.
-4. **If durable state is preferred**, `content.metadata.archived = true` is
-   available without a migration; public reads already cannot resolve these
-   slugs. Do **not** use `status = 'draft'` as an archive: it changes publish
-   semantics and drafts remain in the list.
+4. **After approval, archive in a reviewed change.** `content.metadata.archived
+   = true` is available without a migration; public reads already cannot
+   resolve these slugs. The admin UI has no archive apply path yet, so do not
+   use Unpublish or Delete as archive. Do **not** use `status = 'draft'` as an
+   archive: it changes publish semantics and drafts remain in the list.
 5. **Delete only with explicit approval.** Export the row **and its
    `content_revisions`** first, and check the foreign key's delete behaviour —
    revisions are the only history of the old import.
