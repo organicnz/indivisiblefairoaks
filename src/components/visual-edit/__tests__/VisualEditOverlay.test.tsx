@@ -1635,6 +1635,41 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     expect(written).not.toMatch(/<h2[^>]*rounded-2xl/);
   });
 
+  it('preserves a published page’s original date when visual-saving', async () => {
+    renderPage(rendered);
+    getContentBySlugForEdit.mockResolvedValue({
+      id: 7,
+      title: 'About Us',
+      slug: 'about',
+      excerpt: null,
+      type: 'page',
+      status: 'publish',
+      body,
+      featured_image: null,
+      metadata: {},
+      published_at: '2026-01-01T00:00:00.000Z',
+      updated_at: '2026-10-09T00:00:00Z',
+    });
+    await mount();
+
+    const paragraph = pageChildren().children[0] as HTMLElement;
+    await act(async () => {
+      paragraph.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+    await act(async () => {
+      paragraph.innerHTML = 'Updated intro.';
+      paragraph.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => {
+      window.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Enter', metaKey: true, bubbles: true })
+      );
+    });
+
+    const written = saveContent.mock.calls.at(-1)?.[0];
+    expect(written?.publishedAt).toBe('2026-01-01T00:00:00.000Z');
+  });
+
   it('keeps typed copy on the page when it is applied', async () => {
     await withPage();
     const paragraph = pageChildren().children[0] as HTMLElement;

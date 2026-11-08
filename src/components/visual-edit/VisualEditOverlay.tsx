@@ -1981,6 +1981,7 @@ export function VisualEditOverlay() {
           status: saveStatus,
           body: newBody,
           featuredImage: contentRow?.featured_image || pageFeaturedImage || null,
+          publishedAt: contentRow?.published_at ?? undefined,
           expectedUpdatedAt: contentRow?.updated_at ?? undefined,
           metadata: contentRow?.metadata ?? {},
         });
@@ -3823,6 +3824,7 @@ export function VisualEditOverlay() {
         status: pageStatus,
         body: contentRow?.body || serializeBlocks(blocks),
         featuredImage: pageFeaturedImage || null,
+        publishedAt: contentRow?.published_at ?? undefined,
         expectedUpdatedAt: contentRow?.updated_at ?? undefined,
         metadata: contentRow?.metadata ?? {},
       });
