@@ -2933,7 +2933,10 @@ export async function getCRMMediaFiles(options?: {
       sortBy: { column: 'created_at', order: 'desc' },
     });
 
-    if (error || !data) continue;
+    if (error) {
+      throw new Error(`Failed to list ${f} media: ${error.message}`);
+    }
+    if (!data) continue;
 
     for (const item of data) {
       if (!item.name || item.name === '.emptyFolderPlaceholder') continue;

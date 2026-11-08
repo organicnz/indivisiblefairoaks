@@ -154,6 +154,37 @@ describe('CRMMediaLibraryModal component', () => {
     expect(mockGetCRMMediaFiles).toHaveBeenCalledWith({ folder: 'content', search: '' });
   });
 
+  it('clears stale assets when a folder load fails', async () => {
+    const onSelect = vi.fn();
+    const onClose = vi.fn();
+
+    await act(async () => {
+      root.render(
+        <CRMMediaLibraryModal
+          isOpen={true}
+          onClose={onClose}
+          onSelectMedia={onSelect}
+          initialFolder="crm"
+        />
+      );
+    });
+
+    expect(document.body.textContent).toContain('fair-oaks-rally.jpg');
+    mockGetCRMMediaFiles.mockRejectedValueOnce(new Error('storage unavailable'));
+
+    const contentFolderBtn = Array.from(document.body.querySelectorAll('button')).find((btn) =>
+      btn.textContent?.includes('Site & Content')
+    );
+    expect(contentFolderBtn).toBeDefined();
+
+    await act(async () => {
+      contentFolderBtn?.click();
+    });
+
+    expect(mockToast.error).toHaveBeenCalledWith('storage unavailable');
+    expect(document.body.textContent).not.toContain('fair-oaks-rally.jpg');
+  });
+
   it('uploads media targeting the active folder and auto-selects result', async () => {
     const onSelect = vi.fn();
     const onClose = vi.fn();

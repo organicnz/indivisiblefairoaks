@@ -65,6 +65,9 @@ export function CRMMediaLibraryModal({
       const res = await getCRMMediaFiles({ folder, search });
       setMediaItems(res.items);
     } catch (err) {
+      // A failed folder load must not leave the previous folder's assets on
+      // screen under the new folder's heading.
+      setMediaItems([]);
       toast.error(err instanceof Error ? err.message : 'Failed to load media files');
     } finally {
       setIsLoading(false);

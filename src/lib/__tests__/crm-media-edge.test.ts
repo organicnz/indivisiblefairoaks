@@ -135,6 +135,40 @@ describe('CRM Supabase S3 Storage Media & Edge Function API', () => {
       expect(mockStorageFrom.list).toHaveBeenCalledWith('crm', expect.anything());
     });
 
+    it('fails closed when the folder listing errors', async () => {
+      mockStorageFrom.list.mockResolvedValueOnce({
+        data: null,
+        error: { message: 'storage unavailable' },
+      });
+
+      await expect(getCRMMediaFiles({ folder: 'crm' })).rejects.toThrow(
+        'Failed to list crm media: storage unavailable'
+      );
+    });
+
+    it('does not return a partial all-folder library when a later folder fails', async () => {
+      mockStorageFrom.list
+        .mockResolvedValueOnce({
+          data: [
+            {
+              name: 'crm-file.jpg',
+              id: 'crm/crm-file.jpg',
+              created_at: '2026-10-01T12:00:00Z',
+              metadata: { size: 100, mimetype: 'image/jpeg' },
+            },
+          ],
+          error: null,
+        })
+        .mockResolvedValueOnce({
+          data: null,
+          error: { message: 'content unavailable' },
+        });
+
+      await expect(getCRMMediaFiles({ folder: 'all' })).rejects.toThrow(
+        'Failed to list content media: content unavailable'
+      );
+    });
+
     it('fills in the defaults a storage row may be missing', async () => {
       // A row with no `metadata`, no `id` and no timestamps is what a file
       // uploaded outside the CRM looks like. Every field the library shows has
