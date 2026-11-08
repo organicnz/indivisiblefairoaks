@@ -198,8 +198,14 @@ export async function deleteCivicEvent(slug: string): Promise<CivicActionResult>
     const cleanSlug = slugify(slug);
     if (!cleanSlug) return fail('Event slug is required');
 
-    const { error } = await adminClient.from('events').delete().eq('slug', cleanSlug);
+    const { data: deleted, error } = await adminClient
+      .from('events')
+      .delete()
+      .eq('slug', cleanSlug)
+      .select('slug')
+      .maybeSingle();
     if (error) return fail(error.message);
+    if (!deleted) return fail('Event not found');
 
     revalidateTag('events', 'hours');
     revalidatePath('/events');
@@ -299,8 +305,14 @@ export async function deleteCivicNewsletter(slug: string): Promise<CivicActionRe
     const cleanSlug = slugify(slug);
     if (!cleanSlug) return fail('Newsletter slug is required');
 
-    const { error } = await adminClient.from('newsletters').delete().eq('slug', cleanSlug);
+    const { data: deleted, error } = await adminClient
+      .from('newsletters')
+      .delete()
+      .eq('slug', cleanSlug)
+      .select('slug')
+      .maybeSingle();
     if (error) return fail(error.message);
+    if (!deleted) return fail('Newsletter not found');
 
     revalidateTag('newsletters', 'hours');
     revalidatePath('/news');
@@ -405,8 +417,14 @@ export async function deleteCoalitionLink(slug: string): Promise<CivicActionResu
     const cleanSlug = slugify(slug);
     if (!cleanSlug) return fail('Link slug is required');
 
-    const { error } = await adminClient.from('coalition_links').delete().eq('slug', cleanSlug);
+    const { data: deleted, error } = await adminClient
+      .from('coalition_links')
+      .delete()
+      .eq('slug', cleanSlug)
+      .select('slug')
+      .maybeSingle();
     if (error) return fail(error.message);
+    if (!deleted) return fail('Link not found');
 
     revalidateTag('coalition-links', 'hours');
     revalidatePath('/links');

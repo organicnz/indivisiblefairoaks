@@ -222,18 +222,25 @@ describe('Civic Server Actions', () => {
 
   describe('deleteCivicEvent', () => {
     it('deletes an event by slug', async () => {
+      const rows = [{ slug: 'monthly-gathering', title: 'Monthly Gathering' }];
       requireAdmin.mockResolvedValue({
-        adminClient: {
-          from: () => ({
-            delete: () => ({
-              eq: async () => ({ error: null }),
-            }),
-          }),
-        },
+        adminClient: createMockAdminClient({ events: { rows } }),
       });
 
       const res = await deleteCivicEvent('monthly-gathering');
+
       expect(res.success).toBe(true);
+      expect(rows).toHaveLength(0);
+    });
+
+    it('reports an event that no longer exists', async () => {
+      requireAdmin.mockResolvedValue({
+        adminClient: createMockAdminClient({ events: { rows: [] } }),
+      });
+
+      const res = await deleteCivicEvent('monthly-gathering');
+
+      expect(res).toEqual({ success: false, error: 'Event not found' });
     });
   });
 
@@ -294,18 +301,25 @@ describe('Civic Server Actions', () => {
     });
 
     it('deletes a newsletter by slug', async () => {
+      const rows = [{ slug: 'bulletin-summer', title: 'Summer Bulletin' }];
       requireAdmin.mockResolvedValue({
-        adminClient: {
-          from: () => ({
-            delete: () => ({
-              eq: async () => ({ error: null }),
-            }),
-          }),
-        },
+        adminClient: createMockAdminClient({ newsletters: { rows } }),
       });
 
       const res = await deleteCivicNewsletter('bulletin-summer');
+
       expect(res.success).toBe(true);
+      expect(rows).toHaveLength(0);
+    });
+
+    it('reports a newsletter that no longer exists', async () => {
+      requireAdmin.mockResolvedValue({
+        adminClient: createMockAdminClient({ newsletters: { rows: [] } }),
+      });
+
+      const res = await deleteCivicNewsletter('bulletin-summer');
+
+      expect(res).toEqual({ success: false, error: 'Newsletter not found' });
     });
   });
 
@@ -383,18 +397,25 @@ describe('Civic Server Actions', () => {
     });
 
     it('deletes a coalition link by slug', async () => {
+      const rows = [{ slug: 'sister-district', name: 'Sister District Project' }];
       requireAdmin.mockResolvedValue({
-        adminClient: {
-          from: () => ({
-            delete: () => ({
-              eq: async () => ({ error: null }),
-            }),
-          }),
-        },
+        adminClient: createMockAdminClient({ coalition_links: { rows } }),
       });
 
       const res = await deleteCoalitionLink('sister-district');
+
       expect(res.success).toBe(true);
+      expect(rows).toHaveLength(0);
+    });
+
+    it('reports a coalition link that no longer exists', async () => {
+      requireAdmin.mockResolvedValue({
+        adminClient: createMockAdminClient({ coalition_links: { rows: [] } }),
+      });
+
+      const res = await deleteCoalitionLink('sister-district');
+
+      expect(res).toEqual({ success: false, error: 'Link not found' });
     });
   });
 });
