@@ -85,6 +85,7 @@ export function ContentList({
   }, [q]);
 
   const totalPages = Math.max(1, Math.ceil(initialTotal / pageSize));
+  const pageOutOfRange = initialRows.length === 0 && initialTotal > 0 && initialPage > totalPages;
 
   const handleToggle = async (row: ContentListRow) => {
     setBusyId(row.id);
@@ -222,18 +223,31 @@ export function ContentList({
           <div className="px-6 py-16 text-center">
             <FileText size={32} className="mx-auto mb-3 text-muted-foreground" aria-hidden="true" />
             <p className="text-sm font-medium text-muted-foreground">
-              {hasAppliedFilters
-                ? hide
-                  ? 'No reachable pages match these filters.'
-                  : 'No pages match these filters.'
-                : 'No pages yet.'}
+              {pageOutOfRange
+                ? 'That page is out of range.'
+                : hasAppliedFilters
+                  ? hide
+                    ? 'No reachable pages match these filters.'
+                    : 'No pages match these filters.'
+                  : 'No pages yet.'}
             </p>
-            <Link
-              href="/admin/content/new"
-              className="mt-3 inline-block text-sm font-semibold text-primary dark:text-primary-on-dark underline underline-offset-2 focus-visible:ring-2 focus-visible:ring-primary"
-            >
-              {hasAppliedFilters ? 'Create a new page' : 'Create the first page'}
-            </Link>
+            {pageOutOfRange ? (
+              <div className="mt-3">
+                <PageLink
+                  page={1}
+                  label="Go to first page"
+                  disabled={false}
+                  params={{ status, type, q: query.trim(), hide: hide ? 'unreachable' : '' }}
+                />
+              </div>
+            ) : (
+              <Link
+                href="/admin/content/new"
+                className="mt-3 inline-block text-sm font-semibold text-primary dark:text-primary-on-dark underline underline-offset-2 focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                {hasAppliedFilters ? 'Create a new page' : 'Create the first page'}
+              </Link>
+            )}
           </div>
         ) : (
           <>

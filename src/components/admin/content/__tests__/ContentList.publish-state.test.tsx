@@ -204,6 +204,20 @@ describe('ContentList publish-state actions', () => {
     expect(routerPush).toHaveBeenCalledWith('/admin/content');
   });
 
+  it('offers a way back from an empty out-of-range page', () => {
+    act(() => {
+      root.render(
+        <ContentList initialRows={[]} initialTotal={1} initialPage={2} pageSize={25} />
+      );
+    });
+
+    expect(container.textContent).toContain('That page is out of range.');
+    const back = [...container.querySelectorAll('a')].find(
+      (link) => link.textContent?.trim() === 'Go to first page'
+    );
+    expect(back?.getAttribute('href')).toBe('/admin/content?page=1');
+  });
+
   it('does not call a filtered empty list the first page', () => {
     searchParams.current = new URLSearchParams('q=missing');
     render([]);
