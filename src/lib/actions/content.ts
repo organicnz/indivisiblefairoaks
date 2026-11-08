@@ -171,7 +171,10 @@ export async function getContentList({
       }
       const { count: hiddenRows, error: hiddenError } = await hiddenBuilder.in('slug', hidden);
       if (hiddenError) throw new Error(`Failed to count hidden content: ${hiddenError.message}`);
-      hiddenCount = hiddenRows ?? 0;
+      if (hiddenRows === null) {
+        throw new Error('Failed to count hidden content: total count unavailable');
+      }
+      hiddenCount = hiddenRows;
     }
   }
 
@@ -184,9 +187,12 @@ export async function getContentList({
     .range((safePage - 1) * safePageSize, safePage * safePageSize - 1);
 
   if (error) throw new Error(`Failed to load content: ${error.message}`);
+  if (count === null) {
+    throw new Error('Failed to load content: total count unavailable');
+  }
   return {
     rows: data ?? [],
-    totalCount: count ?? 0,
+    totalCount: count,
     page: safePage,
     pageSize: safePageSize,
     hiddenCount,

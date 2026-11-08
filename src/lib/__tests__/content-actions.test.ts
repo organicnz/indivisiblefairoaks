@@ -168,6 +168,18 @@ describe('getContentList', () => {
     expect(result.rows.map((row) => row.id)).toEqual([1]);
   });
 
+  it('fails instead of reporting zero when the content count is unavailable', async () => {
+    requireAdmin.mockResolvedValue({
+      adminClient: createMockAdminClient({
+        content: { rows: [{ id: 1, slug: 'hello' }], count: null },
+      }),
+    });
+
+    await expect(getContentList()).rejects.toThrow(
+      /Failed to load content.*total count unavailable/i
+    );
+  });
+
   it('excludes reserved and legacy slugs when hideUnreachable is set', async () => {
     const base = {
       excerpt: null,
@@ -196,6 +208,18 @@ describe('getContentList', () => {
     const unfiltered = await getContentList();
     expect(unfiltered.rows).toHaveLength(3);
     expect(unfiltered.hiddenCount).toBe(0);
+  });
+
+  it('fails instead of reporting zero hidden pages when that count is unavailable', async () => {
+    requireAdmin.mockResolvedValue({
+      adminClient: createMockAdminClient({
+        content: { rows: [], count: null },
+      }),
+    });
+
+    await expect(getContentList({ hideUnreachable: true })).rejects.toThrow(
+      /Failed to count hidden content.*total count unavailable/i
+    );
   });
 });
 
