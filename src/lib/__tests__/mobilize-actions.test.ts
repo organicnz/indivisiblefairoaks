@@ -8,7 +8,8 @@ vi.mock('server-only', () => ({}));
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn(), revalidateTag: vi.fn() }));
 vi.mock('@/lib/env', () => ({ env: {} }));
 
-const { importMobilizeEvent, previewMobilizeSource } = await import('@/lib/actions/mobilize');
+const { importMobilizeEvent, previewMobilizeSource, setEventSyncLock, setMobilizeEventHidden } =
+  await import('@/lib/actions/mobilize');
 const { createMockAdminClient } = await import('./supabase-mock');
 import type { MockTableConfig } from './supabase-mock';
 
@@ -151,5 +152,39 @@ describe('previewMobilizeSource reads', () => {
 
     expect(res).toMatchObject({ success: false, error: 'connection reset' });
     expect(fetchSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe('Mobilize event toggles', () => {
+  it('reports a missing event when hiding it', async () => {
+    const tables: Record<string, MockTableConfig> = { events: { rows: [] } };
+    requireAdmin.mockResolvedValue({ adminClient: createMockAdminClient(tables) });
+
+    const res = await setMobilizeEventHidden('1011420', true);
+
+    expect(res).toMatchObject({ success: false, error: 'That event no longer exists' });
+  });
+
+  it('reports a missing event when locking it', async () => {
+    const tables: Record<string, MockTableConfig> = { events: { rows: [] } };
+    requireAdmin.mockResolvedValue({ adminClient: createMockAdminClient(tables) });
+
+    const res = await setEventSyncLock('mobilize-1011420', true);
+
+    expect(res).toMatchObject({ success: false, error: 'That event no longer exists' });
+  });
+
+  it('updates an existing imported event when hiding it', async () => {
+    const tables: Record<string, MockTableConfig> = {
+      events: {
+        rows: [{ slug: 'mobilize-1011420', external_id: '1011420', is_hidden: false }],
+      },
+    };
+    requireAdmin.mockResolvedValue({ adminClient: createMockAdminClient(tables) });
+
+    const res = await setMobilizeEventHidden('1011420', true);
+
+    expect(res).toMatchObject({ success: true, data: null });
+    expect(tables.events.rows?.[0]).toMatchObject({ is_hidden: true });
   });
 });

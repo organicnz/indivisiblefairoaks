@@ -1334,7 +1334,16 @@ export async function bulkUpdateCRMContacts({
         status as Database['public']['Tables']['crm_contacts']['Update']['status'];
     if (district) updatePayload.district = district;
 
-    await adminClient.from('crm_contacts').update(updatePayload).eq('id', c.id);
+    const { data: updatedContact, error: updateError } = await adminClient
+      .from('crm_contacts')
+      .update(updatePayload)
+      .eq('id', c.id)
+      .select('id')
+      .maybeSingle();
+    if (updateError) return { success: false, error: updateError.message };
+    if (!updatedContact) {
+      return { success: false, error: 'A selected contact no longer exists' };
+    }
   }
 
   revalidateCRMRoutes();

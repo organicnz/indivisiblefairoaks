@@ -578,11 +578,14 @@ export async function setMobilizeEventHidden(
 ): Promise<MobilizeActionResult<null>> {
   try {
     const client = await adminClient();
-    const { error } = await client
+    const { data: updated, error } = await client
       .from('events')
       .update({ is_hidden: hidden, updated_at: new Date().toISOString() })
-      .eq('external_id', String(externalId).trim());
+      .eq('external_id', String(externalId).trim())
+      .select('id')
+      .maybeSingle();
     if (error) return fail(error.message);
+    if (!updated) return fail('That event no longer exists');
 
     revalidateEvents();
     return { success: true, data: null };
@@ -598,11 +601,14 @@ export async function setEventSyncLock(
 ): Promise<MobilizeActionResult<null>> {
   try {
     const client = await adminClient();
-    const { error } = await client
+    const { data: updated, error } = await client
       .from('events')
       .update({ sync_locked: locked, updated_at: new Date().toISOString() })
-      .eq('slug', slug);
+      .eq('slug', slug)
+      .select('id')
+      .maybeSingle();
     if (error) return fail(error.message);
+    if (!updated) return fail('That event no longer exists');
 
     revalidateEvents();
     return { success: true, data: null };

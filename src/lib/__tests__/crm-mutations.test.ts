@@ -706,6 +706,26 @@ describe('CRM mutation failure paths', () => {
       expect(res.error).toBe('fetch contacts failed');
     });
 
+    it('reports a per-contact update failure instead of reporting success', async () => {
+      tables.crm_contacts = {
+        rows: [{ id: 'c1', status: 'supporter', tags: ['old'] }],
+        errors: [
+          {
+            kind: 'eq',
+            column: 'id',
+            error: { message: 'connection reset' },
+          },
+        ],
+      };
+      const res = await bulkUpdateCRMContacts({
+        contactIds: ['c1'],
+        addTags: ['new-tag'],
+      });
+
+      expect(res).toMatchObject({ success: false, error: 'connection reset' });
+      expect(tables.crm_contacts.rows?.[0]).toMatchObject({ tags: ['old'] });
+    });
+
     it('adds and removes tags in bulk across contacts', async () => {
       tables.crm_contacts = {
         rows: [

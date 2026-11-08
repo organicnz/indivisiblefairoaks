@@ -21,14 +21,22 @@ vi.mock('@/lib/mfa-guard', () => ({
 
 const { markAdminUser } = await import('@/app/admin/actions');
 
-function adminClientWithProfile(profileResult: { data: unknown; error: unknown }) {
-  const updateEq = vi.fn().mockResolvedValue({ error: null });
+function adminClientWithProfile(
+  profileResult: { data: unknown; error: unknown },
+  updateResult: { data: unknown; error: unknown } = {
+    data: { id: 'profile-1' },
+    error: null,
+  }
+) {
+  const updateMaybeSingle = vi.fn().mockResolvedValue(updateResult);
+  const updateSelect = vi.fn(() => ({ maybeSingle: updateMaybeSingle }));
+  const updateEq = vi.fn(() => ({ select: updateSelect }));
   const update = vi.fn(() => ({ eq: updateEq }));
   const maybeSingle = vi.fn().mockResolvedValue(profileResult);
   const or = vi.fn(() => ({ maybeSingle }));
   const select = vi.fn(() => ({ or }));
   const from = vi.fn(() => ({ select, update }));
-  return { client: { from }, update, updateEq };
+  return { client: { from }, update, updateEq, updateMaybeSingle };
 }
 
 describe('admin authorization', () => {
@@ -63,6 +71,19 @@ describe('admin authorization', () => {
     mocks.createAdminClient.mockResolvedValue(client);
 
     await expect(markAdminUser('profile-1', true)).rejects.toThrow('Not authorised');
+  });
+
+  it('rejects an update that matched no profile', async () => {
+    const { client } = adminClientWithProfile(
+      { data: { is_admin: true }, error: null },
+      { data: null, error: null }
+    );
+    mocks.createAdminClient.mockResolvedValue(client);
+
+    await expect(markAdminUser('missing-profile', true)).rejects.toThrow(
+      'That profile no longer exists'
+    );
+    expect(mocks.revalidatePath).not.toHaveBeenCalled();
   });
 
   it('updates and revalidates for a verified admin', async () => {

@@ -34,11 +34,14 @@ async function requireAdminClient() {
 
 export async function markAdminUser(profileId: string, isAdmin: boolean) {
   const adminClient = await requireAdminClient();
-  const { error } = await adminClient
+  const { data: updated, error } = await adminClient
     .from('profiles')
     .update({ is_admin: isAdmin })
-    .eq('id', profileId);
+    .eq('id', profileId)
+    .select('id')
+    .maybeSingle();
   if (error) throw new Error(error.message);
+  if (!updated) throw new Error('That profile no longer exists');
   revalidatePath('/admin/crm');
   revalidatePath('/admin');
 }
