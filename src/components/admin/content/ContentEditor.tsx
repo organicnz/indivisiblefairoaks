@@ -516,6 +516,11 @@ export function ContentEditor({ initial, siteHost }: Props) {
         status: nextStatus,
         body,
         featuredImage: featuredImage.trim() || null,
+        // Preserve the stored publication date on edits. Without it, saveContent
+        // treats every published save as "publish now", so fixing a typo moves
+        // the page back to the top of `/news`. Omit the field for a new or
+        // never-published row so the first publish still stamps the current time.
+        ...(initial.id && initial.publishedAt ? { publishedAt: initial.publishedAt } : {}),
         // Only claim a version for a row that exists. A new page has nothing to
         // be stale against, and sending `null` there would assert the row is
         // already there with no timestamp.

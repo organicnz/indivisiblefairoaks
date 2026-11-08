@@ -127,6 +127,24 @@ describe('Publishing does not discard unsaved edits', () => {
     });
   };
 
+  it('preserves the original publication date when saving an existing page', async () => {
+    const publishedAt = '2026-09-20T18:00:00.000Z';
+    render({ status: 'publish', publishedAt });
+    type('Meeting notes — corrected');
+
+    const save = [...container.querySelectorAll('button')].find(
+      (button) => button.textContent?.trim() === 'Save'
+    ) as HTMLButtonElement | undefined;
+    expect(save).toBeDefined();
+
+    await act(async () => {
+      if (save) click(save);
+    });
+
+    const payload = saveContent.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(payload.publishedAt).toBe(publishedAt);
+  });
+
   it('saves the whole document at the new status rather than flipping status alone', async () => {
     render();
 
