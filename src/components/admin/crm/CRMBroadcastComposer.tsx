@@ -15,6 +15,7 @@ import {
   Megaphone,
   PenTool,
   Radio,
+  RefreshCw,
   Save,
   Send,
   SendHorizonal,
@@ -141,6 +142,7 @@ export function CRMBroadcastComposer({
   const [drafts, setDrafts] = useState<CRMBroadcast[]>(initialDrafts);
   const [savingDraft, setSavingDraft] = useState(false);
   const [progress, setProgress] = useState<BroadcastProgress | null>(null);
+  const resumeInFlightRef = useRef(false);
 
   // Audience size
   const [recipientCount, setRecipientCount] = useState<number | null>(null);
@@ -268,8 +270,9 @@ export function CRMBroadcastComposer({
    * proportional to the ceiling.
    */
   const followProgress = async (broadcastId: string) => {
-    // 10s heartbeat intervals. The same time budget as before (2s × 5 = 10s per
-    // interval, same maxAttempts formula).
+    // 10s heartbeat intervals. maxAttempts is derived from the sender's batch
+    // ceiling plus slack; at the ceiling this is roughly 90 minutes, longer than
+    // the 15-minute dispatch bound, so a valid send is not abandoned by the view.
     const HEARTBEAT_MS = 10_000;
     // The sender batches ten at a time, so the worst case is the full ceiling
     // plus slack for the audience query and the final status write.
@@ -354,7 +357,11 @@ export function CRMBroadcastComposer({
           return;
         }
 
-        setProgress(current);
+        // `getBroadcastProgress` reads the row and has no client-only
+        // `stillWatching`; without this the first successful poll erased the
+        // live state and made a healthy feed look stopped. This loop is
+        // watching right now, so the poll cannot claim otherwise.
+        setProgress(current ? { ...current, stillWatching: true } : current);
         if (current.status !== 'queued' && current.status !== 'sending') {
           startTransition(() => router.refresh());
           void channel.unsubscribe();
@@ -400,6 +407,24 @@ export function CRMBroadcastComposer({
     );
     if (inFlight) void followProgressRef.current(inFlight.id);
   }, [initialBroadcasts]);
+
+  /**
+   * Reattach the progress feed without reloading the page or re-dispatching.
+   *
+   * `stillWatching: false` is a fact about this tab, not the campaign. A page
+   * refresh restarts the whole view; this starts only a fresh read loop and
+   * leaves the send, the composer and the history untouched. The optimistic
+   * flag removes the control immediately, and the ref stops a double click from
+   * opening two subscriptions before that render lands.
+   */
+  const handleResumeProgress = () => {
+    if (!progress || progress.stillWatching || resumeInFlightRef.current) return;
+    resumeInFlightRef.current = true;
+    setProgress((current) => (current ? { ...current, stillWatching: true } : current));
+    void followProgressRef.current(progress.id).finally(() => {
+      resumeInFlightRef.current = false;
+    });
+  };
 
   /**
    * The preview is the message, not an illustration of it: rendered by the same
@@ -1368,15 +1393,16 @@ export function CRMBroadcastComposer({
                   <>
                     <p className="mt-1 text-xs text-muted-foreground">
                       {progress.sentCount} of {progress.recipientCount} accepted as of the last
-                      check. The send continues in the background — it is not stuck. Refresh to pick
-                      it up again.
+                      check. The send continues in the background — it is not stuck. Resume
+                      updates here, or refresh the page, to pick it up again.
                     </p>
                     <button
                       type="button"
-                      onClick={() => router.refresh()}
-                      className="mt-2 rounded-lg border border-border bg-surface-card px-3 py-1.5 text-xs font-bold text-muted-foreground transition-colors hover:bg-surface-muted focus-visible:ring-2 focus-visible:ring-primary"
+                      onClick={handleResumeProgress}
+                      className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-card px-3 py-1.5 text-xs font-bold text-muted-foreground transition-colors hover:bg-surface-muted focus-visible:ring-2 focus-visible:ring-primary"
                     >
-                      Refresh
+                      <RefreshCw size={14} />
+                      Resume updates
                     </button>
                   </>
                 )}

@@ -791,7 +791,9 @@ handle used to be a decorative `<span>`.
   it is suppressed per element with the reason, not for the file, because
   `BlockEditor` has thirty blocks and a file-scope suppression would hide a real
   regression on any of them.
-- **A large broadcast's progress view gives up after ~30 minutes.** The CRM
-  composer's poll is derived from the recipient ceiling rather than a fixed count,
-  then stops and says the *view* has stopped updating. That is a statement about
-  the tab, not the send. See [`crm-operations.md`](./crm-operations.md) § Recovery.
+- **A large broadcast's progress view gives up after a bounded number of polls.**
+  The CRM composer's poll is derived from the recipient ceiling rather than a
+  fixed count, then stops and says the *view* has stopped updating. That is a
+  statement about the tab, not the send; **Resume updates** starts a fresh read
+  loop without reloading the page or re-dispatching the campaign. See
+  [`crm-operations.md`](./crm-operations.md) § Recovery.

@@ -566,15 +566,17 @@ states. Losing the feed now says so, rather than leaving a frozen "Sending 120 o
 5,000".
 
 **The composer's tab stops watching, and says so.** `followProgress` runs
-`ceil(BROADCAST_RECIPIENT_CEILING / 10) + 30` attempts at 2 s — roughly half an
-hour, derived from the ceiling rather than a fixed 90 — then sets
-`stillWatching: false`, refreshes, and renders *"Still sending, but this view has
-stopped updating."* That is a statement about the **view**, not about the send:
-the row may well be fine. A campaign at the full ceiling is five hundred
-ten-at-a-time round-trips to the provider. Refresh the page, or read
-`sent_count` / `failed_count` directly, before concluding anything is stuck. The
-poll used to return silently without refreshing, so a large campaign left the row
-reading `sending` in that tab with no way to tell a slow send from a stuck one.
+`ceil(BROADCAST_RECIPIENT_CEILING / 10) + 30` attempts at 10 s — roughly ninety
+minutes at the ceiling, derived from the recipient ceiling rather than a fixed
+count — then sets `stillWatching: false`, refreshes, and renders *"Still sending,
+but this view has stopped updating."* That is a statement about the **view**, not
+about the send: the row may well be fine. A campaign at the full ceiling is five
+hundred ten-at-a-time round-trips to the provider. **Resume updates** starts a
+fresh read loop without reloading the page or re-dispatching the campaign; a page
+refresh works too. Read `sent_count` / `failed_count` directly before concluding
+anything is stuck. The poll used to return silently without refreshing, so a
+large campaign left the row reading `sending` in that tab with no way to tell a
+slow send from a stuck one.
 
 ---
 

@@ -9,8 +9,9 @@ import {
   getBroadcastRecipientCount,
   previewCRMBroadcast,
   saveCRMBroadcastDraft,
+  sendCRMBroadcast,
 } from '@/lib/actions/crm';
-import type { CRMBroadcast } from '@/types/crm';
+import type { BroadcastProgress, CRMBroadcast } from '@/types/crm';
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
@@ -63,6 +64,18 @@ const broadcast = (over: Partial<CRMBroadcast> = {}): CRMBroadcast =>
     test_recipient: null,
     ...over,
   }) as CRMBroadcast;
+
+const progress = (over: Partial<BroadcastProgress> = {}): BroadcastProgress => ({
+  id: 'broadcast-1',
+  subject: 'Chapter meeting Tuesday',
+  status: 'sending',
+  recipientCount: 500,
+  sentCount: 120,
+  failedCount: 0,
+  sentAt: null,
+  createdAt: '2026-09-20T18:00:00.000Z',
+  ...over,
+});
 
 const draft = (over: Partial<CRMBroadcast> = {}): CRMBroadcast =>
   ({
@@ -204,6 +217,7 @@ describe('broadcast composer failure states', () => {
     // test happens to run next and fails it for the wrong reason.
     vi.mocked(getBroadcastRecipientCount).mockReset();
     vi.mocked(getBroadcastRecipientCount).mockResolvedValue({ count: 128, excludedCount: 0 });
+    vi.mocked(getBroadcastProgress).mockReset();
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
@@ -427,6 +441,43 @@ describe('broadcast composer failure states', () => {
     expect(toast.error).toHaveBeenCalledWith(
       'Lost the progress feed — reload to check the campaign'
     );
+  });
+
+  it('resumes progress without re-dispatching the campaign', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.mocked(getBroadcastProgress)
+        .mockResolvedValueOnce(progress({ sentCount: 120 }))
+        .mockRejectedValueOnce(new Error('db down'))
+        .mockResolvedValueOnce(progress({ sentCount: 240 }));
+
+      render([broadcast({ id: 'broadcast-1', status: 'sending', recipient_count: 500 })]);
+
+      // A successful poll is still a live view. The server action has no
+      // client-only `stillWatching`, so this also pins that the poll cannot
+      // overwrite the live state with undefined.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      expect(text()).toContain('120 of 500 accepted');
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(10_000);
+      });
+      expect(text()).toContain('Resume updates');
+
+      clickButton('Resume updates');
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      expect(text()).toContain('240 of 500 accepted');
+      expect(text()).not.toContain('Resume updates');
+      // Resuming is a read. The campaign must not be handed to the sender again.
+      expect(vi.mocked(sendCRMBroadcast)).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
