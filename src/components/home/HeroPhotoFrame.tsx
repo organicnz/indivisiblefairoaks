@@ -1,9 +1,9 @@
 'use client';
 
 import { AnimatePresence, motion, useReducedMotion, type Variants } from 'motion/react';
-import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { GalleryImage } from '@/components/gallery/GalleryImage';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { useDataPoints } from '@/hooks/useDataPoints';
 
@@ -141,10 +141,9 @@ export function HeroPhotoFrame({ photos: initialPhotos }: { photos?: GalleryPhot
                 exit={{ opacity: 0 }}
                 transition={{ duration: dur ?? 1.1, ease: EASE_STD }}
               >
-                <Image
-                  src={heroPhotos[heroIndex]?.src}
-                  alt={heroPhotos[heroIndex]?.alt}
-                  fill
+                <GalleryImage
+                  src={heroPhotos[heroIndex]?.src ?? ''}
+                  alt={heroPhotos[heroIndex]?.alt ?? ''}
                   className="object-cover"
                   sizes="(min-width: 1024px) 44vw, 100vw"
                   priority
@@ -207,10 +206,9 @@ export function HeroPhotoFrame({ photos: initialPhotos }: { photos?: GalleryPhot
               key={photo.id}
               className="relative rounded-xl overflow-hidden border border-border dark:border-white/10 shadow-lg aspect-square"
             >
-              <Image
+              <GalleryImage
                 src={photo.src}
                 alt={photo.alt}
-                fill
                 className="object-cover"
                 sizes="(min-width: 1024px) 22vw, 50vw"
               />

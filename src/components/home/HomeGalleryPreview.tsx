@@ -1,10 +1,10 @@
 'use client';
 
 import { ArrowRight, Camera, Filter, MapPin } from 'lucide-react';
-import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
+import { GalleryImage } from '@/components/gallery/GalleryImage';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { getGalleryPhotos } from '@/lib/queries/content-client';
 import type { GalleryPhotoView } from '@/types/gallery';
@@ -163,10 +163,9 @@ export function HomeGalleryPreview({
               href="/gallery"
               className="group relative h-88 rounded-3xl overflow-hidden border border-border bg-surface-card shadow-card dark:border-white/10 dark:bg-secondary dark:shadow-xl hover:border-primary/40 dark:hover:border-slate-700 transition-all block text-left"
             >
-              <Image
+              <GalleryImage
                 src={photo.image}
                 alt={photo.title}
-                fill
                 sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
                 className="object-cover group-hover:scale-105 transition-transform duration-300 brightness-95 group-hover:brightness-100"
               />

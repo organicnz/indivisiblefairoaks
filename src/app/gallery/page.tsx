@@ -12,10 +12,10 @@ import {
   Video,
   X,
 } from 'lucide-react';
-import Image from 'next/image';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DataPoint } from '@/components/ui/DataPoint';
+import { GalleryImage } from '@/components/gallery/GalleryImage';
 import { VgpuCosmicRayCascade } from '@/components/ui/VgpuCosmicRayCascade';
 import { useDataPoints } from '@/hooks/useDataPoints';
 import { type GalleryPhoto, getGalleryPhotos } from '@/lib/queries/content-client';
@@ -355,10 +355,9 @@ export default function GalleryPage() {
                 onClick={() => setSelectedPhotoId(photo.id)}
                 className="group relative h-88 rounded-3xl overflow-hidden border border-border dark:border-white/10 bg-surface-card cursor-pointer text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:focus-visible:ring-primary-bright hover:border-primary dark:hover:border-slate-700 transition-all shadow-xl"
               >
-                <Image
+                <GalleryImage
                   src={photo.url}
                   alt={photo.caption}
-                  fill
                   sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                   className="object-cover group-hover:scale-105 transition-transform duration-700 brightness-95 group-hover:brightness-100"
                 />
@@ -582,10 +581,9 @@ export default function GalleryPage() {
               <div className="relative max-w-5xl w-full max-h-[90vh] bg-secondary border border-white/10 rounded-3xl overflow-hidden shadow-float flex flex-col">
                 {/* Image Container */}
                 <div className="relative w-full h-[55vh] sm:h-[65vh] bg-black">
-                  <Image
+                  <GalleryImage
                     src={selectedPhoto.url}
                     alt={selectedPhoto.caption}
-                    fill
                     sizes="(max-width: 640px) 100vw, (max-width: 1024px) 90vw, 1024px"
                     className="object-contain"
                   />
