@@ -97,6 +97,10 @@ every unreachable row, its revisions, the excluded slug list, and the project
 host. The command only issues `select`s. **Do not commit the archive** — it is
 production copy for review, not a source file.
 
+To see which rows the disposition table currently classifies as candidates,
+run `bun run content:archive:preview`. It is also read-only and reports the six
+review rows separately; it has no apply path.
+
 ## Reproduction
 
 The row list is a plain read:

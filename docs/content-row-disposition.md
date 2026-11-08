@@ -21,6 +21,12 @@ Archiving means `content.metadata.archived = true` (or deleting only with
 explicit approval). Do **not** set `status = 'draft'` as an archive: drafts keep
 publish semantics and stay in the admin list.
 
+## Preview
+
+`bun run content:archive:preview` reads the current rows and prints the
+candidates, the review rows, and any unclassified row. It is read-only and has
+no apply path; the six review rows cannot be included by the preview.
+
 ## Disposition table
 
 `Body chars` is the archived `content.body` length, not visible text. Every
