@@ -141,6 +141,26 @@ describe('ContentList publish-state actions', () => {
     expect(container.querySelector<HTMLInputElement>('input[type="checkbox"]')?.checked).toBe(true);
   });
 
+  it('keeps typed search text when a filter changes', async () => {
+    render([row()]);
+    const input = container.querySelector<HTMLInputElement>('input[type="search"]');
+    expect(input).not.toBeNull();
+    if (!input) return;
+
+    const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+    act(() => {
+      setValue?.call(input, 'meeting');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    const checkbox = container.querySelector<HTMLInputElement>('input[type="checkbox"]');
+    await act(async () => {
+      checkbox?.click();
+    });
+
+    expect(routerPush).toHaveBeenCalledWith('/admin/content?q=meeting&hide=unreachable');
+  });
+
   it('reports how many rows the filter is hiding', () => {
     searchParams.current = new URLSearchParams('hide=unreachable');
     act(() => {

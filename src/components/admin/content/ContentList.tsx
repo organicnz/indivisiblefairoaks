@@ -152,7 +152,7 @@ export function ContentList({
         </div>
         <select
           value={status}
-          onChange={(e) => push({ status: e.target.value })}
+          onChange={(e) => push({ status: e.target.value, q: query.trim() })}
           aria-label="Filter by status"
           className="rounded-xl border border-border bg-surface-muted/50 px-3 py-2.5 text-sm focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary"
         >
@@ -162,7 +162,7 @@ export function ContentList({
         </select>
         <select
           value={type}
-          onChange={(e) => push({ type: e.target.value })}
+          onChange={(e) => push({ type: e.target.value, q: query.trim() })}
           aria-label="Filter by type"
           className="rounded-xl border border-border bg-surface-muted/50 px-3 py-2.5 text-sm focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary"
         >
@@ -178,7 +178,9 @@ export function ContentList({
             <input
               type="checkbox"
               checked={hide}
-              onChange={(e) => push({ hide: e.target.checked ? 'unreachable' : '' })}
+              onChange={(e) =>
+                push({ hide: e.target.checked ? 'unreachable' : '', q: query.trim() })
+              }
               className="h-4 w-4 rounded border-border accent-primary focus-visible:ring-2 focus-visible:ring-primary"
             />
             Hide unreachable
