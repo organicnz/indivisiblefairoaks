@@ -408,8 +408,14 @@ export async function importMobilizeEvent(
     // owned" can create a second card for the same Mobilize event.
     if (ownedError) return fail(ownedError.message);
     if (alreadyOwned) {
-      const { error } = await client.from('events').update(facts).eq('slug', alreadyOwned.slug);
+      const { data: updated, error } = await client
+        .from('events')
+        .update(facts)
+        .eq('slug', alreadyOwned.slug)
+        .select('slug')
+        .maybeSingle();
       if (error) return fail(error.message);
+      if (!updated) return fail('That event no longer exists');
       revalidateEvents();
       return {
         success: true,
@@ -434,11 +440,14 @@ export async function importMobilizeEvent(
     // insert a duplicate beside it.
     if (manualError) return fail(manualError.message);
     if (manualMatch) {
-      const { error } = await client
+      const { data: updated, error } = await client
         .from('events')
         .update({ ...facts, source: 'mobilize', external_id: String(eventId) })
-        .eq('slug', manualMatch.slug);
+        .eq('slug', manualMatch.slug)
+        .select('slug')
+        .maybeSingle();
       if (error) return fail(error.message);
+      if (!updated) return fail('That event no longer exists');
       revalidateEvents();
       return {
         success: true,

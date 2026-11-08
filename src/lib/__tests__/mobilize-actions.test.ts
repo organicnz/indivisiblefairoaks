@@ -123,6 +123,75 @@ describe('importMobilizeEvent ownership reads', () => {
     expect(res).toMatchObject({ success: false, error: 'connection reset' });
     expect(tables.events.rows).toHaveLength(0);
   });
+
+  it('reports an already-owned event removed before the refresh write', async () => {
+    respondWithEvent();
+    requireAdmin.mockResolvedValue({
+      adminClient: {
+        from: () => ({
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: { slug: 'owned-event' },
+                error: null,
+              }),
+            }),
+          }),
+          update: () => ({
+            eq: () => ({
+              select: () => ({
+                maybeSingle: async () => ({ data: null, error: null }),
+              }),
+            }),
+          }),
+        }),
+      },
+    });
+
+    const res = await importMobilizeEvent(
+      'https://www.mobilize.us/indivisible/event/1011420/'
+    );
+
+    expect(res).toEqual({ success: false, error: 'That event no longer exists' });
+  });
+
+  it('reports a hand-made event removed before the adoption write', async () => {
+    respondWithEvent();
+    requireAdmin.mockResolvedValue({
+      adminClient: {
+        from: () => ({
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({ data: null, error: null }),
+            }),
+            is: () => ({
+              ilike: () => ({
+                limit: () => ({
+                  maybeSingle: async () => ({
+                    data: { slug: 'handmade-event' },
+                    error: null,
+                  }),
+                }),
+              }),
+            }),
+          }),
+          update: () => ({
+            eq: () => ({
+              select: () => ({
+                maybeSingle: async () => ({ data: null, error: null }),
+              }),
+            }),
+          }),
+        }),
+      },
+    });
+
+    const res = await importMobilizeEvent(
+      'https://www.mobilize.us/indivisible/event/1011420/'
+    );
+
+    expect(res).toEqual({ success: false, error: 'That event no longer exists' });
+  });
 });
 
 describe('previewMobilizeSource reads', () => {
