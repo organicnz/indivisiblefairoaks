@@ -210,6 +210,22 @@ describe('ContentList publish-state actions', () => {
     expect(container.textContent).toContain('Create a new page');
   });
 
+  it('keeps empty-state copy tied to applied filters', () => {
+    render([]);
+    const input = container.querySelector<HTMLInputElement>('input[type="search"]');
+    expect(input).not.toBeNull();
+    if (!input) return;
+    const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+    act(() => {
+      setValue?.call(input, 'meeting');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    expect(container.textContent).toContain('Clear filters');
+    expect(container.textContent).toContain('No pages yet.');
+    expect(container.textContent).toContain('Create the first page');
+  });
+
   it('reports how many rows the filter is hiding', () => {
     searchParams.current = new URLSearchParams('hide=unreachable');
     act(() => {

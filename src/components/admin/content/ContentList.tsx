@@ -57,7 +57,8 @@ export function ContentList({
   const type = searchParams.get('type') ?? 'all';
   const q = searchParams.get('q') ?? '';
   const hide = searchParams.get('hide') === 'unreachable' || hideUnreachable;
-  const hasFilters = Boolean(query.trim() || q || status !== 'all' || type !== 'all' || hide);
+  const hasAppliedFilters = Boolean(q.trim() || status !== 'all' || type !== 'all' || hide);
+  const hasFilters = Boolean(query.trim() || hasAppliedFilters);
 
   const push = useCallback(
     (next: { status?: string; type?: string; q?: string; hide?: string }) => {
@@ -220,7 +221,7 @@ export function ContentList({
           <div className="px-6 py-16 text-center">
             <FileText size={32} className="mx-auto mb-3 text-muted-foreground" aria-hidden="true" />
             <p className="text-sm font-medium text-muted-foreground">
-              {q || status !== 'all' || type !== 'all' || hide
+              {hasAppliedFilters
                 ? hide
                   ? 'No reachable pages match these filters.'
                   : 'No pages match these filters.'
@@ -230,7 +231,7 @@ export function ContentList({
               href="/admin/content/new"
               className="mt-3 inline-block text-sm font-semibold text-primary dark:text-primary-on-dark underline underline-offset-2 focus-visible:ring-2 focus-visible:ring-primary"
             >
-              {hasFilters ? 'Create a new page' : 'Create the first page'}
+              {hasAppliedFilters ? 'Create a new page' : 'Create the first page'}
             </Link>
           </div>
         ) : (
