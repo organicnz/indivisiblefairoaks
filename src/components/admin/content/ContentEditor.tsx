@@ -765,6 +765,10 @@ export function ContentEditor({ initial, siteHost }: Props) {
         toast.error(result.error);
         return;
       }
+      // Adopt the date the status write just stored. Waiting for the refresh
+      // would leave a window where the next save sees a stale null date and
+      // re-stamps the page.
+      publishedAtRef.current = result.data.publishedAt ?? publishedAtRef.current;
       setStatus(next);
       // Matches the snapshot `persist` takes, deliberately. Two snapshots of the
       // same document that disagree on `status` is precisely what made a publish

@@ -251,6 +251,31 @@ describe('Publishing does not discard unsaved edits', () => {
     expect(saveContent).not.toHaveBeenCalled();
   });
 
+  it('keeps the date returned by a status-only publish for the next save', async () => {
+    const publishedAt = '2026-10-11T18:00:00.000Z';
+    setContentStatus.mockResolvedValue({ success: true, data: { id: 7, publishedAt } });
+
+    render();
+    // Clean document: this takes the status-only path, not the full save path.
+    await act(async () => {
+      click(publishButton());
+    });
+    expect(saveContent).not.toHaveBeenCalled();
+
+    type('After status publish');
+    const save = [...container.querySelectorAll('button')].find(
+      (button) => button.textContent?.trim() === 'Save'
+    ) as HTMLButtonElement | undefined;
+    expect(save).toBeDefined();
+
+    await act(async () => {
+      if (save) click(save);
+    });
+
+    const payload = saveContent.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(payload.publishedAt).toBe(publishedAt);
+  });
+
   it('does not report the document as saved while an edit is still outstanding', async () => {
     render();
     type('Something new');
