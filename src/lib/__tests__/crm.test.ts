@@ -1727,6 +1727,41 @@ describe('Civic CRM Server Actions', () => {
       }
     });
 
+    it('reports a campaign row that disappears before the failure update', async () => {
+      const savedId = session.adminUserId;
+      session.adminUserId = 'admin-user-broadcast-missing-uuid';
+      try {
+        mockEnv.CRM_BROADCAST_FUNCTION_URL = undefined;
+        tables.crm_contacts = {
+          rows: [
+            {
+              id: 'u-missing',
+              email: 'missing@example.com',
+              do_not_email: false,
+              status: 'supporter',
+            },
+          ],
+        };
+        const broadcastRows: Record<string, unknown>[] = [];
+        tables.crm_broadcasts = {
+          rows: broadcastRows,
+          insert: { id: 'b-missing' },
+          beforeUpdate: () => {
+            broadcastRows.splice(0);
+          },
+        };
+
+        const res = await sendCRMBroadcast({ subject: 'Hi', body: 'Hello there' });
+
+        expect(res.success).toBe(false);
+        expect(res.broadcastId).toBe('b-missing');
+        expect(res.error).toMatch(/already finished or its row was not found/i);
+        expect(broadcastRows).toHaveLength(0);
+      } finally {
+        session.adminUserId = savedId;
+      }
+    });
+
     it('surfaces the database error when the campaign log cannot be created', async () => {
       const savedId = session.adminUserId;
       session.adminUserId = 'admin-user-log-error-uuid';
@@ -2218,6 +2253,31 @@ describe('sendCRMBroadcastSelfTest', () => {
       expect(res.success).toBe(false);
       expect(res.error).toMatch(/already finished/i);
       expect(broadcastRows[0]).toMatchObject({ status: 'sent' });
+    } finally {
+      session.adminUserId = savedId;
+    }
+  });
+
+  it('reports a test row that disappears before the failure update', async () => {
+    const savedId = session.adminUserId;
+    session.adminUserId = 'admin-user-selftest-missing';
+    try {
+      arrange();
+      mockEnv.CRM_BROADCAST_FUNCTION_URL = undefined;
+      const broadcastRows: Record<string, unknown>[] = [];
+      tables.crm_broadcasts = {
+        rows: broadcastRows,
+        insert: { id: 'test-broadcast-uuid' },
+        beforeUpdate: () => {
+          broadcastRows.splice(0);
+        },
+      };
+
+      const res = await sendCRMBroadcastSelfTest({ subject: 'Hi', body: 'There' });
+
+      expect(res.success).toBe(false);
+      expect(res.error).toMatch(/already finished or was not found/i);
+      expect(broadcastRows).toHaveLength(0);
     } finally {
       session.adminUserId = savedId;
     }
