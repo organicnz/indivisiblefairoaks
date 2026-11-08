@@ -47,6 +47,7 @@ export default async function AdminContentPage({
     query,
     page,
     pageSize: PAGE_SIZE,
+    hideUnreachable,
   });
 
   return (
