@@ -1459,8 +1459,21 @@ export function VisualEditOverlay() {
           return { success: true as const, data: json.data };
         }
       }
+      // A structured 4xx is a definitive rejection (validation, auth, or a
+      // stale edit). Retrying it through the server action issues the same
+      // write twice; only a missing route or an ambiguous 5xx falls through.
+      if (res.status >= 400 && res.status < 500 && res.status !== 404) {
+        let message = `Save failed (${res.status})`;
+        try {
+          const json = await res.json();
+          if (json?.error) message = json.error;
+        } catch {
+          // Keep the status-based message when the body is not JSON.
+        }
+        return { success: false as const, error: message };
+      }
     } catch {
-      // Fall back gracefully to direct server action
+      // Fall back gracefully to direct server action on a network failure.
     }
     return await saveContent(payload);
   }, []);

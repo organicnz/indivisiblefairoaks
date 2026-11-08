@@ -1670,6 +1670,36 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     expect(written?.publishedAt).toBe('2026-01-01T00:00:00.000Z');
   });
 
+  it('does not retry a definitive 4xx edge save through the server action', async () => {
+    await withPage();
+    const saveButton = container.querySelector<HTMLButtonElement>(
+      'button[title^="Write this document to Supabase"]'
+    );
+    expect(saveButton).not.toBeNull();
+
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === 'POST') {
+        return {
+          ok: false,
+          status: 400,
+          json: async () => ({ error: 'Validation failed' }),
+        } as unknown as Response;
+      }
+      return { ok: false, status: 404 } as unknown as Response;
+    }) as unknown as typeof fetch;
+
+    try {
+      await act(async () => {
+        saveButton?.click();
+      });
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+
+    expect(saveContent).not.toHaveBeenCalled();
+  });
+
   it('keeps typed copy on the page when it is applied', async () => {
     await withPage();
     const paragraph = pageChildren().children[0] as HTMLElement;
