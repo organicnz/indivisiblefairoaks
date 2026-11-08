@@ -330,6 +330,15 @@ describe('CRM mutation failure paths', () => {
       expect(mockAdminClient.from).toHaveBeenCalledTimes(2);
       expect(mockAdminClient.from).toHaveBeenCalledWith('crm_contacts');
     });
+
+    it('surfaces a read failure instead of claiming a contact is missing', async () => {
+      tables.crm_contacts = { rows: [], error: { message: 'connection reset' } };
+
+      const res = await mergeCRMContacts({ keepId: 'keep-1', removeId: 'dup-1' });
+
+      expect(res).toMatchObject({ success: false, error: 'connection reset' });
+      expect(mockAdminClient.rpc).not.toHaveBeenCalled();
+    });
   });
 
   describe('sendCRMDirectEmail', () => {

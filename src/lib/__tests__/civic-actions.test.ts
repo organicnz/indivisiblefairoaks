@@ -163,6 +163,44 @@ describe('Civic Server Actions', () => {
       });
     });
 
+    it('does not unlock a synced event when the ownership lookup fails', async () => {
+      const upsert = vi.fn();
+      requireAdmin.mockResolvedValue({
+        adminClient: {
+          from: () => ({
+            select: () => ({
+              eq: () => ({
+                maybeSingle: async () => ({
+                  data: null,
+                  error: { message: 'connection reset' },
+                }),
+              }),
+            }),
+            upsert,
+          }),
+        },
+      });
+
+      const res = await saveCivicEvent({
+        slug: 'mobilize-1011420',
+        title: 'Choir rehearsal (edited)',
+        category: 'Resistance Choir' as const,
+        date_label: 'Wednesday, October 21',
+        time_label: '6:30 PM',
+        starts_at: null,
+        ends_at: null,
+        location_name: 'Church hall',
+        address: '',
+        description: 'Edited by an organizer',
+        rsvp_url: 'https://www.mobilize.us/indivisible/event/1011420/',
+        highlight: false,
+        sort_order: 100,
+      });
+
+      expect(res).toMatchObject({ success: false, error: 'connection reset' });
+      expect(upsert).not.toHaveBeenCalled();
+    });
+
     it('rejects invalid categories or empty titles', async () => {
       requireAdmin.mockResolvedValue({
         adminClient: createMockAdminClient({ events: { rows: [] } }),

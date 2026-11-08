@@ -616,6 +616,15 @@ describe('CRM reads and bookkeeping', () => {
       expect(tables.crm_broadcasts.rows).toHaveLength(1);
     });
 
+    it('surfaces a read failure instead of claiming the broadcast is gone', async () => {
+      tables.crm_broadcasts = { rows: [], error: { message: 'connection reset' } };
+
+      const res = await deleteCRMBroadcastDraft('b1');
+
+      expect(res).toMatchObject({ success: false, error: 'connection reset' });
+      expect(tableCalls()).toEqual(['crm_broadcasts']);
+    });
+
     it('deletes a real draft', async () => {
       // Two drafts, and the one that survives is the one this delete did not
       // name. `expect(qb.delete).toHaveBeenCalled()` could not tell those apart:

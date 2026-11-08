@@ -1691,11 +1691,17 @@ export async function mergeCRMContacts({
     return { success: false, error: 'Cannot merge a contact into itself' };
   }
 
-  const [{ data: keep }, { data: remove }] = await Promise.all([
-    adminClient.from('crm_contacts').select('*').eq('id', keepId).single(),
-    adminClient.from('crm_contacts').select('*').eq('id', removeId).single(),
-  ]);
+  // A failed lookup is not a missing contact. `maybeSingle()` keeps "no row"
+  // distinct from a real database error, so the latter is reported as a
+  // failure instead of as a merge precondition.
+  const [{ data: keep, error: keepError }, { data: remove, error: removeError }] =
+    await Promise.all([
+      adminClient.from('crm_contacts').select('*').eq('id', keepId).maybeSingle(),
+      adminClient.from('crm_contacts').select('*').eq('id', removeId).maybeSingle(),
+    ]);
 
+  if (keepError) return { success: false, error: keepError.message };
+  if (removeError) return { success: false, error: removeError.message };
   if (!keep || !remove) {
     return { success: false, error: 'Both contacts must exist to merge' };
   }
@@ -2011,11 +2017,12 @@ export async function deleteCRMBroadcastDraft(
   id: string
 ): Promise<{ success: boolean; error?: string }> {
   const { adminClient } = await requireAdmin();
-  const { data: existing } = await adminClient
+  const { data: existing, error: readError } = await adminClient
     .from('crm_broadcasts')
     .select('status')
     .eq('id', id)
     .maybeSingle();
+  if (readError) return { success: false, error: readError.message };
   // Only drafts are removable. Deleting a sent broadcast would orphan every
   // `email_sent` activity referencing it — that log is the audit trail.
   if (!existing) return { success: false, error: 'That broadcast no longer exists' };

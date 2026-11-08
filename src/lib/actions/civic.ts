@@ -144,11 +144,12 @@ export async function saveCivicEvent(
     // hour, and the editor silently loses the argument.
     let locksSync = false;
     if (payload.slug) {
-      const { data: existing } = await eventsClient
+      const { data: existing, error: lookupError } = await eventsClient
         .from('events')
         .select('external_id')
         .eq('slug', finalSlug)
         .maybeSingle();
+      if (lookupError) return fail(lookupError.message);
       locksSync = Boolean(existing?.external_id);
     }
 

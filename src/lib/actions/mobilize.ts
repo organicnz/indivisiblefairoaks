@@ -393,12 +393,15 @@ export async function importMobilizeEvent(
       updated_at: nowIso,
     };
 
-    const { data: alreadyOwned } = await client
+    const { data: alreadyOwned, error: ownedError } = await client
       .from('events')
       .select('slug')
       .eq('external_id', String(eventId))
       .maybeSingle();
 
+    // A failed ownership lookup must stop the import: treating it as "not
+    // owned" can create a second card for the same Mobilize event.
+    if (ownedError) return fail(ownedError.message);
     if (alreadyOwned) {
       const { error } = await client.from('events').update(facts).eq('slug', alreadyOwned.slug);
       if (error) return fail(error.message);
@@ -414,7 +417,7 @@ export async function importMobilizeEvent(
       };
     }
 
-    const { data: manualMatch } = await client
+    const { data: manualMatch, error: manualError } = await client
       .from('events')
       .select('slug')
       .is('external_id', null)
@@ -422,6 +425,9 @@ export async function importMobilizeEvent(
       .limit(1)
       .maybeSingle();
 
+    // Same rule for the hand-made row: a failed read is not permission to
+    // insert a duplicate beside it.
+    if (manualError) return fail(manualError.message);
     if (manualMatch) {
       const { error } = await client
         .from('events')
