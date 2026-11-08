@@ -118,6 +118,12 @@ export interface VisualEditorSidebarProps {
   activeRegionId: string | null;
   activeRegionLabel: string | null;
   onSetRegion: (id: string | null) => void;
+  /**
+   * Why the whole-page document cannot be saved — a coded route has no row, so
+   * its page-level text is JSX. Regions stay selectable; the whole-page save
+   * controls are disabled and say why.
+   */
+  unsaveableReason?: string | null;
 
   // ── Display toggles ─────────────────────────────────────────────────────
   showSectionBadges: boolean;
@@ -871,6 +877,7 @@ function DefaultContextZone(props: VisualEditorSidebarProps) {
     history,
     activeBlockIndex,
     pageRegions,
+    unsaveableReason = null,
     activeRegionId,
     activeRegionLabel,
     showSectionBadges,
@@ -931,12 +938,13 @@ function DefaultContextZone(props: VisualEditorSidebarProps) {
           <button
             type="button"
             onClick={props.onInitializeCMSPage}
-            disabled={savingBackend}
+            disabled={savingBackend || Boolean(unsaveableReason)}
             className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wider bg-accent/20 text-accent-gold hover:bg-accent/30"
             title={
-              activeRegionId
+              unsaveableReason ??
+              (activeRegionId
                 ? `Create the CMS row for the ${activeRegionLabel} region`
-                : 'Click to sync page into Supabase content table'
+                : 'Click to sync page into Supabase content table')
             }
           >
             Connect to Supabase
@@ -962,12 +970,23 @@ function DefaultContextZone(props: VisualEditorSidebarProps) {
       </p>
 
       {/* ── Copy region selector ───────────────────────────────────────── */}
+      {unsaveableReason && (
+        <p
+          data-testid="page-level-save-blocked"
+          className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-2 text-[10px] leading-snug text-accent-gold"
+        >
+          {unsaveableReason}
+        </p>
+      )}
+
       {pageRegions.length > 0 && (
         <fieldset className="flex w-full items-center gap-1 overflow-x-auto rounded-xl border border-white/10 bg-white/5 p-1">
           <legend className="sr-only">Editable copy region</legend>
           <button
             type="button"
             onClick={() => props.onSetRegion(null)}
+            disabled={Boolean(unsaveableReason)}
+            title={unsaveableReason ?? 'Edit the whole-page document'}
             aria-pressed={activeRegionId === null}
             className={`shrink-0 rounded-lg px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider transition-colors ${
               activeRegionId === null
@@ -1032,11 +1051,12 @@ function DefaultContextZone(props: VisualEditorSidebarProps) {
       <button
         type="button"
         onClick={props.onSave}
-        disabled={savingBackend || !dirty}
+        disabled={savingBackend || !dirty || Boolean(unsaveableReason)}
         title={
-          contentRow
+          unsaveableReason ??
+          (contentRow
             ? 'Write this document to Supabase'
-            : 'Create the Supabase CMS row for this page from what is on screen'
+            : 'Create the Supabase CMS row for this page from what is on screen')
         }
         className={`inline-flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold uppercase tracking-wider shadow-raised transition-colors disabled:opacity-50 ${
           dirty

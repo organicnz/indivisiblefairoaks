@@ -144,6 +144,26 @@ describe('VisualEditOverlay 10x Pro Features', () => {
     });
   };
 
+  /**
+   * Inline editing is a page-level write, so the fixture needs a row to hold
+   * it. A coded route with no row now refuses the click and names its copy
+   * regions instead.
+   */
+  const withGalleryRow = (text: string) => {
+    getContentBySlugForEdit.mockResolvedValue({
+      id: 42,
+      title: 'Gallery Showcase',
+      slug: 'gallery',
+      excerpt: null,
+      type: 'page',
+      status: 'publish',
+      body: `<p>${text}</p>`,
+      featured_image: null,
+      metadata: {},
+      updated_at: '2026-10-25T00:00:00Z',
+    });
+  };
+
   it('renders command palette trigger and opens on click or ⌘K', async () => {
     await mount();
 
@@ -295,6 +315,8 @@ describe('VisualEditOverlay 10x Pro Features', () => {
     main.appendChild(p);
     document.body.appendChild(main);
 
+    withGalleryRow('Editable grassroots announcement');
+
     await mount();
 
     await act(async () => {
@@ -328,6 +350,8 @@ describe('VisualEditOverlay 10x Pro Features', () => {
     p.textContent = 'Edition of the newsletter';
     main.appendChild(p);
     document.body.appendChild(main);
+
+    withGalleryRow('Edition of the newsletter');
 
     await mount();
 
@@ -400,6 +424,8 @@ describe('VisualEditOverlay 10x Pro Features', () => {
     main.appendChild(p);
     document.body.appendChild(main);
 
+    withGalleryRow('Customizable grassroots block');
+
     await mount();
 
     await act(async () => {
@@ -470,6 +496,8 @@ describe('VisualEditOverlay 10x Pro Features', () => {
     main.appendChild(p);
     document.body.appendChild(main);
 
+    withGalleryRow('Block to delete');
+
     await mount();
 
     // Select the block
@@ -515,6 +543,8 @@ describe('VisualEditOverlay 10x Pro Features', () => {
     p.textContent = 'Section to confirm';
     main.appendChild(p);
     document.body.appendChild(main);
+
+    withGalleryRow('Section to confirm');
 
     await mount();
 

@@ -2775,6 +2775,21 @@ export function VisualEditOverlay() {
         'h1, h2, h3, h4, h5, h6, p, blockquote, li, dt, dd, [data-copy-region] span, a, button, [data-data-point]'
       );
 
+      /*
+       * A page-level text edit on a coded route has no document to be saved
+       * into. Refusing it at click time keeps the operator from typing a change
+       * that would be rolled back, and names the regions that do work.
+       */
+      if (textTarget && !dataPointContainer && !copyRegionId) {
+        const refusal = describeUnsaveableDocument();
+        if (refusal) {
+          e.preventDefault();
+          e.stopPropagation();
+          toast.error(refusal);
+          return;
+        }
+      }
+
       // Check if clicking an image directly or an image wrapper without text
       const clickedImg =
         target.tagName === 'IMG'
@@ -2794,6 +2809,16 @@ export function VisualEditOverlay() {
         const imageCopyRegionContainer = clickedImg.closest<HTMLElement>('[data-copy-region]');
         const imageCopyRegionId =
           imageCopyRegionContainer?.getAttribute('data-copy-region') || null;
+
+        // An image outside a region on a coded page has the same missing
+        // destination as its text, so it is refused for the same reason.
+        if (!imageCopyRegionId) {
+          const refusal = describeUnsaveableDocument();
+          if (refusal) {
+            toast.error(refusal);
+            return;
+          }
+        }
 
         let matchedBlockIdx: number | null = null;
         for (const sec of sectionsRef.current) {
@@ -4474,6 +4499,7 @@ export function VisualEditOverlay() {
         history={history}
         activeBlockIndex={activeBlockIndex}
         pageRegions={pageRegions}
+        unsaveableReason={describeUnsaveableDocument()}
         activeRegionId={activeRegionId}
         activeRegionLabel={activeRegion?.label || null}
         onSetRegion={selectRegion}

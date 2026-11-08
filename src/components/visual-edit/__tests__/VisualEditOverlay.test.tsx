@@ -2288,23 +2288,36 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     await act(async () => {
       paragraph?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
     });
-    expect(paragraph?.classList.contains('visual-inline-active')).toBe(true);
 
-    await act(async () => {
-      if (paragraph) paragraph.innerHTML = 'Edited event copy, blocked.';
-      paragraph?.dispatchEvent(new Event('input', { bubbles: true }));
-    });
-
-    await act(async () => {
-      window.dispatchEvent(
-        new KeyboardEvent('keydown', { key: 'Enter', metaKey: true, bubbles: true })
-      );
-    });
-
+    // The edit never starts: no contentEditable, no session, no request.
+    expect(paragraph?.classList.contains('visual-inline-active')).toBe(false);
+    expect(paragraph?.getAttribute('contenteditable')).toBeNull();
     expect(saveContent).not.toHaveBeenCalled();
     expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('written in code'));
-    // The rejected text is not left in the live DOM as if it had saved.
     expect(paragraph?.textContent).toBe('Edited event copy.');
+
+    // The whole-page controls say the same thing, instead of offering a save
+    // that would be refused after the operator typed.
+    const wholePage = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(
+      (button) => button.textContent?.trim() === 'Whole page'
+    );
+    expect(wholePage?.disabled).toBe(true);
+  });
+
+  it('still edits a copy region on a coded route with no page row', async () => {
+    pathname.value = '/events';
+    renderPage('<div data-copy-region="events-trainings"><p>Region copy.</p></div>');
+    getContentBySlugForEdit.mockResolvedValue(null);
+    await mount();
+
+    const paragraph = document.querySelector<HTMLElement>('[data-visual-edit-root] p');
+    expect(paragraph).not.toBeNull();
+
+    await act(async () => {
+      paragraph?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+
+    expect(paragraph?.classList.contains('visual-inline-active')).toBe(true);
   });
 
   describe('resolveBlockContentRoot', () => {
