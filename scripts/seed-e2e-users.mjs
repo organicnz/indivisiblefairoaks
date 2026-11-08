@@ -134,10 +134,16 @@ async function upsertProfile(userId, email, fullName, wantsAdmin) {
       );
       if (retry.error) throw new Error(`profile upsert failed for ${email}: ${retry.error.message}`);
       console.log('  profile upserted WITHOUT admin flag (escalation blocked for API callers)');
-      console.log(`  MANUAL GRANT NEEDED for ${email}:`);
-      console.log(`    update public.profiles set is_admin = true where email = '${email}';`);
-      console.log('  Run that from an existing admin session or the dashboard SQL editor,');
-      console.log('  then this user can reach /admin.');
+      console.log(`  MANUAL GRANT NEEDED for ${email}.`);
+      console.log('  The dashboard SQL editor cannot grant this either: auth.uid() is null, so');
+      console.log('  profiles_block_priv_esc rejects the update. On a STAGING project only, as');
+      console.log('  the project owner, disable the trigger for this one statement:');
+      console.log('    alter table public.profiles disable trigger profiles_block_priv_esc;');
+      console.log(
+        `    update public.profiles set is_admin = true where email = '${email}';`
+      );
+      console.log('    alter table public.profiles enable trigger profiles_block_priv_esc;');
+      console.log('  Never run that on production. See docs/staging-editor-save-test.md.');
       return 'grant-needed';
     }
     throw new Error(`profile upsert failed for ${email}: ${error.message}`);

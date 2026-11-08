@@ -65,10 +65,15 @@ setup.describe('seeded admin session', () => {
       console.log('');
       console.log('ADMIN SEED INCOMPLETE — skipping seeded admin coverage.');
       console.log('e2e-admin signed in but is not an admin.');
-      console.log('Run this once from the dashboard SQL editor:');
+      console.log('The dashboard SQL editor cannot grant this either: auth.uid() is null, so');
+      console.log('profiles_block_priv_esc rejects the update. On a STAGING project only, as');
+      console.log('the project owner, disable the trigger for this one statement:');
+      console.log('  alter table public.profiles disable trigger profiles_block_priv_esc;');
       console.log(
         "  update public.profiles set is_admin = true where email = 'e2e-admin@example.com';"
       );
+      console.log('  alter table public.profiles enable trigger profiles_block_priv_esc;');
+      console.log('Never run that on production. See docs/staging-editor-save-test.md.');
       console.log('');
       // `Bun.write` creates the parent directory on the way, so the explicit
       // `mkdirSync` is not needed: the file and the directory it lives in are
