@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import localFont from 'next/font/local';
+import { connection } from 'next/server';
 import Script from 'next/script';
 import { Suspense } from 'react';
 import './globals.css';
@@ -114,6 +115,11 @@ export const viewport: Viewport = {
 };
 
 async function SettingsLoader() {
+  // Settings depend on the request's auth cookies. Without an explicit
+  // dynamic signal, Next tries to prerender this read and Supabase's getUser()
+  // reaches Date.now(), which logs an unstable-value warning for /auth/mfa.
+  // Connection keeps it inside the existing Suspense hole instead.
+  await connection();
   const settings = await getSettings();
   return <SettingsHydrator settings={settings as UserSettings | null} />;
 }
