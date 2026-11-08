@@ -496,13 +496,24 @@ export function ContentEditor({ initial, siteHost }: Props) {
     expectedUpdatedAt.current = initial.updatedAt ?? null;
   }, [initial.id, initial.updatedAt]);
 
+  /**
+   * The date the row is actually published under. It starts as the loaded
+   * timestamp and is replaced by the server's value after every successful save.
+   * Without that replacement, publishing a draft in this session would leave
+   * `initial.publishedAt` null and the next save would re-stamp "now".
+   */
+  const publishedAtRef = useRef<string | null>(initial.publishedAt ?? null);
+  useEffect(() => {
+    publishedAtRef.current = initial.publishedAt ?? null;
+  }, [initial.publishedAt]);
+
   const persist = useCallback(
     async (
       nextStatus: 'publish' | 'draft'
     ): Promise<
       | {
           success: true;
-          data: { id: number; updatedAt: string | null };
+          data: { id: number; updatedAt: string | null; publishedAt: string | null };
           status: 'publish' | 'draft';
         }
       | SaveFailure
@@ -518,9 +529,9 @@ export function ContentEditor({ initial, siteHost }: Props) {
         featuredImage: featuredImage.trim() || null,
         // Preserve the stored publication date on edits. Without it, saveContent
         // treats every published save as "publish now", so fixing a typo moves
-        // the page back to the top of `/news`. Omit the field for a new or
-        // never-published row so the first publish still stamps the current time.
-        ...(initial.id && initial.publishedAt ? { publishedAt: initial.publishedAt } : {}),
+        // the page back to the top of `/news`. The ref is updated from the
+        // server response, which matters after a draft is published in-session.
+        ...(initial.id && publishedAtRef.current ? { publishedAt: publishedAtRef.current } : {}),
         // Only claim a version for a row that exists. A new page has nothing to
         // be stale against, and sending `null` there would assert the row is
         // already there with no timestamp.
@@ -546,6 +557,7 @@ export function ContentEditor({ initial, siteHost }: Props) {
         // Adopt the version the trigger just wrote, so the next autosave
         // compares against this save rather than against the one before it.
         if (initial.id) expectedUpdatedAt.current = result.data.updatedAt;
+        publishedAtRef.current = result.data.publishedAt ?? publishedAtRef.current;
         return { success: true, data: result.data, status: nextStatus };
       }
       return { success: false, error: result.error };
@@ -556,7 +568,6 @@ export function ContentEditor({ initial, siteHost }: Props) {
       featuredImage,
       fields,
       initial.id,
-      initial.publishedAt,
       metaDescription,
       metaTitle,
       slug,

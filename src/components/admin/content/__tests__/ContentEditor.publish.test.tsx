@@ -145,6 +145,34 @@ describe('Publishing does not discard unsaved edits', () => {
     expect(payload.publishedAt).toBe(publishedAt);
   });
 
+  it('keeps the server date after publishing a draft in this session', async () => {
+    const publishedAt = '2026-10-10T18:00:00.000Z';
+    saveContent.mockResolvedValue({
+      success: true,
+      data: { id: 7, updatedAt: '2026-10-10T18:00:00.000Z', publishedAt },
+      status: 'publish',
+    });
+
+    render();
+    type('First publish');
+    await act(async () => {
+      click(publishButton());
+    });
+
+    type('Second edit');
+    const save = [...container.querySelectorAll('button')].find(
+      (button) => button.textContent?.trim() === 'Save'
+    ) as HTMLButtonElement | undefined;
+    expect(save).toBeDefined();
+
+    await act(async () => {
+      if (save) click(save);
+    });
+
+    const secondPayload = saveContent.mock.calls[1]?.[0] as Record<string, unknown>;
+    expect(secondPayload.publishedAt).toBe(publishedAt);
+  });
+
   it('uses the latest stored publication date after the page refreshes', async () => {
     const firstDate = '2026-09-20T18:00:00.000Z';
     const refreshedDate = '2026-09-21T18:00:00.000Z';

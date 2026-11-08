@@ -268,7 +268,7 @@ function revalidateContent(slug?: string | null, previousSlug?: string | null): 
 
 export async function saveContent(
   rawInput: ContentInput
-): Promise<ActionResult<{ id: number; updatedAt: string | null }>> {
+): Promise<ActionResult<{ id: number; updatedAt: string | null; publishedAt: string | null }>> {
   const { adminClient } = await requireAdmin();
   /*
    * The server-side counterpart of the editor's pre-check.
@@ -391,7 +391,10 @@ export async function saveContent(
     // The editor has to learn the new value or its next autosave would conflict
     // with itself — which is the failure mode that would make this feature
     // unusable within two seconds of enabling it.
-    return { success: true, data: { id: written.id, updatedAt: written.updated_at } };
+    return {
+      success: true,
+      data: { id: written.id, updatedAt: written.updated_at, publishedAt: row.published_at },
+    };
   }
 
   const { data: created, error } = await adminClient
@@ -407,7 +410,10 @@ export async function saveContent(
   // `updated_at` is returned for the same reason as on update: the editor keeps
   // it as the precondition for its next write, so a freshly created page does
   // not conflict with itself on the first autosave.
-  return { success: true, data: { id: created.id, updatedAt: created.updated_at } };
+  return {
+    success: true,
+    data: { id: created.id, updatedAt: created.updated_at, publishedAt: row.published_at },
+  };
 }
 
 export async function setContentStatus(
