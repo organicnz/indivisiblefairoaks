@@ -2200,6 +2200,44 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     expect(written).toContain('before you vote.');
   });
 
+  it('saves under the limit when the container around the edit is over it', async () => {
+    /*
+     * The deployed /events page has a container of ~72,600 characters — larger
+     * than MAX_BODY_BYTES. A block whose DOM address is that container must
+     * still save only the paragraph that changed; capturing the container is
+     * exactly the 64 KiB failure reported in #174.
+     */
+    const filler = 'Event card filler. '.repeat(3600); // ~68 KB, over the limit
+    expect(filler.length).toBeGreaterThan(MAX_BODY_BYTES);
+    renderPage(`<div class="space-y-8"><p>Edited event copy.</p><div>${filler}</div></div>`);
+    getContentBySlugForEdit.mockResolvedValue(null);
+    await mount();
+
+    const paragraph = document.querySelector<HTMLElement>('[data-visual-edit-root] p');
+    expect(paragraph).not.toBeNull();
+
+    await act(async () => {
+      paragraph?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+    expect(paragraph?.classList.contains('visual-inline-active')).toBe(true);
+
+    await act(async () => {
+      if (paragraph) paragraph.innerHTML = 'Edited event copy, saved.';
+      paragraph?.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    await act(async () => {
+      window.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Enter', metaKey: true, bubbles: true })
+      );
+    });
+
+    const written = saveContent.mock.calls.at(-1)?.[0].body as string;
+    expect(written).toContain('Edited event copy, saved.');
+    expect(written.length).toBeLessThan(1000);
+    expect(toast.error).not.toHaveBeenCalledWith(expect.stringContaining('too large to save'));
+  });
+
   describe('resolveBlockContentRoot', () => {
     const section = document.createElement('section');
     const paragraph = document.createElement('p');
