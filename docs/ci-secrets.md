@@ -119,15 +119,15 @@ values.
 - **No `VERCEL_TOKEN`.** The CLI deploy job was removed (see the comment in
   `ci.yml`); production ships by git push and the health probe verifies it.
 
-## Not yet done
+## Action pinning
 
-Actions are pinned to **major version tags** (`actions/checkout@v4`), which are
-mutable. SHA pinning with a trailing version comment is the stronger posture:
+All remote actions are pinned to immutable commit SHAs, with the upstream tag
+recorded in a trailing comment:
 
 ```yaml
-uses: actions/checkout@<sha> # v4
+uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 ```
 
-This was left alone deliberately: it needs verified SHAs from the upstream
-repositories, and a wrong SHA fails the pipeline at checkout. It is a mechanical
-follow-up, not a blocker.
+The SHAs were resolved with `git ls-remote` and the GitHub API against the
+upstream tags. When upgrading an action, re-resolve its tag rather than
+replacing the pin with a floating major version.

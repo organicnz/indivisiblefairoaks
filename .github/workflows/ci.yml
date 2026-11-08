@@ -133,7 +133,7 @@ jobs:
     outputs:
       runtime: ${{ steps.scope.outputs.runtime }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -199,11 +199,11 @@ jobs:
     # for a V8 heap.
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
           no-cache: true
@@ -217,7 +217,7 @@ jobs:
       # cached node_modules does.
       - name: Cache bun dependencies
         if: "runner.environment != 'self-hosted' && !contains(runner.name, 'personal') && !contains(runner.name, 'ghrunner')"
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ~/.bun/install/cache
           key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
@@ -329,11 +329,11 @@ jobs:
     if: needs.changes.outputs.runtime == 'true'
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
           no-cache: true
@@ -347,7 +347,7 @@ jobs:
       # cached node_modules does.
       - name: Cache bun dependencies
         if: "runner.environment != 'self-hosted' && !contains(runner.name, 'personal') && !contains(runner.name, 'ghrunner')"
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ~/.bun/install/cache
           key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
@@ -381,11 +381,11 @@ jobs:
     runs-on: [self-hosted, linux, backend-runner]
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
           no-cache: true
@@ -487,11 +487,11 @@ jobs:
       # a different build strategy, not a different GC setting.
       NEXT_TELEMETRY_DISABLED: "1"
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
           no-cache: true
@@ -501,7 +501,7 @@ jobs:
       # on NVMe SSD, so downloading and re-uploading across WAN is redundant overhead.
       - name: Cache bun dependencies
         if: "runner.environment != 'self-hosted' && !contains(runner.name, 'personal') && !contains(runner.name, 'ghrunner')"
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ~/.bun/install/cache
           key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
@@ -516,7 +516,7 @@ jobs:
       # reachable through the second restore prefix.
       - name: Cache Next.js build
         if: "runner.environment != 'self-hosted' && !contains(runner.name, 'personal') && !contains(runner.name, 'ghrunner')"
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: .next/cache
           key: ${{ runner.os }}-nextjs-${{ hashFiles('bun.lock') }}
@@ -539,7 +539,7 @@ jobs:
       # that pins the Playwright version, so a version bump re-downloads once.
       - name: Cache Playwright browsers
         if: "runner.environment != 'self-hosted' && !contains(runner.name, 'personal') && !contains(runner.name, 'ghrunner')"
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-playwright-${{ hashFiles('bun.lock') }}
@@ -582,7 +582,7 @@ jobs:
       - name: Upload Playwright report
         if: always()
         continue-on-error: true
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: playwright-report
           path: playwright-report/
@@ -629,11 +629,11 @@ jobs:
     # under load: it killed the job instead of reporting a state.
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
           no-cache: true
@@ -656,7 +656,7 @@ jobs:
       - name: Upload Vercel build log
         if: always()
         continue-on-error: true
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: vercel-build-${{ github.sha }}
           path: vercel-logs/
