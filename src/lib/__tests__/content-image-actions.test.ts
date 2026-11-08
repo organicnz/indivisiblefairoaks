@@ -73,7 +73,7 @@ function makeClient(
 }
 
 // ---------------------------------------------------------------------------
-// deleteContentImage — 8 branches
+// deleteContentImage — 11 branches
 // ---------------------------------------------------------------------------
 
 describe('deleteContentImage', () => {
@@ -170,7 +170,66 @@ describe('deleteContentImage', () => {
     expect(client._storageMocks.remove).not.toHaveBeenCalled();
   });
 
-  // (g) Unreferenced — storage remove succeeds
+  // (g) Reference lookups fail — refuse to delete
+  it('refuses deletion when the content body lookup fails', async () => {
+    const client = makeClient({
+      content: {
+        rows: [{ id: 1, body: null, featured_image: null }],
+        errors: [
+          { kind: 'like', column: 'body', error: { message: 'body scan failed' } },
+        ],
+      },
+      content_revisions: { rows: [] },
+    });
+    requireAdmin.mockResolvedValue({ adminClient: client });
+
+    const result = await deleteContentImage(SAFE_URL);
+
+    expect(result).toEqual({ deleted: false });
+    expect(client._storageMocks.remove).not.toHaveBeenCalled();
+  });
+
+  it('refuses deletion when the featured-image lookup fails', async () => {
+    const client = makeClient({
+      content: {
+        rows: [{ id: 1, body: null, featured_image: null }],
+        errors: [
+          {
+            kind: 'eq',
+            column: 'featured_image',
+            error: { message: 'hero scan failed' },
+          },
+        ],
+      },
+      content_revisions: { rows: [] },
+    });
+    requireAdmin.mockResolvedValue({ adminClient: client });
+
+    const result = await deleteContentImage(SAFE_URL);
+
+    expect(result).toEqual({ deleted: false });
+    expect(client._storageMocks.remove).not.toHaveBeenCalled();
+  });
+
+  it('refuses deletion when the revision lookup fails', async () => {
+    const client = makeClient({
+      content: { rows: [{ id: 1, body: null, featured_image: null }] },
+      content_revisions: {
+        rows: [],
+        errors: [
+          { kind: 'like', column: 'body', error: { message: 'revision scan failed' } },
+        ],
+      },
+    });
+    requireAdmin.mockResolvedValue({ adminClient: client });
+
+    const result = await deleteContentImage(SAFE_URL);
+
+    expect(result).toEqual({ deleted: false });
+    expect(client._storageMocks.remove).not.toHaveBeenCalled();
+  });
+
+  // (h) Unreferenced — storage remove succeeds
   it('(g) deletes and returns deleted:true when the path is unreferenced', async () => {
     const removeMock = vi.fn().mockResolvedValue({ error: null });
     const client = makeClient(
@@ -188,7 +247,7 @@ describe('deleteContentImage', () => {
     expect(removeMock).toHaveBeenCalledWith([SAFE_PATH]);
   });
 
-  // (h) Unreferenced — storage remove returns an error
+  // (i) Unreferenced — storage remove returns an error
   it('(h) returns deleted:false when storage remove fails', async () => {
     const removeMock = vi.fn().mockResolvedValue({ error: { message: 'bucket unavailable' } });
     const client = makeClient(

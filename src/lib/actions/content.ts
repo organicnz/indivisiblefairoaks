@@ -743,6 +743,9 @@ export async function deleteContentImage(
     adminClient.from('content').select('id').eq('featured_image', url).limit(1),
     adminClient.from('content_revisions').select('id').like('body', `%${path}%`).limit(1),
   ]);
+  const referenceError = bodyRefs.error ?? imageRefs.error ?? revisionRefs.error;
+  if (referenceError) return { deleted: false };
+
   const referenced =
     (bodyRefs.data?.length ?? 0) > 0 ||
     (imageRefs.data?.length ?? 0) > 0 ||
