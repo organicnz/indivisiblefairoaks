@@ -5,7 +5,7 @@
   "scripts": {
     "prepare": "bun scripts/install-hooks.mjs",
     "dev": "bun --bun next dev --turbopack",
-    "build": "bun --bun next build",
+    "build": "bun scripts/build.mjs",
     "start": "bun --bun next start",
     "lint": "bun --bun tsrs --noEmit",
     "lint:check": "bun --bun tsrs --noEmit",
