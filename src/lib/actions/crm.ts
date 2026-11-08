@@ -1974,7 +1974,12 @@ export async function sendCRMDirectEmail({
   const now = new Date().toISOString();
 
   const [contactUpdate, activityInsert] = await Promise.all([
-    adminClient.from('crm_contacts').update({ last_contacted_at: now }).eq('id', contactId),
+    adminClient
+      .from('crm_contacts')
+      .update({ last_contacted_at: now })
+      .eq('id', contactId)
+      .select('id')
+      .maybeSingle(),
     adminClient.from('crm_activities').insert({
       contact_id: contactId,
       type: 'email_sent',
@@ -1986,7 +1991,10 @@ export async function sendCRMDirectEmail({
   ]);
 
   const postSendWarnings: string[] = [];
-  if (contactUpdate.error) {
+  if (contactUpdate.error || !contactUpdate.data) {
+    // The email was accepted by the provider. If the contact vanished between
+    // the read and this update, the send still happened, but claiming its
+    // last-contacted stamp was recorded would be false.
     postSendWarnings.push("the contact's last-contacted date could not be updated");
   }
   if (activityInsert.error) {

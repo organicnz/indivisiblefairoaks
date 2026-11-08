@@ -1370,6 +1370,52 @@ describe('Civic CRM Server Actions', () => {
       expect(tables.crm_contacts.rows?.[0]?.last_contacted_at).toBeTruthy();
     });
 
+    it('warns when the contact disappears before the last-contacted update', async () => {
+      // Resend accepted the message, so the send itself is still a success. The
+      // contact row is removed between the initial read and the post-send
+      // update; that missing stamp must be reported, not silently swallowed.
+      const contactRows = [
+        {
+          id: 'c-3',
+          email: 'neighbor3@example.com',
+          first_name: 'Neighbor',
+          last_name: 'Three',
+          do_not_email: false,
+          unsubscribe_token: 'unsub-token-3',
+        },
+      ];
+      tables.crm_contacts = {
+        rows: contactRows,
+        beforeUpdate: () => {
+          contactRows.splice(0);
+        },
+      };
+      tables.crm_activities = { rows: [] };
+
+      installFetchMock(
+        vi.fn().mockResolvedValue({
+          ok: true,
+          status: 200,
+          json: async () => ({ id: 'resend_msg_race' }),
+        })
+      );
+
+      const res = await sendCRMDirectEmail({
+        contactId: 'c-3',
+        subject: 'Vanishing Contact',
+        message: 'This send still counts.',
+      });
+
+      expect(res.success).toBe(true);
+      expect(res.warning).toMatch(/last-contacted date could not be updated/i);
+      expect(contactRows).toHaveLength(0);
+      expect(tables.crm_activities.rows?.[0]).toMatchObject({
+        contact_id: 'c-3',
+        type: 'email_sent',
+        metadata: { resend_id: 'resend_msg_race' },
+      });
+    });
+
     it('falls back to the chapter address when ADMIN_ORDER_EMAIL is unset', async () => {
       // `replyTo` and the List-Unsubscribe mailto both read
       // `env.ADMIN_ORDER_EMAIL || <chapter address>`. The truthy side is what the

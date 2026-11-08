@@ -93,6 +93,12 @@ export interface MockTableConfig {
    * ```
    */
   onUpdate?: (row: Record<string, unknown>) => void;
+  /**
+   * Run immediately before an update selects its rows. This models a concurrent
+   * delete or re-key between the read that authorized the write and the write
+   * itself.
+   */
+  beforeUpdate?: () => void;
   /** Rows returned by `.insert()`, minus whatever the trigger set. */
   insert?: Record<string, unknown>;
   onInsert?: (row: Record<string, unknown>) => void;
@@ -525,6 +531,7 @@ export class MockQueryBuilder {
     // search narrowed to one contact must still honour the `.eq('id', …)` the
     // code put in front of it, or the test would pass a query that returns
     // every row.
+    if (this.mode === 'update') config.beforeUpdate?.();
     const base = this.unmodelledFilter ? config.filterRows : config.rows;
 
     if (this.mode === 'update') {
