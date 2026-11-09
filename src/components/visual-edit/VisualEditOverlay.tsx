@@ -477,6 +477,28 @@ export function VisualEditOverlay() {
   );
 
   /**
+   * The next region the operator asked for, held until the unsaved-work guard
+   * answers. `null` is a valid target (the whole page), so the request is boxed
+   * rather than using null as both "nothing pending" and "whole page".
+   */
+  const [pendingRegionSwitch, setPendingRegionSwitch] = useState<{
+    regionId: string | null;
+  } | null>(null);
+  /** Latest dirty state for a callback that must stay stable while typing. */
+  const dirtyRef = useRef(false);
+
+  /** Apply a region that has already passed validation and the dirty guard. */
+  const activateRegion = useCallback((regionId: string | null) => {
+    setActiveRegionId((current) => (current === regionId ? current : regionId));
+    syncRegionParamInUrl(regionId);
+    if (regionId) {
+      highlightPageSection(
+        document.querySelector<HTMLElement>(`[data-copy-region="${regionId}"]`)
+      );
+    }
+  }, []);
+
+  /**
    * Switch the editable slice, and make every surface agree it happened.
    *
    * Selection used to be React state alone, so the address bar kept claiming a
@@ -487,19 +509,26 @@ export function VisualEditOverlay() {
    * The id is validated against this page's registry here too. The sidebar can
    * only offer valid ids, but the event bus is a public surface, and selecting
    * a different page's region would load its row while framing this page.
+   *
+   * A switch replaces the block model, history and saved baseline. Page-level
+   * edits have no panel with its own guard, so they ask here before the loader
+   * can discard them. The composer keeps its existing guard: its draft is not
+   * part of `dirty` until it is applied, and the loader asks it to close.
    */
   const selectRegion = useCallback(
     (regionId: string | null) => {
       if (regionId && !pageRegions.some((region) => region.id === regionId)) return;
-      setActiveRegionId((current) => (current === regionId ? current : regionId));
-      syncRegionParamInUrl(regionId);
-      if (regionId) {
-        highlightPageSection(
-          document.querySelector<HTMLElement>(`[data-copy-region="${regionId}"]`)
-        );
+      if (regionId === activeRegionId) {
+        activateRegion(regionId);
+        return;
       }
+      if (dirtyRef.current) {
+        setPendingRegionSwitch({ regionId });
+        return;
+      }
+      activateRegion(regionId);
     },
-    [pageRegions]
+    [activateRegion, activeRegionId, pageRegions]
   );
 
   const rootRef = useRef<HTMLElement | null>(null);
@@ -910,6 +939,15 @@ export function VisualEditOverlay() {
    * looking at. Only the load holding the current generation may write state.
    */
   const loadGenerationRef = useRef(0);
+  /**
+   * Which document asynchronous writes belong to.
+   *
+   * A save captures this at request time. When it resolves, a different value
+   * means the operator has switched documents and the response must not touch
+   * the new region's row, title, saved baseline, or draft.
+   */
+  const documentEpochRef = useRef(0);
+  const getDocumentEpoch = useCallback(() => documentEpochRef.current, []);
   /** A document switch was postponed until the composer could be closed. */
   const [reloadAfterComposerClose, setReloadAfterComposerClose] = useState(false);
   const [vcMode, setVcMode] = useState<'block' | 'section'>('block');
@@ -1267,6 +1305,15 @@ export function VisualEditOverlay() {
       return;
     }
 
+    /*
+     * Async writes are stamped with this epoch. Bump it as soon as a replacement
+     * load is allowed to start; a save from the previous document that resolves
+     * later must not clean or retitle the document now on screen.
+     */
+    if (documentKey !== loadedDocumentKeyRef.current) {
+      documentEpochRef.current += 1;
+    }
+
     if (documentChanged) {
       // A different document means a different set of blocks: ids from the
       // previous one must not stay selected, and a batch target snapshot is
@@ -1274,6 +1321,14 @@ export function VisualEditOverlay() {
       setSelectedBlockIds(new Set());
       setActiveBlockIndex(null);
       setVcSelectedBlockIds([]);
+      /*
+       * Undo, redo, and a recovered-draft banner describe the document that was
+       * on screen a moment ago. Carrying either across a switch would let an
+       * old region's blocks be restored into the new one.
+       */
+      setHistory(EMPTY_HISTORY);
+      setRecoveredDraft(null);
+      setAutosaveFailure(null);
     }
 
     /*
@@ -1780,8 +1835,48 @@ export function VisualEditOverlay() {
 
   const body = useMemo(() => serializeBlocks(blocks), [blocks]);
   const dirty = body !== savedBody;
+  dirtyRef.current = dirty;
   const autosavePaused =
     autosaveFailure?.scope === draftScope && autosaveFailure.snapshot === body;
+
+  /**
+   * Complete a region switch the operator confirmed losing changes for.
+   *
+   * Mark the current body as the baseline before changing `activeRegionId`.
+   * That cancels the pending autosave for the document being left, so a
+   * confirmed discard cannot race the new region's load. The local draft is
+   * cleared for the same reason: the operator made an explicit decision.
+   */
+  const confirmRegionSwitch = useCallback(() => {
+    if (!pendingRegionSwitch) return;
+    const { regionId } = pendingRegionSwitch;
+    if (regionId && !pageRegions.some((region) => region.id === regionId)) {
+      setPendingRegionSwitch(null);
+      return;
+    }
+    setPendingRegionSwitch(null);
+    /*
+     * If the composer is still open, the loader asks it to close before it
+     * starts the replacement document. Do not mark the old body saved or clear
+     * its draft yet: the operator may keep editing in the panel, and a deferred
+     * switch must not turn that into a false "Saved" state. Once the load
+     * actually starts, it resets history and the recovered draft.
+     */
+    if (!isVisualComposerOpenRef.current) {
+      setSavedBody(body);
+      setAutosaveFailure(null);
+      setRecoveredDraft(null);
+      clearDraft(draftScope);
+    }
+    activateRegion(regionId);
+  }, [
+    activateRegion,
+    body,
+    clearDraft,
+    draftScope,
+    pageRegions,
+    pendingRegionSwitch,
+  ]);
 
   const modifiedBlocks = useMemo<ModifiedBlockItem[]>(() => {
     if (!dirty) return [];
@@ -1970,9 +2065,21 @@ export function VisualEditOverlay() {
       newBlocks: Block[],
       successMessage = 'Page saved',
       toastOptions?: { action?: { label: string; onClick: () => void } }
-    ): Promise<{ success: boolean; error?: string; updatedAt?: string | null }> => {
+    ): Promise<{
+      success: boolean;
+      error?: string;
+      updatedAt?: string | null;
+      stale?: boolean;
+    }> => {
       setSavingBackend(true);
       const newBody = serializeBlocks(newBlocks);
+      /*
+       * The document this write belongs to. If the operator switches regions
+       * before the request resolves, the response is still a successful write
+       * to the old row — but it must not become the new region's title, body,
+       * saved baseline, or draft.
+       */
+      const saveEpoch = documentEpochRef.current;
 
       try {
         // Client-side pre-check: catch an oversized body before it reaches the
@@ -2030,6 +2137,9 @@ export function VisualEditOverlay() {
         });
 
         if (res.success) {
+          if (documentEpochRef.current !== saveEpoch) {
+            return { success: true, stale: true };
+          }
           if (successMessage) {
             if (toastOptions) {
               toast.success(successMessage, toastOptions);
@@ -2079,6 +2189,9 @@ export function VisualEditOverlay() {
           router.refresh();
           return { success: true, updatedAt: res.data?.updatedAt };
         } else if (isStaleConflict(res.error)) {
+          if (documentEpochRef.current !== saveEpoch) {
+            return { success: true, stale: true };
+          }
           /**
            * Someone else wrote this page while it was open.
            *
@@ -2093,10 +2206,16 @@ export function VisualEditOverlay() {
           );
           return { success: false, error: res.error };
         } else {
+          if (documentEpochRef.current !== saveEpoch) {
+            return { success: true, stale: true };
+          }
           toast.error(res.error || 'Failed to save changes to backend');
           return { success: false, error: res.error };
         }
       } catch (err) {
+        if (documentEpochRef.current !== saveEpoch) {
+          return { success: true, stale: true };
+        }
         const errorMsg = err instanceof Error ? err.message : 'Error syncing with backend';
         toast.error(errorMsg);
         return { success: false, error: errorMsg };
@@ -2133,6 +2252,7 @@ export function VisualEditOverlay() {
     setSavingBackend,
     setSavedBody,
     router,
+    getDocumentEpoch,
   });
 
   /**
@@ -3477,8 +3597,14 @@ export function VisualEditOverlay() {
       const key = event.key.toLowerCase();
       const mod = event.metaKey || event.ctrlKey;
 
-      if (key === 'escape' && (deleteConfirmIndexes !== null || reorderConfirm !== null)) {
+      if (
+        key === 'escape' &&
+        (pendingRegionSwitch !== null ||
+          deleteConfirmIndexes !== null ||
+          reorderConfirm !== null)
+      ) {
         event.preventDefault();
+        setPendingRegionSwitch(null);
         setDeleteConfirmIndexes(null);
         setReorderConfirm(null);
         return;
@@ -3693,6 +3819,7 @@ export function VisualEditOverlay() {
     closeVisualComposer,
     openVisualComposer,
     deleteConfirmIndexes,
+    pendingRegionSwitch,
   ]);
 
   // Revisions management — restore is destructive; the confirm step lives at the
@@ -4001,6 +4128,14 @@ export function VisualEditOverlay() {
     onCopyBlockJson: handleCopyBlockJson,
     onPasteBlockJson: handlePasteBlockJson,
   };
+
+  const pendingRegionLabel =
+    pendingRegionSwitch === null
+      ? null
+      : pendingRegionSwitch.regionId === null
+        ? 'Whole page'
+        : (pageRegions.find((region) => region.id === pendingRegionSwitch.regionId)?.label ??
+          'this region');
 
   if (!enabled || !isAdmin) return null;
 
@@ -6141,6 +6276,58 @@ export function VisualEditOverlay() {
               <Trash2 size={13} className="text-rose-400" />
               <span className="flex-1">Delete Block</span>
             </ConfirmAction>
+          </div>
+        </div>
+      )}
+
+      {/* ── Region Switch Discard Confirmation ───────────────────────────── */}
+      {pendingRegionSwitch !== null && (
+        <div
+          data-testid="region-switch-confirm-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="confirm-region-switch-title"
+          aria-describedby="confirm-region-switch-description"
+          tabIndex={-1}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') setPendingRegionSwitch(null);
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setPendingRegionSwitch(null);
+          }}
+          className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in overscroll-contain touch-manipulation"
+        >
+          <div className="w-full max-w-sm rounded-2xl border border-white/20 bg-secondary p-5 shadow-2xl text-ink-on-dark space-y-4">
+            <div className="flex items-center gap-2 text-accent-gold font-bold text-sm">
+              <Layers size={18} aria-hidden="true" />
+              <h3 id="confirm-region-switch-title" className="text-white text-base">
+                Switch document?
+              </h3>
+            </div>
+            <p
+              id="confirm-region-switch-description"
+              className="text-xs text-slate-300 leading-relaxed"
+            >
+              You have unsaved page changes. Switching to “{pendingRegionLabel}” will discard
+              them. This cannot be undone.
+            </p>
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/10">
+              <button
+                type="button"
+                autoFocus
+                onClick={() => setPendingRegionSwitch(null)}
+                className="px-3 py-1.5 rounded-xl border border-white/15 text-xs font-bold text-slate-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold"
+              >
+                Keep editing
+              </button>
+              <button
+                type="button"
+                onClick={confirmRegionSwitch}
+                className="px-4 py-1.5 rounded-xl bg-accent-gold hover:bg-accent-gold/90 text-ink-strong text-xs font-bold transition-colors cursor-pointer shadow-md touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold"
+              >
+                Discard and switch
+              </button>
+            </div>
           </div>
         </div>
       )}

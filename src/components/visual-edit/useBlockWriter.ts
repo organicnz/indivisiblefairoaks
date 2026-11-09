@@ -35,6 +35,8 @@ export interface UseBlockWriterArgs {
   setSavingBackend: (v: boolean) => void;
   setSavedBody: (v: string) => void;
   router: { refresh: () => void };
+  /** The document generation that owns this write. */
+  getDocumentEpoch: () => number;
 }
 
 export interface WriteToCopyRegionArgs {
@@ -66,6 +68,7 @@ export function useBlockWriter(args: UseBlockWriterArgs) {
     setSavingBackend,
     setSavedBody,
     router,
+    getDocumentEpoch,
   } = args;
 
   /**
@@ -101,6 +104,7 @@ export function useBlockWriter(args: UseBlockWriterArgs) {
         onRollback?.();
         return false;
       }
+      const writeEpoch = getDocumentEpoch();
       setSavingBackend(true);
       try {
         const res = await saveContentWithEdgeApi({
@@ -111,23 +115,29 @@ export function useBlockWriter(args: UseBlockWriterArgs) {
           type: 'page',
         });
         if (res.success) {
-          toast.success(successMessage ?? 'Region updated and published');
-          setSavedBody(body);
-          router.refresh();
+          if (getDocumentEpoch() === writeEpoch) {
+            toast.success(successMessage ?? 'Region updated and published');
+            setSavedBody(body);
+            router.refresh();
+          }
           return true;
         }
-        toast.error(res.error ?? errorMessage ?? 'Failed to save copy region');
+        if (getDocumentEpoch() === writeEpoch) {
+          toast.error(res.error ?? errorMessage ?? 'Failed to save copy region');
+        }
         onRollback?.();
         return false;
       } catch {
-        toast.error(errorMessage ?? 'Failed to save changes');
+        if (getDocumentEpoch() === writeEpoch) {
+          toast.error(errorMessage ?? 'Failed to save changes');
+        }
         onRollback?.();
         return false;
       } finally {
         setSavingBackend(false);
       }
     },
-    [saveContentWithEdgeApi, setSavingBackend, setSavedBody, router]
+    [saveContentWithEdgeApi, setSavingBackend, setSavedBody, router, getDocumentEpoch]
   );
 
   /** Mutate one block, commit it to history, and persist the document. */

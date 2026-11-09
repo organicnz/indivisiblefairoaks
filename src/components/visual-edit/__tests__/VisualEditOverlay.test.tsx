@@ -1638,6 +1638,200 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     expect(getContentBySlugForEdit).toHaveBeenCalledWith('copy-about-mission');
   });
 
+  it('asks before switching regions with unsaved page edits', async () => {
+    await withPage();
+
+    // Make a real page-level change and then undo it. The delete persists, so
+    // the undo leaves the document dirty without opening the composer; this is
+    // the state the old switch path silently replaced.
+    await act(async () => {
+      window.dispatchEvent(
+        new CustomEvent(VISUAL_EDIT_EVENTS.deleteSection, { detail: { blockIndex: 0 } })
+      );
+    });
+    const undo = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Undo the last change"]'
+    );
+    expect(undo).not.toBeNull();
+    await act(async () => {
+      undo?.click();
+    });
+    expect(document.body.textContent).toContain('unsaved changes');
+
+    const selectMission = async () => {
+      await act(async () => {
+        window.dispatchEvent(
+          new CustomEvent(VISUAL_EDIT_EVENTS.selectRegion, {
+            detail: { regionId: 'about-mission' },
+          })
+        );
+      });
+    };
+
+    await selectMission();
+    expect(document.body.textContent).toContain('You have unsaved page changes.');
+    expect(getContentBySlugForEdit).not.toHaveBeenCalledWith('copy-about-mission');
+    expect(new URLSearchParams(window.location.search).get('region')).toBeNull();
+
+    // Keeping editing is the safe default: no load and no URL change.
+    await act(async () => {
+      byText('Keep editing')?.click();
+    });
+    expect(document.body.textContent).not.toContain('You have unsaved page changes.');
+    expect(getContentBySlugForEdit).not.toHaveBeenCalledWith('copy-about-mission');
+    expect(new URLSearchParams(window.location.search).get('region')).toBeNull();
+
+    await selectMission();
+    await act(async () => {
+      byText('Discard and switch')?.click();
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(getContentBySlugForEdit).toHaveBeenCalledWith('copy-about-mission');
+    expect(new URLSearchParams(window.location.search).get('region')).toBe('about-mission');
+  });
+
+  it('does not let a save for the previous document clean the region that replaced it', async () => {
+    await withPage();
+
+    let releaseSave!: (value: unknown) => void;
+    const saveGate = new Promise((resolve) => {
+      releaseSave = resolve;
+    });
+    saveContent.mockReturnValueOnce(saveGate);
+
+    // Delete writes immediately. Hold that write open while the operator
+    // switches, so its response lands after the new region is on screen.
+    await act(async () => {
+      window.dispatchEvent(
+        new CustomEvent(VISUAL_EDIT_EVENTS.deleteSection, { detail: { blockIndex: 0 } })
+      );
+      await Promise.resolve();
+    });
+
+    getContentBySlugForEdit.mockImplementation(async (slug: string) =>
+      slug === 'copy-about-mission'
+        ? {
+            id: 31,
+            title: 'Mission region',
+            slug,
+            excerpt: null,
+            type: 'page',
+            status: 'publish',
+            body: '<h2 class="cw cw--h2">Mission region</h2>',
+            featured_image: null,
+            metadata: {},
+            updated_at: '2026-10-09T00:00:00Z',
+          }
+        : {
+            id: 7,
+            title: 'About Us',
+            slug,
+            excerpt: null,
+            type: 'page',
+            status: 'publish',
+            body,
+            featured_image: null,
+            metadata: {},
+            updated_at: '2026-10-09T00:00:00Z',
+          }
+    );
+
+    await act(async () => {
+      window.dispatchEvent(
+        new CustomEvent(VISUAL_EDIT_EVENTS.selectRegion, {
+          detail: { regionId: 'about-mission' },
+        })
+      );
+    });
+    await act(async () => {
+      byText('Discard and switch')?.click();
+      await Promise.resolve();
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    expect(container.textContent).toContain('Mission region');
+
+    releaseSave({ success: true, data: { id: 7, updatedAt: '2026-10-10T00:00:00Z' } });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // The old write succeeded on the old row, but it must not become the new
+    // region's title or saved baseline.
+    expect(container.textContent).toContain('Mission region');
+    expect(container.textContent).not.toContain('About Us');
+  });
+
+  it('clears undo history when a region replaces the document', async () => {
+    await withPage();
+
+    // Build a real undo step, then let the delete persist so the switch itself
+    // is clean and does not raise the unrelated unsaved-changes guard.
+    await act(async () => {
+      window.dispatchEvent(
+        new CustomEvent(VISUAL_EDIT_EVENTS.deleteSection, { detail: { blockIndex: 0 } })
+      );
+    });
+    expect(
+      container.querySelector<HTMLButtonElement>('button[aria-label="Undo the last change"]')
+        ?.disabled
+    ).toBe(false);
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    getContentBySlugForEdit.mockImplementation(async (slug: string) =>
+      slug === 'copy-about-mission'
+        ? {
+            id: 31,
+            title: 'Mission region',
+            slug,
+            excerpt: null,
+            type: 'page',
+            status: 'publish',
+            body: '<h2 class="cw cw--h2">Mission region</h2>',
+            featured_image: null,
+            metadata: {},
+            updated_at: '2026-10-09T00:00:00Z',
+          }
+        : {
+            id: 7,
+            title: 'About Us',
+            slug,
+            excerpt: null,
+            type: 'page',
+            status: 'publish',
+            body,
+            featured_image: null,
+            metadata: {},
+            updated_at: '2026-10-09T00:00:00Z',
+          }
+    );
+
+    await act(async () => {
+      window.dispatchEvent(
+        new CustomEvent(VISUAL_EDIT_EVENTS.selectRegion, {
+          detail: { regionId: 'about-mission' },
+        })
+      );
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(container.textContent).toContain('Mission region');
+    const undo = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Undo the last change"]'
+    );
+    expect(undo?.disabled).toBe(true);
+  });
+
   it('paints the composer draft onto the page, and takes it back on discard', async () => {
     await withPage();
     const paragraph = pageChildren().children[0] as HTMLElement;
