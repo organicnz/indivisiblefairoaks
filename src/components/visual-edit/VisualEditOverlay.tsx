@@ -902,6 +902,14 @@ export function VisualEditOverlay() {
    * switch — not a refresh of the same row, which must leave the panel alone.
    */
   const loadedDocumentKeyRef = useRef<string | null>(null);
+  /**
+   * The newest document load.
+   *
+   * Region switches start asynchronous reads. React cannot cancel one, and a
+   * slow earlier response can resolve after the region the operator is now
+   * looking at. Only the load holding the current generation may write state.
+   */
+  const loadGenerationRef = useRef(0);
   /** A document switch was postponed until the composer could be closed. */
   const [reloadAfterComposerClose, setReloadAfterComposerClose] = useState(false);
   const [vcMode, setVcMode] = useState<'block' | 'section'>('block');
@@ -1240,6 +1248,7 @@ export function VisualEditOverlay() {
           : `path:${pathname}`;
     const previousDocumentKey = loadedDocumentKeyRef.current;
     const documentChanged = previousDocumentKey !== null && previousDocumentKey !== documentKey;
+    const generation = ++loadGenerationRef.current;
 
     /*
      * A load must never close the composer by itself.
@@ -1319,6 +1328,10 @@ export function VisualEditOverlay() {
         }
       }
 
+      // The operator may have moved to another region while this read was in
+      // flight. That newer load owns the document now; this response is history.
+      if (generation !== loadGenerationRef.current) return;
+
       if (row) {
         setContentRow(row as VisualContentRow);
         setPageTitle(row.title);
@@ -1358,6 +1371,9 @@ export function VisualEditOverlay() {
         setSavedBody(serializeBlocks(extracted));
       }
     } catch {
+      // A rejected read for a document the operator already left must not clear
+      // the region that replaced it.
+      if (generation !== loadGenerationRef.current) return;
       // Non-fatal if loading row fails, extract from live DOM
       const root = rootRef.current || findEffectiveVisualEditRoot();
       const extracted = carrySessionIds(root ? extractBlocksFromDOM(root) : []);

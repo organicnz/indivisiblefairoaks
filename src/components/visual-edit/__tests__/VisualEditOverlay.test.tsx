@@ -2155,6 +2155,80 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     expect(new URLSearchParams(window.location.search).get('visual-edit')).toBe('1');
   });
 
+  it('does not let a superseded region load overwrite the newest one', async () => {
+    await withPage();
+
+    let releaseMission!: () => void;
+    const missionGate = new Promise<void>((resolve) => {
+      releaseMission = resolve;
+    });
+    const row = (id: number, title: string, slug: string, body: string) => ({
+      id,
+      title,
+      slug,
+      excerpt: null,
+      type: 'page',
+      status: 'publish',
+      body,
+      featured_image: null,
+      metadata: {},
+      updated_at: '2026-10-09T00:00:00Z',
+    });
+
+    getContentBySlugForEdit.mockImplementation(async (slug: string) => {
+      if (slug === 'copy-about-mission') {
+        await missionGate;
+        return row(31, 'Loaded mission', 'copy-about-mission', '<h2>Mission body</h2>');
+      }
+      if (slug === 'copy-about-who') {
+        return row(32, 'Loaded who', 'copy-about-who', '<h2>Who body</h2>');
+      }
+      return null;
+    });
+
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn().mockResolvedValue({ ok: false } as unknown as Response) as unknown as typeof fetch;
+    try {
+      await act(async () => {
+        window.dispatchEvent(
+          new CustomEvent(VISUAL_EDIT_EVENTS.selectRegion, {
+            detail: { regionId: 'about-mission' },
+          })
+        );
+      });
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(getContentBySlugForEdit).toHaveBeenCalledWith('copy-about-mission');
+
+      await act(async () => {
+        window.dispatchEvent(
+          new CustomEvent(VISUAL_EDIT_EVENTS.selectRegion, {
+            detail: { regionId: 'about-who' },
+          })
+        );
+      });
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      expect(container.textContent).toContain('Loaded who');
+
+      // The earlier read now finishes. It belongs to a region the operator has
+      // left, so it must not put "Loaded mission" over the active document.
+      releaseMission();
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      expect(container.textContent).toContain('Loaded who');
+      expect(container.textContent).not.toContain('Loaded mission');
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   it('refuses a region id from another page on the event bus', async () => {
     window.history.replaceState({}, '', '/?visual-edit=1');
     pathname.value = '/';
