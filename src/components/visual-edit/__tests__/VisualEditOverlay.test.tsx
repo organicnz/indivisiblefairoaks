@@ -125,6 +125,7 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     getVisualPageContext.mockReset();
     toast.success.mockReset();
     toast.error.mockReset();
+    toast.info.mockReset();
     getCRMEdgeFunctionHealth.mockResolvedValue({
       database: true,
       storage: true,
@@ -1279,6 +1280,67 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     // Back to default context zone — no inline toolbar visible
     const inlineZoneAfter = container.querySelector('[data-inline-toolbar="true"]');
     expect(inlineZoneAfter).toBeNull();
+  });
+
+  it('refuses a region switch while an inline text edit is uncommitted', async () => {
+    await withPage();
+    const heading = document.querySelector<HTMLElement>('h2');
+    expect(heading).not.toBeNull();
+    const original = heading?.innerHTML;
+
+    await act(async () => {
+      heading?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+    expect(container.querySelector('[data-inline-toolbar="true"]')).not.toBeNull();
+
+    await act(async () => {
+      if (heading) {
+        heading.innerHTML = 'Edited in place';
+        heading.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    });
+
+    await act(async () => {
+      window.dispatchEvent(
+        new CustomEvent(VISUAL_EDIT_EVENTS.selectRegion, {
+          detail: { regionId: 'about-mission' },
+        })
+      );
+    });
+
+    // The header selector fires the same event as the sidebar. The edit is still
+    // in the DOM, not in `blocks`, so the switch must stop before it loads.
+    expect(toast.info).toHaveBeenCalledWith(
+      'Save or cancel the inline text edit before switching regions.'
+    );
+    expect(document.body.textContent).toContain('Edited in place');
+    expect(container.querySelector('[data-inline-toolbar="true"]')).not.toBeNull();
+    expect(getContentBySlugForEdit).not.toHaveBeenCalledWith('copy-about-mission');
+    expect(new URLSearchParams(window.location.search).get('region')).toBeNull();
+
+    const cancel = Array.from(
+      container.querySelectorAll<HTMLButtonElement>('[data-inline-toolbar] button')
+    ).find((button) => button.textContent?.includes('Cancel'));
+    expect(cancel).not.toBeUndefined();
+    await act(async () => {
+      cancel?.click();
+    });
+    expect(heading?.innerHTML).toBe(original);
+
+    // Once the edit is explicitly cancelled, the same request is safe and
+    // follows the normal region path.
+    await act(async () => {
+      window.dispatchEvent(
+        new CustomEvent(VISUAL_EDIT_EVENTS.selectRegion, {
+          detail: { regionId: 'about-mission' },
+        })
+      );
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    expect(getContentBySlugForEdit).toHaveBeenCalledWith('copy-about-mission');
+    expect(new URLSearchParams(window.location.search).get('region')).toBe('about-mission');
   });
 
   it('selects two section chips and opens the composer in batch mode', async () => {

@@ -916,6 +916,10 @@ export function VisualEditOverlay() {
    * once it has actually closed does the pending region become active. If the
    * operator chooses to keep editing, the request is dropped and the document,
    * URL, and history stay exactly where they were.
+   *
+   * Inline text is a separate editing surface: it is written into the live DOM
+   * before it reaches `blocks`, so it cannot be staged behind a document load.
+   * The inline guard below refuses a switch instead of detaching that element.
    */
   const selectRegion = useCallback(
     (regionId: string | null) => {
@@ -923,6 +927,18 @@ export function VisualEditOverlay() {
       if (regionId === activeRegionId) {
         setPendingRegionSwitch(null);
         activateRegion(regionId);
+        return;
+      }
+      /*
+       * Inline text lives in the live DOM until it is committed, not in
+       * `blocks`. The header's region selector is still clickable during that
+       * session, and loading another document would replace the block model and
+       * detach the element being edited. Refuse the switch rather than silently
+       * dropping text the document never saw; the inline toolbar's Save/Cancel
+       * is the explicit exit.
+       */
+      if (inlineSessionRef.current) {
+        toast.info('Save or cancel the inline text edit before switching regions.');
         return;
       }
       if (isVisualComposerOpenRef.current) {
