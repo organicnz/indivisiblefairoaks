@@ -162,6 +162,9 @@ import { VisualEditorSidebar } from './VisualEditorSidebar';
 
 export const VISUAL_EDIT_ROOT_ATTR = 'data-visual-edit-root';
 
+/** A quiet period after the last document change before autosave writes. */
+const AUTOSAVE_DELAY_MS = 2500;
+
 /**
  * Elements whose `innerHTML` is a block's own editable content.
  *
@@ -617,6 +620,15 @@ export function VisualEditOverlay() {
   const [savedBody, setSavedBody] = useState<string>('');
   /** The local draft offered back on arrival, or null when there is nothing. */
   const [recoveredDraft, setRecoveredDraft] = useState<Block[] | null>(null);
+  /**
+   * The snapshot whose autosave failed. It is scoped to the document so a
+   * failure on one page cannot pause another, and compared to the live body so
+   * the next edit is a fresh attempt rather than a blind retry of the same one.
+   */
+  const [autosaveFailure, setAutosaveFailure] = useState<{
+    scope: string;
+    snapshot: string;
+  } | null>(null);
 
   /**
    * The live blocks, for the effects below.
@@ -1752,6 +1764,8 @@ export function VisualEditOverlay() {
 
   const body = useMemo(() => serializeBlocks(blocks), [blocks]);
   const dirty = body !== savedBody;
+  const autosavePaused =
+    autosaveFailure?.scope === draftScope && autosaveFailure.snapshot === body;
 
   const modifiedBlocks = useMemo<ModifiedBlockItem[]>(() => {
     if (!dirty) return [];
@@ -2044,6 +2058,7 @@ export function VisualEditOverlay() {
            */
           setSavedBody(newBody);
           setRecoveredDraft(null);
+          setAutosaveFailure(null);
           clearDraft(draftScope);
           router.refresh();
           return { success: true, updatedAt: res.data?.updatedAt };
@@ -2146,14 +2161,42 @@ export function VisualEditOverlay() {
    * from nothing** — that is `handlePersistBlocks`, reached deliberately.
    * **It stops after a failure** — retrying into a wall is how an editor
    * convinces someone their work is saved when it is not.
+   *
+   * `body` is a dependency, so this is a debounce from the last keystroke, not
+   * a one-shot timer from the first dirty render. The successful write is
+   * silent: the sidebar already reports the saved state, and a toast every idle
+   * interval is noise. A failure records the exact snapshot it attempted, so
+   * the same unchanged document is not retried; the next edit changes the body
+   * and clears the pause naturally.
    */
   useEffect(() => {
     if (!enabled || !isAdmin || !contentRow || !dirty || savingBackend) return;
+    if (autosavePaused) return;
+    const snapshot = body;
     const timer = window.setTimeout(() => {
-      void handlePersistBlocks(blocksRef.current);
-    }, 2500);
+      void handlePersistBlocks(blocksRef.current, '')
+        .then((result) => {
+          if (!result.success) {
+            setAutosaveFailure({ scope: draftScope, snapshot });
+          }
+        })
+        .catch(() => {
+          setAutosaveFailure({ scope: draftScope, snapshot });
+          toast.error('Autosave failed — your changes are still on this page.');
+        });
+    }, AUTOSAVE_DELAY_MS);
     return () => window.clearTimeout(timer);
-  }, [contentRow, dirty, enabled, handlePersistBlocks, isAdmin, savingBackend]);
+  }, [
+    autosavePaused,
+    body,
+    contentRow,
+    dirty,
+    draftScope,
+    enabled,
+    handlePersistBlocks,
+    isAdmin,
+    savingBackend,
+  ]);
 
   const handleTogglePageStatus = async () => {
     if (!contentRow) return;

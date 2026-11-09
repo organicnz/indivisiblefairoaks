@@ -330,6 +330,69 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     expect(written.body).toContain('Mission');
   });
 
+  it('pauses autosave after a failed write and resumes after the next edit', async () => {
+    await withPage();
+
+    const deleteFirstBlock = async () => {
+      await act(async () => {
+        window.dispatchEvent(
+          new CustomEvent(VISUAL_EDIT_EVENTS.deleteSection, { detail: { blockIndex: 0 } })
+        );
+      });
+    };
+
+    // Two saves give the history two steps to walk back through. The first
+    // undo leaves an unsaved document for autosave to attempt; the second is a
+    // new document snapshot, which should clear the pause and try again.
+    await deleteFirstBlock();
+    await deleteFirstBlock();
+    expect(saveContent).toHaveBeenCalledTimes(2);
+
+    const undo = () => {
+      const button = container.querySelector<HTMLButtonElement>(
+        'button[aria-label="Undo the last change"]'
+      );
+      expect(button).not.toBeNull();
+      act(() => button?.click());
+    };
+
+    vi.useFakeTimers();
+    try {
+      undo();
+      saveContent.mockResolvedValueOnce({ success: false, error: 'database is offline' });
+      toast.success.mockClear();
+      toast.error.mockClear();
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(2000);
+      });
+      expect(saveContent).toHaveBeenCalledTimes(2);
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(500);
+      });
+      expect(saveContent).toHaveBeenCalledTimes(3);
+      expect(toast.error).toHaveBeenCalledWith('database is offline');
+
+      // The failed snapshot is still dirty. Retrying the same write every 2.5
+      // seconds cannot fix it and only repeats the same error.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(10_000);
+      });
+      expect(saveContent).toHaveBeenCalledTimes(3);
+
+      // A new snapshot is a new chance. A successful autosave is silent.
+      undo();
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(2500);
+      });
+      expect(saveContent).toHaveBeenCalledTimes(4);
+      expect(toast.success).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('moves the section the header named, to the block beside it', async () => {
     await withPage();
 
