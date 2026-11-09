@@ -476,6 +476,15 @@ export interface VisualComposerInspectorProps {
    */
   closeRequest?: number;
   /**
+   * Called when the operator answers a page-initiated close request with
+   * "Back to editing".
+   *
+   * The overlay stages a region switch behind this prompt. Without a signal,
+   * dismissing the prompt would leave the page believing a switch is still
+   * pending even though the operator chose to keep the current document.
+   */
+  onCloseRequestCanceled?: () => void;
+  /**
    * Report the unapplied design so the page itself can show it.
    *
    * Called with `null` whenever there is nothing to preview — the draft is
@@ -518,6 +527,7 @@ export function VisualComposerInspector({
   initialMode = 'block',
   keepOpenOnApplyInitial = false,
   closeRequest = 0,
+  onCloseRequestCanceled,
   onPreviewChange,
   onDeleteBlock,
   onDeleteBlocks,
@@ -539,6 +549,13 @@ export function VisualComposerInspector({
 
   /** True while the footer is asking whether to throw pending edits away. */
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+
+  /**
+   * True while the current discard prompt came from the page. Once the page has
+   * asked its question, a local Close or navigation must not replace it: the
+   * answer still decides whether the staged document switch may proceed.
+   */
+  const pageClosePromptRef = useRef(false);
 
   /**
    * Where a discard prompt would take the panel if it is confirmed.
@@ -1055,15 +1072,37 @@ export function VisualComposerInspector({
    * tries a tone, then reaches for Escape. Silently throwing that away is the
    * one loss this panel can inflict, and it is cheap to make visible instead.
    */
-  const requestClose = useCallback(() => {
-    if (dirty) {
-      // A prompt raised by Close must not move the panel when it is confirmed.
-      setPendingNavigation(null);
-      setConfirmDiscard(true);
-      return;
-    }
-    onClose();
-  }, [dirty, onClose]);
+  const requestCloseWithReason = useCallback(
+    (reason: 'user' | 'page') => {
+      // The page's question is already on screen. A local Close can only leave
+      // it in place; otherwise "Back to editing" would stop reporting the
+      // cancellation and the staged switch would outlive the operator's answer.
+      if (reason === 'user' && pageClosePromptRef.current) {
+        setConfirmDiscard(true);
+        return;
+      }
+      if (dirty) {
+        // A prompt raised by Close must not move the panel when it is confirmed.
+        pageClosePromptRef.current = reason === 'page';
+        setPendingNavigation(null);
+        setConfirmDiscard(true);
+        return;
+      }
+      pageClosePromptRef.current = false;
+      onClose();
+    },
+    [dirty, onClose]
+  );
+
+  const requestClose = useCallback(
+    () => requestCloseWithReason('user'),
+    [requestCloseWithReason]
+  );
+
+  const requestPageClose = useCallback(
+    () => requestCloseWithReason('page'),
+    [requestCloseWithReason]
+  );
 
   /**
    * A close requested by the page, answered by the operator's own guard.
@@ -1079,8 +1118,8 @@ export function VisualComposerInspector({
     if (closeRequest === handledCloseRequestRef.current) return;
     handledCloseRequestRef.current = closeRequest;
     if (!open) return;
-    requestClose();
-  }, [closeRequest, open, requestClose]);
+    requestPageClose();
+  }, [closeRequest, open, requestPageClose]);
 
   /**
    * Step to the neighbouring block, asking first if the draft is unsaved.
@@ -1092,6 +1131,8 @@ export function VisualComposerInspector({
   const requestNavigation = useCallback(
     (direction: 'previous' | 'next') => {
       if (!onNavigateBlock) return;
+      // Same rule as Close: the page's pending decision owns the prompt.
+      if (pageClosePromptRef.current) return;
       if (dirty) {
         setPendingNavigation(direction);
         setConfirmDiscard(true);
@@ -1110,6 +1151,7 @@ export function VisualComposerInspector({
    * quietly write them.
    */
   const handleConfirmDiscard = useCallback(() => {
+    pageClosePromptRef.current = false;
     snapshotRef.current = { styles: baseline, block };
     userEditRef.current = false;
     lastContentEditAtRef.current = 0;
@@ -1123,9 +1165,12 @@ export function VisualComposerInspector({
   }, [baseline, block, onClose, onNavigateBlock, pendingNavigation]);
 
   const handleDismissDiscard = useCallback(() => {
+    const canceledPageRequest = pageClosePromptRef.current;
+    pageClosePromptRef.current = false;
     setConfirmDiscard(false);
     setPendingNavigation(null);
-  }, []);
+    if (canceledPageRequest) onCloseRequestCanceled?.();
+  }, [onCloseRequestCanceled]);
 
   const handleDeleteFromInspector = useCallback(() => {
     previewReporterRef.current?.(null);
@@ -1201,8 +1246,7 @@ export function VisualComposerInspector({
         if (menuOpen) return;
         e.preventDefault();
         if (confirmDiscard) {
-          setConfirmDiscard(false);
-          setPendingNavigation(null);
+          handleDismissDiscard();
         } else {
           requestClose();
         }
@@ -1264,6 +1308,7 @@ export function VisualComposerInspector({
     inspectorMode,
     visibleTabs,
     confirmDiscard,
+    handleDismissDiscard,
     requestClose,
     requestNavigation,
     onNavigateBlock,

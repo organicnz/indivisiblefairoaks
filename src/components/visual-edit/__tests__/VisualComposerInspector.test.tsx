@@ -3351,7 +3351,14 @@ describe('VisualComposerInspector closing, focus and refused saves', () => {
     customStyle?: string
   ) => boolean | undefined;
 
-  const mount = async (onClose: () => void, onSaveBlock: SaveBlockProp = vi.fn()) => {
+  const mount = async (
+    onClose: () => void,
+    onSaveBlock: SaveBlockProp = vi.fn(),
+    extraProps: {
+      closeRequest?: number;
+      onCloseRequestCanceled?: () => void;
+    } = {}
+  ) => {
     await act(async () => {
       root.render(
         <VisualComposerInspector
@@ -3360,6 +3367,7 @@ describe('VisualComposerInspector closing, focus and refused saves', () => {
           block={block}
           blockIndex={0}
           onSaveBlock={onSaveBlock}
+          {...extraProps}
         />
       );
     });
@@ -3420,6 +3428,55 @@ describe('VisualComposerInspector closing, focus and refused saves', () => {
       byText('Discard')?.click();
     });
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports a dismissed page close request without closing', async () => {
+    const onClose = vi.fn();
+    const onCloseRequestCanceled = vi.fn();
+    await mount(onClose);
+    await changeAStyle();
+
+    await mount(onClose, vi.fn(), {
+      closeRequest: 1,
+      onCloseRequestCanceled,
+    });
+
+    expect(document.body.textContent).toContain('Discard unsaved changes?');
+    await act(async () => {
+      byText('Back to editing')?.click();
+    });
+
+    expect(onClose).not.toHaveBeenCalled();
+    expect(onCloseRequestCanceled).toHaveBeenCalledTimes(1);
+    expect(document.body.textContent).toContain('Unsaved changes');
+    expect(document.body.textContent).not.toContain('Discard unsaved changes?');
+  });
+
+  it('does not let a header close erase a page request', async () => {
+    const onClose = vi.fn();
+    const onCloseRequestCanceled = vi.fn();
+    await mount(onClose);
+    await changeAStyle();
+
+    await mount(onClose, vi.fn(), {
+      closeRequest: 1,
+      onCloseRequestCanceled,
+    });
+    expect(document.body.textContent).toContain('Discard unsaved changes?');
+
+    // The header stays clickable behind the inline prompt. It must not replace
+    // the page's question with a local close and lose the cancellation signal.
+    await act(async () => {
+      byAria('Close Inspector')?.click();
+    });
+    expect(document.body.textContent).toContain('Discard unsaved changes?');
+
+    await act(async () => {
+      byText('Back to editing')?.click();
+    });
+    expect(onClose).not.toHaveBeenCalled();
+    expect(onCloseRequestCanceled).toHaveBeenCalledTimes(1);
+    expect(document.body.textContent).toContain('Unsaved changes');
   });
 
   it('does not close over a save the page refused', async () => {

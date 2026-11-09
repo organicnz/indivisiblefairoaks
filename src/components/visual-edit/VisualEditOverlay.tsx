@@ -477,12 +477,15 @@ export function VisualEditOverlay() {
   );
 
   /**
-   * The next region the operator asked for, held until the unsaved-work guard
-   * answers. `null` is a valid target (the whole page), so the request is boxed
-   * rather than using null as both "nothing pending" and "whole page".
+   * The next region the operator asked for, held until the active document's
+   * guards answer. `stage` records which guard owns it: the open composer's
+   * discard prompt, or the page-level unsaved-edits dialog. `null` is a valid
+   * target (the whole page), so the request is boxed rather than using null as
+   * both "nothing pending" and "whole page".
    */
   const [pendingRegionSwitch, setPendingRegionSwitch] = useState<{
     regionId: string | null;
+    stage: 'page-confirm' | 'composer-close';
   } | null>(null);
   /** Latest dirty state for a callback that must stay stable while typing. */
   const dirtyRef = useRef(false);
@@ -498,38 +501,6 @@ export function VisualEditOverlay() {
     }
   }, []);
 
-  /**
-   * Switch the editable slice, and make every surface agree it happened.
-   *
-   * Selection used to be React state alone, so the address bar kept claiming a
-   * different region (or none) and a refresh silently returned the admin to the
-   * whole-page document. It also left the region off screen: clicking a region
-   * in the sidebar loaded its copy but did not show where that copy lives.
-   *
-   * The id is validated against this page's registry here too. The sidebar can
-   * only offer valid ids, but the event bus is a public surface, and selecting
-   * a different page's region would load its row while framing this page.
-   *
-   * A switch replaces the block model, history and saved baseline. Page-level
-   * edits have no panel with its own guard, so they ask here before the loader
-   * can discard them. The composer keeps its existing guard: its draft is not
-   * part of `dirty` until it is applied, and the loader asks it to close.
-   */
-  const selectRegion = useCallback(
-    (regionId: string | null) => {
-      if (regionId && !pageRegions.some((region) => region.id === regionId)) return;
-      if (regionId === activeRegionId) {
-        activateRegion(regionId);
-        return;
-      }
-      if (dirtyRef.current) {
-        setPendingRegionSwitch({ regionId });
-        return;
-      }
-      activateRegion(regionId);
-    },
-    [activateRegion, activeRegionId, pageRegions]
-  );
 
   const rootRef = useRef<HTMLElement | null>(null);
   /**
@@ -822,6 +793,16 @@ export function VisualEditOverlay() {
   }, []);
 
   /**
+   * The inspector dismissed the page's close request. A staged region switch is
+   * only a request, so drop it and leave the operator exactly where they were.
+   */
+  const cancelPendingComposerRegionSwitch = useCallback(() => {
+    setPendingRegionSwitch((pending) =>
+      pending?.stage === 'composer-close' ? null : pending
+    );
+  }, []);
+
+  /**
    * The one way the page asks the open composer to leave.
    *
    * It cannot close it directly: the draft and the "is it safe to discard?"
@@ -916,6 +897,48 @@ export function VisualEditOverlay() {
   /** Whether the composer is open, for the content loader's decision. */
   const isVisualComposerOpenRef = useRef(false);
   isVisualComposerOpenRef.current = isVisualComposerOpen;
+
+  /**
+   * Switch the editable slice, and make every surface agree it happened.
+   *
+   * Selection used to be React state alone, so the address bar kept claiming a
+   * different region (or none) and a refresh silently returned the admin to the
+   * whole-page document. It also left the region off screen: clicking a region
+   * in the sidebar loaded its copy but did not show where that copy lives.
+   *
+   * The id is validated against this page's registry here too. The sidebar can
+   * only offer valid ids, but the event bus is a public surface, and selecting
+   * a different page's region would load its row while framing this page.
+   *
+   * A composer owns a draft the page cannot inspect, and closing it is itself a
+   * guarded decision. The switch is therefore staged: while the panel is open,
+   * nothing changes; the panel is asked to close through its own token. Only
+   * once it has actually closed does the pending region become active. If the
+   * operator chooses to keep editing, the request is dropped and the document,
+   * URL, and history stay exactly where they were.
+   */
+  const selectRegion = useCallback(
+    (regionId: string | null) => {
+      if (regionId && !pageRegions.some((region) => region.id === regionId)) return;
+      if (regionId === activeRegionId) {
+        setPendingRegionSwitch(null);
+        activateRegion(regionId);
+        return;
+      }
+      if (isVisualComposerOpenRef.current) {
+        setPendingRegionSwitch({ regionId, stage: 'composer-close' });
+        requestComposerClose();
+        return;
+      }
+      if (dirtyRef.current) {
+        setPendingRegionSwitch({ regionId, stage: 'page-confirm' });
+        return;
+      }
+      activateRegion(regionId);
+    },
+    [activateRegion, activeRegionId, pageRegions, requestComposerClose]
+  );
+
   /**
    * A page-side request for the open composer to close.
    *
@@ -1848,7 +1871,7 @@ export function VisualEditOverlay() {
    * cleared for the same reason: the operator made an explicit decision.
    */
   const confirmRegionSwitch = useCallback(() => {
-    if (!pendingRegionSwitch) return;
+    if (pendingRegionSwitch?.stage !== 'page-confirm') return;
     const { regionId } = pendingRegionSwitch;
     if (regionId && !pageRegions.some((region) => region.id === regionId)) {
       setPendingRegionSwitch(null);
@@ -1877,6 +1900,25 @@ export function VisualEditOverlay() {
     pageRegions,
     pendingRegionSwitch,
   ]);
+
+  /**
+   * A switch requested while the composer was open waits for the panel to
+   * actually close. Once it has, the page-level dirty guard decides whether the
+   * operator sees the discard dialog or the region can load directly.
+   */
+  useEffect(() => {
+    if (isVisualComposerOpen) return;
+    if (pendingRegionSwitch?.stage !== 'composer-close') return;
+    if (dirty) {
+      setPendingRegionSwitch({
+        regionId: pendingRegionSwitch.regionId,
+        stage: 'page-confirm',
+      });
+      return;
+    }
+    setPendingRegionSwitch(null);
+    activateRegion(pendingRegionSwitch.regionId);
+  }, [activateRegion, dirty, isVisualComposerOpen, pendingRegionSwitch]);
 
   const modifiedBlocks = useMemo<ModifiedBlockItem[]>(() => {
     if (!dirty) return [];
@@ -3599,7 +3641,7 @@ export function VisualEditOverlay() {
 
       if (
         key === 'escape' &&
-        (pendingRegionSwitch !== null ||
+        (pendingRegionSwitch?.stage === 'page-confirm' ||
           deleteConfirmIndexes !== null ||
           reorderConfirm !== null)
       ) {
@@ -4123,6 +4165,7 @@ export function VisualEditOverlay() {
     initialMode: vcMode,
     onPreviewChange: applyComposerDraft,
     closeRequest: composerCloseRequest,
+    onCloseRequestCanceled: cancelPendingComposerRegionSwitch,
     onDeleteBlock: handleDeleteSection,
     onDeleteBlocks: handleDeleteSections,
     onCopyBlockJson: handleCopyBlockJson,
@@ -4130,7 +4173,7 @@ export function VisualEditOverlay() {
   };
 
   const pendingRegionLabel =
-    pendingRegionSwitch === null
+    pendingRegionSwitch?.stage !== 'page-confirm'
       ? null
       : pendingRegionSwitch.regionId === null
         ? 'Whole page'
@@ -6281,7 +6324,7 @@ export function VisualEditOverlay() {
       )}
 
       {/* ── Region Switch Discard Confirmation ───────────────────────────── */}
-      {pendingRegionSwitch !== null && (
+      {pendingRegionSwitch?.stage === 'page-confirm' && (
         <div
           data-testid="region-switch-confirm-dialog"
           role="dialog"

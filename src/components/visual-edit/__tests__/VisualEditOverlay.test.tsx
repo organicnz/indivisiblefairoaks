@@ -1616,26 +1616,46 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     await openComposerOnFirstBlock();
     await changeCornerRadius();
 
-    await act(async () => {
-      window.dispatchEvent(
-        new CustomEvent(VISUAL_EDIT_EVENTS.selectRegion, {
-          detail: { regionId: 'about-mission' },
-        })
-      );
-    });
+    const selectMission = async () => {
+      await act(async () => {
+        window.dispatchEvent(
+          new CustomEvent(VISUAL_EDIT_EVENTS.selectRegion, {
+            detail: { regionId: 'about-mission' },
+          })
+        );
+      });
+    };
 
-    // The panel still describes the document it was editing, and the switch has
-    // not been allowed to overwrite it behind the prompt.
+    await selectMission();
+
+    // The panel still describes the document it was editing, the active region
+    // has not moved, and the URL still addresses the whole page. A switch that
+    // waits for the panel guard must not become a half-switch.
     expect(document.body.textContent).toContain('Discard unsaved changes?');
     expect(document.body.textContent).toContain('Visual Composer Inspector');
     expect(getContentBySlugForEdit).not.toHaveBeenCalledWith('copy-about-mission');
+    expect(new URLSearchParams(window.location.search).get('region')).toBeNull();
 
+    // Back to editing cancels the staged switch as well as the panel close.
+    await act(async () => {
+      byText('Back to editing')?.click();
+    });
+    expect(document.body.textContent).toContain('Visual Composer Inspector');
+    expect(document.body.textContent).not.toContain('Discard unsaved changes?');
+    expect(getContentBySlugForEdit).not.toHaveBeenCalledWith('copy-about-mission');
+    expect(new URLSearchParams(window.location.search).get('region')).toBeNull();
+
+    await selectMission();
     await act(async () => {
       byText('Discard')?.click();
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
     });
 
     expect(document.body.textContent).not.toContain('Visual Composer Inspector');
     expect(getContentBySlugForEdit).toHaveBeenCalledWith('copy-about-mission');
+    expect(new URLSearchParams(window.location.search).get('region')).toBe('about-mission');
   });
 
   it('asks before switching regions with unsaved page edits', async () => {
@@ -1691,6 +1711,51 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
 
     expect(getContentBySlugForEdit).toHaveBeenCalledWith('copy-about-mission');
     expect(new URLSearchParams(window.location.search).get('region')).toBe('about-mission');
+  });
+
+  it('hands a deferred switch to the page guard after the composer closes', async () => {
+    await withPage();
+
+    // Dirty the page without opening the composer: delete, then undo. The
+    // delete persists, so the document is now ahead of its saved baseline.
+    await act(async () => {
+      window.dispatchEvent(
+        new CustomEvent(VISUAL_EDIT_EVENTS.deleteSection, { detail: { blockIndex: 0 } })
+      );
+    });
+    const undo = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Undo the last change"]'
+    );
+    expect(undo).not.toBeNull();
+    await act(async () => {
+      undo?.click();
+    });
+    expect(document.body.textContent).toContain('unsaved changes');
+
+    await openComposerOnFirstBlock();
+    expect(document.body.textContent).toContain('Visual Composer Inspector');
+
+    await act(async () => {
+      window.dispatchEvent(
+        new CustomEvent(VISUAL_EDIT_EVENTS.selectRegion, {
+          detail: { regionId: 'about-mission' },
+        })
+      );
+    });
+
+    // The panel had no unsaved draft, so it closed immediately. The page guard
+    // must now own the request instead of silently replacing the document.
+    expect(document.body.textContent).not.toContain('Visual Composer Inspector');
+    expect(document.body.textContent).toContain('You have unsaved page changes.');
+    expect(getContentBySlugForEdit).not.toHaveBeenCalledWith('copy-about-mission');
+    expect(new URLSearchParams(window.location.search).get('region')).toBeNull();
+
+    await act(async () => {
+      byText('Keep editing')?.click();
+    });
+    expect(document.body.textContent).not.toContain('You have unsaved page changes.');
+    expect(getContentBySlugForEdit).not.toHaveBeenCalledWith('copy-about-mission');
+    expect(new URLSearchParams(window.location.search).get('region')).toBeNull();
   });
 
   it('does not let a save for the previous document clean the region that replaced it', async () => {
