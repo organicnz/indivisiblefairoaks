@@ -15,7 +15,7 @@ import { ThemeHud } from '@/components/layout/ThemeHud';
 import { VgpuThemeCanvas } from '@/components/layout/VgpuThemeCanvas';
 import { WallEChatWidget } from '@/components/ui/WallEChatWidget';
 import { VisualEditErrorBoundary } from '@/components/visual-edit/VisualEditErrorBoundary';
-import { VisualEditOverlay } from '@/components/visual-edit/VisualEditOverlay';
+import { VisualEditLazyMount } from '@/components/visual-edit/VisualEditLazyMount';
 import { BRAND } from '@/config/brand';
 import {
   organizationJsonLd,
@@ -183,7 +183,7 @@ export default function RootLayout({
           <Footer />
           <WallEChatWidget />
           <VisualEditErrorBoundary>
-            <VisualEditOverlay />
+            <VisualEditLazyMount />
           </VisualEditErrorBoundary>
         </Providers>
         <ThemeAwareToaster />

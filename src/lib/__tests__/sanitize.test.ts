@@ -49,6 +49,22 @@ describe('sanitizeWPContent() — XSS vectors', () => {
     const out = sanitizeWPContent('<p onclick="alert(1)" onmouseover="x()">hi</p>');
     expect(out).toBe('<p>hi</p>');
   });
+
+  it('preserves safe inline styles and visual composer design attributes', () => {
+    const input =
+      '<p style="color: red; letter-spacing: 0.1em;" data-theme="dark" data-theme-mode="system">Custom design</p>';
+    const out = sanitizeWPContent(input);
+    expect(out).toContain('style="color:red;letter-spacing:0.1em"');
+    expect(out).toContain('data-theme="dark"');
+    expect(out).toContain('data-theme-mode="system"');
+  });
+
+  it('neutralizes dangerous schemes inside inline styles', () => {
+    const input = '<p style="color: red; background: url(javascript:alert(1)); outline: none;">XSS style</p>';
+    const out = sanitizeWPContent(input);
+    expect(out).not.toContain('javascript');
+    expect(out).toContain('style="color:red;outline:none"');
+  });
 });
 
 describe('sanitizeWPContent() — legacy WordPress artifacts', () => {

@@ -94,6 +94,7 @@ export {
   compileClassNames,
   DEFAULT_VC_STYLES,
   getStylesClipboard,
+  readComposerStylesFromBlock,
   SECTION_PRESETS,
   setStylesClipboard,
   VC_COLUMN_PRESETS,
@@ -187,6 +188,30 @@ const DEFAULT_BLOCK_CLASS_TOKENS = new Set(
  * A remembered design fills that gap, but only while the markup still carries
  * it: see the grounding check below.
  */
+/**
+ * Assembles the block's effective inline CSS styles.
+ * If a background image URL is configured, adds `background-image: url(...)` to
+ * ensure reliable rendering across browsers without requiring Tailwind AOT compilation.
+ */
+export function compileEffectiveCustomStyle(
+  styles: VisualComposerStyles,
+  mode: VisualComposerMode
+): string {
+  const parts: string[] = [];
+  if (styles.customStyle?.trim()) {
+    parts.push(styles.customStyle.trim());
+  }
+  const bgImg =
+    mode === 'section' ? styles.section?.bgImage?.trim() : styles.background?.image?.trim();
+  if (bgImg && !parts.some((p) => p.includes('background-image:'))) {
+    const cleanUrl = bgImg.startsWith('url(')
+      ? bgImg
+      : `url('${bgImg.replace(/['"\s]/g, '')}')`;
+    parts.push(`background-image: ${cleanUrl};`);
+  }
+  return parts.join(' ').trim();
+}
+
 function readComposerStylesFromBlock(
   block: Block,
   memory?: ComposerStyleMemory
@@ -814,7 +839,7 @@ export function VisualComposerInspector({
             customClasses: compiledClassNames,
             // The apply path trims before it persists; the preview matches it,
             // so a whitespace-only style is discarded in both places.
-            customStyle: styles.customStyle?.trim() || undefined,
+            customStyle: compileEffectiveCustomStyle(styles, inspectorMode) || undefined,
           }
         : null,
       contentHtml: previewContentHtml,
@@ -1373,6 +1398,9 @@ export function VisualComposerInspector({
     if (!currentBlock || applyDisabled) return;
     const finalBlock = composeDraftBlock(currentBlock, styles);
 
+    const effectiveCustomStyle =
+      compileEffectiveCustomStyle(styles, inspectorMode) || undefined;
+
     const accepted =
       isBatchMode && onSaveBlocks && selectedBlockIndexes.length > 1
         ? onSaveBlocks(
@@ -1382,13 +1410,13 @@ export function VisualComposerInspector({
             // An anchor id identifies one element. Reusing it across a batch
             // would mint duplicate ids, so batch styling never writes one.
             undefined,
-            styles.customStyle?.trim() || undefined
+            effectiveCustomStyle
           )
         : onSaveBlock(
             finalBlock,
             compiledClassNames,
             styles.anchorId.trim() || undefined,
-            styles.customStyle?.trim() || undefined
+            effectiveCustomStyle
           );
 
     /*

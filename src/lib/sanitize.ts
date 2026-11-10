@@ -305,6 +305,9 @@ const HTML_SANITIZE_OPTIONS: IOptions = {
       'role',
       'data-data-point',
       'data-copy-region',
+      'data-theme',
+      'data-theme-mode',
+      'style',
     ],
     a: ['href', 'name', 'target', 'rel'],
     img: ['src', 'alt', 'width', 'height', 'loading'],
@@ -439,6 +442,29 @@ function normalizeUrlForSafety(value: string): string {
       return code > 0x20 && code !== 0x7f;
     })
     .join('');
+}
+
+/**
+ * Strip dangerous execution schemes from inline CSS style declarations.
+ * Blocks javascript:, expression(), vbscript:, @import, and data:text/html.
+ */
+function cleanStyleDeclarations(style: string): string {
+  if (!style) return '';
+  return style
+    .split(';')
+    .map((rule) => rule.trim())
+    .filter((rule) => {
+      if (!rule) return false;
+      const lower = rule.toLowerCase();
+      return (
+        !lower.includes('javascript:') &&
+        !lower.includes('expression(') &&
+        !lower.includes('vbscript:') &&
+        !lower.includes('@import') &&
+        !lower.includes('data:text/html')
+      );
+    })
+    .join('; ');
 }
 
 /**
@@ -605,10 +631,17 @@ export function sanitizeWPContent(html: string): string {
     // 5. Remove blocks of 3+ consecutive links
     clean = clean.replace(/(<a\s[^>]*?>[\s\S]*?<\/a>\s*){3,}/gi, '');
 
-    // 6. Remove JavaScript event handlers and style attributes: quoted AND unquoted.
+    // 6. Remove JavaScript event handlers and sanitize inline style attributes.
     // Unquoted (onload=alert(1), onload=`alert(1)`) previously bypassed the filter.
     clean = clean.replace(/\son[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|`[^`]*`|[^\s>]+)/gi, '');
-    clean = clean.replace(/\sstyle\s*=\s*(?:"[^"]*"|'[^']*'|`[^`]*`|[^\s>]+)/gi, '');
+    clean = clean.replace(
+      /\sstyle\s*=\s*(?:"([^"]*)"|'([^']*)'|`([^`]*)`|([^\s>]+))/gi,
+      (_match, q1, q2, q3, unq) => {
+        const raw = q1 ?? q2 ?? q3 ?? unq ?? '';
+        const sanitized = cleanStyleDeclarations(raw);
+        return sanitized ? ` style="${sanitized}"` : '';
+      }
+    );
 
     // 7. Remove WordPress class names (wp-, elementor-, freshio-, woocommerce, yith-)
     clean = clean.replace(/\bclass\s*=\s*"([^"]*)"/gi, (_match, classValue: string) => {

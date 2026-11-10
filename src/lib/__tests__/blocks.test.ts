@@ -965,6 +965,9 @@ describe('block save shape', () => {
       expect(saved).toContain(` ${attribute?.name}="${attribute?.value}"`);
       expect(readBlockShell(parseHtml(saved)[0])?.themeMode).toBe(mode);
       expect(serializeBlocks(parseHtml(saved))).toBe(saved);
+      // Ensure the content sanitizer preserves theme mode attributes
+      const sanitized = sanitizeWPContent(saved);
+      expect(sanitized).toContain(`${attribute?.name}="${attribute?.value}"`);
     }
   });
 

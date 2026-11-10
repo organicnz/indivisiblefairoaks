@@ -157,6 +157,7 @@ import {
   compileClassNames,
   DEFAULT_VC_STYLES,
   getStylesClipboard,
+  readComposerStylesFromBlock,
   setStylesClipboard,
   type VisualComposerInspectorProps,
 } from './VisualComposerInspector';
@@ -1228,6 +1229,9 @@ export function VisualEditOverlay() {
     setIsSlashMenuOpen(true);
   }, [captureInlineRange, isSlashMenuOpen]);
   const [isVisualComposerOpen, setIsVisualComposerOpen] = useState(false);
+  const [hasCopiedStyles, setHasCopiedStyles] = useState<boolean>(() =>
+    Boolean(getStylesClipboard())
+  );
   /**
    * Where the open panel is, readable from a callback that must not be rebuilt
    * on every navigation — the same reason `blocksRef` exists above.
@@ -5192,8 +5196,9 @@ export function VisualEditOverlay() {
                     onClick={() => {
                       const blk = blocks[item.blockIndex];
                       if (!blk) return;
-                      const existingStyles = getStylesClipboard() ?? DEFAULT_VC_STYLES;
-                      setStylesClipboard(existingStyles);
+                      const blockStyles = readComposerStylesFromBlock(blk);
+                      setStylesClipboard(blockStyles);
+                      setHasCopiedStyles(true);
                       toast.success(`Copied styles from ${item.label}`);
                     }}
                     title="Copy block styles to clipboard"
@@ -5204,7 +5209,7 @@ export function VisualEditOverlay() {
                   </button>
 
                   {/* Visual Composer: 1-Click Paste Styles (if clipboard has styles) */}
-                  {getStylesClipboard() && (
+                  {hasCopiedStyles && (
                     <button
                       type="button"
                       onClick={() => {
