@@ -7,6 +7,7 @@ import {
   DEFAULT_VC_STYLES,
   VisualComposerInspector,
 } from '@/components/visual-edit/VisualComposerInspector';
+import { getFocusableElements } from '@/components/visual-edit/focusable';
 import { applyBlockShell, type Block } from '@/lib/blocks';
 import type { VisualComposerStyles } from '@/types/unified';
 
@@ -3571,11 +3572,12 @@ describe('VisualComposerInspector closing, focus and refused saves', () => {
     expect(aside).not.toBeNull();
     if (!aside) return;
 
-    const focusable = Array.from(
-      aside.querySelectorAll<HTMLElement>(
-        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-      )
-    ).filter((el) => !el.closest('[aria-hidden="true"], [hidden]'));
+    // Allow the initial open-focus deferral (50ms) to settle before testing Tab wrapping.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 60));
+    });
+
+    const focusable = getFocusableElements(aside);
     const first = focusable[0];
     const last = focusable[focusable.length - 1];
 

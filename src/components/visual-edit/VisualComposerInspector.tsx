@@ -1297,8 +1297,15 @@ export function VisualComposerInspector({
   // FR-4: Focus the first interactive element when the inspector opens.
   useEffect(() => {
     if (open && firstFocusRef.current) {
-      // Defer to let the animation frame complete before stealing focus.
-      const timer = setTimeout(() => firstFocusRef.current?.focus(), 50);
+      // Defer to let the animation frame complete before stealing focus,
+      // but do not steal focus if an element inside the inspector was already focused.
+      const timer = setTimeout(() => {
+        const active = document.activeElement;
+        const inside = active && asideRef.current?.contains(active) && active !== asideRef.current;
+        if (!inside) {
+          firstFocusRef.current?.focus();
+        }
+      }, 50);
       return () => clearTimeout(timer);
     }
   }, [open]);
