@@ -142,7 +142,7 @@ Verified against the Cloudflare API on 2026-09-25 (zone `71ef77fe00dfafb4fa2864d
 | `AAAA` | `@` | `100::` | **Proxied** | Cloudflare edge anchor → Google Site (Cloudflare supplies the IPv4 edge A record) |
 | `AAAA` | `www` | `100::` | **Proxied** | Cloudflare edge anchor → Google Site (as above) |
 | `MX` | `@` | `aspmx.l.google.com` (1), `alt1` (5), `alt2` (5), `alt3` (10), `alt4` (10) | DNS-Only | Google Workspace inbound |
-| `TXT` | `@` | `v=spf1 include:_spf.google.com ~all` | DNS-Only | **Google only** — does not authorize Resend, see §8 |
+| `TXT` | `@` | `v=spf1 include:_spf.google.com ~all` | DNS-Only | **Google only** — does not authorize Resend, see §8. **Superseded 2026-11:** now `v=spf1 include:_spf.google.com include:send.resend.com include:_spf.mlsend.com a mx ~all` — Resend and MailerLite authorized; see §8 decision block |
 | `TXT` | `_dmarc` | `v=DMARC1; p=none; rua=mailto:tamerlanium@gmail.com; sp=none; aspf=r` | DNS-Only | Monitoring only, no enforcement. **Superseded 2026-11:** now `p=quarantine; pct=100; sp=quarantine; aspf=r; adkim=r` with a Cloudflare `rua` — see §9 |
 | `TXT` | `@` | `resend-domain-verification=273cfe2f…` | DNS-Only | Resend apex ownership proof |
 | `TXT` | `resend._domainkey` | `p=MIGfMA0GCSq…` | DNS-Only | Resend DKIM — apex sending depends on this |
@@ -232,11 +232,17 @@ The application sends from `contact@indivisiblefairoaks.org` (see `src/lib/email
 
 **Decided:** keep the current posture — application mail passes DMARC through `resend._domainkey` DKIM alignment only; SPF on the apex remains Google-only. No DNS or sender-address changes.
 
+**Update (2026-11-10):** DNS verification revealed the apex SPF was updated since this section was written. The live record is:
+```
+v=spf1 include:_spf.google.com include:send.resend.com include:_spf.mlsend.com a mx ~all
+```
+Resend is authorized via `include:send.resend.com` (resolves to `v=spf1 include:amazonses.com ~all`), so application mail now passes **both** SPF and DKIM alignment — not DKIM-only as originally documented. There is no single-point-of-failure. The original Option A rationale remains sound; the posture is stronger than expected.
+
 **Rationale:**
 - DKIM-only alignment is **industry standard** for third-party transactional senders. SPF alignment on the apex for a service like Resend is the exception, not the norm.
 - DKIM is verified passing (§9: 100% pass rate across all Resend application mail).
-- The residual single-point-of-failure (Resend key/selector rotation) is **monitored** via Cloudflare DMARC Management — any alignment loss surfaces in the dashboard within 24h of the first affected aggregate window.
-- `_spf.resend.com` is NXDOMAIN, so Option C (apex SPF include) is not available from Resend's side.
+- SPF is also passing via `include:send.resend.com` (verified 2026-11-10).
+- Cloudflare DMARC Management monitors both alignment channels.
 - Option B (move sends to `test.` subdomain) would change the chapter-facing sender address and be redone at apex cutover.
 - Option D (defer) postpones a decision that costs nothing to make now.
 
