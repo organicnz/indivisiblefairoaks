@@ -68,6 +68,13 @@ describe('VisualComposerInspector', () => {
     html: 'Grassroots Community Action',
   };
 
+  /** Fire the browser's hard-leave event and report whether it was intercepted. */
+  const attemptHardLeave = () => {
+    const event = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(event);
+    return event;
+  };
+
   beforeEach(() => {
     container = document.createElement('div');
     document.body.appendChild(container);
@@ -126,6 +133,39 @@ describe('VisualComposerInspector', () => {
     expect(document.body.textContent).toContain('Box Model');
     expect(document.body.textContent).toContain('Type');
     expect(document.body.textContent).toContain('Advanced');
+  });
+
+  it('warns before a hard reload while a composer draft is unapplied', async () => {
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={sampleHeadingBlock}
+          blockIndex={0}
+          onSaveBlock={vi.fn()}
+        />
+      );
+    });
+    await typeIntoContent('Unsaved heading');
+
+    expect(attemptHardLeave().defaultPrevented).toBe(true);
+  });
+
+  it('does not warn before a hard reload for a clean composer', async () => {
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={sampleHeadingBlock}
+          blockIndex={0}
+          onSaveBlock={vi.fn()}
+        />
+      );
+    });
+
+    expect(attemptHardLeave().defaultPrevented).toBe(false);
   });
 
   it('allows editing content and saves updated block', async () => {
@@ -3648,6 +3688,38 @@ describe('VisualComposerInspector closing, focus and refused saves', () => {
     });
 
     expect(onSaveBlock).toHaveBeenCalledTimes(1);
+  });
+
+  it('applies on ⌘S even when focus is outside the panel', async () => {
+    const onSaveBlock = vi.fn();
+    await mount(vi.fn(), onSaveBlock);
+    await changeAStyle();
+
+    // The capture listener is on `window`, not the panel's React tree. A click
+    // on the page chrome must not let the overlay save the document behind the
+    // draft, so the shortcut has to work from this target too.
+    await act(async () => {
+      window.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 's', metaKey: true, bubbles: true })
+      );
+    });
+
+    expect(onSaveBlock).toHaveBeenCalledTimes(1);
+  });
+
+  it('undoes the composer draft on ⌘Z even when focus is outside the panel', async () => {
+    await mount(vi.fn());
+    await changeAStyle();
+    expect(byAria('Undo last change')?.disabled).toBe(false);
+
+    await act(async () => {
+      window.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'z', metaKey: true, bubbles: true })
+      );
+    });
+
+    expect(byAria('Redo last undone change')?.disabled).toBe(false);
+    expect(document.body.textContent).toContain('All changes saved');
   });
 });
 

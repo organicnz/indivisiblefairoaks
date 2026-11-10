@@ -15,10 +15,10 @@ import {
 } from 'lucide-react';
 import {
   Fragment,
-  type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
 } from 'react';
+import { RovingToolbar } from '@/components/visual-edit/RovingToolbar';
 
 /**
  * The inline formatting vocabulary, in one place.
@@ -170,6 +170,10 @@ export function wrapSelectionWithTag(tagName: string, className?: string) {
  * `formatBlock` is the one call that needs the try/catch: Chromium wants
  * `'<h2>'` and Safari rejected that form historically, so both spellings are
  * attempted. Everything else is a single `execCommand`.
+ *
+ * `link` and `editLink` are delegated to `onLinkRequest`. There is deliberately
+ * no `window.prompt` fallback: a modal can validate the URL, preserve the
+ * selection across focus changes, and restore focus to the editor.
  */
 export function applyInlineFormatCommand(command: InlineFormatCommand, onLinkRequest?: () => void) {
   switch (command) {
@@ -182,29 +186,15 @@ export function applyInlineFormatCommand(command: InlineFormatCommand, onLinkReq
     case 'highlight':
       wrapSelectionWithTag('mark', 'bg-amber-400/25 text-inherit px-1 rounded');
       return;
-    case 'link': {
-      if (onLinkRequest) {
-        onLinkRequest();
-        return;
-      }
-      // Fallback for callers that don't supply onLinkRequest.
-      const url = window.prompt('Enter link URL (e.g. https://... or /about):');
-      if (url) document.execCommand('createLink', false, url);
-      return;
-    }
+    case 'link':
     case 'editLink': {
-      if (onLinkRequest) {
-        onLinkRequest();
-        return;
-      }
-      // Fallback - same as link but for editing
-      const selection = window.getSelection();
-      const anchor = selection?.anchorNode?.parentElement?.closest('a');
-      const currentHref = anchor ? (anchor as HTMLAnchorElement).href : '';
-      const url = window.prompt('Edit link URL:', currentHref);
-      if (url && anchor) {
-        (anchor as HTMLAnchorElement).href = url;
-      }
+      /*
+       * Link commands always belong to a React dialog: it can validate the
+       * URL, capture the selection before focus moves, and return focus to the
+       * editor. A browser prompt cannot do any of those, so it is not a
+       * fallback — without a handler the command is a no-op.
+       */
+      onLinkRequest?.();
       return;
     }
     case 'h2':
@@ -241,9 +231,9 @@ interface InlineFormatToolbarProps {
   activeCommands?: readonly InlineFormatCommand[];
   onCommand: (command: InlineFormatCommand) => void;
   /**
-   * Optional override for the link command. When provided, the toolbar calls
-   * this instead of `window.prompt` so callers can show a proper React modal.
-   * Falls back to `window.prompt` only when not provided, for backward compat.
+   * Opens the caller's link dialog for `link` and `editLink`. Commands that
+   * need it are no-ops without this handler; the toolbar never falls back to a
+   * blocking browser prompt.
    */
   onLinkRequest?: () => void;
   /** Rendered after the last command (counters, hints, status). */
@@ -260,9 +250,11 @@ export function InlineFormatToolbar({
   className,
 }: InlineFormatToolbarProps) {
   const styles = VARIANT_STYLES[variant];
-
   return (
-    <div className={className ?? 'flex flex-wrap items-center gap-1'}>
+    <RovingToolbar
+      label="Text formatting"
+      className={className ?? 'flex flex-wrap items-center gap-1'}
+    >
       {commands.map((command, index) => {
         const spec = COMMANDS[command];
         const previous = index > 0 ? COMMANDS[commands[index - 1]] : null;
@@ -275,7 +267,7 @@ export function InlineFormatToolbar({
            The modal's toolbar targets a textarea by id and does not have that
            problem, so it keeps the ordinary click. */
         const handleCommand = () => {
-          if (command === 'link' && onLinkRequest) {
+          if ((command === 'link' || command === 'editLink') && onLinkRequest) {
             onLinkRequest();
           } else {
             onCommand(command);
@@ -285,13 +277,6 @@ export function InlineFormatToolbar({
           variant === 'pill'
             ? {
                 onMouseDown: (e: ReactMouseEvent) => {
-                  e.preventDefault();
-                  handleCommand();
-                },
-                /* The pill cancels mousedown to keep the selection, so a
-                   keyboard press has no click to fall back on. */
-                onKeyDown: (e: ReactKeyboardEvent<HTMLButtonElement>) => {
-                  if (e.key !== 'Enter' && e.key !== ' ') return;
                   e.preventDefault();
                   handleCommand();
                 },
@@ -306,6 +291,14 @@ export function InlineFormatToolbar({
             <button
               type="button"
               {...activation}
+              onKeyDown={(e) => {
+                /* The pill cancels mousedown to keep the selection, so a
+                   keyboard press has no click to fall back on. */
+                if (variant === 'pill' && (e.key === 'Enter' || e.key === ' ')) {
+                  e.preventDefault();
+                  handleCommand();
+                }
+              }}
               className={
                 isActive
                   ? Icon
@@ -325,6 +318,6 @@ export function InlineFormatToolbar({
         );
       })}
       {trailing}
-    </div>
+    </RovingToolbar>
   );
 }

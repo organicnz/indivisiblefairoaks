@@ -1,6 +1,6 @@
 'use client';
 
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 
 interface ConfirmActionProps {
   /** Idle button content — an icon, a label, or both. */
@@ -17,6 +17,8 @@ interface ConfirmActionProps {
   /** An async action in flight: the whole step disables. */
   busy?: boolean;
   idleClassName?: string;
+  idleRole?: 'menuitem';
+  idleTabIndex?: number;
   buttonRef?: (node: HTMLButtonElement | null) => void;
   onConfirm: () => void;
 }
@@ -40,16 +42,37 @@ export function ConfirmAction({
   disabled = false,
   busy = false,
   idleClassName,
+  idleRole,
+  idleTabIndex,
   buttonRef,
   onConfirm,
 }: ConfirmActionProps) {
   const [confirming, setConfirming] = useState(false);
+  const idleRef = useRef<HTMLButtonElement>(null);
+  const confirmRef = useRef<HTMLButtonElement>(null);
+  const wasConfirmingRef = useRef(false);
+
+  useEffect(() => {
+    if (confirming) {
+      confirmRef.current?.focus();
+    } else if (wasConfirmingRef.current) {
+      idleRef.current?.focus();
+    }
+    wasConfirmingRef.current = confirming;
+  }, [confirming]);
+
+  const setIdleRef = (node: HTMLButtonElement | null) => {
+    idleRef.current = node;
+    buttonRef?.(node);
+  };
 
   if (!confirming) {
     return (
       <button
-        ref={buttonRef}
+        ref={setIdleRef}
         type="button"
+        role={idleRole}
+        tabIndex={idleTabIndex}
         onClick={() => setConfirming(true)}
         disabled={disabled || busy}
         aria-label={label}
@@ -75,6 +98,7 @@ export function ConfirmAction({
       <legend className="sr-only">{label}</legend>
       <span className="text-xs font-medium text-muted-foreground">{message}</span>
       <button
+        ref={confirmRef}
         type="button"
         onClick={() => {
           setConfirming(false);

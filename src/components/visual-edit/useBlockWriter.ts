@@ -28,7 +28,10 @@ import { copyRegionSlug } from '@/lib/copy-regions';
 
 export interface UseBlockWriterArgs {
   commitBlocks: (next: Block[], coalesceKey?: string | null) => void;
-  handlePersistBlocks: (newBlocks: Block[], successMessage?: string) => Promise<unknown>;
+  handlePersistBlocks: (
+    newBlocks: Block[],
+    successMessage?: string
+  ) => Promise<{ success: boolean }>;
   saveContentWithEdgeApi: (
     payload: ContentInput
   ) => Promise<ActionResult<{ id: number; updatedAt: string | null }>>;
@@ -160,8 +163,8 @@ export function useBlockWriter(args: UseBlockWriterArgs) {
       const updatedBlocks = [...blocks];
       updatedBlocks[blockIndex] = next;
       commitBlocks(updatedBlocks, coalesceKey);
-      await handlePersistBlocks(updatedBlocks, successMessage);
-      return true;
+      const result = await handlePersistBlocks(updatedBlocks, successMessage);
+      return result.success;
     },
     [commitBlocks, handlePersistBlocks]
   );

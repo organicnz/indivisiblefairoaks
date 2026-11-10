@@ -31,7 +31,16 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import {
+  type KeyboardEvent as ReactKeyboardEvent,
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { toast } from 'sonner';
 import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import { CRMMediaLibraryModal } from '@/components/admin/crm/composer/CRMMediaLibraryModal';
@@ -45,6 +54,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/Dialog';
+import { RovingToolbar } from '@/components/visual-edit/RovingToolbar';
 import {
   type ContentRevision,
   getContentBySlugForEdit,
@@ -90,6 +100,11 @@ import {
 import { saveDataPoint } from '@/lib/queries/civic-client';
 import { isStaleConflict } from '@/lib/visual-edit/conflict';
 import { extractBlocksFromDOM } from '@/lib/visual-edit/extract-blocks-from-dom';
+import {
+  type ImageHistoryFailure,
+  repairImageHistory,
+  resolveImageBlockIndex,
+} from '@/lib/visual-edit/image-history';
 import { readComposerContentId } from '@/lib/visual-edit-document';
 import { VISUAL_EDIT_EVENTS } from '@/lib/visual-edit-events';
 import { applyVisualEditRail } from '@/lib/visual-edit-layout';
@@ -121,17 +136,22 @@ import type {
 import { BlockLibraryModal, type BlockTemplate } from './BlockLibraryModal';
 import { BreadcrumbBar } from './BreadcrumbBar';
 import { CommandPalette } from './CommandPalette';
+import { clampFixedPanelPosition, type FixedPanelPosition } from './fixed-panel-position';
+import { normalizeLinkTarget } from './composer/content/richTextDom';
 import { CRMPanel } from './CRMPanel';
 import { DataPointDrawer } from './DataPointDrawer';
 import { ElementInspectorHud } from './ElementInspectorHud';
+import { focusEditorFallback } from './focusable';
 import { applyInlineFormatCommand, type InlineFormatCommand } from './InlineFormatToolbar';
+import { ModalDialog } from './ModalDialog';
 import { PageA11yAuditor } from './PageA11yAuditor';
 import { PageNavigatorDrawer } from './PageNavigatorDrawer';
 import { SlashCommandMenu } from './SlashCommandMenu';
-import { runTextareaFormatCommand } from './textareaFormat';
+import { insertLink, runTextareaFormatCommand } from './textareaFormat';
 import { useBlockDrag } from './useBlockDrag';
 import { useBlockWriter } from './useBlockWriter';
 import { useComposerPagePreview } from './useComposerPagePreview';
+import { useBeforeUnloadWarning } from './useBeforeUnloadWarning';
 import { ViewportDeviceBar } from './ViewportDeviceBar';
 import {
   compileClassNames,
@@ -253,15 +273,40 @@ export interface InlineEditSession {
   left: number;
 }
 
+type LinkModalState = {
+  textareaId: string | null;
+  url: string;
+  text: string;
+  editAnchor?: HTMLAnchorElement | null;
+};
+
 export interface ImageEditSession {
   element: HTMLImageElement;
   initialSrc: string;
   initialAlt: string;
   copyRegionId: string | null;
   blockIndex: number | null;
-  top: number;
-  left: number;
+  /** Stable block identity, so a reorder cannot retarget an image edit. */
+  blockId: string | null;
+  /** Position of this image among the block's images, for snapshot rewrites. */
+  imageOrdinal: number;
+  /** Identifies this image session; each write appends its sequence. */
+  historyKey: string;
+  /** Monotonic suffix so every optimistic write has its own history entry. */
+  writeCount: number;
+  /** First failed write in the current run, cleared after a persisted write. */
+  failureKey: string | null;
+  /** Every image state a failed write installed in the current run. */
+  failedImages: ImageHistoryFailure[];
+  /** Last image state in this session that reached the backend. */
+  baseSrc: string;
+  baseAlt: string;
 }
+
+let imageEditSequence = 0;
+
+type ImageBlock = Extract<Block, { type: 'image' }>;
+type ImageWriteOutcome = 'saved' | 'failed' | 'unsupported';
 
 /**
  * The canonical block-type list, used by the dock's Add Block menu and the
@@ -438,6 +483,33 @@ function carrySessionBlockIds(
   });
 }
 
+/**
+ * The full address a document at `pathname` belongs to.
+ *
+ * React supplies the pathname; the search string and hash live only in the
+ * browser. Preserving them matters because `?region=` is part of the document
+ * address: restoring only `/about` would silently reopen the whole page instead
+ * of the copy region the operator was editing.
+ */
+function routeForPathname(pathname: string): string {
+  if (typeof window === 'undefined') return pathname;
+  return `${pathname}${window.location.search}${window.location.hash}`;
+}
+
+/**
+ * Confirm the dialog that owns `input`.
+ *
+ * These dialogs are portalled but are not forms, so `input.form` is null and
+ * the native Enter-to-submit path has nothing to submit. Find the confirm
+ * button inside this dialog instead of the first one elsewhere in the document.
+ */
+function confirmDialogFromInput(input: HTMLInputElement): void {
+  input
+    .closest('[role="dialog"]')
+    ?.querySelector<HTMLButtonElement>('[data-confirm]')
+    ?.click();
+}
+
 export function VisualEditOverlay() {
   const router = useRouter();
   const rawPathname = usePathname();
@@ -487,6 +559,30 @@ export function VisualEditOverlay() {
     regionId: string | null;
     stage: 'page-confirm' | 'composer-close';
   } | null>(null);
+  /**
+   * A route change held behind the page-level unsaved guard.
+   *
+   * The address bar has already moved when Next renders the new pathname. The
+   * blocks still belong to `restoreRoute`; staying must put the address back,
+   * not merely dismiss the dialog.
+   */
+  const [pendingRouteChange, setPendingRouteChange] = useState<{
+    restoreRoute: string;
+  } | null>(null);
+  /** Latch so repeated loader runs cannot stack route dialogs. */
+  const pendingRouteChangeRef = useRef(false);
+  /**
+   * The route the operator explicitly chose to discard.
+   *
+   * A string, not a boolean: if navigation moves again before the loader runs,
+   * permission for the old route must not leak into the new one.
+   */
+  const allowDirtyRouteLoadRef = useRef<string | null>(null);
+  /**
+   * A deliberate server-state reload — page initialization or revision
+   * restore — may replace a dirty local body. Ordinary refreshes may not.
+   */
+  const allowSameDocumentReloadRef = useRef(false);
   /** Latest dirty state for a callback that must stay stable while typing. */
   const dirtyRef = useRef(false);
 
@@ -616,6 +712,16 @@ export function VisualEditOverlay() {
   // history grouped by intent, and a dirty flag derived from the serialized
   // body rather than flipped by hand.
   const [history, setHistory] = useState<EditorHistory>(EMPTY_HISTORY);
+  /**
+   * The stack as imperative handlers see it.
+   *
+   * `commitBlocks` and the image rollback path run outside a render and must
+   * reason about the history that exists now, not the one their callback closed
+   * over. Keeping this ref synchronous also lets a failed write and its
+   * rollback identify the exact entries they added.
+   */
+  const historyRef = useRef<EditorHistory>(EMPTY_HISTORY);
+  historyRef.current = history;
   /** The serialized body the last successful save wrote. */
   const [savedBody, setSavedBody] = useState<string>('');
   /** The local draft offered back on arrival, or null when there is nothing. */
@@ -793,16 +899,6 @@ export function VisualEditOverlay() {
   }, []);
 
   /**
-   * The inspector dismissed the page's close request. A staged region switch is
-   * only a request, so drop it and leave the operator exactly where they were.
-   */
-  const cancelPendingComposerRegionSwitch = useCallback(() => {
-    setPendingRegionSwitch((pending) =>
-      pending?.stage === 'composer-close' ? null : pending
-    );
-  }, []);
-
-  /**
    * The one way the page asks the open composer to leave.
    *
    * It cannot close it directly: the draft and the "is it safe to discard?"
@@ -858,24 +954,258 @@ export function VisualEditOverlay() {
     y: number;
     blockIndex: number;
   } | null>(null);
+  const contextMenuRef = useRef<HTMLDivElement>(null);
+  const contextMenuReturnFocusRef = useRef<HTMLElement | null>(null);
+  const [contextMenuPosition, setContextMenuPosition] = useState<FixedPanelPosition | null>(null);
+
+  const closeContextMenu = useCallback((restoreFocus = false) => {
+    const returnFocus = contextMenuReturnFocusRef.current;
+    contextMenuReturnFocusRef.current = null;
+    setContextMenu(null);
+    if (!restoreFocus) return;
+    queueMicrotask(() => {
+      if (document.activeElement && document.activeElement !== document.body) return;
+      if (returnFocus?.isConnected) {
+        returnFocus.focus({ preventScroll: true });
+        return;
+      }
+      focusEditorFallback();
+    });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!contextMenu) {
+      setContextMenuPosition(null);
+      return;
+    }
+    const menu = contextMenuRef.current;
+    if (!menu) return;
+    const rect = menu.getBoundingClientRect();
+    setContextMenuPosition(
+      clampFixedPanelPosition({
+        x: contextMenu.x,
+        y: contextMenu.y,
+        width: rect.width,
+        height: rect.height,
+        viewportWidth: window.innerWidth,
+        viewportHeight: window.innerHeight,
+      })
+    );
+  }, [contextMenu]);
+
+  const handleContextMenuKeyDown = useCallback(
+    (event: ReactKeyboardEvent<HTMLDivElement>) => {
+      if ((event.target as HTMLElement).closest('fieldset')) {
+        event.stopPropagation();
+        return;
+      }
+      if (event.key === 'Escape' || event.key === 'Tab') {
+        event.preventDefault();
+        event.stopPropagation();
+        closeContextMenu(true);
+        return;
+      }
+      if (
+        event.key !== 'ArrowDown' &&
+        event.key !== 'ArrowUp' &&
+        event.key !== 'Home' &&
+        event.key !== 'End'
+      ) {
+        event.stopPropagation();
+        return;
+      }
+
+      const menu = contextMenuRef.current;
+      if (!menu) return;
+      const items = Array.from(
+        menu.querySelectorAll<HTMLElement>('[role="menuitem"]:not([disabled])')
+      );
+      if (items.length === 0) {
+        event.stopPropagation();
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      const current = items.indexOf(document.activeElement as HTMLElement);
+      let next: number;
+      if (event.key === 'Home') next = 0;
+      else if (event.key === 'End') next = items.length - 1;
+      else if (event.key === 'ArrowDown') next = current < 0 ? 0 : (current + 1) % items.length;
+      else next = current < 0 ? items.length - 1 : (current - 1 + items.length) % items.length;
+      items[next]?.focus({ preventScroll: true });
+    },
+    [closeContextMenu]
+  );
+
+  useEffect(() => {
+    if (!contextMenu) return;
+    const menu = contextMenuRef.current;
+    if (!menu) return;
+    const first = menu.querySelector<HTMLElement>('[role="menuitem"]:not([disabled])');
+    (first ?? menu).focus({ preventScroll: true });
+  }, [contextMenu]);
+
+  useEffect(() => {
+    if (!contextMenu) return;
+    const dismissOnPointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (target instanceof Node && contextMenuRef.current?.contains(target)) return;
+      closeContextMenu(false);
+    };
+    const dismissOnViewportChange = () => closeContextMenu(false);
+    window.addEventListener('pointerdown', dismissOnPointerDown, true);
+    window.addEventListener('scroll', dismissOnViewportChange, true);
+    window.addEventListener('resize', dismissOnViewportChange);
+    return () => {
+      window.removeEventListener('pointerdown', dismissOnPointerDown, true);
+      window.removeEventListener('scroll', dismissOnViewportChange, true);
+      window.removeEventListener('resize', dismissOnViewportChange);
+    };
+  }, [contextMenu, closeContextMenu]);
 
   // ── Link insertion dialog (replaces browser prompt) ─────────────────────
   // `textareaId` is set when the dialog is opened from the section modal's
   // textarea toolbar; null means it was opened from the inline contentEditable
   // pill, which uses `execCommand('createLink')` instead of `wrapSelection`.
   // `editAnchor` is set when editing an existing anchor's href (inline edit).
-  const [linkModal, setLinkModal] = useState<{
-    textareaId: string | null;
-    url: string;
-    text: string;
-    editAnchor?: HTMLAnchorElement | null;
-  } | null>(null);
+  const [linkModal, setLinkModal] = useState<LinkModalState | null>(null);
+  /**
+   * The contentEditable range captured before the link dialog takes focus.
+   *
+   * `execCommand('createLink')` only acts on the live selection. Radix moves
+   * focus into the URL input as soon as the dialog mounts, so the range has to
+   * be cloned first and restored on Apply or Cancel.
+   */
+  const linkRangeRef = useRef<Range | null>(null);
+  /**
+   * The inline element that owned the anchor when the link dialog opened.
+   * Captured by element identity so a re-render cannot redirect the write into
+   * a different inline session.
+   */
+  const linkAnchorElementRef = useRef<HTMLElement | null>(null);
+  /**
+   * The inline range the slash palette replaces with its autofocused filter.
+   *
+   * The palette's search field takes focus as soon as it opens, so a command
+   * clicked later no longer has a live editable selection. Clone it on open and
+   * put it back immediately before the command runs.
+   */
+  const slashRangeRef = useRef<Range | null>(null);
 
   // ── Alt text edit dialog (replaces browser prompt) ───────────────────────
   const [altTextModal, setAltTextModal] = useState<{
     session: ImageEditSession;
     value: string;
+    previousAlt: string;
   } | null>(null);
+  const [isSavingAlt, setIsSavingAlt] = useState(false);
+
+  /** Clone the current selection only when it belongs to the inline editor. */
+  const captureInlineRange = useCallback(() => {
+    const selection = window.getSelection();
+    const range = selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
+    const editor = inlineSessionRef.current?.element;
+    if (
+      !range ||
+      !editor ||
+      !editor.isConnected ||
+      !editor.contains(range.startContainer) ||
+      !editor.contains(range.endContainer)
+    ) {
+      return null;
+    }
+    return range.cloneRange();
+  }, []);
+
+  /** Restore a captured range and return focus to the editor that owns it. */
+  const restoreInlineRange = useCallback((range: Range | null): boolean => {
+    if (!range) return false;
+    const editor = inlineSessionRef.current?.element;
+    if (
+      !editor ||
+      !editor.isConnected ||
+      !editor.contains(range.startContainer) ||
+      !editor.contains(range.endContainer)
+    ) {
+      return false;
+    }
+    const selection = window.getSelection();
+    if (!selection) return false;
+    editor.focus({ preventScroll: true });
+    try {
+      selection.removeAllRanges();
+      selection.addRange(range);
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
+
+  /** Put the editable selection back exactly where the link dialog found it. */
+  const restoreCapturedLinkRange = useCallback(
+    () => restoreInlineRange(linkRangeRef.current),
+    [restoreInlineRange]
+  );
+
+  /** Focus the live inline editor, or the stable sidebar when it is gone. */
+  const focusInlineEditorOrFallback = useCallback(() => {
+    const editor = inlineSessionRef.current?.element;
+    if (editor?.isConnected) {
+      editor.focus({ preventScroll: true });
+      return;
+    }
+    focusEditorFallback();
+  }, []);
+
+  /**
+   * Open the link dialog while remembering the inline selection it replaces.
+   *
+   * Only the contentEditable path needs a range: textarea links are inserted by
+   * id, and an existing anchor is updated directly.
+   */
+  const openLinkModal = useCallback(
+    (state: LinkModalState) => {
+      linkRangeRef.current =
+        state.textareaId === null && !state.editAnchor ? captureInlineRange() : null;
+      linkAnchorElementRef.current = state.editAnchor
+        ? (inlineSessionRef.current?.element ?? null)
+        : null;
+      setLinkModal(state);
+    },
+    [captureInlineRange]
+  );
+
+  const closeLinkModal = useCallback(
+    (restoreSelection = true) => {
+      if (restoreSelection) {
+        const anchorDetached =
+          linkAnchorElementRef.current !== null && !linkAnchorElementRef.current.isConnected;
+        if ((linkRangeRef.current && !restoreCapturedLinkRange()) || anchorDetached) {
+          focusInlineEditorOrFallback();
+        }
+      }
+      linkRangeRef.current = null;
+      linkAnchorElementRef.current = null;
+      setLinkModal(null);
+    },
+    [focusInlineEditorOrFallback, restoreCapturedLinkRange]
+  );
+
+  /** Run a slash command against the selection the palette replaced. */
+  const runWithSlashSelection = useCallback(
+    (run: () => void) => {
+      const restored = restoreInlineRange(slashRangeRef.current);
+      slashRangeRef.current = null;
+      if (!restored) {
+        focusInlineEditorOrFallback();
+        toast.error('The selected text is no longer editable. Select it again and retry.');
+        return;
+      }
+      run();
+    },
+    [focusInlineEditorOrFallback, restoreInlineRange]
+  );
 
   // Responsive Viewport Simulation Mode
   const [viewportMode, setViewportMode] = useState<ViewportMode>('desktop');
@@ -887,6 +1217,16 @@ export function VisualEditOverlay() {
   const [isA11yAuditorOpen, setIsA11yAuditorOpen] = useState(false);
   const [isDiffModalOpen, setIsDiffModalOpen] = useState(false);
   const [isSlashMenuOpen, setIsSlashMenuOpen] = useState(false);
+
+  const toggleSlashMenu = useCallback(() => {
+    if (isSlashMenuOpen) {
+      slashRangeRef.current = null;
+      setIsSlashMenuOpen(false);
+      return;
+    }
+    slashRangeRef.current = captureInlineRange();
+    setIsSlashMenuOpen(true);
+  }, [captureInlineRange, isSlashMenuOpen]);
   const [isVisualComposerOpen, setIsVisualComposerOpen] = useState(false);
   /**
    * Where the open panel is, readable from a callback that must not be rebuilt
@@ -970,6 +1310,24 @@ export function VisualEditOverlay() {
    * switch — not a refresh of the same row, which must leave the panel alone.
    */
   const loadedDocumentKeyRef = useRef<string | null>(null);
+  /**
+   * The address the loaded blocks belong to.
+   *
+   * Next can change `pathname` before the loader asks an open composer to
+   * close. If the operator keeps the draft, this is the address to restore so
+   * the URL and the document on screen cannot disagree.
+   */
+  const loadedRouteRef = useRef<string | null>(null);
+  /**
+   * The pathname the loaded blocks belong to.
+   *
+   * Kept separately from the full route so a `?region=` change is not mistaken
+   * for a page navigation. Only a pathname change needs the route leave guard.
+   */
+  const loadedPathnameRef = useRef<string | null>(null);
+  /** Latest pathname for callbacks that must stay stable across navigation. */
+  const pathnameRef = useRef(pathname);
+  pathnameRef.current = pathname;
   /**
    * The newest document load.
    *
@@ -1280,16 +1638,35 @@ export function VisualEditOverlay() {
       if (!command) return;
       e.preventDefault();
       if (command === 'link') {
-        setLinkModal({ textareaId, url: '', text: '' });
+        openLinkModal({ textareaId, url: '', text: '' });
       } else {
         runTextareaFormatCommand(textareaId, command);
       }
     },
-    []
+    [openLinkModal]
   );
 
   // Load content row and blocks when visual editing is turned on
   const loadContentData = useCallback(async () => {
+    /*
+     * A confirmed discard grants exactly one load attempt. Consume it before any
+     * guard can return: a stale-region return must not leave a standing bypass
+     * that a later navigation to the same path could reuse after new edits.
+     */
+    const allowDirtyRouteLoad = allowDirtyRouteLoadRef.current === pathname;
+    allowDirtyRouteLoadRef.current = null;
+
+    /*
+     * A route change renders once with the previous route's active region still
+     * in state; the region-param effect clears it on the following pass. Do not
+     * load that region under the new pathname: it does not belong there, and
+     * succeeding would record the new route as the one its old blocks belong to.
+     * The effect will select the new page's document and load it normally.
+     */
+    if (activeRegionId && !pageRegions.some((region) => region.id === activeRegionId)) {
+      return;
+    }
+
     // A region is addressed by its own slug; the whole page keeps the old
     // slug-from-path behaviour, including the `home` fallback for `/`.
     let slug: string | null = documentSlug;
@@ -1325,7 +1702,9 @@ export function VisualEditOverlay() {
           : `path:${pathname}`;
     const previousDocumentKey = loadedDocumentKeyRef.current;
     const documentChanged = previousDocumentKey !== null && previousDocumentKey !== documentKey;
-    const generation = ++loadGenerationRef.current;
+    const previousPathname = loadedPathnameRef.current;
+    const routeChanged = previousPathname !== null && previousPathname !== pathname;
+    const replacingDocument = documentChanged || routeChanged;
 
     /*
      * A load must never close the composer by itself.
@@ -1335,25 +1714,78 @@ export function VisualEditOverlay() {
      * different: the blocks it addresses are about to disappear, so the panel
      * has to go, but only after its own guard has asked about unsaved work. Ask
      * through the token and remember the load; the effect below runs it once the
-     * panel has closed. Before this, the loader called `setIsVisualComposerOpen(
-     * false)` directly, so every refresh was a silent discard.
+     * panel has closed. A route change counts as a replacement even when the
+     * row is the same, because the page the panel is painting over has moved.
      */
-    if (documentChanged && isVisualComposerOpenRef.current) {
+    if (replacingDocument && isVisualComposerOpenRef.current) {
       setReloadAfterComposerClose(true);
       requestComposerClose();
       return;
     }
 
     /*
+     * A route change is not a local document switch. The address bar has moved,
+     * but the blocks on screen still belong to the loaded route; if they are
+     * dirty, ask before replacing them. The dialog owns the restore/continue
+     * decision, so stop here until it answers. A route also invalidates any
+     * staged region switch from the previous page.
+     */
+    if (replacingDocument) setPendingRegionSwitch(null);
+
+    if (routeChanged && dirtyRef.current && !allowDirtyRouteLoad) {
+      if (!pendingRouteChangeRef.current) {
+        pendingRouteChangeRef.current = true;
+        setPendingRouteChange({
+          restoreRoute:
+            loadedRouteRef.current ?? routeForPathname(previousPathname ?? pathname),
+        });
+      }
+      return;
+    }
+
+    /*
+     * A refresh of the document already on screen must not replace unsaved
+     * page edits with the server's older body. Saves clear `dirty` themselves;
+     * explicit server-state reloads (initialize, revision restore) set the
+     * bypass ref before asking for this load.
+     */
+    const allowSameDocumentReload = allowSameDocumentReloadRef.current;
+    allowSameDocumentReloadRef.current = false;
+    if (
+      !replacingDocument &&
+      previousDocumentKey !== null &&
+      dirtyRef.current &&
+      !allowSameDocumentReload
+    ) {
+      return;
+    }
+
+    /*
+     * Only an allowed load may supersede another. A guarded load that returns
+     * without fetching must not cancel the legitimate load already in flight —
+     * two effects call this on first mount, and the second used to invalidate
+     * the first region fetch before it could paint.
+     */
+    const generation = ++loadGenerationRef.current;
+
+    /*
+     * This load is allowed to replace the document, so the address on screen
+     * now belongs to the blocks it is about to install. A later route change
+     * uses this to restore the draft instead of leaving a newer URL over it.
+     */
+    loadedRouteRef.current = routeForPathname(pathname);
+    loadedPathnameRef.current = pathname;
+
+    /*
      * Async writes are stamped with this epoch. Bump it as soon as a replacement
      * load is allowed to start; a save from the previous document that resolves
      * later must not clean or retitle the document now on screen.
      */
-    if (documentKey !== loadedDocumentKeyRef.current) {
+    if (replacingDocument || documentKey !== loadedDocumentKeyRef.current) {
       documentEpochRef.current += 1;
     }
 
-    if (documentChanged) {
+    if (replacingDocument) {
       // A different document means a different set of blocks: ids from the
       // previous one must not stay selected, and a batch target snapshot is
       // meaningless once the underlying document changes.
@@ -1365,6 +1797,7 @@ export function VisualEditOverlay() {
        * on screen a moment ago. Carrying either across a switch would let an
        * old region's blocks be restored into the new one.
        */
+      historyRef.current = EMPTY_HISTORY;
       setHistory(EMPTY_HISTORY);
       setRecoveredDraft(null);
       setAutosaveFailure(null);
@@ -1379,7 +1812,7 @@ export function VisualEditOverlay() {
     setReloadAfterComposerClose(false);
 
     // The ids the panel is holding belong to the same document from here on.
-    const sameDocument = previousDocumentKey !== null && !documentChanged;
+    const sameDocument = previousDocumentKey !== null && !replacingDocument;
     loadedDocumentKeyRef.current = documentKey;
 
     const carrySessionIds = (next: Block[]): Block[] =>
@@ -1480,6 +1913,7 @@ export function VisualEditOverlay() {
     activeRegionId,
     documentSlug,
     findEffectiveVisualEditRoot,
+    pageRegions,
     pathname,
     requestComposerClose,
     target,
@@ -1500,6 +1934,29 @@ export function VisualEditOverlay() {
     setReloadAfterComposerClose(false);
     void loadContentDataRef.current();
   }, [reloadAfterComposerClose, isVisualComposerOpen]);
+
+  /**
+   * The operator kept the open draft.
+   *
+   * A staged region switch has not changed the URL yet, so dropping it is
+   * enough. A route navigation has: Next renders the new path before the loader
+   * can ask, and the blocks still belong to the old document. Restore the
+   * loaded document's address and drop the queued load. Without this, "Back to
+   * editing" would leave the new URL over the old page, and closing later would
+   * silently replace the document the operator chose to keep.
+   */
+  const cancelDeferredDocumentChange = useCallback(() => {
+    setPendingRegionSwitch((pending) =>
+      pending?.stage === 'composer-close' ? null : pending
+    );
+
+    const loadedRoute = loadedRouteRef.current;
+    if (!loadedRoute) return;
+    if (routeForPathname(pathnameRef.current) === loadedRoute) return;
+
+    setReloadAfterComposerClose(false);
+    router.replace(loadedRoute);
+  }, [router]);
 
   // Reload whenever the active document changes — switching regions must clear
   // the previous document's blocks, or the operator edits one region's copy
@@ -1553,6 +2010,8 @@ export function VisualEditOverlay() {
       });
       if (res.success && res.data) {
         toast.success(`Page "${title}" connected to Supabase CMS!`);
+        // The save persisted the local body; this reload is its acknowledgement.
+        allowSameDocumentReloadRef.current = true;
         await loadContentData();
         router.refresh();
       } else {
@@ -1875,8 +2334,54 @@ export function VisualEditOverlay() {
   const body = useMemo(() => serializeBlocks(blocks), [blocks]);
   const dirty = body !== savedBody;
   dirtyRef.current = dirty;
+
+  /*
+   * A hard reload or tab close never reaches the router. The browser guard is
+   * shared with the composer, which owns a draft the page body cannot see.
+   */
+  useBeforeUnloadWarning(enabled && isAdmin && dirty);
+
   const autosavePaused =
     autosaveFailure?.scope === draftScope && autosaveFailure.snapshot === body;
+
+  /**
+   * The page-level unsaved guard kept the route from loading.
+   *
+   * The URL has already moved, so closing the dialog is not enough. Restore
+   * the address the blocks belong to; the loader's same-document dirty guard
+   * keeps that restore from fetching over the edits that made the page dirty.
+   */
+  const stayOnPendingRoute = useCallback(() => {
+    const pending = pendingRouteChange;
+    if (!pending) return;
+    pendingRouteChangeRef.current = false;
+    allowDirtyRouteLoadRef.current = null;
+    allowSameDocumentReloadRef.current = false;
+    setPendingRouteChange(null);
+    setReloadAfterComposerClose(false);
+    router.replace(pending.restoreRoute);
+  }, [pendingRouteChange, router]);
+
+  /**
+   * The operator chose the new route over the unsaved page.
+   *
+   * Mark the current body as the baseline so autosave cannot write it after
+   * the decision, clear the local draft, and let exactly this route's load
+   * through the dirty guard. The load itself installs the new document.
+   */
+  const discardPendingRoute = useCallback(() => {
+    if (!pendingRouteChange) return;
+    pendingRouteChangeRef.current = false;
+    allowDirtyRouteLoadRef.current = pathname;
+    allowSameDocumentReloadRef.current = false;
+    setPendingRouteChange(null);
+    setReloadAfterComposerClose(false);
+    setSavedBody(body);
+    setAutosaveFailure(null);
+    setRecoveredDraft(null);
+    clearDraft(draftScope);
+    void loadContentDataRef.current();
+  }, [body, clearDraft, draftScope, pathname, pendingRouteChange]);
 
   /**
    * Complete a region switch the operator confirmed losing changes for.
@@ -2059,7 +2564,9 @@ export function VisualEditOverlay() {
       if (previous === current) return;
       blocksRef.current = next;
       setBlocks(next);
-      setHistory((currentHistory) => recordHistory(currentHistory, previous, current, coalesceKey));
+      const nextHistory = recordHistory(historyRef.current, previous, current, coalesceKey);
+      historyRef.current = nextHistory;
+      setHistory(nextHistory);
       refreshSections(next);
     },
     [refreshSections]
@@ -2102,6 +2609,7 @@ export function VisualEditOverlay() {
     const restored = parseHtml(step.restore);
     blocksRef.current = restored;
     setBlocks(restored);
+    historyRef.current = step.history;
     setHistory(step.history);
     refreshSections(restored);
   }, [body, history, refreshSections]);
@@ -2112,6 +2620,7 @@ export function VisualEditOverlay() {
     const restored = parseHtml(step.restore);
     blocksRef.current = restored;
     setBlocks(restored);
+    historyRef.current = step.history;
     setHistory(step.history);
     refreshSections(restored);
   }, [body, history, refreshSections]);
@@ -2758,32 +3267,264 @@ export function VisualEditOverlay() {
     [router, writeToBlock, writeToCopyRegion, locate, describeUnsaveableDocument]
   );
 
-  const handleSaveImageAlt = useCallback(
-    async (session: ImageEditSession, newAlt: string) => {
-      const { element, copyRegionId, blockIndex } = session;
-      element.alt = newAlt;
-      if (copyRegionId) {
-        await writeToCopyRegion({
-          copyRegionId,
-          successMessage: 'Alt text saved to copy region',
-          errorMessage: 'Failed to save alt text',
-        });
-        return;
+  /**
+   * Persist an image field through the one path that owns the destination.
+   *
+   * An image can live in a copy region, as its own block, or inside a
+   * paragraph/quote/callout. The write shape differs, but the decision must not:
+   * `unsupported` is returned separately from a failed write so callers can
+   * restore the preview only when there is no destination, not when a transient
+   * backend failure leaves the new image worth retrying.
+   */
+  const persistImageEdit = useCallback(
+    async (
+      session: ImageEditSession,
+      mutateImage: (block: ImageBlock) => Block,
+      messages: {
+        successMessage: string;
+        copyRegionSuccessMessage?: string;
+        errorMessage: string;
+        copyRegionErrorMessage?: string;
       }
-      if (blockIndex !== null && blocksRef.current[blockIndex]) {
-        await writeToBlock({
+    ): Promise<ImageWriteOutcome> => {
+      const { element, copyRegionId } = session;
+      const blockIndex = resolveImageBlockIndex(blocksRef.current, session);
+      if (copyRegionId) {
+        const saved = await writeToCopyRegion({
+          copyRegionId,
+          successMessage: messages.copyRegionSuccessMessage ?? messages.successMessage,
+          errorMessage: messages.copyRegionErrorMessage ?? messages.errorMessage,
+        });
+        if (saved) {
+          session.baseSrc = element.src;
+          session.baseAlt = element.alt;
+        }
+        return saved ? 'saved' : 'failed';
+      }
+
+      const target = blockIndex >= 0 ? blocksRef.current[blockIndex] : null;
+      if (blockIndex < 0 || !target) return 'unsupported';
+
+      const beginWrite = (): string => {
+        session.writeCount += 1;
+        return `${session.historyKey}:${session.writeCount}`;
+      };
+
+      const finishWrite = (writeKey: string, saved: boolean): ImageWriteOutcome => {
+        if (!saved) {
+          if (!session.failureKey) session.failureKey = writeKey;
+          const failed = { src: element.src, alt: element.alt };
+          if (
+            !session.failedImages.some(
+              (image) => image.src === failed.src && image.alt === failed.alt
+            )
+          ) {
+            session.failedImages.push(failed);
+          }
+          return 'failed';
+        }
+
+        if (session.failureKey) {
+          const nextHistory = repairImageHistory(
+            historyRef.current,
+            session,
+            {
+              historyKey: session.historyKey,
+              failureKey: session.failureKey,
+              failedImages: session.failedImages,
+            },
+            session.baseSrc,
+            session.baseAlt,
+            { successfulKey: writeKey }
+          );
+          if (nextHistory !== historyRef.current) {
+            historyRef.current = nextHistory;
+            setHistory(nextHistory);
+          }
+        }
+
+        session.baseSrc = element.src;
+        session.baseAlt = element.alt;
+        session.failureKey = null;
+        session.failedImages = [];
+        return 'saved';
+      };
+
+      if (target.type === 'image') {
+        const writeKey = beginWrite();
+        const saved = await writeToBlock({
           blockIndex,
           blocks: blocksRef.current,
-          successMessage: 'Image alt text updated',
-          errorMessage: 'Failed to save alt text',
-          mutate: (target) => (target.type === 'image' ? { ...target, alt: newAlt } : undefined),
+          coalesceKey: writeKey,
+          successMessage: messages.successMessage,
+          errorMessage: messages.errorMessage,
+          mutate: (block) => (block.type === 'image' ? mutateImage(block) : undefined),
         });
+        return finishWrite(writeKey, saved);
+      }
+
+      /**
+       * Images also live inside rich-text blocks. Persisting only the image
+       * block type made those edits a silent no-op: the attribute changed in the
+       * live DOM, the save reported success, and the next load forgot it.
+       * Serialize the block root that actually contains the image.
+       */
+      const blockRoot = locate(blockIndex);
+      const contentRoot = blockRoot ? resolveBlockContentRoot(element, blockRoot) : null;
+      if (
+        contentRoot &&
+        (target.type === 'paragraph' || target.type === 'quote' || target.type === 'callout')
+      ) {
+        const html = contentRoot.innerHTML;
+        const writeKey = beginWrite();
+        const saved = await writeToBlock({
+          blockIndex,
+          blocks: blocksRef.current,
+          coalesceKey: writeKey,
+          successMessage: messages.successMessage,
+          errorMessage: messages.errorMessage,
+          mutate: (block) =>
+            block.type === 'paragraph' || block.type === 'quote' || block.type === 'callout'
+              ? { ...block, html }
+              : undefined,
+        });
+        return finishWrite(writeKey, saved);
+      }
+
+      return 'unsupported';
+    },
+    [locate, writeToBlock, writeToCopyRegion, setHistory]
+  );
+
+
+  /**
+   * Restore an image session's preview and the block model that contains it.
+   *
+   * Image saves are optimistic: `writeToBlock` commits before the backend
+   * responds. When a write fails, or the operator cancels after a failure, the
+   * DOM and the model must be rolled back together. Restoring only the DOM
+   * leaves the next save writing the failed value; restoring the whole block
+   * would discard unrelated edits. Restore the image fields in place.
+   */
+  const restoreImageSession = useCallback(
+    (
+      session: ImageEditSession,
+      options: { src?: boolean; alt?: boolean; altValue?: string } = {}
+    ) => {
+      const nextSrc = options.src === false ? session.element.src : session.initialSrc;
+      const nextAlt =
+        options.altValue ?? (options.alt === false ? session.element.alt : session.initialAlt);
+      session.element.src = nextSrc;
+      session.element.alt = nextAlt;
+
+      const { copyRegionId } = session;
+      const blockIndex = resolveImageBlockIndex(blocksRef.current, session);
+      if (copyRegionId || blockIndex < 0) return;
+      const target = blocksRef.current[blockIndex];
+      if (!target) return;
+      const blockRoot = locate(blockIndex);
+      if (!blockRoot || !blockRoot.contains(session.element)) return;
+
+      const nextBlocks = [...blocksRef.current];
+
+      /**
+       * Apply the restored block without creating a history step for
+       * provisional work. Cancelling removes the failed run and rewrites later
+       * snapshots; earlier successful image writes stay in history.
+       */
+      const commitRestored = () => {
+        if (session.failureKey) {
+          const nextHistory = repairImageHistory(
+            historyRef.current,
+            session,
+            {
+              historyKey: session.historyKey,
+              failureKey: session.failureKey,
+              failedImages: session.failedImages,
+            },
+            nextSrc,
+            nextAlt
+          );
+          if (nextHistory !== historyRef.current) {
+            historyRef.current = nextHistory;
+            setHistory(nextHistory);
+          }
+          blocksRef.current = nextBlocks;
+          setBlocks(nextBlocks);
+          refreshSections(nextBlocks);
+          return;
+        }
+        commitBlocks(nextBlocks, null);
+      };
+
+      if (target.type === 'image') {
+        nextBlocks[blockIndex] = { ...target, src: nextSrc, alt: nextAlt };
+        commitRestored();
         return;
       }
-      toast.success('Alt text updated');
+
+      const contentRoot = resolveBlockContentRoot(session.element, blockRoot);
+      if (
+        contentRoot &&
+        (target.type === 'paragraph' || target.type === 'quote' || target.type === 'callout')
+      ) {
+        nextBlocks[blockIndex] = { ...target, html: contentRoot.innerHTML };
+        commitRestored();
+      }
     },
-    [writeToBlock, writeToCopyRegion]
+    [commitBlocks, locate, refreshSections]
   );
+
+  const handleSaveImageAlt = useCallback(
+    async (session: ImageEditSession, newAlt: string): Promise<boolean> => {
+      const previousAlt = session.element.alt;
+      session.element.alt = newAlt;
+      const outcome = await persistImageEdit(
+        session,
+        (block) => ({ ...block, alt: newAlt }),
+        {
+          successMessage: 'Image alt text updated',
+          copyRegionSuccessMessage: 'Alt text saved to copy region',
+          errorMessage: 'Failed to save alt text',
+        }
+      );
+      if (outcome === 'unsupported') {
+        session.element.alt = previousAlt;
+        toast.error('Alt text cannot be saved for this block type');
+        return false;
+      }
+      if (outcome === 'saved') {
+        session.initialAlt = newAlt;
+        session.initialSrc = session.element.src;
+        return true;
+      }
+      return false;
+    },
+    [persistImageEdit]
+  );
+
+  const saveAltText = useCallback(async () => {
+    const modal = altTextModal;
+    if (!modal || isSavingAlt) return;
+    setIsSavingAlt(true);
+    try {
+      const saved = await handleSaveImageAlt(modal.session, modal.value);
+      if (saved) setAltTextModal(null);
+    } catch {
+      toast.error('Failed to save alt text');
+    } finally {
+      setIsSavingAlt(false);
+    }
+  }, [altTextModal, handleSaveImageAlt, isSavingAlt]);
+
+  const cancelAltTextModal = useCallback(() => {
+    const modal = altTextModal;
+    if (!modal || isSavingAlt) return;
+    const imageDetached = !modal.session.element.isConnected;
+    restoreImageSession(modal.session, { src: false, altValue: modal.previousAlt });
+    if (imageDetached) focusEditorFallback();
+    setAltTextModal(null);
+  }, [altTextModal, isSavingAlt, restoreImageSession]);
 
   const handleDirectImageUpload = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -2798,23 +3539,30 @@ export function VisualEditOverlay() {
         if (res.success && res.data?.url) {
           const newUrl = res.data.url;
           const session = imageSessionRef.current;
+          const previousSrc = session.element.src;
           session.element.src = newUrl;
-          if (session.copyRegionId) {
-            await writeToCopyRegion({
-              copyRegionId: session.copyRegionId,
-              successMessage: 'Image uploaded and saved to region!',
-              errorMessage: 'Failed to save copy region',
-            });
-          } else if (session.blockIndex !== null && blocksRef.current[session.blockIndex]) {
-            await writeToBlock({
-              blockIndex: session.blockIndex,
-              blocks: blocksRef.current,
+          const outcome = await persistImageEdit(
+            session,
+            (block) => ({ ...block, src: newUrl }),
+            {
               successMessage: 'Image replaced and saved',
-              errorMessage: 'Image upload failed',
-              mutate: (target) =>
-                target.type === 'image' ? { ...target, src: newUrl } : undefined,
-            });
+              copyRegionSuccessMessage: 'Image uploaded and saved to region!',
+              copyRegionErrorMessage: 'Image uploaded but region save failed',
+              errorMessage: 'Image uploaded but page save failed',
+            }
+          );
+          /*
+           * The upload succeeded, but the image has nowhere to be written or
+           * the write failed. Restore the old preview only when the target is
+           * unsupported; a transient backend failure keeps the new preview so
+           * Save can retry the same image. Either way the panel stays open.
+           */
+          if (outcome === 'unsupported') {
+            session.element.src = previousSrc;
+            toast.error('This image is not inside a savable block.');
+            return;
           }
+          if (outcome === 'failed') return;
           setImageSession(null);
           imageSessionRef.current = null;
         } else {
@@ -2827,7 +3575,7 @@ export function VisualEditOverlay() {
         if (e.target) e.target.value = '';
       }
     },
-    [writeToBlock, writeToCopyRegion]
+    [persistImageEdit]
   );
 
   // Responsive Viewport Simulation effect: smoothly constrain <main>
@@ -2896,9 +3644,7 @@ export function VisualEditOverlay() {
         setInlineSession(null);
       }
       if (imageSessionRef.current) {
-        const { element, initialSrc, initialAlt } = imageSessionRef.current;
-        element.src = initialSrc;
-        element.alt = initialAlt;
+        restoreImageSession(imageSessionRef.current);
         imageSessionRef.current = null;
         setImageSession(null);
       }
@@ -2928,6 +3674,8 @@ export function VisualEditOverlay() {
         target.closest('[role="switch"]') ||
         target.closest('[role="menu"]') ||
         target.closest('[role="menuitem"]') ||
+        target.closest('[role="listbox"]') ||
+        target.closest('[role="option"]') ||
         target.closest('[data-interactive-control="true"]') ||
         target.closest('[data-civic-control]') ||
         target.closest('[data-no-inline-edit]') ||
@@ -3105,15 +3853,27 @@ export function VisualEditOverlay() {
           setActiveBlockIndex(matchedBlockIdx);
         }
 
-        const r = clickedImg.getBoundingClientRect();
+        const matchedBlockRoot = matchedBlockIdx !== null ? locate(matchedBlockIdx) : null;
+        const imageOrdinal = matchedBlockRoot
+          ? Array.from(matchedBlockRoot.querySelectorAll('img')).indexOf(clickedImg)
+          : -1;
+        const matchedBlock =
+          matchedBlockIdx !== null ? blocksRef.current[matchedBlockIdx] : undefined;
+
         const session: ImageEditSession = {
           element: clickedImg,
           initialSrc: clickedImg.src,
           initialAlt: clickedImg.alt || '',
           copyRegionId: imageCopyRegionId,
           blockIndex: matchedBlockIdx,
-          top: Math.max(12, r.top - 46),
-          left: Math.max(12, Math.min(window.innerWidth - 380, r.left)),
+          blockId: matchedBlock?.id ?? null,
+          imageOrdinal: imageOrdinal >= 0 ? imageOrdinal : 0,
+          historyKey: `image-session-${++imageEditSequence}`,
+          writeCount: 0,
+          failureKey: null,
+          failedImages: [],
+          baseSrc: clickedImg.src,
+          baseAlt: clickedImg.alt || '',
         };
         imageSessionRef.current = session;
         setImageSession(session);
@@ -3194,9 +3954,12 @@ export function VisualEditOverlay() {
         e.preventDefault();
         e.stopPropagation();
         const blockIdx = matchedBlockIdx ?? activeBlockIndex ?? 0;
+        const active = document.activeElement;
+        contextMenuReturnFocusRef.current =
+          active instanceof HTMLElement && active !== document.body ? active : null;
         setContextMenu({
-          x: Math.max(12, Math.min(e.clientX, window.innerWidth - 230)),
-          y: Math.max(12, Math.min(e.clientY, window.innerHeight - 360)),
+          x: e.clientX,
+          y: e.clientY,
           blockIndex: blockIdx,
         });
       }
@@ -3217,6 +3980,7 @@ export function VisualEditOverlay() {
     locate,
     commitInlineEdit,
     activeBlockIndex,
+    restoreImageSession,
   ]);
 
   useEffect(() => {
@@ -3237,17 +4001,10 @@ export function VisualEditOverlay() {
         } else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
           e.preventDefault();
           void commitInlineEdit(inlineSession);
-        } else if (e.key.toLowerCase() === 's' && (e.metaKey || e.ctrlKey)) {
-          e.preventDefault();
-          void commitInlineEdit(inlineSession);
-          void handlePersistBlocks(
-            blocksRef.current,
-            contentRow ? 'Page saved to Supabase' : 'Page connected to Supabase CMS'
-          );
         } else if (command) {
           e.preventDefault();
           if (command === 'link') {
-            setLinkModal({ textareaId: null, url: '', text: '' });
+            openLinkModal({ textareaId: null, url: '', text: '' });
           } else {
             applyInlineFormatCommand(command);
           }
@@ -3255,8 +4012,7 @@ export function VisualEditOverlay() {
       } else if (imageSession) {
         if (e.key === 'Escape') {
           e.preventDefault();
-          imageSession.element.src = imageSession.initialSrc;
-          imageSession.element.alt = imageSession.initialAlt;
+          restoreImageSession(imageSession);
           imageSessionRef.current = null;
           setImageSession(null);
         }
@@ -3295,21 +4051,8 @@ export function VisualEditOverlay() {
             : null
         );
       }
-      if (imageSession) {
-        if (!imageSession.element.isConnected) {
-          setImageSession(null);
-          return;
-        }
-        const r = imageSession.element.getBoundingClientRect();
-        setImageSession((prev) =>
-          prev
-            ? {
-                ...prev,
-                top: Math.max(12, r.top - 46),
-                left: Math.max(12, Math.min(window.innerWidth - 380, r.left)),
-              }
-            : null
-        );
+      if (imageSession && !imageSession.element.isConnected) {
+        setImageSession(null);
       }
     };
 
@@ -3329,8 +4072,8 @@ export function VisualEditOverlay() {
     imageSession,
     cancelInlineEdit,
     commitInlineEdit,
-    handlePersistBlocks,
-    contentRow,
+    openLinkModal,
+    restoreImageSession,
   ]);
 
   /**
@@ -3638,22 +4381,24 @@ export function VisualEditOverlay() {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && contextMenu) {
         event.preventDefault();
-        setContextMenu(null);
+        closeContextMenu(true);
         return;
       }
-      // Don't intercept shortcuts when typing in inputs
       const target = event.target as HTMLElement;
+      const key = event.key.toLowerCase();
+      const mod = event.metaKey || event.ctrlKey;
       const isTyping =
         target.tagName === 'INPUT' ||
         target.tagName === 'TEXTAREA' ||
         target.tagName === 'SELECT' ||
         target.isContentEditable;
-      if (isTyping) {
-        // Allow default browser shortcuts in inputs (bold, italic, etc.)
-        if (['b', 'i', 'k'].includes(event.key.toLowerCase())) return;
-      }
-      const key = event.key.toLowerCase();
-      const mod = event.metaKey || event.ctrlKey;
+      /*
+       * A field owns its editing shortcuts. Letting ⌘Z, ⌘D, ⌘⌫ or formatting
+       * keys fall through here made typing in the alt-text or link dialog undo,
+       * duplicate, or delete the page behind the dialog. Save is the one
+       * document command that still applies while a field has focus.
+       */
+      if (isTyping && !(mod && key === 's')) return;
 
       if (
         key === 'escape' &&
@@ -3866,6 +4611,7 @@ export function VisualEditOverlay() {
     contentRow,
     toggleInspector,
     contextMenu,
+    closeContextMenu,
     handleOpenEditSection,
     locate,
     selectBlockOnly,
@@ -3912,6 +4658,8 @@ export function VisualEditOverlay() {
       if (res.success) {
         toast.success('Revision snapshot restored successfully');
         setIsRevisionsOpen(false);
+        // The server is now authoritative; do not let a dirty local body mask it.
+        allowSameDocumentReloadRef.current = true;
         await loadContentData();
         router.refresh();
       } else {
@@ -4181,7 +4929,7 @@ export function VisualEditOverlay() {
     initialMode: vcMode,
     onPreviewChange: applyComposerDraft,
     closeRequest: composerCloseRequest,
-    onCloseRequestCanceled: cancelPendingComposerRegionSwitch,
+    onCloseRequestCanceled: cancelDeferredDocumentChange,
     onDeleteBlock: handleDeleteSection,
     onDeleteBlocks: handleDeleteSections,
     onCopyBlockJson: handleCopyBlockJson,
@@ -4296,9 +5044,8 @@ export function VisualEditOverlay() {
               ) : null}
 
               {/* Floating Action Pill */}
-              <div
-                role="toolbar"
-                aria-label={`Actions for ${item.label}`}
+              <RovingToolbar
+                label={`Actions for ${item.label}`}
                 className="pointer-events-auto absolute -top-3.5 left-0 -translate-x-full -ml-1 max-sm:left-0 max-sm:translate-x-0 max-sm:-top-8 inline-flex items-center gap-1.5 rounded-full border border-accent-gold/50 bg-secondary/95 px-3 py-1 text-xs text-ink-on-dark shadow-float backdrop-blur-md transition-[transform,background-color,border-color] hover:scale-105"
               >
                 {/*
@@ -4670,7 +5417,7 @@ export function VisualEditOverlay() {
                     <Trash2 size={13} />
                   </ConfirmAction>
                 </div>
-              </div>
+              </RovingToolbar>
             </div>
           ))}
         </div>
@@ -4735,38 +5482,48 @@ export function VisualEditOverlay() {
       {inlineSession && (
         <SlashCommandMenu
           open={isSlashMenuOpen}
-          onClose={() => setIsSlashMenuOpen(false)}
+          onClose={() => {
+            slashRangeRef.current = null;
+            setIsSlashMenuOpen(false);
+          }}
           position={{
             top: inlineSession.top + 42,
             left: Math.max(12, inlineSession.left),
           }}
           onExecuteCommand={(cmdId) => {
-            if (
-              cmdId === 'h2' ||
-              cmdId === 'h3' ||
-              cmdId === 'paragraph' ||
-              cmdId === 'bulletList' ||
-              cmdId === 'orderedList' ||
-              cmdId === 'code' ||
-              cmdId === 'clear'
-            ) {
-              applyInlineFormatCommand(cmdId as InlineFormatCommand);
-            } else if (cmdId === 'quote') {
-              wrapSelectionWithTag('blockquote', 'border-l-4 border-accent-gold pl-3 italic my-2');
-            } else if (cmdId === 'divider') {
-              wrapSelectionWithTag('hr', 'my-4 border-t border-border');
-            } else if (cmdId === 'callout') {
-              wrapSelectionWithTag(
-                'aside',
-                'my-2 rounded-xl border border-primary/30 bg-primary/10 p-3 text-sm'
-              );
-            }
+            runWithSlashSelection(() => {
+              if (
+                cmdId === 'h2' ||
+                cmdId === 'h3' ||
+                cmdId === 'paragraph' ||
+                cmdId === 'bulletList' ||
+                cmdId === 'orderedList' ||
+                cmdId === 'code' ||
+                cmdId === 'clear'
+              ) {
+                applyInlineFormatCommand(cmdId as InlineFormatCommand);
+              } else if (cmdId === 'quote') {
+                wrapSelectionWithTag(
+                  'blockquote',
+                  'border-l-4 border-accent-gold pl-3 italic my-2'
+                );
+              } else if (cmdId === 'divider') {
+                wrapSelectionWithTag('hr', 'my-4 border-t border-border');
+              } else if (cmdId === 'callout') {
+                wrapSelectionWithTag(
+                  'aside',
+                  'my-2 rounded-xl border border-primary/30 bg-primary/10 p-3 text-sm'
+                );
+              }
+            });
           }}
           onOpenGhostwriter={() => {
             toast.info('Civic Ghostwriter AI ready — select text or click Ghostwriter');
           }}
           onInsertLink={() => {
-            setLinkModal({ textareaId: null, url: '', text: '' });
+            runWithSlashSelection(() =>
+              openLinkModal({ textareaId: null, url: '', text: '' })
+            );
           }}
         />
       )}
@@ -4841,8 +5598,8 @@ export function VisualEditOverlay() {
         inlineCounts={inlineCounts}
         onCommitInlineEdit={(session) => void commitInlineEdit(session)}
         onCancelInlineEdit={(session) => cancelInlineEdit(session)}
-        onSetLinkModal={(state) => setLinkModal(state)}
-        onToggleSlashMenu={() => setIsSlashMenuOpen((prev) => !prev)}
+        onSetLinkModal={openLinkModal}
+        onToggleSlashMenu={toggleSlashMenu}
         onInlineTextUpdated={(text) =>
           setInlineCounts({
             chars: text.length,
@@ -4852,11 +5609,15 @@ export function VisualEditOverlay() {
         imageSession={imageSession}
         isUploadingImage={isUploadingImage}
         onUploadClick={() => imageFileInputRef.current?.click()}
-        onSetAltTextModal={(state) => setAltTextModal(state)}
+        onSetAltTextModal={(state) =>
+          setAltTextModal({
+            ...state,
+            previousAlt: state.session.element.alt,
+          })
+        }
         onSaveImageAlt={handleSaveImageAlt}
         onCancelImageEdit={(session) => {
-          session.element.src = session.initialSrc;
-          session.element.alt = session.initialAlt;
+          restoreImageSession(session);
           imageSessionRef.current = null;
           setImageSession(null);
           toast.info('Image changes cancelled');
@@ -5184,42 +5945,44 @@ export function VisualEditOverlay() {
         <CRMMediaLibraryModal
           isOpen={mediaModalOpen}
           onClose={() => setMediaModalOpen(false)}
-          onSelectMedia={(item) => {
+          onSelectMedia={async (item) => {
             if (mediaTarget === 'image-replace' && imageSession) {
-              const { element: imgEl, copyRegionId, blockIndex } = imageSession;
+              const { element: imgEl } = imageSession;
+              const previousSrc = imgEl.src;
+              const previousAlt = imgEl.alt;
+              const nextAlt = item.alt || item.name;
               imgEl.src = item.url;
-              if (item.alt || item.name) {
-                imgEl.alt = item.alt || item.name;
-              }
-              imageSessionRef.current = null;
-              setImageSession(null);
-              if (copyRegionId) {
-                void writeToCopyRegion({
-                  copyRegionId,
-                  successMessage: `Region "${copyRegionId}" image updated from S3`,
-                  errorMessage: 'Failed to save copy region',
-                });
-              } else if (blockIndex !== null && blocksRef.current[blockIndex]) {
-                void writeToBlock({
-                  blockIndex,
-                  blocks: blocksRef.current,
+              if (nextAlt) imgEl.alt = nextAlt;
+              const outcome = await persistImageEdit(
+                imageSession,
+                (target) => ({
+                  ...target,
+                  src: item.url,
+                  alt: nextAlt || target.alt,
+                  width: item.width ?? target.width,
+                  height: item.height ?? target.height,
+                }),
+                {
                   successMessage: 'Image updated from S3 storage',
-                  errorMessage: 'Failed to save image',
-                  mutate: (target) =>
-                    target.type === 'image'
-                      ? {
-                          ...target,
-                          src: item.url,
-                          alt: item.alt || item.name,
-                          width: item.width ?? target.width,
-                          height: item.height ?? target.height,
-                        }
-                      : undefined,
-                });
-              } else {
-                toast.success('Image source updated');
+                  copyRegionSuccessMessage: imageSession.copyRegionId
+                    ? `Region "${imageSession.copyRegionId}" image updated from S3`
+                    : undefined,
+                  errorMessage: 'Image selected from storage could not be saved',
+                  copyRegionErrorMessage: 'Failed to save copy region',
+                }
+              );
+              if (outcome === 'unsupported') {
+                imgEl.src = previousSrc;
+                imgEl.alt = previousAlt;
+                toast.error('This image is not inside a savable block.');
+              } else if (outcome === 'saved') {
+                imageSessionRef.current = null;
+                setImageSession(null);
               }
-            } else if (mediaTarget === 'featured') {
+              setMediaModalOpen(false);
+              return;
+            }
+            if (mediaTarget === 'featured') {
               setPageFeaturedImage(item.url);
               toast.success('Featured image selected from Supabase storage');
             } else if (vcBlockIndex !== null && blocksRef.current[vcBlockIndex]?.type === 'image') {
@@ -5765,7 +6528,7 @@ export function VisualEditOverlay() {
         <Dialog
           open
           onOpenChange={(open) => {
-            if (!open) setLinkModal(null);
+            if (!open) closeLinkModal();
           }}
         >
           <DialogContent className="max-w-md bg-surface-card text-foreground p-6 rounded-3xl">
@@ -5797,9 +6560,7 @@ export function VisualEditOverlay() {
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault();
-                      (
-                        e.currentTarget.form?.querySelector('[data-confirm]') as HTMLButtonElement
-                      )?.click();
+                      confirmDialogFromInput(e.currentTarget);
                     }
                   }}
                   placeholder="https://example.com or /about"
@@ -5856,9 +6617,7 @@ export function VisualEditOverlay() {
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         e.preventDefault();
-                        (
-                          e.currentTarget.form?.querySelector('[data-confirm]') as HTMLButtonElement
-                        )?.click();
+                        confirmDialogFromInput(e.currentTarget);
                       }
                     }}
                     placeholder="Link"
@@ -5870,7 +6629,7 @@ export function VisualEditOverlay() {
             <div className="flex justify-end gap-2 pt-2">
               <button
                 type="button"
-                onClick={() => setLinkModal(null)}
+                onClick={() => closeLinkModal()}
                 className="rounded-xl px-4 py-2 text-xs font-bold text-muted-foreground hover:bg-border"
               >
                 Cancel
@@ -5880,37 +6639,58 @@ export function VisualEditOverlay() {
                 data-confirm
                 disabled={!linkModal.url.trim()}
                 onClick={() => {
-                  const url = linkModal.url.trim();
-                  if (!url) return;
+                  const url = normalizeLinkTarget(linkModal.url);
+                  if (!url) {
+                    toast.error('Use an http(s), mailto:, tel:, or relative link.');
+                    return;
+                  }
                   if (linkModal.editAnchor) {
+                    const anchor = linkModal.editAnchor;
+                    const session = inlineSessionRef.current;
+                    const sessionElement = linkAnchorElementRef.current;
+                    if (
+                      !anchor.isConnected ||
+                      !session ||
+                      session.element !== sessionElement ||
+                      !sessionElement?.isConnected ||
+                      !sessionElement.contains(anchor)
+                    ) {
+                      focusInlineEditorOrFallback();
+                      closeLinkModal(false);
+                      toast.error(
+                        'This link is no longer editable. Select it again to change its destination.'
+                      );
+                      return;
+                    }
                     /*
                      * Update only the DOM. `session.href` deliberately keeps the
                      * ORIGINAL href: commitInlineEdit detects the change by
                      * comparing the anchor's current href against it, so
                      * overwriting it here would make the edit invisible.
                      */
-                    linkModal.editAnchor.href = url;
-                    if (inlineSessionRef.current) {
-                      void commitInlineEdit(inlineSessionRef.current);
-                    }
+                    anchor.href = url;
+                    void commitInlineEdit(session);
                   } else if (linkModal.textareaId) {
-                    const ta = document.getElementById(
-                      linkModal.textareaId
-                    ) as HTMLTextAreaElement | null;
-                    if (!ta) return;
-                    const start = ta.selectionStart;
-                    const end = ta.selectionEnd;
-                    const selectedText = ta.value.slice(start, end);
-                    const linkHtml = `<a href="${url}">${linkModal.text || selectedText || 'Link'}</a>`;
-                    ta.value = ta.value.slice(0, start) + linkHtml + ta.value.slice(end);
-                    ta.dispatchEvent(new Event('input', { bubbles: true }));
-                    ta.focus();
-                    const newPos = start + linkHtml.length;
-                    ta.setSelectionRange(newPos, newPos);
+                    if (!insertLink(linkModal.textareaId, url, linkModal.text)) {
+                      toast.error('The editor field is no longer on the page.');
+                      return;
+                    }
                   } else {
+                    if (!linkRangeRef.current) {
+                      toast.error('Place the cursor in the page before inserting a link.');
+                      return;
+                    }
+                    if (!restoreCapturedLinkRange()) {
+                      focusInlineEditorOrFallback();
+                      closeLinkModal(false);
+                      toast.error(
+                        'The selected text is no longer editable. Select it again to add a link.'
+                      );
+                      return;
+                    }
                     document.execCommand('createLink', false, url);
                   }
-                  setLinkModal(null);
+                  closeLinkModal(false);
                 }}
                 className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-white hover:bg-primary/90 disabled:opacity-40"
               >
@@ -5926,7 +6706,7 @@ export function VisualEditOverlay() {
         <Dialog
           open
           onOpenChange={(open) => {
-            if (!open) setAltTextModal(null);
+            if (!open && !isSavingAlt) cancelAltTextModal();
           }}
         >
           <DialogContent className="max-w-md bg-surface-card text-foreground p-6 rounded-3xl">
@@ -5949,6 +6729,7 @@ export function VisualEditOverlay() {
                 id="alt-text-input"
                 type="text"
                 autoFocus
+                disabled={isSavingAlt}
                 value={altTextModal.value}
                 onChange={(e) =>
                   setAltTextModal((prev) => (prev ? { ...prev, value: e.target.value } : null))
@@ -5956,33 +6737,31 @@ export function VisualEditOverlay() {
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault();
-                    (
-                      e.currentTarget.form?.querySelector('[data-confirm]') as HTMLButtonElement
-                    )?.click();
+                    confirmDialogFromInput(e.currentTarget);
                   }
                 }}
                 placeholder="A brief description of the image"
-                className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:ring-2 focus:ring-primary"
+                className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:ring-2 focus:ring-primary disabled:cursor-wait disabled:opacity-60"
               />
             </div>
             <div className="flex justify-end gap-2 pt-2">
               <button
                 type="button"
-                onClick={() => setAltTextModal(null)}
-                className="rounded-xl px-4 py-2 text-xs font-bold text-muted-foreground hover:bg-border"
+                disabled={isSavingAlt}
+                onClick={cancelAltTextModal}
+                className="rounded-xl px-4 py-2 text-xs font-bold text-muted-foreground hover:bg-border disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 data-confirm
-                onClick={() => {
-                  void handleSaveImageAlt(altTextModal.session, altTextModal.value);
-                  setAltTextModal(null);
-                }}
-                className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-white hover:bg-primary/90"
+                disabled={isSavingAlt}
+                aria-busy={isSavingAlt}
+                onClick={() => void saveAltText()}
+                className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-white hover:bg-primary/90 disabled:cursor-wait disabled:opacity-60"
               >
-                Save
+                {isSavingAlt ? 'Saving…' : 'Save'}
               </button>
             </div>
           </DialogContent>
@@ -6204,13 +6983,19 @@ export function VisualEditOverlay() {
       {/* ── Visual Composer On-Canvas Right-Click Context Menu ──────────────── */}
       {contextMenu && (
         <div
+          ref={contextMenuRef}
           data-visual-edit-ui="context-menu"
           role="menu"
           aria-label="Block Context Menu"
-          className="fixed z-[10020] min-w-[210px] rounded-xl border border-white/20 bg-slate-950/95 p-1.5 text-xs text-white shadow-2xl backdrop-blur-2xl animate-in fade-in zoom-in-95 duration-150 pointer-events-auto"
-          style={{ top: contextMenu.y, left: contextMenu.x }}
+          tabIndex={-1}
+          className="fixed z-[10020] min-w-[210px] max-w-[calc(100vw-1rem)] overflow-y-auto overscroll-contain rounded-xl border border-white/20 bg-slate-950/95 p-1.5 text-xs text-white shadow-2xl backdrop-blur-2xl animate-in fade-in zoom-in-95 duration-150 pointer-events-auto"
+          style={{
+            top: contextMenuPosition?.top ?? contextMenu.y,
+            left: contextMenuPosition?.left ?? contextMenu.x,
+            maxHeight: contextMenuPosition?.maxHeight,
+          }}
           onClick={(e) => e.stopPropagation()}
-          onKeyDown={(e) => e.stopPropagation()}
+          onKeyDown={handleContextMenuKeyDown}
         >
           <div className="px-2 py-1 text-[10px] font-bold text-accent-gold uppercase tracking-wider border-b border-white/10 mb-1 flex items-center justify-between">
             <span>Block #{contextMenu.blockIndex + 1}</span>
@@ -6220,9 +7005,10 @@ export function VisualEditOverlay() {
           <button
             type="button"
             role="menuitem"
+            tabIndex={-1}
             onClick={() => {
               openVisualComposer('block', contextMenu.blockIndex);
-              setContextMenu(null);
+              closeContextMenu(true);
             }}
             className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-slate-200 hover:bg-white/10 hover:text-white transition-colors text-left"
           >
@@ -6234,9 +7020,10 @@ export function VisualEditOverlay() {
           <button
             type="button"
             role="menuitem"
+            tabIndex={-1}
             onClick={() => {
               openVisualComposer('section', contextMenu.blockIndex);
-              setContextMenu(null);
+              closeContextMenu(true);
             }}
             className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-slate-200 hover:bg-white/10 hover:text-white transition-colors text-left"
           >
@@ -6248,9 +7035,10 @@ export function VisualEditOverlay() {
           <button
             type="button"
             role="menuitem"
+            tabIndex={-1}
             onClick={() => {
               handleOpenEditSection(contextMenu.blockIndex);
-              setContextMenu(null);
+              closeContextMenu(true);
             }}
             className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-slate-200 hover:bg-white/10 hover:text-white transition-colors text-left"
           >
@@ -6263,9 +7051,10 @@ export function VisualEditOverlay() {
           <button
             type="button"
             role="menuitem"
+            tabIndex={-1}
             onClick={() => {
               handleDuplicateSection(contextMenu.blockIndex);
-              setContextMenu(null);
+              closeContextMenu(true);
             }}
             className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-slate-200 hover:bg-white/10 hover:text-white transition-colors text-left"
           >
@@ -6278,9 +7067,11 @@ export function VisualEditOverlay() {
             <button
               type="button"
               role="menuitem"
+
+              tabIndex={-1}
               onClick={() => {
                 handleMoveSection(contextMenu.blockIndex, 'up');
-                setContextMenu(null);
+                closeContextMenu(true);
               }}
               className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-slate-200 hover:bg-white/10 hover:text-white transition-colors text-left"
             >
@@ -6293,9 +7084,11 @@ export function VisualEditOverlay() {
             <button
               type="button"
               role="menuitem"
+
+              tabIndex={-1}
               onClick={() => {
                 handleMoveSection(contextMenu.blockIndex, 'down');
-                setContextMenu(null);
+                closeContextMenu(true);
               }}
               className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-slate-200 hover:bg-white/10 hover:text-white transition-colors text-left"
             >
@@ -6307,9 +7100,10 @@ export function VisualEditOverlay() {
           <button
             type="button"
             role="menuitem"
+            tabIndex={-1}
             onClick={() => {
               handleOpenBlockLibrary(contextMenu.blockIndex + 1);
-              setContextMenu(null);
+              closeContextMenu(true);
             }}
             className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-slate-200 hover:bg-white/10 hover:text-white transition-colors text-left"
           >
@@ -6326,10 +7120,12 @@ export function VisualEditOverlay() {
               confirmLabel="Delete"
               cancelLabel="Cancel"
               danger
+              idleRole="menuitem"
+              idleTabIndex={-1}
               idleClassName="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-rose-300 hover:bg-rose-500/20 hover:text-rose-200 transition-colors text-left"
               onConfirm={() => {
                 handleDeleteSection(contextMenu.blockIndex);
-                setContextMenu(null);
+                closeContextMenu(true);
               }}
             >
               <Trash2 size={13} className="text-rose-400" />
@@ -6341,22 +7137,12 @@ export function VisualEditOverlay() {
 
       {/* ── Region Switch Discard Confirmation ───────────────────────────── */}
       {pendingRegionSwitch?.stage === 'page-confirm' && (
-        <div
-          data-testid="region-switch-confirm-dialog"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="confirm-region-switch-title"
-          aria-describedby="confirm-region-switch-description"
-          tabIndex={-1}
-          onKeyDown={(e) => {
-            if (e.key === 'Escape') setPendingRegionSwitch(null);
-          }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setPendingRegionSwitch(null);
-          }}
-          className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in overscroll-contain touch-manipulation"
+        <ModalDialog
+          testId="region-switch-confirm-dialog"
+          labelledBy="confirm-region-switch-title"
+          describedBy="confirm-region-switch-description"
+          onDismiss={() => setPendingRegionSwitch(null)}
         >
-          <div className="w-full max-w-sm rounded-2xl border border-white/20 bg-secondary p-5 shadow-2xl text-ink-on-dark space-y-4">
             <div className="flex items-center gap-2 text-accent-gold font-bold text-sm">
               <Layers size={18} aria-hidden="true" />
               <h3 id="confirm-region-switch-title" className="text-white text-base">
@@ -6373,7 +7159,6 @@ export function VisualEditOverlay() {
             <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/10">
               <button
                 type="button"
-                autoFocus
                 onClick={() => setPendingRegionSwitch(null)}
                 className="px-3 py-1.5 rounded-xl border border-white/15 text-xs font-bold text-slate-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold"
               >
@@ -6387,27 +7172,17 @@ export function VisualEditOverlay() {
                 Discard and switch
               </button>
             </div>
-          </div>
-        </div>
+        </ModalDialog>
       )}
 
       {/* ── Atomic Delete Confirmation Modal (Minimizes Accidental Deletions) ── */}
       {deleteConfirmIndexes !== null && (
-        <div
-          data-testid="block-delete-confirm-dialog"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="confirm-delete-dialog-title"
-          tabIndex={-1}
-          onKeyDown={(e) => {
-            if (e.key === 'Escape') setDeleteConfirmIndexes(null);
-          }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setDeleteConfirmIndexes(null);
-          }}
-          className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in overscroll-contain touch-manipulation"
+        <ModalDialog
+          testId="block-delete-confirm-dialog"
+          labelledBy="confirm-delete-dialog-title"
+          describedBy="confirm-delete-dialog-description"
+          onDismiss={() => setDeleteConfirmIndexes(null)}
         >
-          <div className="w-full max-w-sm rounded-2xl border border-white/20 bg-secondary p-5 shadow-2xl text-ink-on-dark space-y-4">
             <div className="flex items-center gap-2 text-rose-400 font-bold text-sm">
               <Trash2 size={18} />
               <h3 id="confirm-delete-dialog-title" className="text-white text-base">
@@ -6416,7 +7191,7 @@ export function VisualEditOverlay() {
                   : `Delete ${deleteConfirmIndexes.length} Sections?`}
               </h3>
             </div>
-            <p className="text-xs text-slate-300 leading-relaxed">
+            <p id="confirm-delete-dialog-description" className="text-xs text-slate-300 leading-relaxed">
               {deleteConfirmIndexes.length === 1
                 ? `Are you sure you want to delete “${sections.find((s) => s.blockIndex === deleteConfirmIndexes[0])?.label || 'this section'}”? Undo will be available in this session.`
                 : `Are you sure you want to delete ${deleteConfirmIndexes.length} selected sections? Undo will be available in this session.`}
@@ -6442,33 +7217,23 @@ export function VisualEditOverlay() {
                 {savingBackend ? 'Deleting…' : 'Delete'}
               </button>
             </div>
-          </div>
-        </div>
+        </ModalDialog>
       )}
       {/* ── Atomic Section Drag-and-Drop Reorder Confirmation Modal ───────── */}
       {reorderConfirm !== null && (
-        <div
-          data-testid="block-reorder-confirm-dialog"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="confirm-reorder-dialog-title"
-          tabIndex={-1}
-          onKeyDown={(e) => {
-            if (e.key === 'Escape') setReorderConfirm(null);
-          }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setReorderConfirm(null);
-          }}
-          className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in overscroll-contain touch-manipulation"
+        <ModalDialog
+          testId="block-reorder-confirm-dialog"
+          labelledBy="confirm-reorder-dialog-title"
+          describedBy="confirm-reorder-dialog-description"
+          onDismiss={() => setReorderConfirm(null)}
         >
-          <div className="w-full max-w-sm rounded-2xl border border-white/20 bg-secondary p-5 shadow-2xl text-ink-on-dark space-y-4">
             <div className="flex items-center gap-2 text-accent-gold font-bold text-sm">
               <GripVertical size={18} />
               <h3 id="confirm-reorder-dialog-title" className="text-white text-base">
                 Confirm Move Section?
               </h3>
             </div>
-            <p className="text-xs text-slate-300 leading-relaxed">
+            <p id="confirm-reorder-dialog-description" className="text-xs text-slate-300 leading-relaxed">
               Move “{reorderConfirm.label}” from position #{reorderConfirm.fromIndex + 1} to #{reorderConfirm.toIndex + 1}?
               This will update the page layout order.
             </p>
@@ -6493,8 +7258,47 @@ export function VisualEditOverlay() {
                 {savingBackend ? 'Moving…' : 'Confirm Move'}
               </button>
             </div>
-          </div>
-        </div>
+        </ModalDialog>
+      )}
+      {/* ── Route Leave Discard Confirmation ─────────────────────────────── */}
+      {pendingRouteChange && (
+        <ModalDialog
+          testId="route-leave-confirm-dialog"
+          labelledBy="confirm-route-leave-title"
+          describedBy="confirm-route-leave-description"
+          onDismiss={stayOnPendingRoute}
+        >
+            <div className="flex items-center gap-2 text-accent-gold font-bold text-sm">
+              <Layers size={18} aria-hidden="true" />
+              <h3 id="confirm-route-leave-title" className="text-white text-base">
+                Leave this page?
+              </h3>
+            </div>
+            <p
+              id="confirm-route-leave-description"
+              className="text-xs text-slate-300 leading-relaxed"
+            >
+              You have unsaved page changes. Leaving for{' '}
+              <code className="font-mono text-white">{pathname}</code> will discard them.
+              This cannot be undone.
+            </p>
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/10">
+              <button
+                type="button"
+                onClick={stayOnPendingRoute}
+                className="px-3 py-1.5 rounded-xl border border-white/15 text-xs font-bold text-slate-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold"
+              >
+                Stay on this page
+              </button>
+              <button
+                type="button"
+                onClick={discardPendingRoute}
+                className="px-4 py-1.5 rounded-xl bg-accent-gold hover:bg-accent-gold/90 text-ink-strong text-xs font-bold transition-colors cursor-pointer shadow-md touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold"
+              >
+                Discard and leave
+              </button>
+            </div>
+        </ModalDialog>
       )}
     </>
   );

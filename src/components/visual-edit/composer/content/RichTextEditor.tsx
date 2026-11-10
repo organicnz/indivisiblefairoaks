@@ -17,6 +17,7 @@ import {
   type InlineFormatCommand,
   InlineFormatToolbar,
 } from '@/components/visual-edit/InlineFormatToolbar';
+import { useFocusTrap } from '@/components/visual-edit/useFocusTrap';
 import { stripTags } from '@/lib/blocks';
 import {
   applyInlineFormat,
@@ -96,23 +97,29 @@ function LinkDialog({ initialHref, onApply, onCancel }: LinkDialogProps) {
   const [error, setError] = useState<string | null>(null);
   const inputId = useId();
   const errorId = `${inputId}-error`;
+  const formRef = useRef<HTMLFormElement>(null);
+  /*
+   * Cancel and Apply both restore the editor with the selection captured before
+   * this form took focus. Returning to the toolbar afterwards would undo that.
+   */
+  const handleKeyDown = useFocusTrap({
+    containerRef: formRef,
+    onDismiss: onCancel,
+    restoreFocus: false,
+  });
 
   return (
     <form
+      ref={formRef}
       role="dialog"
       aria-label="Insert link"
+      tabIndex={-1}
       onSubmit={(event) => {
         event.preventDefault();
         const message = onApply(href);
         if (message) setError(message);
       }}
-      onKeyDown={(event) => {
-        if (event.key === 'Escape') {
-          event.preventDefault();
-          event.stopPropagation();
-          onCancel();
-        }
-      }}
+      onKeyDown={handleKeyDown}
       className="space-y-2 border-b border-white/10 bg-slate-950/95 px-2.5 py-2"
     >
       <label
@@ -123,7 +130,7 @@ function LinkDialog({ initialHref, onApply, onCancel }: LinkDialogProps) {
       </label>
       <input
         id={inputId}
-        autoFocus
+        data-autofocus
         type="text"
         value={href}
         onChange={(event) => {

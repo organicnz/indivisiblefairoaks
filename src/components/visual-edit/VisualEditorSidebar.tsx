@@ -73,6 +73,9 @@ import {
 import type { ModifiedBlockItem, ModifiedDataPointItem } from './VisualDiffModal';
 import type { ImageEditSession, InlineEditSession, ViewportMode } from './VisualEditOverlay';
 
+const SIDEBAR_TAB_ORDER = ['composer', 'blocks', 'library'] as const;
+type SidebarTab = (typeof SIDEBAR_TAB_ORDER)[number];
+
 /**
  * Every command the inline-edit pill offers, in run order. This used to live in
  * the overlay; it moved here because the pill — the only consumer — moved into
@@ -182,7 +185,10 @@ export interface VisualEditorSidebarProps {
   isUploadingImage: boolean;
   onUploadClick: () => void;
   onSetAltTextModal: (state: { session: ImageEditSession; value: string }) => void;
-  onSaveImageAlt?: (session: ImageEditSession, value: string) => Promise<void> | void;
+  onSaveImageAlt?: (
+    session: ImageEditSession,
+    value: string
+  ) => Promise<boolean | void> | boolean | void;
   onCancelImageEdit: (session: ImageEditSession) => void;
 
   // ── Action handlers ─────────────────────────────────────────────────────
@@ -226,8 +232,8 @@ export interface VisualEditorSidebarProps {
   // ── Block Library & Full Sidebar Editor ──────────────────────────────────
   onAddBlockTemplate?: (template: BlockTemplate, targetIndex?: number) => void;
   libraryTargetIndex?: number | null;
-  activeSidebarTab?: 'composer' | 'blocks' | 'library';
-  onSidebarTabChange?: (tab: 'composer' | 'blocks' | 'library') => void;
+  activeSidebarTab?: SidebarTab;
+  onSidebarTabChange?: (tab: SidebarTab) => void;
 }
 
 /**
@@ -262,8 +268,10 @@ export function VisualEditorSidebar(props: VisualEditorSidebarProps) {
       <aside
         aria-label="Visual Editor Toolbar"
         data-testid="visual-edit-overlay"
+        data-editor-focus-fallback
+        tabIndex={-1}
         style={sidebarStyle}
-        className="fixed inset-y-0 right-0 z-[9998] flex w-12 flex-col items-center gap-3 border-l border-white/20 bg-secondary/95 py-4 text-ink-on-dark shadow-float backdrop-blur-md"
+        className="fixed inset-y-0 right-0 z-[9998] flex w-12 flex-col items-center gap-3 border-l border-white/20 bg-secondary/95 py-4 text-ink-on-dark shadow-float backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-inset focus:ring-accent-gold/70"
       >
         <button
           type="button"
@@ -313,13 +321,38 @@ export function VisualEditorSidebar(props: VisualEditorSidebarProps) {
 
   // ── Expanded: full sidebar with context zone ────────────────────────────
   const { inlineSession, imageSession } = props;
-  const [uncontrolledTab, setUncontrolledTab] = useState<'composer' | 'blocks' | 'library'>(
+  const [uncontrolledTab, setUncontrolledTab] = useState<SidebarTab>(
     isComposerActive ? 'composer' : 'blocks'
   );
   const sidebarTab = props.activeSidebarTab ?? uncontrolledTab;
-  const handleSetTab = (tab: 'composer' | 'blocks' | 'library') => {
+  const handleSetTab = (tab: SidebarTab) => {
     setUncontrolledTab(tab);
     props.onSidebarTabChange?.(tab);
+  };
+
+  /**
+   * The tab strip is one Tab stop. Arrow keys walk it, Home and End jump to
+   * its ends, and selection follows focus because the three views are cheap
+   * to switch and the tab itself already has a visible focus ring.
+   */
+  const handleTabKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    const current = SIDEBAR_TAB_ORDER.indexOf(sidebarTab);
+    if (current < 0) return;
+    const last = SIDEBAR_TAB_ORDER.length - 1;
+    let next = current;
+    if (event.key === 'ArrowRight') next = (current + 1) % SIDEBAR_TAB_ORDER.length;
+    else if (event.key === 'ArrowLeft') {
+      next = (current - 1 + SIDEBAR_TAB_ORDER.length) % SIDEBAR_TAB_ORDER.length;
+    } else if (event.key === 'Home') next = 0;
+    else next = last;
+
+    event.preventDefault();
+    const tab = SIDEBAR_TAB_ORDER[next];
+    handleSetTab(tab);
+    // Focus by stable id: the selected tab's tabIndex is stale until the next
+    // render lands, but programmatic focus does not need tabIndex 0.
+    document.getElementById(`sidebar-tab-button-${tab}`)?.focus();
   };
 
   useEffect(() => {
@@ -334,10 +367,12 @@ export function VisualEditorSidebar(props: VisualEditorSidebarProps) {
     <aside
       aria-label="Visual Editor Toolbar"
       data-testid="visual-edit-overlay"
+      data-editor-focus-fallback
+      tabIndex={-1}
       style={sidebarStyle}
       className={`fixed inset-y-0 right-0 z-[9998] flex flex-col border-l border-white/20 bg-secondary/95 text-ink-on-dark shadow-float backdrop-blur-md transition-[width,background-color,border-color] duration-200 ${
         isWide ? 'w-[28rem] max-w-[100vw]' : 'w-72'
-      }`}
+      } focus:outline-none focus:ring-2 focus:ring-inset focus:ring-accent-gold/70`}
     >
       {/* ── Header ───────────────────────────────────────────────────────── */}
       <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-3 py-3">
@@ -351,6 +386,8 @@ export function VisualEditorSidebar(props: VisualEditorSidebarProps) {
         <div
           role="tablist"
           aria-label="Editor views"
+          aria-orientation="horizontal"
+          onKeyDown={handleTabKeyDown}
           className="flex items-center gap-1 bg-white/10 rounded-lg p-0.5 text-[10px] font-bold"
         >
           <button
@@ -480,7 +517,11 @@ export function VisualEditorSidebar(props: VisualEditorSidebarProps) {
         {inlineSession ? (
           <InlineContextZone {...props} inlineSession={inlineSession} />
         ) : imageSession ? (
-          <ImageContextZone {...props} imageSession={imageSession} />
+          <ImageContextZone
+            key={imageSession.historyKey}
+            {...props}
+            imageSession={imageSession}
+          />
         ) : (
           <DefaultContextZone
             {...props}
@@ -545,7 +586,7 @@ function InlineContextZone(props: VisualEditorSidebarProps & { inlineSession: In
   return (
     <div
       data-inline-toolbar="true"
-      role="toolbar"
+      role="group"
       aria-label="Direct in-place text editor controls"
       className="flex flex-1 flex-col gap-2 overflow-y-auto border-t-2 border-accent-gold/40 px-3 py-4 text-xs text-white"
     >
@@ -686,6 +727,7 @@ function InlineContextZone(props: VisualEditorSidebarProps & { inlineSession: In
 
       <button
         type="button"
+        onMouseDown={(e) => e.preventDefault()}
         onClick={props.onToggleSlashMenu}
         className="inline-flex cursor-pointer items-center gap-1 rounded-md px-2 py-1 text-[11px] font-bold text-accent-gold transition-colors hover:bg-accent-gold/20"
         title="Open Slash Commands (or type /)"
@@ -727,14 +769,27 @@ function ImageContextZone(props: VisualEditorSidebarProps & { imageSession: Imag
   // A const, because the onClick closure below cannot inherit the JSX
   // conditional's narrowing — a narrow const does.
   const imageBlockIndex = imageSession.blockIndex;
-  const [altText, setAltText] = useState(imageSession.element.alt || '');
+  const savedAlt = imageSession.element.alt || '';
+  const [altText, setAltText] = useState(savedAlt);
   const [isSavingAlt, setIsSavingAlt] = useState(false);
 
+  /**
+   * Follow the session's current alt. The sidebar outlives individual image
+   * sessions and the dialog writes through this same element, so a stale local
+   * draft would otherwise show the previous image's description or overwrite a
+   * dialog save on the next Save. Only a changed value resets the draft.
+   */
+  useEffect(() => {
+    setAltText(savedAlt);
+  }, [savedAlt]);
+
   const handleSaveAlt = async () => {
+    if (isSavingAlt) return;
     setIsSavingAlt(true);
     try {
       if (props.onSaveImageAlt) {
         await props.onSaveImageAlt(imageSession, altText);
+        setAltText(imageSession.element.alt || '');
       } else {
         props.onSetAltTextModal({
           session: imageSession,
@@ -749,7 +804,7 @@ function ImageContextZone(props: VisualEditorSidebarProps & { imageSession: Imag
   return (
     <div
       data-inline-toolbar="true"
-      role="toolbar"
+      role="group"
       aria-label="Image asset controls"
       className="flex flex-1 flex-col gap-2 overflow-y-auto border-t-2 border-sky-400/40 px-3 py-4 text-xs text-white"
     >
@@ -798,6 +853,7 @@ function ImageContextZone(props: VisualEditorSidebarProps & { imageSession: Imag
           <input
             id="sidebar-image-alt-input"
             type="text"
+            disabled={isSavingAlt}
             value={altText}
             onChange={(e) => setAltText(e.target.value)}
             onKeyDown={(e) => {
@@ -807,7 +863,7 @@ function ImageContextZone(props: VisualEditorSidebarProps & { imageSession: Imag
               }
             }}
             placeholder="Describe image for screen readers"
-            className="min-w-0 flex-1 rounded border border-white/15 bg-slate-900 px-2 py-1 text-xs text-white placeholder:text-white/30 focus:border-accent-gold/60 focus:outline-none"
+            className="min-w-0 flex-1 rounded border border-white/15 bg-slate-900 px-2 py-1 text-xs text-white placeholder:text-white/30 focus:border-accent-gold/60 focus:outline-none disabled:cursor-wait disabled:opacity-60"
           />
           <button
             type="button"

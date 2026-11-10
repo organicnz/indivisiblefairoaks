@@ -6,6 +6,7 @@ import {
   VisualEditorSidebar,
   type VisualEditorSidebarProps,
 } from '@/components/visual-edit/VisualEditorSidebar';
+import type { ImageEditSession, InlineEditSession } from '@/components/visual-edit/VisualEditOverlay';
 import type { Block } from '@/lib/blocks';
 import { EMPTY_HISTORY } from '@/lib/editor-history';
 
@@ -32,6 +33,40 @@ describe('VisualEditorSidebar', () => {
     { id: 'b1', type: 'heading', level: 1, html: 'Civic Action' },
     { id: 'b2', type: 'paragraph', html: '<p>Join our newsletter</p>' },
   ];
+
+  function createInlineSession(): InlineEditSession {
+    return {
+      blockIndex: 1,
+      element: document.createElement('p'),
+      initialHtml: '<p>Join our newsletter</p>',
+      dataPointKey: null,
+      copyRegionId: null,
+      href: null,
+      top: 0,
+      left: 0,
+    };
+  }
+
+  function createImageSession(): ImageEditSession {
+    const element = document.createElement('img');
+    element.src = 'https://example.com/photo.jpg';
+    element.alt = 'Protest photo';
+    return {
+      element,
+      initialSrc: element.src,
+      initialAlt: element.alt,
+      copyRegionId: null,
+      blockIndex: 0,
+      blockId: 'b1',
+      imageOrdinal: 0,
+      historyKey: 'image-history-1',
+      writeCount: 0,
+      failureKey: null,
+      failedImages: [],
+      baseSrc: element.src,
+      baseAlt: element.alt,
+    };
+  }
 
   function createProps(
     overrides: Partial<VisualEditorSidebarProps> = {}
@@ -217,16 +252,7 @@ describe('VisualEditorSidebar', () => {
   it('opens Visual Composer directly when Full Editor is clicked in inline edit mode', async () => {
     const onOpenVisualComposer = vi.fn();
     const props = createProps({
-      inlineSession: {
-        blockIndex: 1,
-        element: document.createElement('p'),
-        initialHtml: '<p>Join our newsletter</p>',
-        dataPointKey: null,
-        copyRegionId: null,
-        href: null,
-        top: 0,
-        left: 0,
-      },
+      inlineSession: createInlineSession(),
       onOpenVisualComposer,
     });
 
@@ -245,5 +271,99 @@ describe('VisualEditorSidebar', () => {
 
     expect(onOpenVisualComposer).toHaveBeenCalledWith('block', 1);
     expect(props.onOpenEditSection).not.toHaveBeenCalled();
+  });
+
+  it('provides one tab stop and arrow-key navigation for editor views', async () => {
+    const onSidebarTabChange = vi.fn();
+    const props = createProps({ onSidebarTabChange });
+    await act(async () => {
+      root.render(<VisualEditorSidebar {...props} />);
+    });
+
+    const tablist = container.querySelector<HTMLElement>(
+      '[role="tablist"][aria-label="Editor views"]'
+    );
+    const composerTab = container.querySelector<HTMLButtonElement>(
+      '#sidebar-tab-button-composer'
+    );
+    const blocksTab = container.querySelector<HTMLButtonElement>('#sidebar-tab-button-blocks');
+    const libraryTab = container.querySelector<HTMLButtonElement>(
+      '#sidebar-tab-button-library'
+    );
+
+    expect(tablist?.getAttribute('aria-orientation')).toBe('horizontal');
+    expect(blocksTab?.getAttribute('aria-selected')).toBe('true');
+    expect(blocksTab?.tabIndex).toBe(0);
+    expect(composerTab?.tabIndex).toBe(-1);
+    expect(libraryTab?.tabIndex).toBe(-1);
+
+    await act(async () => {
+      blocksTab?.focus();
+    });
+    expect(document.activeElement).toBe(blocksTab);
+
+    const press = async (key: string) => {
+      await act(async () => {
+        document.activeElement?.dispatchEvent(
+          new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true })
+        );
+      });
+    };
+
+    await press('ArrowRight');
+    expect(libraryTab?.getAttribute('aria-selected')).toBe('true');
+    expect(libraryTab?.tabIndex).toBe(0);
+    expect(document.activeElement).toBe(libraryTab);
+
+    await press('ArrowRight');
+    expect(composerTab?.getAttribute('aria-selected')).toBe('true');
+    expect(document.activeElement).toBe(composerTab);
+
+    await press('ArrowLeft');
+    expect(libraryTab?.getAttribute('aria-selected')).toBe('true');
+    expect(document.activeElement).toBe(libraryTab);
+
+    await press('Home');
+    expect(composerTab?.getAttribute('aria-selected')).toBe('true');
+    expect(document.activeElement).toBe(composerTab);
+
+    await press('End');
+    expect(libraryTab?.getAttribute('aria-selected')).toBe('true');
+    expect(document.activeElement).toBe(libraryTab);
+
+    expect(onSidebarTabChange.mock.calls.map(([tab]) => tab)).toEqual([
+      'library',
+      'composer',
+      'library',
+      'composer',
+      'library',
+    ]);
+  });
+
+  it('keeps the inline context panel a group with one nested formatting toolbar', async () => {
+    const props = createProps({ inlineSession: createInlineSession() });
+    await act(async () => {
+      root.render(<VisualEditorSidebar {...props} />);
+    });
+
+    const zone = container.querySelector<HTMLElement>(
+      '[aria-label="Direct in-place text editor controls"]'
+    );
+    expect(zone?.getAttribute('role')).toBe('group');
+
+    const toolbars = Array.from(zone?.querySelectorAll('[role="toolbar"]') ?? []);
+    expect(toolbars).toHaveLength(1);
+    expect(toolbars[0]?.getAttribute('aria-label')).toBe('Text formatting');
+  });
+
+  it('keeps the image context panel a group rather than a toolbar', async () => {
+    const props = createProps({ imageSession: createImageSession() });
+    await act(async () => {
+      root.render(<VisualEditorSidebar {...props} />);
+    });
+
+    const zone = container.querySelector<HTMLElement>('[aria-label="Image asset controls"]');
+    expect(zone?.getAttribute('role')).toBe('group');
+    expect(zone?.querySelector('[role="toolbar"]')).toBeNull();
   });
 });

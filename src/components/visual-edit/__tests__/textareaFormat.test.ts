@@ -1,5 +1,5 @@
 // @vitest-environment jsdom-same-realm
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import {
   insertLink,
   runTextareaFormatCommand,
@@ -87,30 +87,49 @@ describe('runTextareaFormatCommand', () => {
 });
 
 describe('insertLink', () => {
-  it('inserts an anchor tag with URL and text from prompt', () => {
-    const promptSpy = vi.spyOn(window, 'prompt');
-    promptSpy.mockReturnValueOnce('https://example.com');
-    promptSpy.mockReturnValueOnce('Visit');
-
+  it('inserts an anchor tag with the supplied URL and text', () => {
     const ta = makeTextarea('ta7', 'Click here');
     ta.selectionStart = 0;
     ta.selectionEnd = 5;
 
-    insertLink('ta7');
+    expect(insertLink('ta7', 'https://example.com', 'Visit')).toBe(true);
 
     expect(ta.value).toBe('<a href="https://example.com">Visit</a> here');
-    promptSpy.mockRestore();
   });
 
-  it('is a no-op when prompt is cancelled', () => {
-    const promptSpy = vi.spyOn(window, 'prompt');
-    promptSpy.mockReturnValueOnce(null);
+  it('uses the selected text when no label is supplied', () => {
+    const ta = makeTextarea('ta8', 'Click here');
+    ta.selectionStart = 0;
+    ta.selectionEnd = 5;
 
-    const ta = makeTextarea('ta8', 'Original');
+    expect(insertLink('ta8', '/events')).toBe(true);
 
-    insertLink('ta8');
+    expect(ta.value).toBe('<a href="/events">Click</a> here');
+  });
+
+  it('escapes attribute-breaking URL characters and link text', () => {
+    const ta = makeTextarea('ta9', 'Original');
+    ta.selectionStart = 0;
+    ta.selectionEnd = 8;
+
+    expect(insertLink('ta9', 'https://example.com/?q="x"', '<Visit & learn>')).toBe(true);
+
+    expect(ta.value).toBe(
+      '<a href="https://example.com/?q=&quot;x&quot;">&lt;Visit &amp; learn&gt;</a>'
+    );
+  });
+
+  it('rejects unsafe URLs without changing the textarea', () => {
+    const ta = makeTextarea('ta10', 'Original');
+    ta.selectionStart = 0;
+    ta.selectionEnd = 8;
+
+    expect(insertLink('ta10', 'javascript:alert(1)', 'Visit')).toBe(false);
 
     expect(ta.value).toBe('Original');
-    promptSpy.mockRestore();
+  });
+
+  it('returns false when the textarea no longer exists', () => {
+    expect(insertLink('missing', 'https://example.com', 'Visit')).toBe(false);
   });
 });

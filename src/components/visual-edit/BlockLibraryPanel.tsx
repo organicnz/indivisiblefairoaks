@@ -86,6 +86,7 @@ export function BlockLibraryPanel({
           />
           <input
             type="text"
+            data-autofocus
             aria-label="Search elements"
             value={search}
             onChange={(e) => setSearch(e.target.value)}

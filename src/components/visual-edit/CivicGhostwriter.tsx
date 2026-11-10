@@ -3,7 +3,7 @@
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { Check, Megaphone, RotateCcw, Sparkles, Wand2, Zap } from 'lucide-react';
 import type React from 'react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
 export type GhostwriterPreset = 'punchy' | 'inspire' | 'rally' | 'fix' | 'cta';
@@ -19,7 +19,20 @@ export const CivicGhostwriter: React.FC<CivicGhostwriterProps> = ({
   onTextUpdated,
   defaultOpen,
 }) => {
-  const [previousText, setPreviousText] = useState<string | null>(null);
+  const [revertDraft, setRevertDraft] = useState<{
+    element: HTMLElement;
+    text: string;
+  } | null>(null);
+  const previousText = revertDraft?.element === element ? revertDraft.text : null;
+
+  /**
+   * A revert draft belongs to the element it was captured from. Binding it to
+   * the element means the first render after a selection change cannot offer a
+   * stale revert, and the effect releases the old draft afterwards.
+   */
+  useEffect(() => {
+    setRevertDraft(null);
+  }, [element]);
 
   const applyTransformation = (preset: GhostwriterPreset) => {
     const original = element.textContent?.trim() || '';
@@ -28,7 +41,7 @@ export const CivicGhostwriter: React.FC<CivicGhostwriterProps> = ({
       return;
     }
 
-    setPreviousText(original);
+    setRevertDraft({ element, text: original });
     let transformed = original;
 
     switch (preset) {
@@ -108,7 +121,7 @@ export const CivicGhostwriter: React.FC<CivicGhostwriterProps> = ({
       element.textContent = previousText;
       element.dispatchEvent(new Event('input', { bubbles: true }));
       onTextUpdated?.(previousText);
-      setPreviousText(null);
+      setRevertDraft(null);
       toast.info('Reverted to previous text');
     }
   };

@@ -17,6 +17,18 @@ vi.mock('next/navigation', () => ({
   useSearchParams: () => searchParams.current ?? new URLSearchParams(),
 }));
 
+// The page-copy hook fetches on mount. These tests exercise publish/view
+// state, so a stable synchronous surface keeps that unrelated async update
+// inside the test boundary instead of leaking into every case.
+vi.mock('@/hooks/useDataPoints', () => ({
+  useDataPoints: () => ({
+    dataPoints: {},
+    get: () => '',
+    loading: false,
+    refresh: vi.fn(),
+  }),
+}));
+
 /**
  * A draft has no public page.
  *

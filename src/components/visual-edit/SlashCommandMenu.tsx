@@ -16,7 +16,9 @@ import {
   Volume2,
 } from 'lucide-react';
 import type React from 'react';
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { clampFixedPanelPosition, type FixedPanelPosition } from './fixed-panel-position';
+import { focusEditorFallback } from './focusable';
 
 export interface SlashCommandItem {
   id: string;
@@ -49,7 +51,15 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
+  const closingRef = useRef(false);
+  const [panelPosition, setPanelPosition] = useState<FixedPanelPosition | null>(null);
   const inputId = useId();
+  const listboxId = useId();
+  const optionId = useCallback(
+    (commandId: string) => `${listboxId}-option-${commandId}`,
+    [listboxId]
+  );
 
   const commands: SlashCommandItem[] = useMemo(
     () => [
@@ -184,48 +194,134 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
     );
   }, [commands, query]);
 
-  useEffect(() => {
-    if (open) {
-      setQuery('');
-      setSelectedIndex(0);
-      setTimeout(() => inputRef.current?.focus(), 10);
+  const activeIndex = filtered.length === 0 ? 0 : Math.min(selectedIndex, filtered.length - 1);
+  const activeOptionId = filtered[activeIndex] ? optionId(filtered[activeIndex].id) : undefined;
+
+  const requestClose = useCallback(() => {
+    if (closingRef.current) return;
+    closingRef.current = true;
+    onClose();
+  }, [onClose]);
+
+  useLayoutEffect(() => {
+    if (!open) {
+      setPanelPosition(null);
+      return;
     }
+    const menu = containerRef.current;
+    if (!menu) return;
+    const rect = menu.getBoundingClientRect();
+    setPanelPosition(
+      clampFixedPanelPosition({
+        x: position.left,
+        y: position.top,
+        width: rect.width,
+        height: rect.height,
+        viewportWidth: window.innerWidth,
+        viewportHeight: window.innerHeight,
+      })
+    );
+  }, [open, position.left, position.top]);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    closingRef.current = false;
+    const active = document.activeElement;
+    returnFocusRef.current =
+      active instanceof HTMLElement && active !== document.body ? active : null;
+    setQuery('');
+    setSelectedIndex(0);
+    inputRef.current?.focus({ preventScroll: true });
   }, [open]);
 
-  // Click outside to close
+  useEffect(() => {
+    if (!open) return;
+    const active = filtered[activeIndex];
+    if (!active) return;
+    document.getElementById(optionId(active.id))?.scrollIntoView?.({ block: 'nearest' });
+  }, [activeIndex, filtered, open, optionId]);
+
+  // Pointer outside closes. Page scroll dismisses an anchored palette rather
+  // than leaving it floating over unrelated content; scrolling inside the
+  // command list remains the menu's own business.
   useEffect(() => {
     if (!open) return;
     const handleClickOutside = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        onClose();
+        requestClose();
       }
     };
+    const handleScroll = (e: Event) => {
+      if (e.target instanceof Node && containerRef.current?.contains(e.target)) return;
+      requestClose();
+    };
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [open, onClose]);
+    window.addEventListener('scroll', handleScroll, true);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('scroll', handleScroll, true);
+    };
+  }, [open, requestClose]);
+
+  const dismiss = useCallback(() => {
+    requestClose();
+    queueMicrotask(() => {
+      const opener = returnFocusRef.current;
+      returnFocusRef.current = null;
+      if (opener?.isConnected) {
+        opener.focus({ preventScroll: true });
+        return;
+      }
+      focusEditorFallback();
+    });
+  }, [requestClose]);
+
+  const handleBlur = useCallback(
+    (e: React.FocusEvent<HTMLDivElement>) => {
+      if (closingRef.current) return;
+      const next = e.relatedTarget;
+      if (next instanceof Node && e.currentTarget.contains(next)) return;
+      requestClose();
+    },
+    [requestClose]
+  );
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === 'ArrowDown') {
         e.preventDefault();
-        setSelectedIndex((i) => (filtered.length > 0 ? (i + 1) % filtered.length : 0));
+        setSelectedIndex((i) => {
+          if (filtered.length === 0) return 0;
+          const current = Math.min(i, filtered.length - 1);
+          return (current + 1) % filtered.length;
+        });
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
-        setSelectedIndex((i) =>
-          filtered.length > 0 ? (i - 1 + filtered.length) % filtered.length : 0
-        );
+        setSelectedIndex((i) => {
+          if (filtered.length === 0) return 0;
+          const current = Math.min(i, filtered.length - 1);
+          return (current - 1 + filtered.length) % filtered.length;
+        });
+      } else if (e.key === 'Home') {
+        e.preventDefault();
+        setSelectedIndex(0);
+      } else if (e.key === 'End') {
+        e.preventDefault();
+        setSelectedIndex(Math.max(0, filtered.length - 1));
       } else if (e.key === 'Enter') {
         e.preventDefault();
-        if (filtered[selectedIndex]) {
-          filtered[selectedIndex].run();
-          onClose();
+        const command = filtered[activeIndex];
+        if (command) {
+          command.run();
+          requestClose();
         }
       } else if (e.key === 'Escape') {
         e.preventDefault();
-        onClose();
+        e.stopPropagation();
+        dismiss();
       }
     },
-    [filtered, selectedIndex, onClose]
+    [activeIndex, dismiss, filtered, requestClose]
   );
 
   if (!open) return null;
@@ -233,12 +329,13 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
   return (
     <div
       ref={containerRef}
-      role="menu"
-      aria-label="Slash commands"
+      onBlur={handleBlur}
       style={{
         position: 'fixed',
-        top: `${position.top}px`,
-        left: `${position.left}px`,
+        top: `${panelPosition?.top ?? position.top}px`,
+        left: `${panelPosition?.left ?? position.left}px`,
+        maxHeight: panelPosition?.maxHeight,
+        maxWidth: 'calc(100vw - 1rem)',
         zIndex: 10000,
       }}
       className="w-72 rounded-2xl border border-white/20 bg-slate-950/95 p-1.5 text-white shadow-2xl backdrop-blur-xl animate-in fade-in-0 zoom-in-95 pointer-events-auto flex flex-col max-h-80"
@@ -250,6 +347,13 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
           ref={inputRef}
           id={inputId}
           type="text"
+          role="combobox"
+          aria-label="Filter slash commands"
+          aria-autocomplete="list"
+          aria-expanded={open}
+          aria-controls={listboxId}
+          aria-activedescendant={activeOptionId}
+          aria-haspopup="listbox"
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
@@ -261,23 +365,38 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
         />
       </div>
 
+      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {filtered.length === 0
+          ? 'No matching slash commands.'
+          : `${filtered.length} slash command${filtered.length === 1 ? '' : 's'} available.`}
+      </div>
+
       {/* Command Items List */}
-      <div className="flex-1 overflow-y-auto space-y-0.5">
-        {filtered.length === 0 ? (
+      <div className="flex-1 overflow-y-auto">
+        {filtered.length === 0 && (
           <div className="py-6 text-center text-xs text-slate-400">
             No matching slash commands found
           </div>
-        ) : (
-          filtered.map((cmd, idx) => {
-            const isSelected = idx === selectedIndex;
+        )}
+        <div
+          id={listboxId}
+          role="listbox"
+          aria-label="Slash commands"
+          className="space-y-0.5"
+        >
+          {filtered.map((cmd, idx) => {
+            const isSelected = idx === activeIndex;
             return (
               <button
                 key={cmd.id}
+                id={optionId(cmd.id)}
                 type="button"
-                role="menuitem"
+                role="option"
+                aria-selected={isSelected}
+                tabIndex={-1}
                 onClick={() => {
                   cmd.run();
-                  onClose();
+                  requestClose();
                 }}
                 onMouseEnter={() => setSelectedIndex(idx)}
                 className={`w-full flex items-center justify-between gap-2.5 rounded-xl px-2.5 py-1.5 text-left transition-colors cursor-pointer ${
@@ -305,8 +424,8 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
                 )}
               </button>
             );
-          })
-        )}
+          })}
+        </div>
       </div>
     </div>
   );

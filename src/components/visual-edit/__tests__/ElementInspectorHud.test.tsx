@@ -145,6 +145,61 @@ describe('ElementInspectorHud', () => {
     expect(contrastBadge?.textContent).toContain('AAA');
   });
 
+  it('clamps the floating HUD inside the viewport at the right edge', async () => {
+    const asRect = (width: number, height: number): DOMRect => ({
+      width,
+      height,
+      top: 0,
+      left: 0,
+      right: width,
+      bottom: height,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    });
+    const heading = document.createElement('h2');
+    heading.textContent = 'Right edge heading';
+    heading.getBoundingClientRect = () =>
+      ({
+        top: 100,
+        bottom: 140,
+        left: window.innerWidth - 20,
+        right: window.innerWidth + 380,
+        width: 400,
+        height: 40,
+      }) as DOMRect;
+    main.appendChild(heading);
+
+    const rectSpy = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: Element
+    ) {
+      if (this instanceof HTMLElement && this.getAttribute('role') === 'status') {
+        return asRect(360, 32);
+      }
+      return asRect(0, 0);
+    });
+
+    try {
+      await act(async () => {
+        root.render(<ElementInspectorHud enabled={true} inlineActive={false} />);
+      });
+
+      await act(async () => {
+        heading.dispatchEvent(new PointerEvent('pointermove', { bubbles: true }));
+      });
+
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 80));
+      });
+
+      const hud = container.querySelector<HTMLElement>('[role="status"]');
+      expect(hud).not.toBeNull();
+      expect(hud?.style.left).toBe(`${window.innerWidth - 360 - 8}px`);
+    } finally {
+      rectSpy.mockRestore();
+    }
+  });
+
   it('triggers onOpenStudio callback when clicking the Studio HUD button', async () => {
     const onOpenStudio = vi.fn();
     const heading = document.createElement('h2');

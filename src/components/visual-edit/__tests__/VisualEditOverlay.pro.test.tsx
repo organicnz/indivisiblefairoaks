@@ -338,7 +338,7 @@ describe('VisualEditOverlay 10x Pro Features', () => {
       slashBtn?.click();
     });
 
-    const slashMenu = container.querySelector('[role="menu"][aria-label="Slash commands"]');
+    const slashMenu = container.querySelector('[role="listbox"][aria-label="Slash commands"]');
     expect(slashMenu).not.toBeNull();
     expect(slashMenu?.textContent).toContain('Heading 2');
     expect(slashMenu?.textContent).toContain('Callout Box');
@@ -453,7 +453,45 @@ describe('VisualEditOverlay 10x Pro Features', () => {
     expect(document.body.textContent).toContain('Box Model');
   });
 
-  it('opens on-canvas right-click context menu and handles actions', async () => {
+  it('keeps the floating action toolbar to one tab stop and supports arrow navigation', async () => {
+    const main = document.createElement('main');
+    const p = document.createElement('p');
+    p.textContent = 'Action toolbar navigation';
+    main.appendChild(p);
+    document.body.appendChild(main);
+
+    withGalleryRow('Action toolbar navigation');
+    await mount();
+
+    await act(async () => {
+      p.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+
+    const toolbar = container.querySelector<HTMLElement>(
+      '[role="toolbar"][aria-label^="Actions for"]'
+    );
+    expect(toolbar).not.toBeNull();
+    const controls = Array.from(toolbar?.querySelectorAll<HTMLButtonElement>('button') ?? []).filter(
+      (button) => !button.disabled
+    );
+    expect(controls.length).toBeGreaterThan(1);
+    expect(controls[0]?.tabIndex).toBe(0);
+    expect(controls.slice(1).every((button) => button.tabIndex === -1)).toBe(true);
+
+    await act(async () => {
+      controls[0]?.focus();
+    });
+    await act(async () => {
+      controls[0]?.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true })
+      );
+    });
+
+    expect(document.activeElement).toBe(controls[1]);
+    expect(controls[1]?.tabIndex).toBe(0);
+  });
+
+  it('opens the context menu with keyboard access, dismissal, and focus return', async () => {
     const main = document.createElement('main');
     const p = document.createElement('p');
     p.textContent = 'Right-click test block';
@@ -481,12 +519,141 @@ describe('VisualEditOverlay 10x Pro Features', () => {
     expect(menu?.textContent).toContain('Duplicate Block');
     expect(menu?.textContent).toContain('Delete Block');
 
-    // Pressing Escape closes the context menu
+    const first = document.activeElement as HTMLElement;
+    expect(first.getAttribute('role')).toBe('menuitem');
+    expect(first.textContent).toContain('Customize Block');
+
     await act(async () => {
-      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      first.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true })
+      );
+    });
+    expect(document.activeElement?.textContent).toContain('Row & Section Settings');
+
+    await act(async () => {
+      (document.activeElement as HTMLElement).dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'End', bubbles: true, cancelable: true })
+      );
+    });
+    expect(document.activeElement?.textContent).toContain('Delete Block');
+
+    // Escape closes from the keyboard-owned menu and returns focus to the editor.
+    await act(async () => {
+      (document.activeElement as HTMLElement).dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
+      );
+      await Promise.resolve();
     });
 
     expect(document.querySelector('[role="menu"][aria-label="Block Context Menu"]')).toBeNull();
+    const fallback = document.querySelector<HTMLElement>('[data-editor-focus-fallback]');
+    expect(fallback).not.toBeNull();
+    expect(document.activeElement).toBe(fallback);
+
+    // A pointer outside dismisses the menu without stealing focus from the
+    // element the user actually aimed at.
+    await act(async () => {
+      p.dispatchEvent(
+        new MouseEvent('contextmenu', {
+          bubbles: true,
+          cancelable: true,
+          clientX: 120,
+          clientY: 170,
+        })
+      );
+    });
+    expect(document.querySelector('[role="menu"][aria-label="Block Context Menu"]')).not.toBeNull();
+
+    // Pointer activity inside the menu belongs to the menu, not the dismisser.
+    const menuItem = document.querySelector<HTMLElement>(
+      '[role="menu"][aria-label="Block Context Menu"] [role="menuitem"]'
+    );
+    expect(menuItem).not.toBeNull();
+    await act(async () => {
+      menuItem?.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }));
+    });
+    expect(document.querySelector('[role="menu"][aria-label="Block Context Menu"]')).not.toBeNull();
+
+    const outside = document.createElement('button');
+    outside.type = 'button';
+    outside.textContent = 'Outside target';
+    document.body.appendChild(outside);
+    outside.focus();
+    await act(async () => {
+      outside.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }));
+    });
+    expect(document.querySelector('[role="menu"][aria-label="Block Context Menu"]')).toBeNull();
+    expect(document.activeElement).toBe(outside);
+    outside.remove();
+
+    // A fixed-position menu should not float over content after the page
+    // scrolls underneath it.
+    await act(async () => {
+      p.dispatchEvent(
+        new MouseEvent('contextmenu', {
+          bubbles: true,
+          cancelable: true,
+          clientX: 130,
+          clientY: 180,
+        })
+      );
+    });
+    expect(document.querySelector('[role="menu"][aria-label="Block Context Menu"]')).not.toBeNull();
+    await act(async () => {
+      window.dispatchEvent(new Event('scroll'));
+    });
+    expect(document.querySelector('[role="menu"][aria-label="Block Context Menu"]')).toBeNull();
+  });
+
+  it('clamps the context menu inside the viewport at the bottom-right edge', async () => {
+    const main = document.createElement('main');
+    const p = document.createElement('p');
+    p.textContent = 'Edge context block';
+    main.appendChild(p);
+    document.body.appendChild(main);
+
+    const asRect = (width: number, height: number): DOMRect => ({
+      width,
+      height,
+      top: 0,
+      left: 0,
+      right: width,
+      bottom: height,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    });
+    const rectSpy = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: Element
+    ) {
+      const element = this as HTMLElement;
+      if (element.dataset?.visualEditUi === 'context-menu') return asRect(220, 300);
+      return asRect(0, 0);
+    });
+
+    try {
+      await mount();
+      await act(async () => {
+        p.dispatchEvent(
+          new MouseEvent('contextmenu', {
+            bubbles: true,
+            cancelable: true,
+            clientX: window.innerWidth - 2,
+            clientY: window.innerHeight - 2,
+          })
+        );
+      });
+
+      const menu = document.querySelector<HTMLElement>(
+        '[role="menu"][aria-label="Block Context Menu"]'
+      );
+      expect(menu).not.toBeNull();
+      expect(menu?.style.left).toBe(`${window.innerWidth - 220 - 8}px`);
+      expect(menu?.style.top).toBe(`${window.innerHeight - 300 - 8}px`);
+      expect(menu?.style.maxHeight).toBe('300px');
+    } finally {
+      rectSpy.mockRestore();
+    }
   });
 
   it('opens confirmation modal on ⌘⇧Backspace and safely cancels or deletes', async () => {

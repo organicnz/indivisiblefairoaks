@@ -58,6 +58,8 @@ import {
   VC_STYLE_PRESETS,
 } from './composer';
 import type { ComposerDraftPreview } from './useComposerPagePreview';
+import { getFocusableElements } from './focusable';
+import { useBeforeUnloadWarning } from './useBeforeUnloadWarning';
 
 export type {
   VisualComposerBackground,
@@ -400,10 +402,6 @@ function ComposerTabPanel({
  */
 export type VisualComposerSaveResult = boolean | undefined;
 
-/** Everything inside the panel that a Tab press should visit. */
-const INSPECTOR_FOCUSABLE =
-  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
-
 export interface VisualComposerInspectorProps {
   open: boolean;
   onClose: () => void;
@@ -557,6 +555,16 @@ export function VisualComposerInspector({
    */
   const pageClosePromptRef = useRef(false);
 
+  /*
+   * Document shortcuts are handled by a window-capture listener below. The
+   * listener is registered before `handleApply` exists, and these handlers
+   * change with the draft, so it reads the latest one through refs rather than
+   * re-registering on every keystroke.
+   */
+  const applyShortcutRef = useRef<() => void>(() => {});
+  const undoShortcutRef = useRef<() => void>(() => {});
+  const redoShortcutRef = useRef<() => void>(() => {});
+
   /**
    * Where a discard prompt would take the panel if it is confirmed.
    *
@@ -602,6 +610,12 @@ export function VisualComposerInspector({
     styles.badgeTone !== baseline.badgeTone ||
     styles.badgePosition !== baseline.badgePosition;
   const dirty = designDirty || contentDirty;
+
+  /*
+   * The page-level guard sees only the saved document body; this panel's draft
+   * lives here until Apply. Guard the visible draft on its own.
+   */
+  useBeforeUnloadWarning(open && block !== null && dirty);
 
   /**
    * What the draft actually changes, grouped the way an operator thinks.
@@ -1184,20 +1198,57 @@ export function VisualComposerInspector({
   }, [isBatchMode, selectedBlockIndexes, blockIndex, onDeleteBlock, onDeleteBlocks]);
 
   /*
+   * The panel owns the document shortcuts while it is open.
+   *
    * ⌘E is the shortcut that opened this panel, so it reads as the shortcut to
-   * close it — and while the panel is open it must not bypass the panel's own
-   * close guard. The overlay listens for the same keys on `window` and would
-   * otherwise close directly, throwing away unapplied edits with no prompt.
-   * Capturing here runs before that listener can act.
+   * close it. ⌘S, ⌘Z, ⌘⇧Z and ⌘Y address the draft, not the page behind it.
+   * The overlay listens for all of them on `window`; without a capture-phase
+   * owner, focus sitting on the page chrome could save or undo the document
+   * underneath an unapplied draft. Capture runs before the overlay's bubble
+   * listener and keeps the two surfaces from acting on the same keystroke.
+   *
+   * Text fields keep their native undo: the event is stopped before it reaches
+   * the overlay, but its default action is left alone.
    */
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (e: KeyboardEvent) => {
-      if (!(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey) return;
-      if (e.key.toLowerCase() !== 'e') return;
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      requestClose();
+      if (!(e.metaKey || e.ctrlKey)) return;
+      const key = e.key.toLowerCase();
+      const target = e.target as HTMLElement | null;
+      const typing =
+        target?.tagName === 'INPUT' ||
+        target?.tagName === 'TEXTAREA' ||
+        target?.tagName === 'SELECT' ||
+        Boolean(target?.isContentEditable);
+
+      if (key === 'e' && !e.altKey && !e.shiftKey) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        requestClose();
+        return;
+      }
+
+      if (key === 's') {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        applyShortcutRef.current();
+        return;
+      }
+
+      if (key === 'z' || key === 'y') {
+        if (typing) {
+          // Native field undo/redo still runs; only the page-level shortcut is
+          // suppressed. This is the same contract the panel had when the field
+          // itself handled the key.
+          e.stopImmediatePropagation();
+          return;
+        }
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        if (key === 'y' || e.shiftKey) redoShortcutRef.current();
+        else undoShortcutRef.current();
+      }
     };
     window.addEventListener('keydown', onKeyDown, true);
     return () => window.removeEventListener('keydown', onKeyDown, true);
@@ -1378,6 +1429,13 @@ export function VisualComposerInspector({
     }
   };
 
+  // The capture listener is registered before this function exists, so it gets
+  // the current draft through refs. Assigning during render keeps the next key
+  // press pointed at the styles and block on screen now.
+  applyShortcutRef.current = handleApply;
+  undoShortcutRef.current = handleVcUndo;
+  redoShortcutRef.current = handleVcRedo;
+
   /** Leaving for a neighbouring block is still leaving: it asks the same way. */
   const handleNavigate = onNavigateBlock
     ? (direction: 'previous' | 'next') => requestNavigation(direction)
@@ -1402,9 +1460,7 @@ export function VisualComposerInspector({
     if (e.key === 'Tab') {
       const root = asideRef.current;
       if (!root) return;
-      const focusable = Array.from(root.querySelectorAll<HTMLElement>(INSPECTOR_FOCUSABLE)).filter(
-        (el) => !el.closest('[aria-hidden="true"], [hidden]')
-      );
+      const focusable = getFocusableElements(root);
       if (focusable.length === 0) return;
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
@@ -1428,39 +1484,15 @@ export function VisualComposerInspector({
     const key = e.key.toLowerCase();
 
     /*
-     * ⌘S means "save this block" while the panel owns the screen. Without this,
-     * the keystroke falls through to the overlay's page save, which commits the
-     * page without the draft and reports success for work it did not write.
+     * Document shortcuts are deliberately not repeated here: the window-capture
+     * layer above owns them whether the event starts in a field, on the panel
+     * chrome, or on the page. This handler owns the keys native to the panel's
+     * own controls.
      */
-    if (mod && key === 's') {
-      e.preventDefault();
-      e.stopPropagation();
-      handleApply();
-      return;
-    }
-
-    if (typing) {
-      // Let the field undo its own text; without this the overlay's document
-      // history would fire instead and the keystroke would do nothing visible.
-      if (mod && (key === 'z' || key === 'y')) e.stopPropagation();
-      return;
-    }
+    if (typing) return;
 
     if (!mod) return;
 
-    if (key === 'z') {
-      e.preventDefault();
-      e.stopPropagation();
-      if (e.shiftKey) handleVcRedo();
-      else handleVcUndo();
-      return;
-    }
-    if (key === 'y') {
-      e.preventDefault();
-      e.stopPropagation();
-      handleVcRedo();
-      return;
-    }
     if (key === 'enter') {
       e.preventDefault();
       e.stopPropagation();

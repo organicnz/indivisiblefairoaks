@@ -1,7 +1,8 @@
 'use client';
 
 import { Camera, Database, Layers, SlidersHorizontal, Type } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { clampFixedPanelPosition } from './fixed-panel-position';
 
 export interface ElementInspectorHudProps {
   enabled: boolean;
@@ -97,7 +98,9 @@ export function ElementInspectorHud({
   onOpenStudio,
 }: ElementInspectorHudProps) {
   const [hovered, setHovered] = useState<HoveredElementInfo | null>(null);
+  const [pillPosition, setPillPosition] = useState<{ left: number; top: number } | null>(null);
   const rafRef = useRef<number | null>(null);
+  const pillRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!enabled || inlineActive) {
@@ -209,6 +212,29 @@ export function ElementInspectorHud({
     };
   }, [enabled, inlineActive]);
 
+  useLayoutEffect(() => {
+    if (!hovered) {
+      setPillPosition(null);
+      return;
+    }
+    const pill = pillRef.current;
+    if (!pill) return;
+    const rect = pill.getBoundingClientRect();
+    const clamped = clampFixedPanelPosition({
+      x: hovered.left,
+      y: hovered.top,
+      width: rect.width,
+      height: rect.height,
+      viewportWidth: window.innerWidth,
+      viewportHeight: window.innerHeight,
+    });
+    setPillPosition((previous) =>
+      previous && previous.left === clamped.left && previous.top === clamped.top
+        ? previous
+        : { left: clamped.left, top: clamped.top }
+    );
+  }, [hovered]);
+
   if (!hovered) return null;
 
   return (
@@ -230,12 +256,14 @@ export function ElementInspectorHud({
 
       {/* Floating HUD Pill */}
       <div
+        ref={pillRef}
         role="status"
         aria-label="Element Inspector HUD"
         style={{
           position: 'fixed',
-          top: `${hovered.top}px`,
-          left: `${hovered.left}px`,
+          top: `${pillPosition?.top ?? hovered.top}px`,
+          left: `${pillPosition?.left ?? hovered.left}px`,
+          maxWidth: 'calc(100vw - 1rem)',
           zIndex: 9998,
         }}
         className="pointer-events-none select-none flex items-center gap-1.5 rounded-full border border-white/20 bg-slate-950/90 px-2.5 py-1 text-[11px] font-mono text-white shadow-float backdrop-blur-md transition-[top,left,opacity,transform] duration-75 animate-in fade-in-0 zoom-in-95"

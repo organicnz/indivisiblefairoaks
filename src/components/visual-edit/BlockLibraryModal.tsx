@@ -23,6 +23,7 @@ import type React from 'react';
 import type { Block, HeadingLevel } from '@/lib/blocks';
 import type { VisualComposerBlockCategory } from '@/types/unified';
 import { BlockLibraryPanel } from './BlockLibraryPanel';
+import { ModalDialog } from './ModalDialog';
 
 export interface BlockTemplate {
   id: string;
@@ -295,20 +296,19 @@ export function BlockLibraryModal({
   if (!open) return null;
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="Visual Composer Element Library"
-      className="fixed inset-0 z-[10020] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in-0 pointer-events-auto"
+    <ModalDialog
+      testId="block-library-dialog"
+      ariaLabel="Visual Composer Element Library"
+      onDismiss={onClose}
+      backdropClassName="fixed inset-0 z-[10020] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in-0 pointer-events-auto"
+      panelClassName="flex flex-col w-full max-w-3xl max-h-[85vh] rounded-3xl border border-white/20 bg-slate-950/95 text-white shadow-2xl overflow-hidden overscroll-contain"
     >
-      <div className="flex flex-col w-full max-w-3xl max-h-[85vh] rounded-3xl border border-white/20 bg-slate-950/95 text-white shadow-2xl overflow-hidden overscroll-contain">
-        <BlockLibraryPanel
-          onInsertBlock={onInsertBlock}
-          insertTargetIndex={insertTargetIndex}
-          onClose={onClose}
-          embedded={false}
-        />
-      </div>
-    </div>
+      <BlockLibraryPanel
+        onInsertBlock={onInsertBlock}
+        insertTargetIndex={insertTargetIndex}
+        onClose={onClose}
+        embedded={false}
+      />
+    </ModalDialog>
   );
 }

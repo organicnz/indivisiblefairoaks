@@ -29,6 +29,38 @@ describe('BlockLibraryModal', () => {
     expect(document.body.textContent).not.toContain('Visual Composer Element Library');
   });
 
+  it('focuses search on open and restores the opener on close', async () => {
+    const opener = document.createElement('button');
+    opener.type = 'button';
+    opener.textContent = 'Open element library';
+    document.body.append(opener);
+    opener.focus();
+
+    const onClose = vi.fn();
+    try {
+      await act(async () => {
+        root.render(
+          <BlockLibraryModal open={true} onClose={onClose} onInsertBlock={vi.fn()} />
+        );
+      });
+
+      const search = document.querySelector<HTMLInputElement>(
+        'input[aria-label="Search elements"]'
+      );
+      expect(search).not.toBeNull();
+      expect(document.activeElement).toBe(search);
+
+      await act(async () => {
+        root.render(
+          <BlockLibraryModal open={false} onClose={onClose} onInsertBlock={vi.fn()} />
+        );
+      });
+      expect(document.activeElement).toBe(opener);
+    } finally {
+      opener.remove();
+    }
+  });
+
   it('renders modal title, category filters, and element templates when open', async () => {
     await act(async () => {
       root.render(<BlockLibraryModal open={true} onClose={vi.fn()} onInsertBlock={vi.fn()} />);

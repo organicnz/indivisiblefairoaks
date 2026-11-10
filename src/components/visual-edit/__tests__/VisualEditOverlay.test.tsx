@@ -14,6 +14,14 @@ import {
 } from '@/lib/visual-edit-events';
 import type { PublishedSection, VisualSectionsPublishedDetail } from '@/types/unified';
 
+type MediaSelection = {
+  url: string;
+  alt?: string;
+  name: string;
+  width?: number | null;
+  height?: number | null;
+};
+
 /**
  * What the in-page editor owes an organiser who is editing a live site.
  *
@@ -41,6 +49,10 @@ const getContentRevisions = vi.hoisted(() => vi.fn());
 const restoreContentRevision = vi.hoisted(() => vi.fn());
 const getCRMEdgeFunctionHealth = vi.hoisted(() => vi.fn());
 const getVisualPageContext = vi.hoisted(() => vi.fn());
+const uploadCRMMedia = vi.hoisted(() => vi.fn());
+const mediaLibrary = vi.hoisted(() => ({
+  onSelectMedia: null as ((media: MediaSelection) => void | Promise<void>) | null,
+}));
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), info: vi.fn() }));
 
 vi.mock('@/lib/actions/content', () => ({
@@ -53,7 +65,7 @@ vi.mock('@/lib/actions/content', () => ({
 }));
 vi.mock('@/lib/actions/crm', () => ({
   getCRMEdgeFunctionHealth,
-  uploadCRMMedia: vi.fn(),
+  uploadCRMMedia,
   getCRMContacts: vi.fn().mockResolvedValue({ contacts: [], total: 0 }),
 }));
 vi.mock('../CRMPanel', () => ({
@@ -75,7 +87,13 @@ vi.mock('@/components/layout/useEditContext', () => ({
 // The media library is a portal-heavy dialog with its own suite; stubbing it
 // keeps this file about the document model rather than about Radix.
 vi.mock('@/components/admin/crm/composer/CRMMediaLibraryModal', () => ({
-  CRMMediaLibraryModal: () => null,
+  CRMMediaLibraryModal: (props: {
+    isOpen: boolean;
+    onSelectMedia: (media: MediaSelection) => void | Promise<void>;
+  }) => {
+    if (props.isOpen) mediaLibrary.onSelectMedia = props.onSelectMedia;
+    return null;
+  },
 }));
 
 // Router and pathname are read directly by the overlay.
@@ -123,6 +141,8 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     restoreContentRevision.mockReset();
     getCRMEdgeFunctionHealth.mockReset();
     getVisualPageContext.mockReset();
+    uploadCRMMedia.mockReset();
+    mediaLibrary.onSelectMedia = null;
     toast.success.mockReset();
     toast.error.mockReset();
     toast.info.mockReset();
@@ -150,6 +170,7 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     editContext.target = null;
     visualMode.enabled = true;
     pathname.value = '/about';
+    router.replace.mockReset();
     window.history.replaceState({}, '', '/');
     container = document.createElement('div');
     document.body.appendChild(container);
@@ -178,8 +199,8 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
   const body = '<p>Intro copy.</p><form><input></form><h2 class="cw cw--h2">Mission</h2>';
   const rendered = '<p>Intro copy.</p><h2 class="cw cw--h2">Mission</h2>';
 
-  const withPage = async () => {
-    renderPage(rendered);
+  const withPage = async (page?: { body?: string; rendered?: string }) => {
+    renderPage(page?.rendered ?? rendered);
     getContentBySlugForEdit.mockResolvedValue({
       id: 7,
       title: 'About Us',
@@ -187,7 +208,7 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
       excerpt: null,
       type: 'page',
       status: 'publish',
-      body,
+      body: page?.body ?? body,
       featured_image: null,
       metadata: {},
       updated_at: '2026-10-09T00:00:00Z',
@@ -199,6 +220,19 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(
       (button) => button.textContent?.trim() === text
     );
+
+  const openImageMediaLibrary = async () => {
+    const toolbar = container.querySelector<HTMLElement>('[aria-label="Image asset controls"]');
+    expect(toolbar).not.toBeNull();
+    const replace = Array.from(toolbar?.querySelectorAll<HTMLButtonElement>('button') ?? []).find(
+      (button) => button.textContent?.trim() === 'Replace'
+    );
+    expect(replace).toBeDefined();
+    await act(async () => {
+      replace?.click();
+    });
+    expect(mediaLibrary.onSelectMedia).not.toBeNull();
+  };
 
   /** The page as the browser holds it: the overlay's frames sit over these. */
   const pageChildren = () => {
@@ -236,6 +270,34 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     await act(async () => {
       preset?.click();
     });
+  };
+
+  /**
+   * Leave the document dirty without opening the composer. The delete persists,
+   * so undoing it restores the original body against a saved baseline that now
+   * describes the deleted one.
+   */
+  const dirtyThePage = async () => {
+    await act(async () => {
+      window.dispatchEvent(
+        new CustomEvent(VISUAL_EDIT_EVENTS.deleteSection, { detail: { blockIndex: 0 } })
+      );
+    });
+    const undo = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Undo the last change"]'
+    );
+    expect(undo).not.toBeNull();
+    await act(async () => {
+      undo?.click();
+    });
+    expect(document.body.textContent).toContain('unsaved changes');
+  };
+
+  /** Fire the browser's hard-leave event and report whether it was intercepted. */
+  const attemptHardLeave = () => {
+    const event = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(event);
+    return event;
   };
 
   /** The composer's visual copy surface, not a raw-HTML field or the Code tab. */
@@ -1096,6 +1158,60 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     expect(written).toContain('today.');
   });
 
+  it('refuses to edit a link whose anchor was replaced while the dialog was open', async () => {
+    await withLinkedPage();
+
+    const anchor = document.querySelector<HTMLAnchorElement>('main a');
+    expect(anchor).not.toBeNull();
+    if (!anchor) throw new Error('expected the linked anchor');
+
+    await act(async () => {
+      anchor.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+
+    const editLink = container.querySelector<HTMLButtonElement>('button[aria-label="Edit link"]');
+    expect(editLink).not.toBeNull();
+    await act(async () => {
+      editLink?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    });
+
+    const dialog = document.querySelector<HTMLElement>('[role="dialog"]');
+    const input = dialog?.querySelector<HTMLInputElement>('#link-url');
+    if (!input) throw new Error('expected the link URL input');
+    const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+    await act(async () => {
+      setValue?.call(input, 'https://example.org/new-guide');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    // A page refresh or re-render can replace the anchor that opened this
+    // dialog. The dialog must not write to the detached node or a new session.
+    const replacement = document.createElement('a');
+    replacement.href = '/guide';
+    replacement.textContent = 'the guide';
+    await act(async () => {
+      anchor.replaceWith(replacement);
+    });
+    expect(anchor.isConnected).toBe(false);
+
+    const save = dialog?.querySelector<HTMLButtonElement>('button[data-confirm]');
+    expect(save).not.toBeNull();
+    await act(async () => {
+      save?.click();
+    });
+
+    expect(anchor.getAttribute('href')).toBe('/guide');
+    expect(replacement.getAttribute('href')).toBe('/guide');
+    expect(saveContent).not.toHaveBeenCalled();
+    expect(toast.error).toHaveBeenCalledWith(
+      'This link is no longer editable. Select it again to change its destination.'
+    );
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    const fallback = document.querySelector<HTMLElement>('[data-editor-focus-fallback]');
+    expect(fallback).not.toBeNull();
+    expect(document.activeElement).toBe(fallback);
+  });
+
   it('renders image action pill when clicking an image element instead of making it contentEditable', async () => {
     await withPage();
 
@@ -1141,6 +1257,409 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     expect(dialog?.querySelector('button[data-confirm]')).not.toBeNull();
   });
 
+  it('keeps the link dialog open and reports an unsafe destination', async () => {
+    await withPage();
+
+    const heading = document.querySelector('h2');
+    await act(async () => {
+      heading?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+
+    const linkBtn = container.querySelector<HTMLButtonElement>('button[aria-label="Insert link"]');
+    await act(async () => {
+      linkBtn?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    });
+
+    const dialog = document.querySelector('[role="dialog"]');
+    const input = dialog?.querySelector<HTMLInputElement>('#link-url');
+    expect(input).not.toBeNull();
+
+    const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+    await act(async () => {
+      setValue?.call(input, 'javascript:alert(1)');
+      input?.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    const enter = new KeyboardEvent('keydown', {
+      key: 'Enter',
+      bubbles: true,
+      cancelable: true,
+    });
+    await act(async () => {
+      input?.dispatchEvent(enter);
+    });
+
+    expect(enter.defaultPrevented).toBe(true);
+    expect(toast.error).toHaveBeenCalledWith(
+      'Use an http(s), mailto:, tel:, or relative link.'
+    );
+    expect(document.querySelector('[role="dialog"]')).not.toBeNull();
+  });
+
+  it('restores the inline selection before creating a link', async () => {
+    await withPage();
+
+    const heading = document.querySelector('h2');
+    expect(heading).not.toBeNull();
+    await act(async () => {
+      heading?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+    expect(heading?.contentEditable).toBe('true');
+
+    const text = heading?.firstChild;
+    expect(text).not.toBeNull();
+    const range = document.createRange();
+    range.selectNodeContents(text as Node);
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    expect(selection?.toString()).toBe('Mission');
+
+    const linkBtn = container.querySelector<HTMLButtonElement>('button[aria-label="Insert link"]');
+    await act(async () => {
+      linkBtn?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    });
+
+    // The dialog has focus now. A real browser may drop the page selection;
+    // the editor must have cloned it before that happened.
+    selection?.removeAllRanges();
+    expect(selection?.toString()).toBe('');
+
+    const dialog = document.querySelector('[role="dialog"]');
+    const input = dialog?.querySelector<HTMLInputElement>('#link-url');
+    expect(input).not.toBeNull();
+    const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+    await act(async () => {
+      setValue?.call(input, 'https://example.org');
+      input?.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    expect(input?.value).toBe('https://example.org');
+
+    const save = dialog?.querySelector<HTMLButtonElement>('button[data-confirm]');
+    expect(save).not.toBeNull();
+    expect(save?.disabled).toBe(false);
+
+    const selectedAtCommand: string[] = [];
+    const execCommand = vi.fn((command: string) => {
+      if (command === 'createLink') {
+        selectedAtCommand.push(window.getSelection()?.toString() ?? '');
+      }
+      return true;
+    });
+    const originalExecCommand = document.execCommand;
+    Object.defineProperty(document, 'execCommand', {
+      configurable: true,
+      value: execCommand,
+    });
+
+    try {
+      await act(async () => {
+        save?.click();
+      });
+    } finally {
+      if (originalExecCommand) {
+        Object.defineProperty(document, 'execCommand', {
+          configurable: true,
+          value: originalExecCommand,
+        });
+      } else {
+        Reflect.deleteProperty(document, 'execCommand');
+      }
+    }
+
+    expect(execCommand).toHaveBeenCalledWith('createLink', false, 'https://example.org');
+    expect(selectedAtCommand).toEqual(['Mission']);
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+  });
+
+  it('refuses a stale link range instead of creating a link elsewhere', async () => {
+    await withPage();
+
+    const heading = document.querySelector('h2');
+    expect(heading).not.toBeNull();
+    if (!heading) throw new Error('expected the heading');
+    await act(async () => {
+      heading.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+
+    const text = heading.firstChild;
+    expect(text).not.toBeNull();
+    const range = document.createRange();
+    range.selectNodeContents(text as Node);
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+
+    const linkBtn = container.querySelector<HTMLButtonElement>('button[aria-label="Insert link"]');
+    await act(async () => {
+      linkBtn?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    });
+
+    const dialog = document.querySelector<HTMLElement>('[role="dialog"]');
+    const input = dialog?.querySelector<HTMLInputElement>('#link-url');
+    if (!input) throw new Error('expected the link URL input');
+    const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+    await act(async () => {
+      setValue?.call(input, 'https://example.org');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    // Removing the edited element detaches the captured range and takes the
+    // inline session's element out of the document while the dialog is open.
+    await act(async () => {
+      heading.remove();
+    });
+    expect(heading.isConnected).toBe(false);
+
+    const execCommand = vi.fn();
+    const originalExecCommand = document.execCommand;
+    Object.defineProperty(document, 'execCommand', {
+      configurable: true,
+      value: execCommand,
+    });
+
+    try {
+      const save = dialog?.querySelector<HTMLButtonElement>('button[data-confirm]');
+      expect(save).not.toBeNull();
+      await act(async () => {
+        save?.click();
+      });
+    } finally {
+      if (originalExecCommand) {
+        Object.defineProperty(document, 'execCommand', {
+          configurable: true,
+          value: originalExecCommand,
+        });
+      }
+    }
+
+    expect(execCommand).not.toHaveBeenCalled();
+    expect(toast.error).toHaveBeenCalledWith(
+      'The selected text is no longer editable. Select it again to add a link.'
+    );
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    const fallback = document.querySelector<HTMLElement>('[data-editor-focus-fallback]');
+    expect(fallback).not.toBeNull();
+    expect(document.activeElement).toBe(fallback);
+  });
+
+  it('restores the inline selection when the link dialog is cancelled', async () => {
+    await withPage();
+
+    const heading = document.querySelector('h2');
+    await act(async () => {
+      heading?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+
+    const text = heading?.firstChild;
+    expect(text).not.toBeNull();
+    const range = document.createRange();
+    range.selectNodeContents(text as Node);
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+
+    const linkBtn = container.querySelector<HTMLButtonElement>('button[aria-label="Insert link"]');
+    await act(async () => {
+      linkBtn?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    });
+    selection?.removeAllRanges();
+
+    const dialog = document.querySelector('[role="dialog"]');
+    const cancel = Array.from(dialog?.querySelectorAll<HTMLButtonElement>('button') ?? []).find(
+      (button) => button.textContent?.trim() === 'Cancel'
+    );
+    expect(cancel).toBeDefined();
+    await act(async () => {
+      cancel?.click();
+    });
+
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    expect(window.getSelection()?.toString()).toBe('Mission');
+  });
+
+  it('returns focus to the editor fallback when a cancelled link range is stale', async () => {
+    await withPage();
+
+    const heading = document.querySelector('h2');
+    expect(heading).not.toBeNull();
+    if (!heading) throw new Error('expected the heading');
+    await act(async () => {
+      heading.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+
+    const text = heading.firstChild;
+    expect(text).not.toBeNull();
+    const range = document.createRange();
+    range.selectNodeContents(text as Node);
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+
+    const linkBtn = container.querySelector<HTMLButtonElement>('button[aria-label="Insert link"]');
+    await act(async () => {
+      linkBtn?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    });
+
+    const dialog = document.querySelector<HTMLElement>('[role="dialog"]');
+    const cancel = Array.from(dialog?.querySelectorAll<HTMLButtonElement>('button') ?? []).find(
+      (button) => button.textContent?.trim() === 'Cancel'
+    );
+    expect(cancel).toBeDefined();
+
+    await act(async () => {
+      heading.remove();
+    });
+    await act(async () => {
+      cancel?.click();
+    });
+
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    const fallback = document.querySelector<HTMLElement>('[data-editor-focus-fallback]');
+    expect(fallback).not.toBeNull();
+    expect(document.activeElement).toBe(fallback);
+  });
+
+  it('restores the inline selection before a slash command runs', async () => {
+    await withPage();
+
+    const heading = document.querySelector('h2');
+    await act(async () => {
+      heading?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+
+    const text = heading?.firstChild;
+    expect(text).not.toBeNull();
+    const range = document.createRange();
+    range.selectNodeContents(text as Node);
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+
+    const slashButton = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Open Slash Commands"]'
+    );
+    expect(slashButton).not.toBeNull();
+    const mouseDown = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
+    await act(async () => {
+      slashButton?.dispatchEvent(mouseDown);
+    });
+    expect(mouseDown.defaultPrevented).toBe(true);
+
+    await act(async () => {
+      slashButton?.click();
+    });
+    selection?.removeAllRanges();
+    expect(selection?.toString()).toBe('');
+
+    const h2Command = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(
+      (button) => button.textContent?.includes('Heading 2')
+    );
+    expect(h2Command).toBeDefined();
+
+    const selectedAtCommand: string[] = [];
+    const execCommand = vi.fn((command: string) => {
+      if (command === 'formatBlock') {
+        selectedAtCommand.push(window.getSelection()?.toString() ?? '');
+      }
+      return true;
+    });
+    const originalExecCommand = document.execCommand;
+    Object.defineProperty(document, 'execCommand', {
+      configurable: true,
+      value: execCommand,
+    });
+
+    try {
+      await act(async () => {
+        h2Command?.click();
+      });
+    } finally {
+      if (originalExecCommand) {
+        Object.defineProperty(document, 'execCommand', {
+          configurable: true,
+          value: originalExecCommand,
+        });
+      } else {
+        Reflect.deleteProperty(document, 'execCommand');
+      }
+    }
+
+    expect(execCommand).toHaveBeenCalledWith('formatBlock', false, '<h2>');
+    expect(selectedAtCommand).toEqual(['Mission']);
+  });
+
+  it('refuses a slash command after the captured text is removed', async () => {
+    await withPage();
+
+    const heading = document.querySelector('h2');
+    expect(heading).not.toBeNull();
+    if (!heading) throw new Error('expected the heading');
+    await act(async () => {
+      heading.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+
+    const text = heading.firstChild;
+    expect(text).not.toBeNull();
+    const range = document.createRange();
+    range.selectNodeContents(text as Node);
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+
+    const slashButton = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Open Slash Commands"]'
+    );
+    expect(slashButton).not.toBeNull();
+    await act(async () => {
+      slashButton?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    });
+    await act(async () => {
+      slashButton?.click();
+    });
+    selection?.removeAllRanges();
+
+    await act(async () => {
+      heading.remove();
+    });
+    expect(heading.isConnected).toBe(false);
+
+    const h2Command = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(
+      (button) => button.textContent?.includes('Heading 2')
+    );
+    expect(h2Command).toBeDefined();
+
+    const execCommand = vi.fn();
+    const originalExecCommand = document.execCommand;
+    Object.defineProperty(document, 'execCommand', {
+      configurable: true,
+      value: execCommand,
+    });
+
+    try {
+      await act(async () => {
+        h2Command?.click();
+      });
+    } finally {
+      if (originalExecCommand) {
+        Object.defineProperty(document, 'execCommand', {
+          configurable: true,
+          value: originalExecCommand,
+        });
+      } else {
+        Reflect.deleteProperty(document, 'execCommand');
+      }
+    }
+
+    expect(execCommand).not.toHaveBeenCalled();
+    expect(toast.error).toHaveBeenCalledWith(
+      'The selected text is no longer editable. Select it again and retry.'
+    );
+    const fallback = document.querySelector<HTMLElement>('[data-editor-focus-fallback]');
+    expect(fallback).not.toBeNull();
+    expect(document.activeElement).toBe(fallback);
+  });
+
   it('opens an alt text edit dialog instead of browser prompt when clicking the image Alt Text button', async () => {
     await withPage();
 
@@ -1167,6 +1686,870 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     expect(dialog?.textContent).toContain('Edit alt text');
     expect(dialog?.querySelector('input[type="text"]')).not.toBeNull();
     expect(dialog?.querySelector('button[data-confirm]')).not.toBeNull();
+  });
+
+  it('returns focus to the editor fallback when the image disappears under the alt dialog', async () => {
+    await withPage();
+
+    const paragraph = document.querySelector('[data-visual-edit-root] p');
+    const img = document.createElement('img');
+    img.src = 'https://example.com/photo.jpg';
+    img.alt = 'Protest photo';
+    paragraph?.appendChild(img);
+
+    await act(async () => {
+      img.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+
+    const altBtn = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Edit image alt text"]'
+    );
+    expect(altBtn).not.toBeNull();
+    await act(async () => {
+      altBtn?.click();
+    });
+
+    const dialog = document.querySelector<HTMLElement>('[role="dialog"]');
+    const cancel = Array.from(dialog?.querySelectorAll<HTMLButtonElement>('button') ?? []).find(
+      (button) => button.textContent?.trim() === 'Cancel'
+    );
+    expect(cancel).toBeDefined();
+
+    img.remove();
+    altBtn?.remove();
+    expect(img.isConnected).toBe(false);
+
+    await act(async () => {
+      cancel?.click();
+    });
+
+    expect(dialog?.isConnected).toBe(false);
+    const fallback = document.querySelector<HTMLElement>('[data-editor-focus-fallback]');
+    expect(fallback).not.toBeNull();
+    expect(document.activeElement).toBe(fallback);
+  });
+
+  it('keeps the alt dialog open with the typed value when saving fails', async () => {
+    await withPage();
+
+    const paragraph = document.querySelector('[data-visual-edit-root] p');
+    const img = document.createElement('img');
+    img.src = 'https://example.com/photo.jpg';
+    img.alt = 'Protest photo';
+    paragraph?.appendChild(img);
+
+    await act(async () => {
+      img.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+
+    const altBtn = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Edit image alt text"]'
+    );
+    expect(altBtn).not.toBeNull();
+    await act(async () => {
+      altBtn?.click();
+    });
+
+    const dialog = document.querySelector<HTMLElement>('[role="dialog"]');
+    const input = dialog?.querySelector<HTMLInputElement>('#alt-text-input');
+    expect(input).not.toBeNull();
+    const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+    await act(async () => {
+      setValue?.call(input, 'A revised description');
+      input?.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    saveContent.mockResolvedValueOnce({ success: false, error: 'Network unavailable' });
+    const save = dialog?.querySelector<HTMLButtonElement>('button[data-confirm]');
+    expect(save).not.toBeNull();
+
+    await act(async () => {
+      save?.click();
+    });
+
+    expect(dialog?.isConnected).toBe(true);
+    expect(input?.value).toBe('A revised description');
+    expect(toast.error).toHaveBeenCalledWith('Network unavailable');
+    expect(save?.disabled).toBe(false);
+
+    saveContent.mockResolvedValueOnce({
+      success: true,
+      data: { id: 7, updatedAt: '2026-10-11T00:00:00Z' },
+    });
+    await act(async () => {
+      save?.click();
+    });
+
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+  });
+
+  it('lets a focused field own undo instead of reversing the page behind it', async () => {
+    await withPage();
+
+    await act(async () => {
+      window.dispatchEvent(
+        new CustomEvent(VISUAL_EDIT_EVENTS.deleteSection, { detail: { blockIndex: 2 } })
+      );
+      await Promise.resolve();
+    });
+
+    const undo = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Undo the last change"]'
+    );
+    expect(undo).not.toBeNull();
+    expect(undo?.disabled).toBe(false);
+
+    const paragraph = document.querySelector('[data-visual-edit-root] p');
+    if (!paragraph) throw new Error('expected the rendered paragraph');
+    const img = document.createElement('img');
+    img.src = 'https://example.com/photo.jpg';
+    img.alt = 'Protest photo';
+    paragraph.appendChild(img);
+
+    await act(async () => {
+      img.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+    const altBtn = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Edit image alt text"]'
+    );
+    expect(altBtn).not.toBeNull();
+    await act(async () => {
+      altBtn?.click();
+    });
+
+    const input = document.querySelector<HTMLInputElement>('#alt-text-input');
+    if (!input) throw new Error('expected the alt text input');
+    input.focus();
+
+    const event = new KeyboardEvent('keydown', {
+      key: 'z',
+      metaKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    await act(async () => {
+      input.dispatchEvent(event);
+      await Promise.resolve();
+    });
+
+    expect(event.defaultPrevented).toBe(false);
+    expect(document.querySelector('[role="dialog"]')).not.toBeNull();
+  });
+
+  it('undoes a retried alt-text save to the previous description', async () => {
+    const oldSrc = 'https://example.com/old.jpg';
+    const pageBody = `<p>Intro copy.<img src="${oldSrc}" alt="Old photo"></p><form><input></form><h2 class="cw cw--h2">Mission</h2>`;
+    const pageRendered = `<p>Intro copy.<img src="${oldSrc}" alt="Old photo"></p><h2 class="cw cw--h2">Mission</h2>`;
+    await withPage({ body: pageBody, rendered: pageRendered });
+
+    const img = document.querySelector<HTMLImageElement>('[data-visual-edit-root] p img');
+    if (!img) throw new Error('expected the rendered image');
+    await act(async () => {
+      img.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+    const altBtn = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Edit image alt text"]'
+    );
+    expect(altBtn).not.toBeNull();
+    await act(async () => {
+      altBtn?.click();
+    });
+
+    const dialog = document.querySelector<HTMLElement>('[role="dialog"]');
+    if (!dialog) throw new Error('expected the alt text dialog');
+    const setAlt = async (value: string) => {
+      const input = document.querySelector<HTMLInputElement>('#alt-text-input');
+      if (!input) throw new Error('expected the alt text input');
+      const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+      await act(async () => {
+        setValue?.call(input, value);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+    };
+
+    await setAlt('Failed description');
+    saveContent.mockResolvedValueOnce({ success: false, error: 'Network unavailable' });
+    const save = dialog.querySelector<HTMLButtonElement>('button[data-confirm]');
+    expect(save).not.toBeNull();
+    await act(async () => {
+      save?.click();
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    });
+    expect(dialog.isConnected).toBe(true);
+    expect(img.alt).toBe('Failed description');
+
+    // Leave the coalescing window so the retry is genuinely a second write.
+    await act(async () => {
+      await new Promise<void>((resolve) => setTimeout(resolve, 750));
+    });
+
+    await setAlt('Saved description');
+    const retrySave = dialog.querySelector<HTMLButtonElement>('button[data-confirm]');
+    expect(retrySave).not.toBeNull();
+    await act(async () => {
+      retrySave?.click();
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    });
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    expect(img.alt).toBe('Saved description');
+
+    const dismiss = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Dismiss image controls"]'
+    );
+    expect(dismiss).not.toBeNull();
+    await act(async () => {
+      dismiss?.click();
+    });
+    expect(img.alt).toBe('Saved description');
+
+    const undo = byText('Undo');
+    expect(undo).toBeDefined();
+    await act(async () => {
+      undo?.click();
+    });
+
+    await act(async () => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 's', metaKey: true, bubbles: true }));
+      await new Promise<void>((resolve) => setTimeout(resolve, 20));
+    });
+
+    const lastCall = saveContent.mock.calls[saveContent.mock.calls.length - 1];
+    const lastBody = lastCall?.[0]?.body as string | undefined;
+    expect(lastBody).toBeDefined();
+    expect(lastBody).toContain('alt="Old photo"');
+    expect(lastBody).not.toContain('Failed description');
+    expect(lastBody).not.toContain('Saved description');
+  });
+
+  it('keeps the image panel open when an uploaded replacement cannot be saved', async () => {
+    await withPage({
+      body: '<div data-copy-region="hero"><img src="https://example.com/old.jpg" alt="Old photo"></div>',
+      rendered:
+        '<div data-copy-region="hero"><img src="https://example.com/old.jpg" alt="Old photo"></div>',
+    });
+
+    const img = document.querySelector<HTMLImageElement>('[data-visual-edit-root] img');
+    expect(img).not.toBeNull();
+    await act(async () => {
+      img?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+    expect(container.querySelector('[aria-label="Image asset controls"]')).not.toBeNull();
+
+    uploadCRMMedia.mockResolvedValueOnce({
+      success: true,
+      data: { url: 'https://example.com/new.jpg' },
+    });
+    saveContent.mockResolvedValueOnce({ success: false, error: 'Network unavailable' });
+
+    const fileInput = container.querySelector<HTMLInputElement>('input[type="file"]');
+    expect(fileInput).not.toBeNull();
+    if (!fileInput) throw new Error('expected the image file input');
+    const file = new File(['image'], 'replacement.png', { type: 'image/png' });
+    Object.defineProperty(fileInput, 'files', {
+      configurable: true,
+      value: [file],
+    });
+
+    await act(async () => {
+      fileInput?.dispatchEvent(new Event('change', { bubbles: true }));
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(uploadCRMMedia).toHaveBeenCalledTimes(1);
+    expect(saveContent).toHaveBeenCalledTimes(1);
+    expect(saveContent.mock.calls[0][0].body).toContain('https://example.com/new.jpg');
+    expect(img?.src).toBe('https://example.com/new.jpg');
+    expect(container.querySelector('[aria-label="Image asset controls"]')).not.toBeNull();
+    expect(toast.error).toHaveBeenCalledWith('Network unavailable');
+  });
+
+  it('undoes a retried upload to the last saved image, not the failed preview', async () => {
+    const oldSrc = 'https://example.com/old.jpg';
+    const failedSrc = 'https://example.com/failed.jpg';
+    const retriedSrc = 'https://example.com/retried.jpg';
+    const pageBody = `<p>Intro copy.<img src="${oldSrc}" alt="Old photo"></p><form><input></form><h2 class="cw cw--h2">Mission</h2>`;
+    const pageRendered = `<p>Intro copy.<img src="${oldSrc}" alt="Old photo"></p><h2 class="cw cw--h2">Mission</h2>`;
+    await withPage({ body: pageBody, rendered: pageRendered });
+
+    const img = document.querySelector<HTMLImageElement>('[data-visual-edit-root] p img');
+    if (!img) throw new Error('expected the rendered image');
+    await act(async () => {
+      img.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+
+    const fileInput = container.querySelector<HTMLInputElement>('input[type="file"]');
+    if (!fileInput) throw new Error('expected the image file input');
+    const chooseFile = async (name: string) => {
+      Object.defineProperty(fileInput, 'files', {
+        configurable: true,
+        value: [new File(['image'], name, { type: 'image/png' })],
+      });
+      await act(async () => {
+        fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+        await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      });
+    };
+
+    uploadCRMMedia.mockResolvedValueOnce({ success: true, data: { url: failedSrc } });
+    saveContent.mockResolvedValueOnce({ success: false, error: 'Network unavailable' });
+    await chooseFile('failed.png');
+    expect(img.src).toBe(failedSrc);
+    expect(container.querySelector('[aria-label="Image asset controls"]')).not.toBeNull();
+
+    // Leave the coalescing window so the retry is genuinely a second write.
+    await act(async () => {
+      await new Promise<void>((resolve) => setTimeout(resolve, 750));
+    });
+
+    uploadCRMMedia.mockResolvedValueOnce({ success: true, data: { url: retriedSrc } });
+    await chooseFile('retried.png');
+    expect(img.src).toBe(retriedSrc);
+    expect(container.querySelector('[aria-label="Image asset controls"]')).toBeNull();
+
+    const undo = byText('Undo');
+    expect(undo).toBeDefined();
+    await act(async () => {
+      undo?.click();
+    });
+
+    await act(async () => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 's', metaKey: true, bubbles: true }));
+      await new Promise<void>((resolve) => setTimeout(resolve, 20));
+    });
+
+    const lastCall = saveContent.mock.calls[saveContent.mock.calls.length - 1];
+    const lastBody = lastCall?.[0]?.body as string | undefined;
+    expect(lastBody).toBeDefined();
+    expect(lastBody).toContain(oldSrc);
+    expect(lastBody).not.toContain(failedSrc);
+    expect(lastBody).not.toContain(retriedSrc);
+  });
+
+  it('saves an uploaded replacement inside a paragraph block', async () => {
+    await withPage();
+
+    const paragraph = document.querySelector('[data-visual-edit-root] p');
+    if (!paragraph) throw new Error('expected the rendered paragraph');
+    const img = document.createElement('img');
+    img.src = 'https://example.com/old.jpg';
+    img.alt = 'Old photo';
+    paragraph.appendChild(img);
+
+    await act(async () => {
+      img.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+    expect(container.querySelector('[aria-label="Image asset controls"]')).not.toBeNull();
+
+    uploadCRMMedia.mockResolvedValueOnce({
+      success: true,
+      data: { url: 'https://example.com/new.jpg' },
+    });
+
+    const fileInput = container.querySelector<HTMLInputElement>('input[type="file"]');
+    expect(fileInput).not.toBeNull();
+    if (!fileInput) throw new Error('expected the image file input');
+    const file = new File(['image'], 'replacement.png', { type: 'image/png' });
+    Object.defineProperty(fileInput, 'files', {
+      configurable: true,
+      value: [file],
+    });
+
+    await act(async () => {
+      fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(saveContent).toHaveBeenCalledTimes(1);
+    const written = saveContent.mock.calls[0][0].body as string;
+    expect(written).toContain('src="https://example.com/new.jpg"');
+    expect(written).toContain('Intro copy.');
+    expect(container.querySelector('[aria-label="Image asset controls"]')).toBeNull();
+  });
+
+  it('restores the previous image when an upload has no savable block', async () => {
+    await withPage({
+      body: '<img src="https://example.com/old.jpg" alt="Old photo">',
+      rendered: '<img src="https://example.com/old.jpg" alt="Old photo">',
+    });
+
+    const img = document.querySelector<HTMLImageElement>('[data-visual-edit-root] img');
+    expect(img).not.toBeNull();
+    await act(async () => {
+      img?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+    expect(container.querySelector('[aria-label="Image asset controls"]')).not.toBeNull();
+
+    uploadCRMMedia.mockResolvedValueOnce({
+      success: true,
+      data: { url: 'https://example.com/new.jpg' },
+    });
+
+    const fileInput = container.querySelector<HTMLInputElement>('input[type="file"]');
+    expect(fileInput).not.toBeNull();
+    if (!fileInput) throw new Error('expected the image file input');
+    const file = new File(['image'], 'replacement.png', { type: 'image/png' });
+    Object.defineProperty(fileInput, 'files', {
+      configurable: true,
+      value: [file],
+    });
+
+    await act(async () => {
+      fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(saveContent).not.toHaveBeenCalled();
+    expect(img?.src).toBe('https://example.com/old.jpg');
+    expect(container.querySelector('[aria-label="Image asset controls"]')).not.toBeNull();
+    expect(toast.error).toHaveBeenCalledWith('This image is not inside a savable block.');
+  });
+
+  it('restores the sidebar alt draft when alt text has no savable block', async () => {
+    await withPage({
+      body: '<img src="https://example.com/old.jpg" alt="Old photo">',
+      rendered: '<img src="https://example.com/old.jpg" alt="Old photo">',
+    });
+
+    const img = document.querySelector<HTMLImageElement>('[data-visual-edit-root] img');
+    expect(img).not.toBeNull();
+    await act(async () => {
+      img?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+
+    const input = container.querySelector<HTMLInputElement>('#sidebar-image-alt-input');
+    expect(input).not.toBeNull();
+    if (!input) throw new Error('expected the sidebar alt input');
+    const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+    await act(async () => {
+      setValue?.call(input, 'Revised photo');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    const save = input.parentElement?.querySelector<HTMLButtonElement>('button');
+    expect(save).toBeDefined();
+    await act(async () => {
+      save?.click();
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(saveContent).not.toHaveBeenCalled();
+    expect(img?.alt).toBe('Old photo');
+    expect(input.value).toBe('Old photo');
+    expect(toast.error).toHaveBeenCalledWith('Alt text cannot be saved for this block type');
+  });
+
+  it('saves a media-library replacement inside a paragraph block', async () => {
+    await withPage();
+
+    const paragraph = document.querySelector('[data-visual-edit-root] p');
+    if (!paragraph) throw new Error('expected the rendered paragraph');
+    const img = document.createElement('img');
+    img.src = 'https://example.com/old.jpg';
+    img.alt = 'Old photo';
+    paragraph.appendChild(img);
+
+    await act(async () => {
+      img.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+    await openImageMediaLibrary();
+
+    await act(async () => {
+      await mediaLibrary.onSelectMedia?.({
+        url: 'https://example.com/library.jpg',
+        name: 'library.jpg',
+        alt: 'Library photo',
+      });
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(saveContent).toHaveBeenCalledTimes(1);
+    const written = saveContent.mock.calls[0][0].body as string;
+    expect(written).toContain('src="https://example.com/library.jpg"');
+    expect(written).toContain('alt="Library photo"');
+    expect(written).toContain('Intro copy.');
+    expect(container.querySelector('[aria-label="Image asset controls"]')).toBeNull();
+  });
+
+  it('keeps the image panel open when a media-library replacement cannot be saved', async () => {
+    const pageBody =
+      '<p>Intro copy.<img src="https://example.com/old.jpg" alt="Old photo"></p><form><input></form><h2 class="cw cw--h2">Mission</h2>';
+    const pageRendered =
+      '<p>Intro copy.<img src="https://example.com/old.jpg" alt="Old photo"></p><h2 class="cw cw--h2">Mission</h2>';
+    await withPage({ body: pageBody, rendered: pageRendered });
+
+    const img = document.querySelector<HTMLImageElement>('[data-visual-edit-root] p img');
+    if (!img) throw new Error('expected the rendered image');
+
+    await act(async () => {
+      img.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+    await openImageMediaLibrary();
+    saveContent.mockResolvedValueOnce({ success: false, error: 'Network unavailable' });
+
+    await act(async () => {
+      await mediaLibrary.onSelectMedia?.({
+        url: 'https://example.com/library.jpg',
+        name: 'library.jpg',
+        alt: 'Library photo',
+      });
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(saveContent).toHaveBeenCalledTimes(1);
+    expect(img.src).toBe('https://example.com/library.jpg');
+    expect(container.querySelector('[aria-label="Image asset controls"]')).not.toBeNull();
+    expect(toast.error).toHaveBeenCalledWith('Network unavailable');
+
+    const dismiss = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Dismiss image controls"]'
+    );
+    expect(dismiss).not.toBeNull();
+    await act(async () => {
+      dismiss?.click();
+    });
+
+    expect(img.src).toBe('https://example.com/old.jpg');
+    expect(container.querySelector('[aria-label="Image asset controls"]')).toBeNull();
+    expect(document.body.textContent).not.toContain('unsaved changes');
+
+    const undo = byText('Undo');
+    expect(undo).toBeDefined();
+    await act(async () => {
+      undo?.click();
+    });
+    expect(img.src).toBe('https://example.com/old.jpg');
+  });
+
+  it('undoes a retried media replacement to the last saved image', async () => {
+    const oldSrc = 'https://example.com/old.jpg';
+    const failedSrc = 'https://example.com/failed-library.jpg';
+    const retriedSrc = 'https://example.com/retried-library.jpg';
+    const pageBody = `<p>Intro copy.<img src="${oldSrc}" alt="Old photo"></p><form><input></form><h2 class="cw cw--h2">Mission</h2>`;
+    const pageRendered = `<p>Intro copy.<img src="${oldSrc}" alt="Old photo"></p><h2 class="cw cw--h2">Mission</h2>`;
+    await withPage({ body: pageBody, rendered: pageRendered });
+
+    const img = document.querySelector<HTMLImageElement>('[data-visual-edit-root] p img');
+    if (!img) throw new Error('expected the rendered image');
+    await act(async () => {
+      img.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+    await openImageMediaLibrary();
+    saveContent.mockResolvedValueOnce({ success: false, error: 'Network unavailable' });
+
+    await act(async () => {
+      await mediaLibrary.onSelectMedia?.({
+        url: failedSrc,
+        name: 'failed-library.jpg',
+        alt: 'Failed library photo',
+      });
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    });
+    expect(img.src).toBe(failedSrc);
+    expect(container.querySelector('[aria-label="Image asset controls"]')).not.toBeNull();
+
+    // Leave the coalescing window so the retry is genuinely a second write.
+    await act(async () => {
+      await new Promise<void>((resolve) => setTimeout(resolve, 750));
+    });
+
+    await openImageMediaLibrary();
+    await act(async () => {
+      await mediaLibrary.onSelectMedia?.({
+        url: retriedSrc,
+        name: 'retried-library.jpg',
+        alt: 'Retried library photo',
+      });
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    });
+    expect(img.src).toBe(retriedSrc);
+    expect(container.querySelector('[aria-label="Image asset controls"]')).toBeNull();
+
+    const undo = byText('Undo');
+    expect(undo).toBeDefined();
+    await act(async () => {
+      undo?.click();
+    });
+
+    await act(async () => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 's', metaKey: true, bubbles: true }));
+      await new Promise<void>((resolve) => setTimeout(resolve, 20));
+    });
+
+    const lastCall = saveContent.mock.calls[saveContent.mock.calls.length - 1];
+    const lastBody = lastCall?.[0]?.body as string | undefined;
+    expect(lastBody).toBeDefined();
+    expect(lastBody).toContain(oldSrc);
+    expect(lastBody).toContain('alt="Old photo"');
+    expect(lastBody).not.toContain(failedSrc);
+    expect(lastBody).not.toContain(retriedSrc);
+    expect(lastBody).not.toContain('Failed library photo');
+    expect(lastBody).not.toContain('Retried library photo');
+  });
+
+  it('rolls back a failed media-library replacement on Escape', async () => {
+    const pageBody =
+      '<p>Intro copy.<img src="https://example.com/old.jpg" alt="Old photo"></p><form><input></form><h2 class="cw cw--h2">Mission</h2>';
+    const pageRendered =
+      '<p>Intro copy.<img src="https://example.com/old.jpg" alt="Old photo"></p><h2 class="cw cw--h2">Mission</h2>';
+    await withPage({ body: pageBody, rendered: pageRendered });
+
+    const img = document.querySelector<HTMLImageElement>('[data-visual-edit-root] p img');
+    if (!img) throw new Error('expected the rendered image');
+
+    await act(async () => {
+      img.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+    await openImageMediaLibrary();
+    saveContent.mockResolvedValueOnce({ success: false, error: 'Network unavailable' });
+
+    await act(async () => {
+      await mediaLibrary.onSelectMedia?.({
+        url: 'https://example.com/library.jpg',
+        name: 'library.jpg',
+        alt: 'Library photo',
+      });
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    });
+    expect(img.src).toBe('https://example.com/library.jpg');
+
+    await act(async () => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    });
+
+    expect(img.src).toBe('https://example.com/old.jpg');
+    expect(container.querySelector('[aria-label="Image asset controls"]')).toBeNull();
+    expect(document.body.textContent).not.toContain('unsaved changes');
+
+    const undo = byText('Undo');
+    expect(undo).toBeDefined();
+    await act(async () => {
+      undo?.click();
+    });
+    expect(img.src).toBe('https://example.com/old.jpg');
+  });
+
+  it('restores the previous alt when cancelling after a failed save', async () => {
+    await withPage();
+
+    const paragraph = document.querySelector('[data-visual-edit-root] p');
+    if (!paragraph) throw new Error('expected the rendered paragraph');
+    const img = document.createElement('img');
+    img.src = 'https://example.com/photo.jpg';
+    img.alt = 'Protest photo';
+    paragraph.appendChild(img);
+
+    await act(async () => {
+      img.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+    const altBtn = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Edit image alt text"]'
+    );
+    expect(altBtn).not.toBeNull();
+    await act(async () => {
+      altBtn?.click();
+    });
+
+    const dialog = document.querySelector<HTMLElement>('[role="dialog"]');
+    const input = dialog?.querySelector<HTMLInputElement>('#alt-text-input');
+    if (!input) throw new Error('expected the alt text input');
+    const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+    await act(async () => {
+      setValue?.call(input, 'A revised description');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    saveContent.mockResolvedValueOnce({ success: false, error: 'Network unavailable' });
+    const save = dialog?.querySelector<HTMLButtonElement>('button[data-confirm]');
+    expect(save).not.toBeNull();
+    await act(async () => {
+      save?.click();
+    });
+    expect(dialog?.isConnected).toBe(true);
+    expect(img.alt).toBe('A revised description');
+
+    const cancel = Array.from(dialog?.querySelectorAll<HTMLButtonElement>('button') ?? []).find(
+      (button) => button.textContent?.trim() === 'Cancel'
+    );
+    expect(cancel).toBeDefined();
+    await act(async () => {
+      cancel?.click();
+    });
+
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    expect(img.alt).toBe('Protest photo');
+    expect(document.body.textContent).not.toContain('unsaved changes');
+
+    const dismiss = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Dismiss image controls"]'
+    );
+    expect(dismiss).not.toBeNull();
+    await act(async () => {
+      dismiss?.click();
+    });
+
+    const undo = byText('Undo');
+    expect(undo).toBeDefined();
+    await act(async () => {
+      undo?.click();
+    });
+    expect(img.alt).toBe('Protest photo');
+  });
+
+  it('keeps a saved alt when dismissing the image panel', async () => {
+    await withPage();
+
+    const paragraph = document.querySelector('[data-visual-edit-root] p');
+    if (!paragraph) throw new Error('expected the rendered paragraph');
+    const img = document.createElement('img');
+    img.src = 'https://example.com/photo.jpg';
+    img.alt = 'Protest photo';
+    paragraph.appendChild(img);
+
+    await act(async () => {
+      img.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+    const altBtn = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Edit image alt text"]'
+    );
+    expect(altBtn).not.toBeNull();
+    await act(async () => {
+      altBtn?.click();
+    });
+
+    const dialog = document.querySelector<HTMLElement>('[role="dialog"]');
+    const input = dialog?.querySelector<HTMLInputElement>('#alt-text-input');
+    if (!input) throw new Error('expected the alt text input');
+    const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+    await act(async () => {
+      setValue?.call(input, 'Saved description');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    const save = dialog?.querySelector<HTMLButtonElement>('button[data-confirm]');
+    expect(save).not.toBeNull();
+    await act(async () => {
+      save?.click();
+    });
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    expect(img.alt).toBe('Saved description');
+
+    const dismiss = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Dismiss image controls"]'
+    );
+    expect(dismiss).not.toBeNull();
+    await act(async () => {
+      dismiss?.click();
+    });
+
+    expect(img.alt).toBe('Saved description');
+    expect(container.querySelector('[aria-label="Image asset controls"]')).toBeNull();
+  });
+
+  it('keeps the sidebar alt draft in step with the selected image and dialog saves', async () => {
+    await withPage();
+
+    const paragraph = document.querySelector('[data-visual-edit-root] p');
+    if (!paragraph) throw new Error('expected the rendered paragraph');
+    const first = document.createElement('img');
+    first.src = 'https://example.com/first.jpg';
+    first.alt = 'First photo';
+    const second = document.createElement('img');
+    second.src = 'https://example.com/second.jpg';
+    second.alt = 'Second photo';
+    paragraph.append(first, second);
+
+    const sidebarAlt = () =>
+      container.querySelector<HTMLInputElement>('#sidebar-image-alt-input');
+
+    await act(async () => {
+      first.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+    expect(sidebarAlt()?.value).toBe('First photo');
+
+    await act(async () => {
+      second.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+    expect(sidebarAlt()?.value).toBe('Second photo');
+
+    const altBtn = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Edit image alt text"]'
+    );
+    expect(altBtn).not.toBeNull();
+    await act(async () => {
+      altBtn?.click();
+    });
+
+    const dialog = document.querySelector<HTMLElement>('[role="dialog"]');
+    const input = dialog?.querySelector<HTMLInputElement>('#alt-text-input');
+    if (!input) throw new Error('expected the alt text input');
+    const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+    await act(async () => {
+      setValue?.call(input, 'Second description');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    const save = dialog?.querySelector<HTMLButtonElement>('button[data-confirm]');
+    expect(save).not.toBeNull();
+    await act(async () => {
+      save?.click();
+    });
+
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    expect(second.alt).toBe('Second description');
+    expect(sidebarAlt()?.value).toBe('Second description');
+  });
+
+  it('keeps the image session through scroll and resize before a dialog save', async () => {
+    await withPage();
+
+    const paragraph = document.querySelector('[data-visual-edit-root] p');
+    if (!paragraph) throw new Error('expected the rendered paragraph');
+    const img = document.createElement('img');
+    img.src = 'https://example.com/photo.jpg';
+    img.alt = 'Protest photo';
+    paragraph.appendChild(img);
+
+    await act(async () => {
+      img.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+    const altBtn = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Edit image alt text"]'
+    );
+    expect(altBtn).not.toBeNull();
+    await act(async () => {
+      altBtn?.click();
+    });
+
+    await act(async () => {
+      window.dispatchEvent(new Event('scroll'));
+      window.dispatchEvent(new Event('resize'));
+    });
+
+    const dialog = document.querySelector<HTMLElement>('[role="dialog"]');
+    const input = dialog?.querySelector<HTMLInputElement>('#alt-text-input');
+    if (!input) throw new Error('expected the alt text input');
+    const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+    await act(async () => {
+      setValue?.call(input, 'Saved description');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    const save = dialog?.querySelector<HTMLButtonElement>('button[data-confirm]');
+    expect(save).not.toBeNull();
+    await act(async () => {
+      save?.click();
+    });
+    expect(img.alt).toBe('Saved description');
+
+    const dismiss = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Dismiss image controls"]'
+    );
+    expect(dismiss).not.toBeNull();
+    await act(async () => {
+      dismiss?.click();
+    });
+
+    expect(img.alt).toBe('Saved description');
   });
 
   it('does not hijack interactive controls like tabs, audio players, or civic buttons into contentEditable', async () => {
@@ -1718,6 +3101,219 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     expect(document.body.textContent).not.toContain('Visual Composer Inspector');
     expect(getContentBySlugForEdit).toHaveBeenCalledWith('copy-about-mission');
     expect(new URLSearchParams(window.location.search).get('region')).toBe('about-mission');
+  });
+
+  it('returns to the loaded route when the operator keeps an unsaved composer draft', async () => {
+    await withPage();
+    await openComposerOnFirstBlock();
+    await changeCornerRadius();
+
+    // A Next navigation changes the pathname before the loader can ask the open
+    // panel to close. The blocks on screen still belong to /about.
+    pathname.value = '/events';
+    await act(async () => {
+      root.render(<VisualEditOverlay />);
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(document.body.textContent).toContain('Discard unsaved changes?');
+    expect(router.replace).not.toHaveBeenCalled();
+
+    await act(async () => {
+      byText('Back to editing')?.click();
+    });
+
+    // Keeping the draft restores the document's own address and drops the
+    // queued load; it does not leave /events over an /about page.
+    expect(router.replace).toHaveBeenCalledWith('/about');
+    expect(document.body.textContent).toContain('Visual Composer Inspector');
+    expect(document.body.textContent).not.toContain('Discard unsaved changes?');
+    expect((pageChildren().children[0] as HTMLElement).getAttribute('class')).toContain(
+      'rounded-2xl'
+    );
+  });
+
+  it('does not load a previous route’s region while restoring that route', async () => {
+    window.history.replaceState({}, '', '/?visual-edit=1&region=home-hero');
+    pathname.value = '/';
+    renderPage(
+      '<div data-copy-region="home-hero"><h2 class="cw cw--h2">Mission</h2></div>'
+    );
+    getContentBySlugForEdit.mockResolvedValue({
+      id: 23,
+      title: 'Hero & Headline',
+      slug: 'copy-home-hero',
+      excerpt: null,
+      type: 'page',
+      status: 'publish',
+      body: '<h2 class="cw cw--h2">Mission</h2>',
+      featured_image: null,
+      metadata: {},
+      updated_at: '2026-10-09T00:00:00Z',
+    });
+
+    await mount();
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    await openComposerOnFirstBlock();
+    await changeCornerRadius();
+
+    const regionLoads = () =>
+      getContentBySlugForEdit.mock.calls.filter((call) => call[0] === 'copy-home-hero').length;
+    const loadsBefore = regionLoads();
+
+    pathname.value = '/events';
+    await act(async () => {
+      root.render(<VisualEditOverlay />);
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 40));
+    });
+
+    // The stale region must not be read under /events. The route change is
+    // still guarded, and keeping the draft restores the region's full address.
+    expect(document.body.textContent).toContain('Discard unsaved changes?');
+    expect(regionLoads()).toBe(loadsBefore);
+
+    await act(async () => {
+      byText('Back to editing')?.click();
+    });
+
+    expect(router.replace).toHaveBeenCalledWith('/?visual-edit=1&region=home-hero');
+    expect(document.body.textContent).toContain('Visual Composer Inspector');
+  });
+
+  it('asks before a route change discards unsaved page edits', async () => {
+    await withPage();
+    await dirtyThePage();
+    const loadsBefore = getContentBySlugForEdit.mock.calls.length;
+
+    pathname.value = '/team';
+    await act(async () => {
+      root.render(<VisualEditOverlay />);
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    const routeDialog = document.querySelector<HTMLElement>(
+      '[data-testid="route-leave-confirm-dialog"]'
+    );
+    expect(routeDialog).not.toBeNull();
+    // The modal owns the keyboard from the moment it opens.
+    expect(routeDialog?.contains(document.activeElement)).toBe(true);
+    expect(getContentBySlugForEdit.mock.calls.length).toBe(loadsBefore);
+    expect(router.replace).not.toHaveBeenCalled();
+
+    await act(async () => {
+      byText('Stay on this page')?.click();
+    });
+
+    expect(router.replace).toHaveBeenCalledWith('/about');
+    expect(document.body.textContent).toContain('unsaved changes');
+    expect(document.querySelector('[data-testid="route-leave-confirm-dialog"]')).toBeNull();
+  });
+
+  it('loads the new route after the operator confirms discarding page edits', async () => {
+    await withPage();
+    await dirtyThePage();
+    getContentBySlugForEdit.mockImplementation(async (slug) =>
+      slug === 'team'
+        ? {
+            id: 19,
+            title: 'Team',
+            slug: 'team',
+            excerpt: null,
+            type: 'page',
+            status: 'publish',
+            body: '<h2 class="cw cw--h2">Team</h2>',
+            featured_image: null,
+            metadata: {},
+            updated_at: '2026-10-09T00:00:00Z',
+          }
+        : null
+    );
+
+    pathname.value = '/team';
+    await act(async () => {
+      root.render(<VisualEditOverlay />);
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    expect(document.querySelector('[data-testid="route-leave-confirm-dialog"]')).not.toBeNull();
+
+    await act(async () => {
+      byText('Discard and leave')?.click();
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 80));
+    });
+
+    expect(getContentBySlugForEdit).toHaveBeenCalledWith('team');
+    expect(document.querySelector('[data-testid="route-leave-confirm-dialog"]')).toBeNull();
+  });
+
+  it('warns before a hard reload while page edits are unsaved', async () => {
+    await withPage();
+    await dirtyThePage();
+
+    expect(attemptHardLeave().defaultPrevented).toBe(true);
+  });
+
+  it('does not warn before a hard reload on a saved page', async () => {
+    await withPage();
+
+    expect(attemptHardLeave().defaultPrevented).toBe(false);
+  });
+
+  it('does not refresh a same document over unsaved page edits', async () => {
+    await withPage();
+    await dirtyThePage();
+    const loadsBefore = getContentBySlugForEdit.mock.calls.length;
+    editContext.target = { label: 'About Us', editUrl: '/admin/content/7' };
+
+    const collapse = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Collapse Visual Editor Sidebar"]'
+    );
+    expect(collapse).not.toBeNull();
+    await act(async () => {
+      collapse?.click();
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(getContentForEdit).not.toHaveBeenCalled();
+    expect(getContentBySlugForEdit.mock.calls.length).toBe(loadsBefore);
+    // Collapsing hid the sidebar's unsaved badge; the direct load assertions
+    // above are what prove the dirty document was not refreshed.
+  });
+
+  it('applies the composer on ⌘S instead of saving the page underneath it', async () => {
+    await withPage();
+    await openComposerOnFirstBlock();
+    await changeCornerRadius();
+    expect(document.body.textContent).toContain('Visual Composer Inspector');
+
+    // Dispatch from window: this is the path where the inspector's React tree
+    // never sees the event and the overlay's page-level save used to win.
+    await act(async () => {
+      window.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 's', metaKey: true, bubbles: true })
+      );
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    // Applying the draft updates the page model and closes the panel; it must
+    // not persist the page without the draft or leave the panel open.
+    expect(saveContent).not.toHaveBeenCalled();
+    expect(document.body.textContent).not.toContain('Visual Composer Inspector');
   });
 
   it('asks before switching regions with unsaved page edits', async () => {

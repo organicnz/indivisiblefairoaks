@@ -72,6 +72,20 @@ describe('ConfirmAction', () => {
     expect(onConfirm).toHaveBeenCalledTimes(1);
   });
 
+  it('moves focus into the confirmation and back to the idle control', () => {
+    render();
+    const idle = container.querySelector<HTMLButtonElement>('button[aria-label="Delete page"]');
+    idle?.focus();
+
+    click(idle);
+    expect(document.activeElement?.textContent).toBe('Confirm');
+
+    click(button('Cancel'));
+    expect(document.activeElement).toBe(
+      container.querySelector('button[aria-label="Delete page"]')
+    );
+  });
+
   it('backs out on Cancel without firing', () => {
     render();
     click(button('🗑'));

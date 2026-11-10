@@ -56,4 +56,34 @@ describe('CivicGhostwriter', () => {
     expect(editableEl.textContent).toContain('we believe');
     expect(editableEl.textContent).toContain('to thrive');
   });
+
+  it('drops the revert draft when the edited element changes', () => {
+    const nextEditable = document.createElement('p');
+    nextEditable.textContent = 'A different paragraph';
+    document.body.appendChild(nextEditable);
+
+    act(() => {
+      root.render(<CivicGhostwriter element={editableEl} defaultOpen={true} />);
+    });
+
+    const punchyOption = Array.from(document.querySelectorAll('div[role="menuitem"]')).find((el) =>
+      el.textContent?.includes('Make Punchier')
+    );
+    expect(punchyOption).toBeDefined();
+    act(() => {
+      (punchyOption as HTMLElement)?.click();
+    });
+    expect(
+      container.querySelector('button[aria-label="Revert AI transformation"]')
+    ).not.toBeNull();
+
+    act(() => {
+      root.render(<CivicGhostwriter element={nextEditable} />);
+    });
+
+    expect(
+      container.querySelector('button[aria-label="Revert AI transformation"]')
+    ).toBeNull();
+    expect(nextEditable.textContent).toBe('A different paragraph');
+  });
 });

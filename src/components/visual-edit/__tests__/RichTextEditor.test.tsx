@@ -297,6 +297,42 @@ describe('visual rich-text content editors', () => {
     expect(container.querySelector('form[role="dialog"]')).toBeNull();
   });
 
+  it('traps Tab in the link dialog and returns focus to the editor on cancel', async () => {
+    await act(async () => {
+      root.render(<BlockHarness initial={{ id: 'p', type: 'paragraph', html: 'Civic action' }} />);
+    });
+
+    const editor = contentEditor();
+    selectContents(editor);
+    await act(async () => {
+      mousedown(container.querySelector('button[aria-label="Insert link"]'));
+    });
+
+    const dialog = container.querySelector<HTMLFormElement>('form[role="dialog"]');
+    const input = dialog?.querySelector<HTMLInputElement>('input');
+    const submit = dialog?.querySelector<HTMLButtonElement>('button[type="submit"]');
+    if (!dialog || !input || !submit) throw new Error('expected the link dialog');
+
+    expect(document.activeElement).toBe(input);
+
+    submit.focus();
+    await act(async () => {
+      submit.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true })
+      );
+    });
+    expect(document.activeElement).toBe(input);
+
+    await act(async () => {
+      input.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
+      );
+    });
+
+    expect(container.querySelector('form[role="dialog"]')).toBeNull();
+    expect(document.activeElement).toBe(editor);
+  });
+
   it('rejects a javascript: link without writing it into the block', async () => {
     await act(async () => {
       root.render(<BlockHarness initial={{ id: 'p', type: 'paragraph', html: 'Civic action' }} />);
@@ -660,6 +696,16 @@ function ListHarness({ initial }: { initial: Block }) {
   );
 }
 
+/**
+ * The toolbar listens for mouseup to read the selection. Dispatch it inside
+ * act so the resulting selection-format state update stays in the test scope.
+ */
+function dispatchSelectionGesture(editor: HTMLElement) {
+  act(() => {
+    editor.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+  });
+}
+
 function selectContents(editor: HTMLElement) {
   editor.focus();
   const range = document.createRange();
@@ -670,7 +716,7 @@ function selectContents(editor: HTMLElement) {
   selection.addRange(range);
   // The gesture that would create this selection in a browser also records it
   // for the toolbar's keyboard path, which runs after focus has moved.
-  editor.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+  dispatchSelectionGesture(editor);
 }
 
 /** A run of text the test can address, wherever it sits in the editor. */
@@ -696,7 +742,7 @@ function selectText(editor: HTMLElement, text: string) {
   if (!selection) throw new Error('expected a selection');
   selection.removeAllRanges();
   selection.addRange(range);
-  editor.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+  dispatchSelectionGesture(editor);
 }
 
 /** Puts a collapsed caret inside a run of text at an offset in that run. */
