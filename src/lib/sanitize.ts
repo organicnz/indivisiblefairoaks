@@ -445,8 +445,9 @@ function normalizeUrlForSafety(value: string): string {
 }
 
 /**
- * Strip dangerous execution schemes from inline CSS style declarations.
- * Blocks javascript:, expression(), vbscript:, @import, and data:text/html.
+ * Strip dangerous execution schemes and layout hijack properties from inline CSS.
+ * Blocks javascript:, expression(), vbscript:, @import, data:text/html,
+ * and dangerous viewport-overlay properties (position, inset, top, bottom, left, right, z-index).
  */
 function cleanStyleDeclarations(style: string): string {
   if (!style) return '';
@@ -455,14 +456,32 @@ function cleanStyleDeclarations(style: string): string {
     .map((rule) => rule.trim())
     .filter((rule) => {
       if (!rule) return false;
-      const lower = rule.toLowerCase();
-      return (
-        !lower.includes('javascript:') &&
-        !lower.includes('expression(') &&
-        !lower.includes('vbscript:') &&
-        !lower.includes('@import') &&
-        !lower.includes('data:text/html')
-      );
+      const lower = rule.toLowerCase().replace(/\s+/g, '');
+      if (
+        lower.includes('javascript:') ||
+        lower.includes('expression(') ||
+        lower.includes('vbscript:') ||
+        lower.includes('@import') ||
+        lower.includes('data:text/html')
+      ) {
+        return false;
+      }
+      const colonIdx = rule.indexOf(':');
+      if (colonIdx === -1) return false;
+      const prop = rule.slice(0, colonIdx).trim().toLowerCase();
+      if (
+        prop === 'position' ||
+        prop === 'inset' ||
+        prop === 'top' ||
+        prop === 'bottom' ||
+        prop === 'left' ||
+        prop === 'right' ||
+        prop === 'z-index' ||
+        prop.startsWith('inset-')
+      ) {
+        return false;
+      }
+      return true;
     })
     .join('; ');
 }

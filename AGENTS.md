@@ -65,13 +65,13 @@ workflows, pre-commit hooks, and npm scripts exclusively run `tsrs`
 compiler divergence, provides sub-second diagnostics with 70% lower memory,
 and runs identically in local development and CI runners.
 
-**`tsrs` is pinned exactly, and it is the newest release.** `0.20.1` was
+**`tsrs` is pinned exactly, and it is the newest release.** `0.24.0` was
 verified three ways — the npm `latest` dist-tag, the publish-time-sorted
 version list, and the GitHub release list — because there is **no canary or
 beta dist-tag for `tsrs`**, only `latest` and a 2024 `snapshot`. The channel
 is not available to pin here, so the version is. The exact pin (rather than
 the `^` most dependencies use) is deliberate: `tsrs` gates the type check, and
-it moves fast — 0.12.0 to 0.20.1 in a few weeks — so a caret range would let a
+it moves fast — 0.12.0 to 0.24.0 in a few weeks — so a caret range would let a
 release change a gate's output under a routine `bun install`. Its version also
 encodes the TypeScript commit it ports (`ts7.1.0-beta`), which is what makes
 the pin legible.
