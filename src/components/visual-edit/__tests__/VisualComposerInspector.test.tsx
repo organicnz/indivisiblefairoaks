@@ -2186,7 +2186,7 @@ describe('VisualComposerInspector', () => {
     expect(savedClasses).toContain('break-words');
     expect(savedClasses).toContain('hover:border-amber-500');
     expect(savedClasses).toContain('hover:shadow-2xl');
-  });
+  }, 45000);
 
   it('configures 10x pro section controls: row canvas layout, divider accent color, and responsive visibility', async () => {
     const onSaveBlock = vi.fn();

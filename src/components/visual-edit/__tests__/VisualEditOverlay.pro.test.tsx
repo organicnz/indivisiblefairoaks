@@ -492,6 +492,7 @@ describe('VisualEditOverlay 10x Pro Features', () => {
   });
 
   it('opens the context menu with keyboard access, dismissal, and focus return', async () => {
+    withGalleryRow('Right-click test block');
     const main = document.createElement('main');
     const p = document.createElement('p');
     p.textContent = 'Right-click test block';
@@ -606,6 +607,7 @@ describe('VisualEditOverlay 10x Pro Features', () => {
   });
 
   it('clamps the context menu inside the viewport at the bottom-right edge', async () => {
+    withGalleryRow('Edge context block');
     const main = document.createElement('main');
     const p = document.createElement('p');
     p.textContent = 'Edge context block';

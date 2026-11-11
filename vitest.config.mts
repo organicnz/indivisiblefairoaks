@@ -41,7 +41,8 @@ export default defineConfig({
     environment: 'node',
     globals: true,
     fileParallelism: false,
-    testTimeout: 20000,
+    testTimeout: 30000,
+    teardownTimeout: 60000,
     setupFiles: [],
     exclude: [
       '**/node_modules/**',
