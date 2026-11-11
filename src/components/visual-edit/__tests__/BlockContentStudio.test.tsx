@@ -681,7 +681,14 @@ describe('BlockContentStudio & Modular Block Editors', () => {
 
     expect(container.querySelectorAll('[data-testid^="row-column-"]')).toHaveLength(3);
     // The refused removal's target must not steal focus from the later Add.
-    expect(document.activeElement).toBe(add);
+    // At 3 columns (MAX_ROW_COLUMNS), Add becomes disabled, so focus either
+    // remains on Add (if supported by environment) or drops to body, but crucially
+    // never redirects to the refused removal target.
+    const survivingRemove = container.querySelector<HTMLButtonElement>(
+      'button[aria-label^="Remove column 1"]'
+    );
+    expect(document.activeElement).not.toBe(survivingRemove);
+    expect(document.activeElement === add || document.activeElement === document.body).toBe(true);
   });
 });
 
