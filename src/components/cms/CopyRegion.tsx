@@ -5,10 +5,10 @@ import { getCopyRegionBody } from '@/lib/queries/content';
 import { sanitizeWPContent } from '@/lib/sanitize';
 
 /**
- * Hydrates any `data-data-point="KEY"` container inside a CMS copy region with
- * the live, authoritative value fetched from Supabase `data_points`.
- * If an author cleared or left `<br>` in the visual editor, or if the stored
- * copy differs from the database, this guarantees the data point is never empty.
+ * Hydrates every `data-data-point="KEY"` container inside a CMS copy region
+ * with the live, authoritative value fetched from Supabase `data_points`.
+ * The stored body is a layout and static-copy snapshot; the data-point rows are
+ * the source of truth, including when the snapshot is stale or was cleared.
  */
 function hydrateDataPointsInHtml(html: string, dataPoints: Record<string, string>): string {
   if (!html || !dataPoints || Object.keys(dataPoints).length === 0) return html;
@@ -18,14 +18,7 @@ function hydrateDataPointsInHtml(html: string, dataPoints: Record<string, string
     (match, openTag, _tagName, _quote, key, currentContent, closeTag) => {
       const val = dataPoints[key];
       if (val !== undefined && val !== null && val.trim() !== '') {
-        const trimmed = currentContent
-          .replace(/<br\s*\/?>/gi, '')
-          .replace(/&nbsp;/gi, '')
-          .replace(/\u00a0/g, '')
-          .trim();
-        if (trimmed === '') {
-          return `${openTag}${val}${closeTag}`;
-        }
+        return `${openTag}${val}${closeTag}`;
       }
       return match;
     }

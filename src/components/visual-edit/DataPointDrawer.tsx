@@ -17,6 +17,7 @@ import {
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import { dataPointGroup } from '@/lib/data-point-groups';
 import { saveDataPoint } from '@/lib/queries/civic-client';
 
 export interface ScannedDataPoint {
@@ -57,8 +58,7 @@ export const DataPointDrawer: React.FC<DataPointDrawerProps> = ({
       if (!key || seen.has(key)) continue;
       seen.add(key);
 
-      const parts = key.split('.');
-      const group = parts.length > 1 ? parts.slice(0, 2).join('.') : parts[0] || 'general';
+      const group = dataPointGroup(key);
       const text = el.textContent?.trim() || '';
 
       scanned.push({
@@ -156,7 +156,7 @@ export const DataPointDrawer: React.FC<DataPointDrawerProps> = ({
   const handleSaveOne = async (dp: ScannedDataPoint) => {
     setSavingKeys((prev) => new Set(prev).add(dp.key));
     try {
-      const groupName = dp.key.split('.')[0] || 'general';
+      const groupName = dataPointGroup(dp.key);
       const res = await saveDataPoint({
         key: dp.key,
         value: dp.currentValue,
@@ -199,7 +199,7 @@ export const DataPointDrawer: React.FC<DataPointDrawerProps> = ({
 
     for (const dp of dirtyItems) {
       try {
-        const groupName = dp.key.split('.')[0] || 'general';
+        const groupName = dataPointGroup(dp.key);
         const res = await saveDataPoint({
           key: dp.key,
           value: dp.currentValue,

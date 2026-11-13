@@ -18,6 +18,7 @@ export default async function PartnersPage() {
   // pre-migration deploys and DB outages.
   let partners = [
     {
+      slug: 'national-indivisible',
       name: 'National Indivisible Project',
       category: 'National Movement',
       description:
@@ -25,6 +26,7 @@ export default async function PartnersPage() {
       url: 'https://indivisible.org',
     },
     {
+      slug: 'indivisible-ca-statestrong',
       name: 'Indivisible California StateStrong',
       category: 'Statewide Coalition',
       description:
@@ -32,6 +34,7 @@ export default async function PartnersPage() {
       url: 'https://indivisibleca.org',
     },
     {
+      slug: 'sister-district-sac',
       name: 'Sister District Sacramento',
       category: 'Electoral Partner',
       description:
@@ -39,6 +42,7 @@ export default async function PartnersPage() {
       url: 'https://sisterdistrict.com',
     },
     {
+      slug: '5calls',
       name: '5 Calls: Make Your Voice Heard',
       category: 'Civic Tech Partner',
       description:
@@ -46,6 +50,7 @@ export default async function PartnersPage() {
       url: 'https://5calls.org',
     },
     {
+      slug: 'lwv-sacramento',
       name: 'League of Women Voters Sacramento County',
       category: 'Voting Rights & Nonpartisan Guides',
       description:
@@ -53,6 +58,7 @@ export default async function PartnersPage() {
       url: 'https://my.lwv.org/california/sacramento-county',
     },
     {
+      slug: 'aclu-norcal',
       name: 'ACLU of Northern California',
       category: 'Civil Liberties & Legal Defense',
       description:
@@ -110,20 +116,34 @@ export default async function PartnersPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {partners.map((partner) => (
             <div
-              key={partner.name}
-              data-data-point={'slug' in partner ? `partner.${partner.slug}` : undefined}
+              key={partner.slug}
               className="p-6 rounded-2xl bg-surface-card border border-border hover:border-primary-bright/40 transition-all flex flex-col justify-between group"
             >
               <div className="space-y-3">
-                <span className="text-[11px] font-mono text-primary-ink dark:text-accent-gold font-bold uppercase tracking-wider block">
+                <DataPoint
+                  initialData={dataPoints}
+                  as="span"
+                  name={`partner.${partner.slug}.category`}
+                  className="text-[11px] font-mono text-primary-ink dark:text-accent-gold font-bold uppercase tracking-wider block"
+                >
                   {partner.category}
-                </span>
-                <h2 className="text-xl font-bold text-foreground dark:text-white group-hover:text-primary-ink dark:group-hover:text-primary-on-dark transition-colors">
+                </DataPoint>
+                <DataPoint
+                  initialData={dataPoints}
+                  as="h2"
+                  name={`partner.${partner.slug}.name`}
+                  className="text-xl font-bold text-foreground dark:text-white group-hover:text-primary-ink dark:group-hover:text-primary-on-dark transition-colors"
+                >
                   {partner.name}
-                </h2>
-                <p className="text-xs text-muted-foreground dark:text-ink-on-dark leading-relaxed">
+                </DataPoint>
+                <DataPoint
+                  initialData={dataPoints}
+                  as="p"
+                  name={`partner.${partner.slug}.description`}
+                  className="text-xs text-muted-foreground dark:text-ink-on-dark leading-relaxed"
+                >
                   {partner.description}
-                </p>
+                </DataPoint>
               </div>
 
               <div className="pt-6 border-t border-border dark:border-white/10">

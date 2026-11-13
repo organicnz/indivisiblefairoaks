@@ -2,6 +2,7 @@
 
 import type React from 'react';
 import { useDataPoints } from '@/hooks/useDataPoints';
+import { dataPointGroup } from '@/lib/data-point-groups';
 
 interface DataPointProps extends React.HTMLAttributes<HTMLElement> {
   name: string;
@@ -17,13 +18,6 @@ interface DataPointProps extends React.HTMLAttributes<HTMLElement> {
  * Emits data-data-point attribute so the Visual Editor can edit the text directly
  * without altering JSX classes, layout or visual styling.
  */
-const GROUP_ALIASES: Record<string, string> = {
-  link: 'links',
-  faq: 'faqs',
-  partner: 'partners',
-  term: 'terms',
-};
-
 export function DataPoint({
   name,
   fallback,
@@ -34,8 +28,7 @@ export function DataPoint({
   initialData,
   ...props
 }: DataPointProps) {
-  const rawGroup = group || name.split('.')[0] || 'general';
-  const computedGroup = GROUP_ALIASES[rawGroup.toLowerCase()] || rawGroup;
+  const computedGroup = dataPointGroup(group || name);
   const { dataPoints } = useDataPoints(computedGroup, initialData);
 
   const rawVal = dataPoints[name];

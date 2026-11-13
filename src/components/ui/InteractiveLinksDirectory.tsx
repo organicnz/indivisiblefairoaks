@@ -213,7 +213,6 @@ export function InteractiveLinksDirectory({ initialLinks }: { initialLinks: Link
                   return (
                     <div
                       key={itemSlug}
-                      data-data-point={`link.${itemSlug}`}
                       className="p-5 rounded-2xl bg-surface-card border border-border hover:border-primary-bright/50 transition-all group flex flex-col justify-between shadow-xs relative"
                     >
                       <div>

@@ -98,6 +98,7 @@ import {
   undo as undoHistory,
 } from '@/lib/editor-history';
 import { saveDataPoint } from '@/lib/queries/civic-client';
+import { dataPointGroup } from '@/lib/data-point-groups';
 import { isStaleConflict } from '@/lib/visual-edit/conflict';
 import { extractBlocksFromDOM } from '@/lib/visual-edit/extract-blocks-from-dom';
 import {
@@ -3123,7 +3124,7 @@ export function VisualEditOverlay() {
         setSavingBackend(true);
         try {
           const textVal = element.textContent?.trim() || '';
-          const groupName = dataPointKey.split('.')[0] || 'general';
+          const groupName = dataPointGroup(dataPointKey);
           const res = await saveDataPoint({
             key: dataPointKey,
             value: textVal,

@@ -17,7 +17,7 @@ export const metadata: Metadata = pageMetadata({
 
 interface FAQGroup {
   category: string;
-  questions: { q: string; a: string; slug?: string }[];
+  questions: { q: string; a: string; slug: string }[];
 }
 
 const FALLBACK_FAQS: FAQGroup[] = [
@@ -74,7 +74,7 @@ const FALLBACK_FAQS: FAQGroup[] = [
 ];
 
 function groupFaqRows(rows: FAQRow[]): FAQGroup[] {
-  const map = new Map<string, { q: string; a: string; slug?: string }[]>();
+  const map = new Map<string, { q: string; a: string; slug: string }[]>();
   for (const row of rows) {
     const list = map.get(row.category) || [];
     list.push({ q: row.question, a: row.answer, slug: row.slug });
@@ -93,6 +93,11 @@ export default async function FAQPage() {
   ]);
   const faqs: FAQGroup[] = dbRows.length > 0 ? groupFaqRows(dbRows) : FALLBACK_FAQS;
 
+  const effectiveQuestion = (item: { q: string; slug: string }) =>
+    dataPoints[`faq.${item.slug}.question`]?.trim() || item.q;
+  const effectiveAnswer = (item: { a: string; slug: string }) =>
+    dataPoints[`faq.${item.slug}.answer`]?.trim() || item.a;
+
   /*
    * FAQPage structured data.
    * Emitted from the SAME data array the page renders directly from the Supabase DB.
@@ -104,8 +109,8 @@ export default async function FAQPage() {
     mainEntity: faqs.flatMap((group) =>
       group.questions.map((item) => ({
         '@type': 'Question',
-        name: item.q,
-        acceptedAnswer: { '@type': 'Answer', text: item.a },
+        name: effectiveQuestion(item),
+        acceptedAnswer: { '@type': 'Answer', text: effectiveAnswer(item) },
       }))
     ),
   };
@@ -170,15 +175,24 @@ export default async function FAQPage() {
                   {group.questions.map((faq) => (
                     <div
                       key={faq.q}
-                      data-data-point={faq.slug ? `faq.${faq.slug}` : undefined}
                       className="p-6 rounded-2xl bg-surface-card border border-border hover:border-border dark:hover:border-white/20 transition-all space-y-2"
                     >
-                      <h3 className="text-base sm:text-lg font-bold text-foreground dark:text-white">
+                      <DataPoint
+                        initialData={dataPoints}
+                        as="h3"
+                        name={`faq.${faq.slug}.question`}
+                        className="text-base sm:text-lg font-bold text-foreground dark:text-white"
+                      >
                         {faq.q}
-                      </h3>
-                      <p className="text-xs sm:text-sm text-muted-foreground dark:text-ink-on-dark leading-relaxed">
+                      </DataPoint>
+                      <DataPoint
+                        initialData={dataPoints}
+                        as="p"
+                        name={`faq.${faq.slug}.answer`}
+                        className="text-xs sm:text-sm text-muted-foreground dark:text-ink-on-dark leading-relaxed"
+                      >
                         {faq.a}
-                      </p>
+                      </DataPoint>
                     </div>
                   ))}
                 </div>

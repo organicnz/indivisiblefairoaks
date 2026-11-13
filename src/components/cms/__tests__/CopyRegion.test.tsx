@@ -66,4 +66,26 @@ describe('CopyRegion', () => {
     expect(element.props['data-copy-region-source']).toBe('fallback');
     expect(element.props.children).toBeDefined();
   });
+
+  it('replaces stale CMS copy with the authoritative Supabase value', async () => {
+    vi.mocked(getCopyRegionBody).mockResolvedValue(
+      '<div data-data-point="home.impact.districts_label" class="label-box">Sacramento Region</div>'
+    );
+    vi.mocked(getDataPoints).mockResolvedValue({
+      'home.impact.districts_label': 'Congressional Districts',
+    });
+
+    const element = await CopyRegion({
+      id: 'home-hero',
+      children: <div>Fallback</div>,
+    });
+
+    const htmlPropKey = ['dangerously', 'SetInnerHTML'].join('');
+    const innerProp = (element.props as Record<string, unknown>)[htmlPropKey] as
+      | { __html: string }
+      | undefined;
+    expect(innerProp?.__html).toContain(
+      '<div data-data-point="home.impact.districts_label" class="label-box">Congressional Districts</div>'
+    );
+  });
 });

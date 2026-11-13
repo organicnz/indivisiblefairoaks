@@ -1,7 +1,30 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { dataPointGroup } from '@/lib/data-point-groups';
 import { getDataPoints } from '@/lib/queries/civic-client';
+
+/**
+ * A page can mount hundreds of DataPoints in one render. They all ask for the
+ * same handful of groups, so share the request that is already in flight
+ * instead of issuing one per component (and aborting most of them on nav).
+ */
+const inFlight = new Map<string, Promise<Record<string, string>>>();
+
+function fetchGroup(group?: string): Promise<Record<string, string>> {
+  const cacheKey = group ?? '';
+  const existing = inFlight.get(cacheKey);
+  if (existing) return existing;
+
+  const request = getDataPoints(group)
+    .then((res) => res?.dataPoints ?? {})
+    .catch(() => ({}))
+    .finally(() => {
+      if (inFlight.get(cacheKey) === request) inFlight.delete(cacheKey);
+    });
+  inFlight.set(cacheKey, request);
+  return request;
+}
 
 /**
  * React hook to fetch and reactively sync data points from Supabase via Edge API functions.
@@ -14,11 +37,11 @@ export function useDataPoints(group?: string, initialData: Record<string, string
   const fetchLive = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await getDataPoints(group);
-      if (res?.dataPoints && Object.keys(res.dataPoints).length > 0) {
+      const res = await fetchGroup(group);
+      if (Object.keys(res).length > 0) {
         setDataPoints((prev) => ({
           ...prev,
-          ...res.dataPoints,
+          ...res,
         }));
       }
     } catch {
@@ -36,19 +59,8 @@ export function useDataPoints(group?: string, initialData: Record<string, string
       const customEvent = e as CustomEvent<{ key: string; value: string }>;
       if (customEvent.detail?.key) {
         const { key, value } = customEvent.detail;
-        const aliases: Record<string, string> = {
-          link: 'links',
-          links: 'links',
-          faq: 'faqs',
-          faqs: 'faqs',
-          partner: 'partners',
-          partners: 'partners',
-          term: 'terms',
-          terms: 'terms',
-        };
-        const keyGroup = key.split('.')[0] || '';
-        const normKeyGroup = aliases[keyGroup] || keyGroup;
-        const normHookGroup = group ? aliases[group] || group : '';
+        const normKeyGroup = dataPointGroup(key);
+        const normHookGroup = dataPointGroup(group ?? '');
         if (
           !group ||
           key.startsWith(`${group}.`) ||
