@@ -183,12 +183,12 @@ export default function GalleryPage() {
 
           {/* Quick Metrics Bar */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full max-w-4xl pt-4">
-            <div className="p-4 rounded-2xl bg-surface-card border border-border text-center">
+            <div className="min-w-0 p-4 rounded-2xl bg-surface-card border border-border text-center">
               <DataPoint
                 initialData={dataPoints}
                 as="span"
                 name="gallery.metrics.m1_stat"
-                className="text-2xl font-black text-amber-600 dark:text-accent-gold block font-mono"
+                className="text-xl sm:text-2xl font-black text-amber-600 dark:text-accent-gold block font-mono break-words"
               >
                 No Kings
               </DataPoint>
@@ -201,12 +201,12 @@ export default function GalleryPage() {
                 Sacramento Actions
               </DataPoint>
             </div>
-            <div className="p-4 rounded-2xl bg-surface-card border border-border text-center">
+            <div className="min-w-0 p-4 rounded-2xl bg-surface-card border border-border text-center">
               <DataPoint
                 initialData={dataPoints}
                 as="span"
                 name="gallery.metrics.m2_stat"
-                className="text-2xl font-black text-emerald-600 dark:text-emerald-400 block font-mono"
+                className="text-xl sm:text-2xl font-black text-emerald-600 dark:text-emerald-400 block font-mono break-words"
               >
                 NorCal Resist
               </DataPoint>
@@ -219,12 +219,12 @@ export default function GalleryPage() {
                 Direct Solidarity
               </DataPoint>
             </div>
-            <div className="p-4 rounded-2xl bg-surface-card border border-border text-center">
+            <div className="min-w-0 p-4 rounded-2xl bg-surface-card border border-border text-center">
               <DataPoint
                 initialData={dataPoints}
                 as="span"
                 name="gallery.metrics.m3_stat"
-                className="text-2xl font-black text-primary dark:text-primary-on-dark-muted block font-mono"
+                className="text-xl sm:text-2xl font-black text-primary dark:text-primary-on-dark-muted block font-mono break-words"
               >
                 Witty Signs
               </DataPoint>
@@ -237,12 +237,12 @@ export default function GalleryPage() {
                 Grassroots Humor
               </DataPoint>
             </div>
-            <div className="p-4 rounded-2xl bg-surface-card border border-border text-center">
+            <div className="min-w-0 p-4 rounded-2xl bg-surface-card border border-border text-center">
               <DataPoint
                 initialData={dataPoints}
                 as="span"
                 name="gallery.metrics.m4_stat"
-                className="text-2xl font-black text-violet-600 dark:text-purple-400 block font-mono"
+                className="text-xl sm:text-2xl font-black text-violet-600 dark:text-purple-400 block font-mono break-words"
               >
                 0 Politicians
               </DataPoint>
