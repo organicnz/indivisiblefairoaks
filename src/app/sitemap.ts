@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import type { MetadataRoute } from 'next';
 import { cacheLife, cacheTag } from 'next/cache';
 import { COPY_REGION_SLUG_PREFIX } from '@/lib/copy-regions';
+import { unreachableContentSlugs } from '@/lib/content';
 import { env } from '@/lib/env';
 import { buildVisibilityFilter } from '@/lib/queries/content';
 
@@ -53,6 +54,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     changeFrequency,
     priority,
   }));
+  // Coded routes and legacy redirects are canonical already. A CMS row with
+  // one of those slugs is shadowed by the route map, so advertising it here
+  // would send crawlers to a redirect or a duplicate.
+  const hiddenSlugs = new Set(unreachableContentSlugs());
+  const seenPaths = new Set(STATIC_ROUTES.map(({ path }) => path));
 
   const contentResult = await supabase
     .from('content')
@@ -61,9 +67,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     .or(buildVisibilityFilter(new Date().toISOString()));
 
   for (const page of contentResult.data ?? []) {
-    if (!page.slug || page.slug.startsWith(COPY_REGION_SLUG_PREFIX)) continue;
+    if (
+      !page.slug ||
+      hiddenSlugs.has(page.slug) ||
+      page.slug.startsWith(COPY_REGION_SLUG_PREFIX) ||
+      seenPaths.has(`/${page.slug}`)
+    ) {
+      continue;
+    }
+    const path = `/${page.slug}`;
+    seenPaths.add(path);
     entries.push({
-      url: `/${page.slug}`,
+      url: path,
       lastModified: page.updated_at ?? undefined,
       changeFrequency: 'monthly',
       priority: 0.6,
