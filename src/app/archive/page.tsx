@@ -210,13 +210,13 @@ export default async function ArchivePage() {
                     </div>
 
                     {!page.body_text && page.summary ? (
-                      <p className="mt-5 text-sm sm:text-base text-muted-foreground dark:text-ink-on-dark leading-relaxed">
+                      <p className="mt-5 text-sm sm:text-base text-muted-foreground dark:text-ink-on-dark leading-relaxed break-words">
                         {page.summary}
                       </p>
                     ) : null}
 
                     {page.body_text ? (
-                      <div className="mt-5 rounded-2xl bg-surface-muted/60 border border-border p-4 sm:p-5 text-sm text-foreground/85 dark:text-ink-on-dark leading-relaxed whitespace-pre-line">
+                      <div className="mt-5 rounded-2xl bg-surface-muted/60 border border-border p-4 sm:p-5 text-sm text-foreground/85 dark:text-ink-on-dark leading-relaxed whitespace-pre-line break-words">
                         {page.body_text}
                       </div>
                     ) : null}
