@@ -409,7 +409,7 @@ export default async function ChoirPage() {
             The component is still in `components/ui/` if the radio returns. */}
 
         {/* 10x Pro Interactive Songbook Explorer */}
-        <ChoirSongbookExplorer />
+        <ChoirSongbookExplorer initialData={dataPoints} />
 
         {/* Join CTA */}
         <div className="p-8 rounded-2xl bg-surface-card border border-border text-center space-y-4">

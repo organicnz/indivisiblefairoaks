@@ -114,8 +114,12 @@ That side was made for you and me.`,
   },
 ];
 
-export function ChoirSongbookExplorer() {
-  const { dataPoints } = useDataPoints('choir');
+export function ChoirSongbookExplorer({
+  initialData,
+}: {
+  initialData?: Record<string, string>;
+}) {
+  const { dataPoints } = useDataPoints('choir', initialData);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [expandedSongId, setExpandedSongId] = useState<string | null>('singing-for-our-lives');
