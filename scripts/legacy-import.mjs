@@ -52,6 +52,7 @@ import {
   filenameFromDisposition,
   filenameFromUrl,
   formatBytes,
+  repairLegacyUrl,
   safeArchiveFilename,
 } from './legacy-audit-lib.mjs';
 import { loadEnvLocal } from './load-env-local.mjs';
@@ -194,7 +195,7 @@ export function cleanLegacyBodyText(value, pageTitle) {
     .replace(/\s+/g, ' ')
     .trim()
     .toLowerCase();
-  return String(value ?? '')
+  return repairLegacyUrl(value)
     .replace(/\r\n?/g, '\n')
     .split('\n')
     .map((line) => line.trim())

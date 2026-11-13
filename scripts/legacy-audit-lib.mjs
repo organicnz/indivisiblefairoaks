@@ -149,11 +149,22 @@ export function unwrapGoogleRedirect(value) {
   }
 }
 
+/**
+ * A few links copied out of Google Sites lost the `www.` host or gained a
+ * space during extraction. Repair only the known cases so normalising a URL
+ * never changes a destination that still works.
+ */
+export function repairLegacyUrl(value) {
+  return String(value ?? '')
+    .replace(/https?:\/\/www\.\s+ardems\.org/gi, 'https://www.ardems.org')
+    .replace(/https?:\/\/(?:www\.)?ardems\.org(?=\/|$)/gi, 'https://www.ardems.org');
+}
+
 /** Remove fragment and tracking parameters while keeping a stable URL identity. */
 export function normalizeUrl(value, base = LEGACY_BASE) {
   if (!value || typeof value !== 'string') return '';
   try {
-    const url = new URL(unwrapGoogleRedirect(value), base);
+    const url = new URL(repairLegacyUrl(unwrapGoogleRedirect(value)), base);
     url.hash = '';
     for (const key of [...url.searchParams.keys()]) {
       if (/^(utm_|ts$|usp$|rtpof$|sd$|gclid$|fbclid$|sa$|sntz$|usg$)/i.test(key)) {

@@ -41,6 +41,10 @@ describe('legacy audit URL helpers', () => {
   });
 
   it('normalises URLs without changing the file identity', () => {
+    expect(normalizeUrl('http://ardems.org/')).toBe('https://www.ardems.org/');
+    expect(normalizeUrl('https://www. ardems.org/events')).toBe(
+      'https://www.ardems.org/events'
+    );
     const normalized = normalizeUrl(
       'https://drive.google.com/file/d/abc123/view?utm_source=test&usp=sharing#fragment'
     );

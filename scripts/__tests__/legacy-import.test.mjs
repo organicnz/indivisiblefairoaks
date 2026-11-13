@@ -71,6 +71,12 @@ describe('legacy import plan', () => {
     expect(cleanLegacyBodyText('Upcoming Events\nARC.VOTES.pdf\nJoin us.', 'Upcoming Events')).toBe(
       'Join us.'
     );
+    expect(
+      cleanLegacyBodyText(
+        'American River Democrats https://www. ardems.org Community organization',
+        'Links'
+      )
+    ).toBe('American River Democrats https://www.ardems.org Community organization');
   });
 
   it('repairs mojibake and known source-filename typos in public titles', () => {
