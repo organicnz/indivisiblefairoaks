@@ -10,12 +10,18 @@ import {
   Vote,
 } from 'lucide-react';
 import type { Metadata } from 'next';
+import { LegacyDocumentArchive } from '@/components/archive/LegacyDocumentArchive';
 import { CopyRegion } from '@/components/cms/CopyRegion';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { SacramentoRepresentativeFinder } from '@/components/ui/SacramentoRepresentativeFinder';
 import { VgpuGeomagneticCusp } from '@/components/ui/VgpuGeomagneticCusp';
 import { pageMetadata } from '@/lib/metadata';
 import { getDataPoints } from '@/lib/queries/civic';
+import {
+  getLegacyDocuments,
+  legacyDocumentForDriveId,
+  legacyDocumentUrl,
+} from '@/lib/queries/legacy';
 
 export const metadata: Metadata = pageMetadata({
   title: 'Voter Information & Guides',
@@ -25,7 +31,14 @@ export const metadata: Metadata = pageMetadata({
 });
 
 export default async function VoterInfoPage() {
-  const dataPoints = await getDataPoints('voter');
+  const [dataPoints, legacyDocuments] = await Promise.all([
+    getDataPoints('voter'),
+    getLegacyDocuments('voter'),
+  ]);
+  const legacyHref = (driveId: string, fallback: string) => {
+    const document = legacyDocumentForDriveId(legacyDocuments, driveId);
+    return document ? legacyDocumentUrl(document) ?? fallback : fallback;
+  };
 
   return (
     <div className="w-full bg-background text-foreground min-h-screen pt-(--header-clearance) pb-20">
@@ -208,7 +221,10 @@ export default async function VoterInfoPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   {/* Card 1: Official Voter Guide */}
                   <a
-                    href="https://drive.google.com/file/d/10XEUyMoyGUI_UktPVwB0RJo-6w3lN0Uy/view?ts=6ac7c922"
+                    href={legacyHref(
+                      '10XEUyMoyGUI_UktPVwB0RJo-6w3lN0Uy',
+                      'https://drive.google.com/file/d/10XEUyMoyGUI_UktPVwB0RJo-6w3lN0Uy/view?ts=6ac7c922'
+                    )}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="p-4 sm:p-5 rounded-2xl bg-surface-muted hover:bg-surface-muted/80 border border-border dark:bg-white/5 dark:hover:bg-white/10 dark:border-white/10 hover:border-primary/40 dark:hover:border-primary-on-dark transition-all flex flex-col justify-between group"
@@ -249,7 +265,10 @@ export default async function VoterInfoPage() {
 
                   {/* Card 2: Ballot Recommendations */}
                   <a
-                    href="https://drive.google.com/file/d/1JW2rg5dVBZBqezG3hd9QBu0znt3XsMaN/view?usp=sharing_eil_se_dm&ts=6ac7c902"
+                    href={legacyHref(
+                      '1JW2rg5dVBZBqezG3hd9QBu0znt3XsMaN',
+                      'https://drive.google.com/file/d/1JW2rg5dVBZBqezG3hd9QBu0znt3XsMaN/view?usp=sharing_eil_se_dm&ts=6ac7c902'
+                    )}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="p-4 sm:p-5 rounded-2xl bg-surface-muted hover:bg-surface-muted/80 border border-border dark:bg-white/5 dark:hover:bg-white/10 dark:border-white/10 hover:border-primary/40 dark:hover:border-primary-on-dark transition-all flex flex-col justify-between group"
@@ -289,7 +308,10 @@ export default async function VoterInfoPage() {
 
                   {/* Card 3: Measure Analysis */}
                   <a
-                    href="https://drive.google.com/file/d/11Cv8yyuI_jtNet_IFSYHDN5xFr1axfg2/view?usp=sharing_eil_se_dm&ts=6ac7c8d5"
+                    href={legacyHref(
+                      '11Cv8yyuI_jtNet_IFSYHDN5xFr1axfg2',
+                      'https://drive.google.com/file/d/11Cv8yyuI_jtNet_IFSYHDN5xFr1axfg2/view?usp=sharing_eil_se_dm&ts=6ac7c8d5'
+                    )}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="p-4 sm:p-5 rounded-2xl bg-surface-muted hover:bg-surface-muted/80 border border-border dark:bg-white/5 dark:hover:bg-white/10 dark:border-white/10 hover:border-primary/40 dark:hover:border-primary-on-dark transition-all flex flex-col justify-between group"
@@ -329,7 +351,10 @@ export default async function VoterInfoPage() {
 
                   {/* Card 4: Voter Information Document */}
                   <a
-                    href="https://docs.google.com/document/d/1XyqCKsSKaQqrrzX7CSl3G3v0ChUtH98U/edit?usp=sharing_eil_se_dm&rtpof=true&sd=true&ts=6ac7c8ad"
+                    href={legacyHref(
+                      '1XyqCKsSKaQqrrzX7CSl3G3v0ChUtH98U',
+                      'https://docs.google.com/document/d/1XyqCKsSKaQqrrzX7CSl3G3v0ChUtH98U/edit?usp=sharing_eil_se_dm&rtpof=true&sd=true&ts=6ac7c8ad'
+                    )}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="p-4 sm:p-5 rounded-2xl bg-surface-muted hover:bg-surface-muted/80 border border-border dark:bg-white/5 dark:hover:bg-white/10 dark:border-white/10 hover:border-primary/40 dark:hover:border-primary-on-dark transition-all flex flex-col justify-between group"
@@ -485,7 +510,10 @@ export default async function VoterInfoPage() {
                     <ExternalLink size={12} />
                   </a>
                   <a
-                    href="https://drive.google.com/open?id=1cugSjV00M6yL3e414nUq8j2hC9H-Kq6L"
+                    href={legacyHref(
+                      '1mpQTszfaP1wLvydcCjLTfw9WKzXNL4YN',
+                      'https://drive.google.com/file/d/1mpQTszfaP1wLvydcCjLTfw9WKzXNL4YN/view'
+                    )}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-surface-muted dark:bg-white/10 hover:bg-primary hover:text-white dark:hover:bg-primary-bright dark:hover:text-white text-primary-ink dark:text-white text-xs font-bold transition-colors"
@@ -725,6 +753,15 @@ export default async function VoterInfoPage() {
               </div>
             </div>
           </CopyRegion>
+        </div>
+
+        <div className="pt-16 border-t border-border">
+          <LegacyDocumentArchive
+            documents={legacyDocuments}
+            title="Voter guides from the old site"
+            description="The complete set of voter guides and nonpartisan documents preserved from the chapter’s Google Sites. Cleared files are hosted here; third-party guides link to their original source."
+            limit={12}
+          />
         </div>
       </div>
     </div>

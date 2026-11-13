@@ -1,12 +1,14 @@
-import { AlertCircle, Calendar, ExternalLink, Music, Users } from 'lucide-react';
+import { AlertCircle, Archive, ArrowUpRight, Calendar, ExternalLink, Music, Users } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { LegacyDocumentArchive } from '@/components/archive/LegacyDocumentArchive';
 import { CopyRegion } from '@/components/cms/CopyRegion';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { InteractiveEventsCalendar } from '@/components/ui/InteractiveEventsCalendar';
 import { VgpuPolarAurora } from '@/components/ui/VgpuPolarAurora';
 import { pageMetadata } from '@/lib/metadata';
 import { getDataPoints, getEvents } from '@/lib/queries/civic';
+import { getLegacyDocuments } from '@/lib/queries/legacy';
 
 export const metadata: Metadata = pageMetadata({
   title: 'Events & Actions',
@@ -16,9 +18,10 @@ export const metadata: Metadata = pageMetadata({
 });
 
 export default async function EventsPage() {
-  const [initialEventsRows, dataPoints] = await Promise.all([
+  const [initialEventsRows, dataPoints, legacyEventDocuments] = await Promise.all([
     getEvents().catch(() => []),
     getDataPoints('events'),
+    getLegacyDocuments('event'),
   ]);
   const initialEvents = initialEventsRows.length > 0 ? initialEventsRows : undefined;
   return (
@@ -192,6 +195,41 @@ export default async function EventsPage() {
             </div>
           </CopyRegion>
         </div>
+
+        {/* Past events and legacy materials */}
+        <div className="rounded-2xl border border-border bg-surface-card p-6 sm:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
+          <div>
+            <div className="inline-flex items-center gap-1.5 rounded-full border border-accent-gold/30 bg-accent-gold/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-ink-strong dark:text-accent-gold-on-dark">
+              <Archive size={12} />
+              Past events
+            </div>
+            <h2 className="mt-3 text-xl sm:text-2xl font-black tracking-tight text-foreground dark:text-white">
+              Looking for an event that has already happened?
+            </h2>
+            <p className="mt-1 max-w-2xl text-xs sm:text-sm leading-relaxed text-muted-foreground dark:text-ink-on-dark">
+              Flyers, event pages, and the complete public record from the chapter’s earlier Google
+              Sites are preserved in the archive.
+            </p>
+          </div>
+          <Link
+            href="/archive"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-primary px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white hover:bg-primary-dark transition-colors"
+          >
+            Browse the archive
+            <ArrowUpRight size={14} />
+          </Link>
+        </div>
+
+        {legacyEventDocuments.length > 0 ? (
+          <div className="pt-2 border-t border-border">
+            <LegacyDocumentArchive
+              documents={legacyEventDocuments}
+              title="Event flyers & documents"
+              description="Event material preserved from the old site. Files cleared for republication are hosted here; other items point to their original source."
+              limit={6}
+            />
+          </div>
+        ) : null}
 
         {/* Nonviolence Banner */}
         <div className="p-6 rounded-2xl bg-surface-card border border-border flex items-start gap-4">

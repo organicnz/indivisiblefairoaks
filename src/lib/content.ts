@@ -51,6 +51,7 @@ const RESERVED_SLUGS: ReadonlySet<string> = new Set([
   'account',
   'admin',
   'api',
+  'archive',
   'auth',
   'cancel',
   'cart',

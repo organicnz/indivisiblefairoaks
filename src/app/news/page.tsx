@@ -1,5 +1,6 @@
 import { Megaphone, Newspaper } from 'lucide-react';
 import type { Metadata } from 'next';
+import { LegacyDocumentArchive } from '@/components/archive/LegacyDocumentArchive';
 import { ActionAlertsSubscription } from '@/components/ui/ActionAlertsSubscription';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { InteractiveNewslettersList } from '@/components/ui/InteractiveNewslettersList';
@@ -8,6 +9,7 @@ import { MeetingMaterials } from '@/components/ui/MeetingMaterials';
 import { VgpuNoctilucentWaves } from '@/components/ui/VgpuNoctilucentWaves';
 import { pageMetadata } from '@/lib/metadata';
 import { getDataPoints, getNewsletters } from '@/lib/queries/civic';
+import { getLegacyDocuments } from '@/lib/queries/legacy';
 import { getPublishedPosts } from '@/lib/queries/content';
 
 export const metadata: Metadata = pageMetadata({
@@ -18,10 +20,11 @@ export const metadata: Metadata = pageMetadata({
 });
 
 export default async function NewsPage() {
-  const [newslettersRows, postsRows, dataPoints] = await Promise.all([
+  const [newslettersRows, postsRows, dataPoints, legacyNewsletters] = await Promise.all([
     getNewsletters().catch(() => []),
     getPublishedPosts(12).catch(() => []),
     getDataPoints('news'),
+    getLegacyDocuments('newsletter'),
   ]);
   const initialNewsletters = newslettersRows.length > 0 ? newslettersRows : undefined;
   return (
@@ -80,6 +83,17 @@ export default async function NewsPage() {
 
           <InteractiveNewslettersList initialNewsletters={initialNewsletters} />
         </div>
+
+        {legacyNewsletters.length > 0 ? (
+          <div className="pt-4 border-t border-border">
+            <LegacyDocumentArchive
+              documents={legacyNewsletters}
+              title="Legacy newsletter PDFs"
+              description="The original newsletter files from the chapter’s Google Sites. Each entry identifies whether the file is hosted here or points to its original source."
+              limit={8}
+            />
+          </div>
+        ) : null}
 
         {/* National Indivisible Wire */}
         <div className="p-8 rounded-2xl bg-surface-card border border-border space-y-4">

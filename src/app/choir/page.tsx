@@ -1,12 +1,24 @@
-import { Calendar, CheckCircle2, Clock, ExternalLink, Mail, MapPin, Music } from 'lucide-react';
+import {
+  ArrowUpRight,
+  Calendar,
+  Camera,
+  CheckCircle2,
+  Clock,
+  ExternalLink,
+  Mail,
+  MapPin,
+  Music,
+} from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { LegacyDocumentArchive } from '@/components/archive/LegacyDocumentArchive';
 import { CopyRegion } from '@/components/cms/CopyRegion';
 import { ChoirSongbookExplorer } from '@/components/ui/ChoirSongbookExplorer';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { VgpuChoirHarmonics } from '@/components/ui/VgpuChoirHarmonics';
 import { pageMetadata } from '@/lib/metadata';
 import { getDataPoints } from '@/lib/queries/civic';
+import { getLegacyDocuments } from '@/lib/queries/legacy';
 
 export const metadata: Metadata = pageMetadata({
   title: 'Carmichael Resistance Choir',
@@ -16,7 +28,10 @@ export const metadata: Metadata = pageMetadata({
 });
 
 export default async function ChoirPage() {
-  const dataPoints = await getDataPoints('choir');
+  const [dataPoints, legacyDocuments] = await Promise.all([
+    getDataPoints('choir'),
+    getLegacyDocuments('choir'),
+  ]);
 
   return (
     <div className="w-full bg-background text-foreground min-h-screen pt-(--header-clearance) pb-20">
@@ -296,6 +311,84 @@ export default async function ChoirPage() {
               </DataPoint>
             </div>
           </div>
+        </div>
+
+        {/* Historical choir material from the old Google Sites. */}
+        <div className="rounded-2xl border border-border bg-surface-card p-6 sm:p-8 space-y-5">
+          <div>
+            <div className="inline-flex items-center gap-1.5 rounded-full border border-accent-gold/30 bg-accent-gold/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-ink-strong dark:text-accent-gold-on-dark">
+              <Music size={12} />
+              From the Choir Archive
+            </div>
+            <h2 className="mt-3 text-xl sm:text-2xl font-black tracking-tight text-foreground dark:text-white">
+              The story, the film, and where we sing next
+            </h2>
+            <p className="mt-1 max-w-2xl text-xs sm:text-sm leading-relaxed text-muted-foreground dark:text-ink-on-dark">
+              The old chapter site introduced the choir through a feature article, a short film, and
+              the Instagram and Mobilize.us links we still use. Those records are preserved here.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <a
+              href="https://impact.scholasticahq.com/article/166557-breathing-together-on-joining-a-resistance-choir"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group rounded-xl border border-border bg-surface-muted p-4 transition-colors hover:border-primary/40"
+            >
+              <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground dark:text-ink-muted-on-dark">
+                Feature article
+              </span>
+              <span className="mt-2 block text-sm font-bold leading-snug text-foreground dark:text-white group-hover:text-primary-ink dark:group-hover:text-accent-gold">
+                “Breathing Together: On Joining a Resistance Choir”
+              </span>
+              <span className="mt-3 inline-flex items-center gap-1 text-[11px] font-bold text-primary-ink dark:text-primary-on-dark">
+                Read the story <ArrowUpRight size={12} />
+              </span>
+            </a>
+            <a
+              href="https://instagram.com/CarmichaelResistanceChoir"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group rounded-xl border border-border bg-surface-muted p-4 transition-colors hover:border-primary/40"
+            >
+              <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground dark:text-ink-muted-on-dark">
+                Instagram
+              </span>
+              <span className="mt-2 flex items-center gap-2 text-sm font-bold leading-snug text-foreground dark:text-white group-hover:text-primary-ink dark:group-hover:text-accent-gold">
+                <Camera size={16} className="text-accent-gold" />
+                @CarmichaelResistanceChoir
+              </span>
+              <span className="mt-3 inline-flex items-center gap-1 text-[11px] font-bold text-primary-ink dark:text-primary-on-dark">
+                Visit the choir <ExternalLink size={12} />
+              </span>
+            </a>
+            <a
+              href="https://www.mobilize.us/indivisible/event/1072857/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group rounded-xl border border-border bg-surface-muted p-4 transition-colors hover:border-primary/40"
+            >
+              <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground dark:text-ink-muted-on-dark">
+                Next rehearsal
+              </span>
+              <span className="mt-2 block text-sm font-bold leading-snug text-foreground dark:text-white group-hover:text-primary-ink dark:group-hover:text-accent-gold">
+                Register through Mobilize.us
+              </span>
+              <span className="mt-3 inline-flex items-center gap-1 text-[11px] font-bold text-primary-ink dark:text-primary-on-dark">
+                Sign up <ExternalLink size={12} />
+              </span>
+            </a>
+          </div>
+          {legacyDocuments.length > 0 ? (
+            <div className="border-t border-border pt-5">
+              <LegacyDocumentArchive
+                documents={legacyDocuments}
+                title="Choir film & documents"
+                description="The original choir film and related files. Restricted or third-party media remains at its source; cleared files are hosted here."
+                limit={4}
+              />
+            </div>
+          ) : null}
         </div>
 
         {/* Issue #148: the Resistance Radio box (ChoirAudioPlayer) was removed

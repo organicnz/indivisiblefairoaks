@@ -1,0 +1,394 @@
+{
+  "version": 2,
+  "generatedFrom": "Reviewed against the 9 legacy pages, 44 staged images and the current media/gallery objects on 2026-11-13; keyed by 64-bit image difference hash because Google Sites image-proxy URLs rotate.",
+  "dhashThreshold": 8,
+  "notes": "Each entry is matched by image content, not by source URL. mediaObject reuses an existing public media object. hidden keeps the raw copy private (QR codes, blank captures, document previews). Images with no entry are uploaded to legacy-documents when chapter-owned and not a utility image.",
+  "entries": [
+    {
+      "page": "/",
+      "dhash": "1100110010011100010000111101001111010011111001110110111110100110",
+      "width": 1200,
+      "height": 1597,
+      "role": "photo",
+      "label": "“Give a Damn” voter sign",
+      "mediaObject": "gallery/real-legacy-8.jpg"
+    },
+    {
+      "page": "/",
+      "dhash": "0000000000000010111010000110101100111001000001100111001011001101",
+      "width": 1161,
+      "height": 2048,
+      "role": "photo",
+      "label": "“Give a Damn” voter sign",
+      "mediaObject": "gallery/real-legacy-9.jpg"
+    },
+    {
+      "page": "/",
+      "dhash": "1011001110110011010110010100110101001111101001110110000111100000",
+      "width": 1280,
+      "height": 528,
+      "role": "photo",
+      "label": "Chapter meeting room"
+    },
+    {
+      "page": "/",
+      "dhash": "1111011101011111111101101001111011001100001110110101101100100111",
+      "width": 960,
+      "height": 1278,
+      "role": "photo",
+      "label": "Chapter members at a community event",
+      "mediaObject": "gallery/real-legacy-11.jpg"
+    },
+    {
+      "page": "/",
+      "dhash": "0000000000100100000110100000001000010010000110110000011100000000",
+      "width": 1280,
+      "height": 293,
+      "role": "logo",
+      "label": "Indivisible Fair Oaks-Carmichael chapter logo"
+    },
+    {
+      "page": "/",
+      "dhash": "0101010110001101100010011101011010010001101011110100111001111111",
+      "width": 512,
+      "height": 268,
+      "role": "event-card",
+      "label": "Indivisible RSVP card",
+      "mediaObject": "gallery/real-legacy-5.jpg"
+    },
+    {
+      "page": "/",
+      "dhash": "0110110001100010010100100101100000110110001100100000110001101100",
+      "width": 1280,
+      "height": 711,
+      "role": "photo",
+      "label": "No Kings roadside standout",
+      "mediaObject": "gallery/no-kings-roadside-standout.jpg"
+    },
+    {
+      "page": "/",
+      "dhash": "0110110100011101011011001010110001101100011011110010110000101100",
+      "width": 1280,
+      "height": 836,
+      "role": "photo",
+      "label": "Organizing training in a classroom",
+      "mediaObject": "gallery/norcal-organizing-inclusive-democracy.jpg"
+    },
+    {
+      "page": "/",
+      "dhash": "0101100101100001010001010110111100001011001110010111100101110011",
+      "width": 432,
+      "height": 450,
+      "role": "qr",
+      "label": "Registration QR code",
+      "hidden": true
+    },
+    {
+      "page": "/",
+      "dhash": "1100011111010001101100110011001001111001010010011010011110000110",
+      "width": 1280,
+      "height": 1280,
+      "role": "photo",
+      "label": "Volunteer reading at a chapter event"
+    },
+    {
+      "page": "/current-events",
+      "dhash": "0110100100101001111000100100001110100111000011110101100000011000",
+      "width": 2048,
+      "height": 1153,
+      "role": "photo",
+      "label": "No Kings constitution banner",
+      "mediaObject": "gallery/no-kings-constitution-banner.jpg"
+    },
+    {
+      "page": "/links",
+      "dhash": "0111100101100001011001010110111100001011001110010111100101110011",
+      "width": 450,
+      "height": 450,
+      "role": "qr",
+      "label": "Registration QR code",
+      "hidden": true
+    },
+    {
+      "page": "/newsletters",
+      "dhash": "0000000000000000000000000000000000000000000000000000000000000000",
+      "width": 1289,
+      "height": 508,
+      "role": "blank",
+      "label": "Blank newsletter header capture",
+      "hidden": true
+    },
+    {
+      "page": "/resistance-choir",
+      "dhash": "1101101010111010010101001100101010011010100111100011111000100110",
+      "width": 1280,
+      "height": 659,
+      "role": "photo",
+      "label": "Choir in yellow shirts"
+    },
+    {
+      "page": "/resistance-choir",
+      "dhash": "0011111000111010001110111010110100110101010111010111001111100110",
+      "width": 2048,
+      "height": 1153,
+      "role": "photo",
+      "label": "Choir rehearsal outdoors",
+      "mediaObject": "gallery/choir-outdoor-rehearsal.jpg"
+    },
+    {
+      "page": "/upcoming-events",
+      "dhash": "0101010010101000001011000111000111101000011100101001001110001001",
+      "width": 512,
+      "height": 268,
+      "role": "event-card",
+      "label": "“Nobody’s free until everybody’s free” event card",
+      "mediaObject": "gallery/real-legacy-17.jpg"
+    },
+    {
+      "page": "/upcoming-events",
+      "dhash": "1011001101101010010010100101111000101110010010100110000111100010",
+      "width": 512,
+      "height": 268,
+      "role": "event-card",
+      "label": "Event audience photograph",
+      "mediaObject": "gallery/real-legacy-13.jpg"
+    },
+    {
+      "page": "/upcoming-events",
+      "dhash": "0100110001101100101101001011010110110101101101010011010101100101",
+      "width": 512,
+      "height": 268,
+      "role": "event-card",
+      "label": "Liberatory fists event card",
+      "mediaObject": "gallery/real-legacy-18.jpg"
+    },
+    {
+      "page": "/upcoming-events",
+      "dhash": "1011100011100000101001000101011011110010111100100100110001101100",
+      "width": 1200,
+      "height": 676,
+      "role": "photo",
+      "label": "No Kings Carmichael line",
+      "mediaObject": "gallery/no-kings-carmichael-line.jpg"
+    },
+    {
+      "page": "/upcoming-events",
+      "dhash": "1011100010111000110010011100100110011001100110001101100011111000",
+      "width": 1200,
+      "height": 676,
+      "role": "photo",
+      "label": "Rally crowd",
+      "mediaObject": "gallery/norcal-solidarity-gold-country.jpg"
+    },
+    {
+      "page": "/upcoming-events",
+      "dhash": "0101100101010001010101010110110100001011001101010101110101110011",
+      "width": 405,
+      "height": 450,
+      "role": "qr",
+      "label": "Registration QR code",
+      "hidden": true
+    },
+    {
+      "page": "/upcoming-events",
+      "dhash": "1101010011010110000100101101001001110010001100100101111000100111",
+      "width": 512,
+      "height": 268,
+      "role": "event-card",
+      "label": "Street action photograph",
+      "mediaObject": "gallery/real-legacy-19.jpg"
+    },
+    {
+      "page": "/upcoming-events",
+      "dhash": "0110010100001101000011110000100100010111000011110000011010010110",
+      "width": 1280,
+      "height": 1829,
+      "role": "event-card",
+      "label": "Sunrise Solidarity Citrus Heights and Folsom rally flyer",
+      "mediaObject": "gallery/norcal-peace-action-sacramento.jpg"
+    },
+    {
+      "page": "/upcoming-events",
+      "dhash": "0101001100101001110000111100000011011000111100001111000101101101",
+      "width": 512,
+      "height": 268,
+      "role": "event-card",
+      "label": "What's the Plan with Leah and Ezra event card",
+      "mediaObject": "gallery/real-legacy-20.jpg"
+    },
+    {
+      "page": "/upcoming-events/no-kings-4",
+      "dhash": "1100110110001001100000101010010010000110110000101100011110000111",
+      "width": 2048,
+      "height": 1463,
+      "role": "photo",
+      "label": "“If your grandfather fought in WWII he was antifascist” sign",
+      "mediaObject": "gallery/real-legacy-24.jpg"
+    },
+    {
+      "page": "/upcoming-events/no-kings-4",
+      "dhash": "1011101011001100110011011011010110111101111111011011011111101111",
+      "width": 480,
+      "height": 640,
+      "role": "photo",
+      "label": "“They found the Antifa handbook” sign"
+    },
+    {
+      "page": "/upcoming-events/no-kings-4",
+      "dhash": "0000100010010011010000101111001011010010110100011011001110111001",
+      "width": 1201,
+      "height": 1599,
+      "role": "photo",
+      "label": "“This grandma is standing up for democracy” sign"
+    },
+    {
+      "page": "/upcoming-events/no-kings-4",
+      "dhash": "1100100101101111001001100010100000011010000110000101001110100010",
+      "width": 640,
+      "height": 417,
+      "role": "photo",
+      "label": "Choir performance"
+    },
+    {
+      "page": "/upcoming-events/no-kings-4",
+      "dhash": "1000011010001100111011101011001000100011000011111101100000000001",
+      "width": 891,
+      "height": 663,
+      "role": "photo",
+      "label": "Community gathering in a park",
+      "mediaObject": "gallery/real-legacy-28.jpg"
+    },
+    {
+      "page": "/upcoming-events/no-kings-4",
+      "dhash": "0000101100101001001011001010000100100011011010110110011000101010",
+      "width": 640,
+      "height": 345,
+      "role": "photo",
+      "label": "Community gathering in a park"
+    },
+    {
+      "page": "/upcoming-events/no-kings-4",
+      "dhash": "0000010100000000010010000100101010000101101000011111000011110011",
+      "width": 480,
+      "height": 503,
+      "role": "photo",
+      "label": "Community gathering in a park"
+    },
+    {
+      "page": "/upcoming-events/no-kings-4",
+      "dhash": "0000111100001111001111000111010001000010110011011000110000101110",
+      "width": 2048,
+      "height": 1536,
+      "role": "photo",
+      "label": "Highway overpass banner",
+      "mediaObject": "gallery/highway-overpass-good-trouble.jpg"
+    },
+    {
+      "page": "/upcoming-events/no-kings-4",
+      "dhash": "0001001010101100011011110111110001100110011001111100000101100101",
+      "width": 2048,
+      "height": 1536,
+      "role": "photo",
+      "label": "Highway overpass banner",
+      "mediaObject": "gallery/highway-overpass-foam-hands.jpg"
+    },
+    {
+      "page": "/upcoming-events/no-kings-4",
+      "dhash": "0001110000110101011110110010100100110110001110010111100001100111",
+      "width": 2048,
+      "height": 1536,
+      "role": "photo",
+      "label": "Mutual aid gathering in Fair Oaks Park",
+      "mediaObject": "gallery/mutual-aid-fair-oaks-park.jpg"
+    },
+    {
+      "page": "/upcoming-events/no-kings-4",
+      "dhash": "1100000101000001001100110011000101100011110001100000001000000001",
+      "width": 640,
+      "height": 470,
+      "role": "photo",
+      "label": "No Kings gathering at a Fair Oaks park"
+    },
+    {
+      "page": "/upcoming-events/no-kings-4",
+      "dhash": "1110011010000010001100101110001100100111001011110010111000100100",
+      "width": 2048,
+      "height": 1463,
+      "role": "photo",
+      "label": "No Kings protest sign",
+      "mediaObject": "gallery/real-legacy-25.jpg"
+    },
+    {
+      "page": "/upcoming-events/no-kings-4",
+      "dhash": "0001100110111000111101001110111011001000110010111100101111101011",
+      "width": 1463,
+      "height": 2048,
+      "role": "photo",
+      "label": "No Kings sign at the California Capitol",
+      "mediaObject": "gallery/no-kings-sacramento-capitol.jpg"
+    },
+    {
+      "page": "/upcoming-events/no-kings-4",
+      "dhash": "0011010010000100101100001001110100011101010100000100001001001010",
+      "width": 2048,
+      "height": 1463,
+      "role": "photo",
+      "label": "Protect democracy protest",
+      "mediaObject": "gallery/real-legacy-23.jpg"
+    },
+    {
+      "page": "/upcoming-events/no-kings-4",
+      "dhash": "1000011111101001111010000110010101100101001101011011100000101110",
+      "width": 2048,
+      "height": 1536,
+      "role": "photo",
+      "label": "Resource table at a community event",
+      "mediaObject": "gallery/real-legacy-29.jpg"
+    },
+    {
+      "page": "/upcoming-events/upcoming-fall-events",
+      "dhash": "1110011101011111111101101101111011001100001110110101111100100111",
+      "width": 960,
+      "height": 1280,
+      "role": "photo",
+      "label": "Chapter members at a fall event",
+      "mediaObject": "gallery/real-legacy-11.jpg"
+    },
+    {
+      "page": "/upcoming-events/upcoming-fall-events",
+      "dhash": "1101001111001011110010011101100011000010100010001100100101010001",
+      "width": 512,
+      "height": 268,
+      "role": "event-card",
+      "label": "No Kings: Vote Early mobilization lab card",
+      "mediaObject": "gallery/real-legacy-32.jpg"
+    },
+    {
+      "page": "/voter-information",
+      "dhash": "0101000011000110011001001110100010011001100110010110101101101001",
+      "width": 1153,
+      "height": 2048,
+      "role": "photo",
+      "label": "“Give a Damn” voter sign",
+      "mediaObject": "gallery/real-legacy-38.jpg"
+    },
+    {
+      "page": "/voter-information",
+      "dhash": "1010010001100011011000100110000001100011001000111011001110100101",
+      "width": 1280,
+      "height": 1620,
+      "role": "photo",
+      "label": "“Resist. Vote.” voter sign",
+      "mediaObject": "gallery/real-legacy-39.jpg"
+    },
+    {
+      "page": "/voter-information",
+      "dhash": "1001101101110001111110011100010011111000110100101101011011000111",
+      "width": 1280,
+      "height": 1619,
+      "role": "photo",
+      "label": "Uncle Sam at a voter event",
+      "mediaObject": "gallery/choir-voices-for-justice.jpg"
+    }
+  ]
+}

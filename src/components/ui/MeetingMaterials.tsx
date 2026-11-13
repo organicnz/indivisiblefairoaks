@@ -4,8 +4,6 @@ import {
   Calendar,
   CheckCircle2,
   ChevronRight,
-  Download,
-  ExternalLink,
   FileSpreadsheet,
   FileText,
   FolderOpen,
@@ -15,6 +13,11 @@ import {
   Users,
 } from 'lucide-react';
 import { useState } from 'react';
+
+// The old Drive folder these cards pointed at is no longer publicly readable
+// (it returns 404). Keep the cards useful without pretending each one has its
+// own downloadable file: every item now goes to the reviewed public archive.
+const ARCHIVE_HREF = '/archive';
 
 interface MeetingReview {
   id: string;
@@ -87,7 +90,6 @@ interface PrintableHandout {
   description: string;
   pages: string;
   format: string;
-  downloadUrl: string;
   iconName: 'file' | 'phone' | 'users' | 'music';
 }
 
@@ -100,7 +102,6 @@ const PRINTABLE_HANDOUTS: PrintableHandout[] = [
       'Full monthly meeting agenda, steering committee updates, upcoming action calendar, and key contact details.',
     pages: '2 Pages',
     format: 'PDF',
-    downloadUrl: 'https://drive.google.com/open?id=1cugSjV00M6yL3e414nUq8j2hC9H-Kq6L',
     iconName: 'file',
   },
   {
@@ -111,7 +112,6 @@ const PRINTABLE_HANDOUTS: PrintableHandout[] = [
       'Concise representative calling script for federal and state bills, tailored for 5 Calls and direct congressional office outreach.',
     pages: '1 Page',
     format: 'PDF',
-    downloadUrl: 'https://drive.google.com/open?id=1cugSjV00M6yL3e414nUq8j2hC9H-Kq6L',
     iconName: 'phone',
   },
   {
@@ -122,7 +122,6 @@ const PRINTABLE_HANDOUTS: PrintableHandout[] = [
       'Double-sided half-page handout highlighting registration deadlines, Vote Center locations, and BallotTrax tracking.',
     pages: '2 Pages',
     format: 'PDF',
-    downloadUrl: 'https://drive.google.com/open?id=1cugSjV00M6yL3e414nUq8j2hC9H-Kq6L',
     iconName: 'users',
   },
   {
@@ -133,7 +132,6 @@ const PRINTABLE_HANDOUTS: PrintableHandout[] = [
       'Curated sheet music excerpts, protest choruses, and call-and-response lyrics for community rallies and street actions.',
     pages: '4 Pages',
     format: 'PDF',
-    downloadUrl: 'https://drive.google.com/open?id=1cugSjV00M6yL3e414nUq8j2hC9H-Kq6L',
     iconName: 'music',
   },
 ];
@@ -241,18 +239,16 @@ export function MeetingMaterials() {
               );
             })}
 
-            {/* Google Drive Archive Link */}
+            {/* Legacy archive link */}
             <a
-              href="https://drive.google.com/open?id=1cugSjV00M6yL3e414nUq8j2hC9H-Kq6L"
-              target="_blank"
-              rel="noopener noreferrer"
+              href={ARCHIVE_HREF}
               className="mt-4 flex items-center justify-between p-3.5 rounded-xl border border-dashed border-border hover:border-primary/50 bg-surface-card hover:bg-surface-muted/40 text-xs font-bold text-foreground transition-all group"
             >
               <div className="flex items-center gap-2.5">
                 <FolderOpen size={16} className="text-accent-gold" />
-                <span>Browse Full Meeting Minutes &amp; Archive on Drive</span>
+                <span>Browse Full Meeting Minutes &amp; Archive</span>
               </div>
-              <ExternalLink
+              <ChevronRight
                 size={14}
                 className="text-muted-foreground group-hover:text-primary transition-colors"
               />
@@ -320,13 +316,11 @@ export function MeetingMaterials() {
                 Official records maintained by the Steering Committee
               </span>
               <a
-                href="https://drive.google.com/open?id=1cugSjV00M6yL3e414nUq8j2hC9H-Kq6L"
-                target="_blank"
-                rel="noopener noreferrer"
+                href={ARCHIVE_HREF}
                 className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-primary hover:bg-primary-dark text-white font-bold text-xs uppercase tracking-wider transition-colors"
               >
-                <Download size={14} />
-                <span>Download Full Minutes (PDF)</span>
+                <FolderOpen size={14} />
+                <span>Browse Archive</span>
               </a>
             </div>
           </div>
@@ -380,20 +374,18 @@ export function MeetingMaterials() {
                     Ready for Print &amp; Distribution
                   </span>
                   <a
-                    href={handout.downloadUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    href={ARCHIVE_HREF}
                     className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-primary hover:bg-primary-dark text-white font-bold text-xs uppercase tracking-wider transition-colors"
                   >
-                    <Download size={14} />
-                    <span>Download PDF</span>
+                    <FolderOpen size={14} />
+                    <span>Browse Archive</span>
                   </a>
                 </div>
               </div>
             ))}
           </div>
 
-          {/* Additional Drive Repository Card */}
+          {/* Archive repository card */}
           <div className="p-6 rounded-2xl bg-surface-muted border border-dashed border-border flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <FolderOpen size={24} className="text-accent-gold shrink-0" />
@@ -402,18 +394,16 @@ export function MeetingMaterials() {
                   Looking for past meeting slide decks, signs, or flyers?
                 </h4>
                 <p className="text-xs text-muted-foreground dark:text-ink-on-dark mt-0.5">
-                  Our shared Google Drive contains all chapter collateral since 2017.
+                  The chapter archive preserves public collateral from the old site.
                 </p>
               </div>
             </div>
             <a
-              href="https://drive.google.com/open?id=1cugSjV00M6yL3e414nUq8j2hC9H-Kq6L"
-              target="_blank"
-              rel="noopener noreferrer"
+              href={ARCHIVE_HREF}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-surface-card hover:bg-surface-card/80 border border-border text-foreground font-bold text-xs uppercase tracking-wider transition-all shrink-0 shadow-xs"
             >
-              <span>Open Handouts Drive</span>
-              <ExternalLink size={14} />
+              <span>Browse Archive</span>
+              <ChevronRight size={14} />
             </a>
           </div>
         </div>

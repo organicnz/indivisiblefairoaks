@@ -111,6 +111,13 @@ export async function Footer() {
                   </DataPoint>
                 </Link>
               </li>
+              <li>
+                <Link href="/archive" className="hover:text-white transition-colors">
+                  <DataPoint name="footer.nav.archive" as="span" initialData={dataPoints}>
+                    Legacy Chapter Archive
+                  </DataPoint>
+                </Link>
+              </li>
             </ul>
           </div>
 
@@ -237,6 +244,11 @@ export async function Footer() {
             <Link href="/contact" className="hover:text-white transition-colors">
               <DataPoint name="footer.bottom.contact" as="span" initialData={dataPoints}>
                 Contact
+              </DataPoint>
+            </Link>
+            <Link href="/archive" className="hover:text-white transition-colors">
+              <DataPoint name="footer.bottom.archive" as="span" initialData={dataPoints}>
+                Archive
               </DataPoint>
             </Link>
             <a

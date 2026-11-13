@@ -49,6 +49,9 @@ docs/*.csv
 e2e/.auth/
 
 # Local worktrees & scratch
+# Audit manifests, screenshots and staged legacy downloads contain private
+# archival copies and must never be committed.
+tmp/
 .worktrees/
 .vitest/
 .agents/tasks/

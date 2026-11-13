@@ -1,5 +1,6 @@
-import { Compass } from 'lucide-react';
+import { Archive, ArrowUpRight, Compass } from 'lucide-react';
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { InteractiveLinksDirectory } from '@/components/ui/InteractiveLinksDirectory';
 import { VgpuBirkelandCurrents } from '@/components/ui/VgpuBirkelandCurrents';
@@ -195,8 +196,33 @@ export default async function LinksPage() {
         </div>
       </section>
 
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-8">
         <InteractiveLinksDirectory initialLinks={items} />
+
+        <div className="rounded-2xl border border-border bg-surface-card p-6 sm:p-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
+          <div className="flex items-start gap-3">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent-gold/15 text-accent dark:text-accent-gold">
+              <Archive size={20} />
+            </span>
+            <div>
+              <h2 className="text-lg font-black tracking-tight text-foreground dark:text-white">
+                Looking for an older link?
+              </h2>
+              <p className="mt-1 max-w-xl text-xs sm:text-sm leading-relaxed text-muted-foreground dark:text-ink-on-dark">
+                The complete link list from the chapter’s Google Sites — including organization
+                sites that are no longer active — is preserved in the archive with its original page
+                context.
+              </p>
+            </div>
+          </div>
+          <Link
+            href="/archive"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-primary px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white hover:bg-primary-dark transition-colors"
+          >
+            Open archive
+            <ArrowUpRight size={14} />
+          </Link>
+        </div>
       </div>
     </div>
   );

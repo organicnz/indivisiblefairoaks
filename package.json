@@ -21,6 +21,8 @@
     "types:generate": "bun scripts/gen-types.mjs",
     "content:export": "bun scripts/export-content-rows.mjs",
     "content:archive:preview": "bun scripts/preview-content-archive.mjs",
+    "legacy:audit": "bun scripts/legacy-audit.mjs",
+    "legacy:import": "bun scripts/legacy-import.mjs",
     "audit:deps": "bun scripts/check-vulnerabilities.mjs",
     "secrets:audit": "bun scripts/secrets-audit.mjs",
     "secrets:baseline": "bun scripts/secrets-audit.mjs --update-baseline",

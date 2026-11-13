@@ -31,7 +31,8 @@ describe('MeetingMaterials Component', () => {
 
     expect(container.textContent).toContain('Meeting Reviews & Printable Handouts');
     expect(container.textContent).toContain('General Chapter Meeting: Final Election Push & Ballot Strategy');
-    expect(container.textContent).toContain('Browse Full Meeting Minutes & Archive on Drive');
+    expect(container.textContent).toContain('Browse Full Meeting Minutes & Archive');
+    expect(container.textContent).not.toContain('Drive');
   });
 
   it('switches to printable handouts tab when clicked', async () => {
@@ -52,7 +53,9 @@ describe('MeetingMaterials Component', () => {
     expect(container.textContent).toContain('Civic Action Phone Script: Defending California Democracy');
     expect(container.textContent).toContain('Fair Oaks & Carmichael Voter Registration Walk Flyer');
     expect(container.textContent).toContain('Carmichael Resistance Choir Songbook & Chants');
-    expect(container.textContent).toContain('Open Handouts Drive');
+    expect(container.textContent).toContain('The chapter archive preserves public collateral from the old site.');
+    expect(container.textContent).not.toContain('Drive');
+    expect(container.querySelectorAll('a[href="/archive"]').length).toBeGreaterThanOrEqual(5);
   });
 
   it('allows selecting different meeting reviews in the reviews tab', async () => {

@@ -32,6 +32,7 @@ const STATIC_ROUTES: {
   { path: '/gallery', changeFrequency: 'weekly', priority: 0.7 },
   { path: '/partners', changeFrequency: 'monthly', priority: 0.6 },
   { path: '/links', changeFrequency: 'monthly', priority: 0.7 },
+  { path: '/archive', changeFrequency: 'monthly', priority: 0.6 },
   { path: '/faqs', changeFrequency: 'monthly', priority: 0.7 },
   { path: '/privacy-policy', changeFrequency: 'yearly', priority: 0.3 },
   { path: '/terms-and-conditions', changeFrequency: 'yearly', priority: 0.3 },
