@@ -29,6 +29,7 @@ export default function GalleryPage() {
 
   // Fetch gallery photos from Supabase on mount
   const [dbPhotos, setDbPhotos] = useState<GalleryPhoto[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -42,12 +43,13 @@ export default function GalleryPage() {
             return;
           }
         }
-      } catch {
-        // Fall back gracefully
-      }
-      getGalleryPhotos().then((photos) => {
+        const photos = await getGalleryPhotos();
         if (!cancelled) setDbPhotos(photos);
-      });
+      } catch {
+        // Keep the empty state honest if both reads fail.
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
     }
     loadGallery();
     return () => {
@@ -290,7 +292,10 @@ export default function GalleryPage() {
                 className="text-muted-foreground dark:text-ink-muted-on-dark mr-1 hidden sm:inline-block"
               />
               {categories.map((category) => {
-                const count = allPhotos.filter((p) => p.category === category).length;
+                const count =
+                  category === 'All'
+                    ? allPhotos.length
+                    : allPhotos.filter((p) => p.category === category).length;
                 const isSelected = selectedCategory === category;
                 return (
                   <button
@@ -312,7 +317,7 @@ export default function GalleryPage() {
                           : 'bg-surface-muted dark:bg-white/5 text-muted-foreground dark:text-ink-muted-on-dark'
                       }`}
                     >
-                      {count}
+                      {isLoading ? '…' : count}
                     </span>
                   </button>
                 );
@@ -324,12 +329,20 @@ export default function GalleryPage() {
 
       {/* Filtering and searching produced a silently-changing grid. */}
       <p role="status" aria-live="polite" className="sr-only">
-        {filteredPhotos.length} photo{filteredPhotos.length === 1 ? '' : 's'} shown
+        {isLoading
+          ? 'Loading gallery'
+          : `${filteredPhotos.length} photo${filteredPhotos.length === 1 ? '' : 's'} shown`}
       </p>
 
       {/* Gallery Grid */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12">
-        {filteredPhotos.length === 0 ? (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12" aria-busy={isLoading}>
+        {isLoading ? (
+          <div className="py-20 text-center space-y-4">
+            <p className="text-muted-foreground dark:text-ink-muted-on-dark text-base">
+              Loading gallery…
+            </p>
+          </div>
+        ) : filteredPhotos.length === 0 ? (
           <div className="py-20 text-center space-y-4">
             <p className="text-muted-foreground dark:text-ink-muted-on-dark text-base">
               No photos match your current search or category filter.
