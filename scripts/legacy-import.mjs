@@ -129,6 +129,32 @@ function repairLegacyText(value) {
     .replace(/\bSacramentp\b/g, 'Sacramento');
 }
 
+// Public-facing corrections for filenames that are abbreviations or capture
+// labels rather than the document's actual title. Slugs deliberately keep the
+// original filename-derived title so a correction never creates a second row or
+// moves an already-published object.
+const DOCUMENT_TITLE_OVERRIDES = new Map([
+  ['16PoEMeUfNlrrTW7j6hwFuKJW0aDuHfTi', 'Easy Voter Guide — November 2026 (Spanish)'],
+  [
+    '1vAqzxHNZb25GqwUZJ2pQFl-IbPxpONcN',
+    'Easy Voter Guide — November 2026 (League of Women Voters)',
+  ],
+  ['10XEUyMoyGUI_UktPVwB0RJo-6w3lN0Uy', 'CalMatters 2026 Voter Guide (Nonpartisan)'],
+  ['1XyqCKsSKaQqrrzX7CSl3G3v0ChUtH98U', 'Key Dates for the Election'],
+  ['1y4yaaCwk5smQ2dC7pLftHmz8N4THiv-Z', 'Vote with the League: Quick Reference Guide'],
+  ['1mpQTszfaP1wLvydcCjLTfw9WKzXNL4YN', 'Sacramento List of Elected Officials'],
+  [
+    '1NEUZUwV_wN3Ni4DePH2ccM9YCgKGDyUn',
+    'Sacramento List of Elected Officials 2025 (Page 2)',
+  ],
+  ['1JxqIH6yicsM16PmgSJ_qDDu8bacq3hed', 'Pre-Register to Vote at 16'],
+  ['1juYjxyCfRKW5kf-IMTefHwwYrUJnx7WL', 'Voting Rights for Formerly Incarcerated People (Page 1)'],
+  ['10oRcKJ6aCYYV88ZRN-FfZPpPnBqhVqN2', 'Homeless Is Not Voteless'],
+  ['1rQbBKQomLL3PgGy46IukFkxVE2GMkhHd', 'Newsletter — April 27, 2026'],
+  ['1C9PKoCejiYMSzFxMFUfzsa1x9JHoHreQ7l3CYibykis', 'Know Your Rights: General Overview'],
+  ['13lQizUKvHyuckCd54-PAw0b60XeXQP7K', 'ARC Votes'],
+]);
+
 export function documentTitle(asset) {
   // Content-Disposition occasionally carries a trailing control character
   // after the extension, which would otherwise survive the extension strip.
@@ -155,6 +181,34 @@ export function documentTitle(asset) {
     .trim();
   if (caption && !/^untitled$/i.test(caption)) return caption;
   return asset.driveId ? `Legacy Drive document ${asset.driveId.slice(0, 8)}` : 'Legacy document';
+}
+
+export function documentDisplayTitle(asset) {
+  const override = asset.driveId ? DOCUMENT_TITLE_OVERRIDES.get(asset.driveId) : null;
+  return override ?? documentTitle(asset);
+}
+
+/** Drop preserved navigation chrome and document filenames that the archive renders separately. */
+export function cleanLegacyBodyText(value, pageTitle) {
+  const normalizedTitle = String(pageTitle ?? '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+  return String(value ?? '')
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => {
+      if (!line) return false;
+      if (normalizedTitle && line.toLowerCase() === normalizedTitle) return false;
+      if (/^[^\n]+\.(?:pdf|docx?|xlsx?|pptx?|csv|txt|rtf|odt|ods|odp|mp4|mov|webm)$/i.test(line)) {
+        return false;
+      }
+      return true;
+    })
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 /** Small QR codes and blank banner captures are preservation-only, not public images. */
@@ -706,7 +760,7 @@ async function upsertPage(db, runId, page, outDir, manifest) {
     if (error) throw new Error(`screenshot upload failed: ${error.message}`);
   }
 
-  const bodyText = String(page.mainText ?? '').trim();
+  const bodyText = cleanLegacyBodyText(page.mainText, page.title);
   const { data, error } = await db
     .from('legacy_pages')
     .upsert(
@@ -784,7 +838,7 @@ async function upsertDocument(db, runId, result, page) {
   const asset = result.asset;
   if (!isDocumentAsset(asset)) return null;
   const rights = result.rights ?? effectiveRights(asset);
-  const title = documentTitle({ ...asset, filename: result.filename ?? asset.filename });
+  const title = documentDisplayTitle({ ...asset, filename: result.filename ?? asset.filename });
   const slug = documentSlug(asset);
   const category = documentCategoryForPage(page.kind ?? page.pageKind ?? 'page');
   const payload = {
@@ -886,7 +940,10 @@ function placementReport(results) {
     .filter((result) => isDocumentAsset(result.asset))
     .map((result) => ({
       page: result.asset.pagePath,
-      title: documentTitle({ ...result.asset, filename: result.filename ?? result.asset.filename }),
+      title: documentDisplayTitle({
+        ...result.asset,
+        filename: result.filename ?? result.asset.filename,
+      }),
       slug: documentSlug(result.asset),
       category: documentCategoryForPage(result.asset.pageKind),
       rights: result.rights ?? effectiveRights(result.asset),
@@ -971,7 +1028,7 @@ async function main() {
           pages: selectedPages.map((page) => ({ path: page.path, title: page.title, assets: page.assets?.length ?? 0 })),
           documents: selectedDocuments.map((asset) => ({
             page: asset.pagePath,
-            title: documentTitle(asset),
+            title: documentDisplayTitle(asset),
             slug: documentSlug(asset),
             rights: effectiveRights(asset),
             source: asset.sourceUrl,

@@ -123,7 +123,8 @@ ORDER BY key;
 
 -- 2.1 Exact row counts. Every "ok" must be true.
 -- Expected: 9 pages, 71 assets, 20 documents, 27 links, 49 public assets,
--- 17 public documents, 27 public links, one successful import run.
+-- 17 public documents, 27 public links, and two successful import runs
+-- (the reviewed import plus the public-title/body cleanup rerun).
 SELECT x.object, x.actual, x.expected, (x.actual = x.expected) AS ok
 FROM (VALUES
     ('legacy_pages',              (SELECT count(*) FROM public.legacy_pages), 9),
@@ -136,7 +137,7 @@ FROM (VALUES
     ('legacy_public_page_links',  (SELECT count(*) FROM public.legacy_public_page_links), 27),
     ('successful_import_runs',    (
         SELECT count(*) FROM public.legacy_import_runs WHERE status = 'succeeded'
-    ), 1)
+    ), 2)
 ) AS x(object, actual, expected)
 ORDER BY x.object;
 

@@ -90,8 +90,10 @@ its raw asset row stays private.
    archive renders `legacy_pages.body_text`. The audit walks block elements so
    headings, paragraphs and link rows keep their boundaries, which lets the
    chrome filter remove the contact footer instead of leaving it fused to the
-   last document name. This avoids executing old Sites markup and keeps
-   `javascript:`/tracking links out of the page.
+   last document name. The import also drops repeated page headings and
+   document-filename rows that the archive renders separately. This avoids
+   executing old Sites markup and keeps `javascript:`/tracking links out of the
+   page.
 5. **Image and document URLs are resolved server-side.** The browser receives
    either an existing `media/gallery` URL, a `legacy-documents` public URL or the
    original source URL, never a `legacy-archive` object key.
@@ -107,8 +109,9 @@ its raw asset row stays private.
 - `legacy_assets` is keyed by `asset_key` (`drive:<id>:<kind>`,
   `youtube:<id>`, or `url:<normalized-url>`).
 - `legacy_documents` is the public document index. `asset_id` is the stable
-  identity for reruns; the readable slug is derived from the repaired title and
-  updates in place when a source filename is corrected.
+  identity for reruns; the readable slug stays derived from the source filename
+  while reviewed display-title overrides can correct an abbreviation or capture
+  label without moving an already-published object.
 - `legacy_page_links` is replaced per page on each run and keeps each external
   destination once, with the cleanest available label. Document links are left
   to `legacy_documents` so the archive does not show a duplicate download row.

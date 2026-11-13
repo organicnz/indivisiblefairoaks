@@ -2,7 +2,9 @@
 import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
 import {
+  cleanLegacyBodyText,
   documentCategoryForPage,
+  documentDisplayTitle,
   documentSlug,
   documentTitle,
   effectiveRights,
@@ -43,6 +45,32 @@ describe('legacy import plan', () => {
         caption: 'Document, General Overview of your rights in a set of scenarios',
       })
     ).toBe('General Overview of your rights in a set of scenarios');
+  });
+
+  it('uses reviewed public titles without changing the stable document slug', () => {
+    const spanishGuide = { ...asset, driveId: '16PoEMeUfNlrrTW7j6hwFuKJW0aDuHfTi' };
+    expect(documentTitle(spanishGuide)).toBe('Newsletter 2026 04 27');
+    expect(documentDisplayTitle(spanishGuide)).toBe('Easy Voter Guide — November 2026 (Spanish)');
+    expect(documentDisplayTitle({ ...asset, driveId: 'not-in-the-override-map' })).toBe(
+      documentTitle(asset)
+    );
+    expect(documentSlug(spanishGuide)).toMatch(/^newsletter-2026-04-27-[a-z0-9]+$/);
+  });
+
+  it('removes duplicate page headings and document filenames from preserved body text', () => {
+    const body = [
+      'Voter Information',
+      'EVG-Nov26-Sp.pdf',
+      'Voting Right formerly incarderated pg 207072026.pdf',
+      'Voter Information',
+      'Read the guides and check your registration.',
+    ].join('\n');
+    expect(cleanLegacyBodyText(body, 'Voter Information')).toBe(
+      'Read the guides and check your registration.'
+    );
+    expect(cleanLegacyBodyText('Upcoming Events\nARC.VOTES.pdf\nJoin us.', 'Upcoming Events')).toBe(
+      'Join us.'
+    );
   });
 
   it('repairs mojibake and known source-filename typos in public titles', () => {
