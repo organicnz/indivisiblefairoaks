@@ -463,7 +463,7 @@ export function SacramentoRepresentativeFinder() {
             >
               💡 Staffers tally calls by topic daily. 2 minutes makes a measurable difference!
             </DataPoint>
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
               <a
                 href="https://5calls.org"
                 target="_blank"

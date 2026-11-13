@@ -271,7 +271,11 @@ export default async function ArchivePage() {
                                   <iframe
                                     className="h-full w-full"
                                     src={`https://www.youtube.com/embed/${asset.youtube_id}`}
-                                    title={asset.caption || `${page.title} archive video`}
+                                    title={
+                                      asset.caption && asset.caption.trim() !== 'YouTube Video'
+                                        ? asset.caption
+                                        : `${page.title} archive video`
+                                    }
                                     loading="lazy"
                                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                                     allowFullScreen

@@ -285,13 +285,26 @@ export default async function ChoirPage() {
 
             <div className="rounded-2xl overflow-hidden bg-surface-card border border-border p-4 shadow-xl space-y-3">
               <div className="aspect-video rounded-xl overflow-hidden bg-surface-deep dark:bg-secondary">
-                <iframe
-                  className="w-full h-full"
-                  src="https://www.youtube.com/embed/M631H68kLCE"
-                  title="Carmichael Resistance Choir Singing Demonstration 2"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
+                {/* The original video (M631H68kLCE) was removed from YouTube. */}
+                <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
+                  <Music size={28} className="text-accent-gold" aria-hidden="true" />
+                  <p className="text-sm font-bold text-foreground dark:text-white">
+                    Video no longer available
+                  </p>
+                  <p className="text-[11px] leading-relaxed text-muted-foreground dark:text-ink-on-dark">
+                    The original recording was removed from YouTube. Watch the choir’s latest
+                    performances on Instagram.
+                  </p>
+                  <a
+                    href="https://instagram.com/CarmichaelResistanceChoir"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-1 inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-card px-3 py-1.5 text-[11px] font-bold text-foreground transition-colors hover:border-primary/40 hover:text-primary-ink dark:border-white/15 dark:bg-white/5 dark:text-ink-on-dark dark:hover:text-accent-gold"
+                  >
+                    Watch on Instagram
+                    <ExternalLink size={12} aria-hidden="true" />
+                  </a>
+                </div>
               </div>
               <DataPoint
                 name="choir.videos.v2_title"
