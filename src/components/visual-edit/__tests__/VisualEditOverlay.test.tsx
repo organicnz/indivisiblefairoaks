@@ -628,7 +628,7 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     await withPage();
 
     const themeBtn = container.querySelector<HTMLButtonElement>(
-      'button[aria-label="Cycle theme mode preview"]'
+      'button[title^="Preview theme:"]'
     );
     expect(themeBtn).not.toBeNull();
 

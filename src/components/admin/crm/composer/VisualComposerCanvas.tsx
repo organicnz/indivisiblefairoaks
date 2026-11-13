@@ -66,6 +66,35 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
   const [collapsedBlockIds, setCollapsedBlockIds] = useState<Set<string>>(new Set());
   // Token picker dropdown state per block
   const [activeTokenBlockId, setActiveTokenBlockId] = useState<string | null>(null);
+  const tokenPickerRef = useRef<HTMLDivElement | null>(null);
+  const tokenTriggerRef = useRef<HTMLButtonElement | null>(null);
+
+  // Close token picker on Escape or outside click
+  useEffect(() => {
+    if (!activeTokenBlockId) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        setActiveTokenBlockId(null);
+        tokenTriggerRef.current?.focus();
+      }
+    };
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (tokenPickerRef.current && !tokenPickerRef.current.contains(e.target as Node)) {
+        setActiveTokenBlockId(null);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [activeTokenBlockId]);
 
   // Canvas viewport simulation: Full width, Standard email 600px, Mobile 375px
   const [canvasViewport, setCanvasViewport] = useState<'full' | 'standard' | 'mobile'>('full');
@@ -173,11 +202,19 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
   };
 
   const removeBlock = (id: string) => {
+    const targetBlock = blocks.find((b) => b.id === id);
+    const label = targetBlock ? `${targetBlock.type} block` : 'Block';
     if (blocks.length <= 1) {
       commitChange([{ id: genId(), type: 'text', content: '' }]);
+      toast(`${label} reset to empty text block`, {
+        action: { label: 'Undo', onClick: handleUndo },
+      });
       return;
     }
     commitChange(blocks.filter((b) => b.id !== id));
+    toast(`${label} removed`, {
+      action: { label: 'Undo', onClick: handleUndo },
+    });
   };
 
   const moveBlock = (index: number, direction: 'up' | 'down') => {
@@ -426,6 +463,8 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
         if (b.type === 'callout') return { ...b, text: `${b.text} ${token} ` };
         if (b.type === 'quote') return { ...b, quote: `${b.quote} ${token} ` };
         if (b.type === 'button') return { ...b, label: `${b.label} ${token}` };
+        if (b.type === 'signoff') return { ...b, sender: `${b.sender} ${token}` };
+        if (b.type === 'event') return { ...b, title: `${b.title} ${token}` };
         return b;
       })
     );
@@ -688,6 +727,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                           morphBlockType(block, e.target.value as ComposerBlock['type'])
                         }
                         title="Convert block type"
+                        aria-label={`Convert block ${idx + 1} type`}
                         className="text-[10px] font-bold text-muted-foreground bg-transparent border-none py-0 pl-1 pr-4 focus:ring-0 cursor-pointer hover:text-foreground"
                       >
                         <option value="text">as Text</option>
@@ -756,7 +796,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                       onClick={() => removeBlock(block.id)}
                       title="Delete block"
                       aria-label={`Delete block ${idx + 1}`}
-                      className="p-1 rounded text-muted-foreground hover:text-red-600 hover:bg-red-50"
+                      className="p-1 rounded text-muted-foreground hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40"
                     >
                       <Trash2 size={14} />
                     </button>
@@ -824,7 +864,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                       )}
 
                       {block.type === 'quote' && (
-                        <div className="p-4 rounded-xl border-l-4 border-amber-500 bg-amber-50/50 space-y-1">
+                        <div className="p-4 rounded-xl border-l-4 border-amber-500 bg-amber-50/50 dark:bg-amber-950/30 space-y-1">
                           <p className="text-xs font-medium text-foreground italic">
                             “{block.quote || 'Quote text'}”
                           </p>
@@ -890,10 +930,10 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                         <div
                           className={`p-3.5 rounded-xl border ${
                             block.variant === 'alert'
-                              ? 'bg-rose-50 border-rose-200 text-rose-900'
+                              ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800 text-rose-900 dark:text-rose-200'
                               : block.variant === 'success'
-                                ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
-                                : 'bg-blue-50 border-blue-200 text-blue-900'
+                                ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200'
+                                : 'bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800 text-blue-900 dark:text-blue-200'
                           }`}
                         >
                           {block.title && (
@@ -924,14 +964,14 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                       )}
 
                       {block.type === 'event' && (
-                        <div className="p-3.5 rounded-xl border border-purple-200 bg-purple-50/60 space-y-1">
-                          <div className="text-xs font-black uppercase text-purple-900">
+                        <div className="p-3.5 rounded-xl border border-purple-200 dark:border-purple-800 bg-purple-50/60 dark:bg-purple-950/40 space-y-1">
+                          <div className="text-xs font-black uppercase text-purple-900 dark:text-purple-200">
                             📅 {block.title || 'Event Title'}
                           </div>
-                          <div className="text-[11px] text-purple-700 font-bold">
+                          <div className="text-[11px] text-purple-700 dark:text-purple-300 font-bold">
                             When: {block.date} {block.time && `· ${block.time}`}
                           </div>
-                          <div className="text-[11px] text-purple-700">Where: {block.location}</div>
+                          <div className="text-[11px] text-purple-700 dark:text-purple-300">Where: {block.location}</div>
                         </div>
                       )}
 
@@ -999,21 +1039,34 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                             <span className="block text-[10px] font-black uppercase text-muted-foreground">
                               Message Content (Plain Text / Markdown)
                             </span>
-                            <div className="relative">
+                            <div
+                              className="relative"
+                              ref={activeTokenBlockId === block.id ? tokenPickerRef : undefined}
+                            >
                               <button
                                 type="button"
+                                ref={
+                                  activeTokenBlockId === block.id ? tokenTriggerRef : undefined
+                                }
                                 onClick={() =>
                                   setActiveTokenBlockId(
                                     activeTokenBlockId === block.id ? null : block.id
                                   )
                                 }
+                                aria-expanded={activeTokenBlockId === block.id}
+                                aria-label="Insert personalization merge tag"
                                 className="px-2 py-0.5 rounded text-[10px] font-bold bg-surface-muted hover:bg-surface-muted text-foreground flex items-center gap-1"
                               >
                                 <span>+ Insert Tag</span>
                                 <ChevronDown size={11} />
                               </button>
                               {activeTokenBlockId === block.id && (
-                                <div className="absolute right-0 top-full mt-1 w-48 rounded-xl bg-surface-card border border-border shadow-lg p-1.5 z-20 space-y-0.5">
+                                <div
+                                  role="group"
+                                  aria-label="Available merge tags"
+                                  data-testid="merge-tag-menu"
+                                  className="absolute right-0 top-full mt-1 w-48 rounded-xl bg-surface-card border border-border shadow-lg p-1.5 z-20 space-y-0.5"
+                                >
                                   {MERGE_TAGS.map((t) => (
                                     <button
                                       key={t.tag}
@@ -1056,7 +1109,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                                 <span>Supabase S3 Media</span>
                               </span>
                               {block.url?.includes('/storage/v1/object/public/media/') && (
-                                <span className="px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-bold">
+                                <span className="px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold">
                                   ✓ Hosted in Storage
                                 </span>
                               )}
@@ -1088,6 +1141,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                                 <input
                                   type="file"
                                   accept="image/jpeg,image/png,image/webp,image/gif"
+                                  aria-label="Upload new media file"
                                   onChange={(e) => handleQuickUploadForBlock(block.id, e)}
                                   disabled={uploadingBlockId === block.id}
                                   className="hidden"
@@ -1259,6 +1313,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                             </span>
                             <select
                               value={block.style}
+                              aria-label="List formatting style"
                               onChange={(e) =>
                                 updateBlock(block.id, {
                                   style: e.target.value as ListBlock['style'],
@@ -1296,7 +1351,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                                       items: nextItems.length ? nextItems : [''],
                                     });
                                   }}
-                                  className="p-1 text-muted-foreground hover:text-red-600 rounded"
+                                  className="p-1 text-muted-foreground hover:text-red-600 dark:hover:text-red-400 rounded"
                                   title="Delete item"
                                   aria-label={`Delete list item ${itemIdx + 1}`}
                                 >
@@ -1334,6 +1389,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                               <div key={chIdx} className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                                 <select
                                   value={ch.platform}
+                                  aria-label={`Social channel ${chIdx + 1} platform`}
                                   onChange={(e) => {
                                     const next = [...block.channels];
                                     next[chIdx] = {
@@ -1354,6 +1410,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                                 <input
                                   type="url"
                                   value={ch.url}
+                                  aria-label={`Social channel ${chIdx + 1} destination URL`}
                                   onChange={(e) => {
                                     const next = [...block.channels];
                                     next[chIdx] = { ...ch, url: e.target.value };

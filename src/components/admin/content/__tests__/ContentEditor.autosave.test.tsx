@@ -4,6 +4,8 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ContentEditor } from '@/components/admin/content/ContentEditor';
 
+(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
 const saveContent = vi.hoisted(() => vi.fn());
 const toast = vi.hoisted(() => ({ error: vi.fn(), success: vi.fn() }));
 

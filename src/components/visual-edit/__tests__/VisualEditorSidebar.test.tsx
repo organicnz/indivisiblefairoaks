@@ -292,6 +292,16 @@ describe('VisualEditorSidebar', () => {
     );
 
     expect(tablist?.getAttribute('aria-orientation')).toBe('horizontal');
+
+    for (const tab of ['composer', 'blocks', 'library'] as const) {
+      const button = container.querySelector<HTMLButtonElement>(`#sidebar-tab-button-${tab}`);
+      const panel = container.querySelector<HTMLElement>(`#sidebar-tab-${tab}`);
+      expect(button?.getAttribute('role')).toBe('tab');
+      expect(button?.getAttribute('aria-controls')).toBe(`sidebar-tab-${tab}`);
+      expect(panel?.getAttribute('role')).toBe('tabpanel');
+      expect(panel?.getAttribute('aria-labelledby')).toBe(`sidebar-tab-button-${tab}`);
+    }
+
     expect(blocksTab?.getAttribute('aria-selected')).toBe('true');
     expect(blocksTab?.tabIndex).toBe(0);
     expect(composerTab?.tabIndex).toBe(-1);
@@ -302,10 +312,10 @@ describe('VisualEditorSidebar', () => {
     });
     expect(document.activeElement).toBe(blocksTab);
 
-    const press = async (key: string) => {
+    const press = async (key: string, init: KeyboardEventInit = {}) => {
       await act(async () => {
         document.activeElement?.dispatchEvent(
-          new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true })
+          new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...init })
         );
       });
     };
@@ -328,6 +338,24 @@ describe('VisualEditorSidebar', () => {
     expect(document.activeElement).toBe(composerTab);
 
     await press('End');
+    expect(libraryTab?.getAttribute('aria-selected')).toBe('true');
+    expect(document.activeElement).toBe(libraryTab);
+
+    // The inspector owns Alt+ArrowLeft/Right. A modified arrow on the tablist
+    // must not switch the sidebar at the same time.
+    await press('ArrowRight', { altKey: true });
+    expect(libraryTab?.getAttribute('aria-selected')).toBe('true');
+    expect(document.activeElement).toBe(libraryTab);
+
+    await press('Home', { metaKey: true });
+    expect(libraryTab?.getAttribute('aria-selected')).toBe('true');
+    expect(document.activeElement).toBe(libraryTab);
+
+    await press('ArrowRight', { ctrlKey: true });
+    expect(libraryTab?.getAttribute('aria-selected')).toBe('true');
+    expect(document.activeElement).toBe(libraryTab);
+
+    await press('ArrowLeft', { shiftKey: true });
     expect(libraryTab?.getAttribute('aria-selected')).toBe('true');
     expect(document.activeElement).toBe(libraryTab);
 

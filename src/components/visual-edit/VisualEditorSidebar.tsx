@@ -336,6 +336,9 @@ export function VisualEditorSidebar(props: VisualEditorSidebarProps) {
    * to switch and the tab itself already has a visible focus ring.
    */
   const handleTabKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    // Modified arrows belong to the page and to the composer inspector
+    // (Alt+ArrowLeft/Right cycles its tabs). A tablist owns only the plain keys.
+    if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
     if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
     const current = SIDEBAR_TAB_ORDER.indexOf(sidebarTab);
     if (current < 0) return;
@@ -955,6 +958,9 @@ function DefaultContextZone(props: VisualEditorSidebarProps) {
 
   const [draggingBlockIndex, setDraggingBlockIndex] = useState<number | null>(null);
   const [dragOverBlockIndex, setDragOverBlockIndex] = useState<number | null>(null);
+  const changeCount = modifiedBlocks.length + modifiedDataPoints.length;
+  const showChangeCount = dirty || modifiedDataPoints.length > 0;
+  const themePreviewLabel = `${themeModeLabel(themeMode)}${themeMode === 'system' ? ` (${effectiveTheme})` : ''}`;
 
   return (
     <div className="flex flex-1 flex-col gap-3 overflow-y-auto overscroll-contain px-3 py-3 text-xs">
@@ -1131,7 +1137,6 @@ function DefaultContextZone(props: VisualEditorSidebarProps) {
           type="button"
           onClick={props.onOpenCommandPalette}
           title="Open Command Palette & Jump to Block/DataPoint (⌘K)"
-          aria-label="Open Command Palette"
           className="inline-flex w-full items-center gap-1.5 rounded-lg border border-accent-gold/40 bg-accent-gold/10 px-2.5 py-1.5 text-xs font-bold text-accent-gold transition-colors hover:bg-accent-gold/20 cursor-pointer"
         >
           <Search size={13} className="text-accent-gold" />
@@ -1167,7 +1172,6 @@ function DefaultContextZone(props: VisualEditorSidebarProps) {
           type="button"
           onClick={props.onOpenDiffModal}
           title="Review visual changes and draft diff against published version (⌘⇧V)"
-          aria-label="Review visual changes diff"
           className={`inline-flex w-full items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-bold transition-colors cursor-pointer ${
             dirty || modifiedDataPoints.length > 0
               ? 'border-accent-gold/40 bg-accent-gold/15 text-accent-gold hover:bg-accent-gold/25'
@@ -1176,9 +1180,9 @@ function DefaultContextZone(props: VisualEditorSidebarProps) {
         >
           <Activity size={13} className="text-accent-gold" />
           <span className="flex-1 text-left">Diff</span>
-          {(dirty || modifiedDataPoints.length > 0) && (
+          {showChangeCount && (
             <span className="rounded-full bg-accent-gold/20 px-1.5 py-0.2 text-[9px] font-mono font-bold text-accent-gold">
-              {modifiedBlocks.length + modifiedDataPoints.length}
+              {changeCount}
             </span>
           )}
         </button>
@@ -1194,7 +1198,7 @@ function DefaultContextZone(props: VisualEditorSidebarProps) {
               ? 'Disable live element hover inspector HUD'
               : 'Enable live element hover inspector HUD'
           }
-          aria-label="Toggle Inspector HUD"
+          aria-pressed={showInspector}
           className={`inline-flex w-full items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-bold transition-colors cursor-pointer ${
             showInspector
               ? 'border-emerald-500/50 bg-emerald-500/20 text-emerald-300'
@@ -1212,9 +1216,7 @@ function DefaultContextZone(props: VisualEditorSidebarProps) {
             title={
               showSectionBadges ? 'Hide in-page section badges' : 'Show in-page section badges'
             }
-            aria-label={
-              showSectionBadges ? 'Hide in-page section badges' : 'Show in-page section badges'
-            }
+            aria-pressed={showSectionBadges}
             className={`inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-bold transition-colors ${
               showSectionBadges
                 ? 'border-accent-gold/50 bg-accent-gold/20 text-accent-gold'
@@ -1222,14 +1224,14 @@ function DefaultContextZone(props: VisualEditorSidebarProps) {
             }`}
           >
             <Layers size={13} />
-            <span>{showSectionBadges ? 'ON' : 'OFF'}</span>
+            <span>Badges: {showSectionBadges ? 'ON' : 'OFF'}</span>
           </button>
 
           <button
             type="button"
             onClick={props.onToggleFrames}
             title={showAllSectionBorders ? 'Hide section frames' : 'Show section frames'}
-            aria-label={showAllSectionBorders ? 'Hide section frames' : 'Show section frames'}
+            aria-pressed={showAllSectionBorders}
             className={`inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-bold transition-colors ${
               showAllSectionBorders
                 ? 'border-accent-gold/50 bg-accent-gold/20 text-accent-gold'
@@ -1237,7 +1239,7 @@ function DefaultContextZone(props: VisualEditorSidebarProps) {
             }`}
           >
             <Eye size={13} />
-            <span>{showAllSectionBorders ? 'ON' : 'OFF'}</span>
+            <span>Frames: {showAllSectionBorders ? 'ON' : 'OFF'}</span>
           </button>
         </div>
       </div>
@@ -1246,8 +1248,7 @@ function DefaultContextZone(props: VisualEditorSidebarProps) {
       <button
         type="button"
         onClick={props.onCycleTheme}
-        title={`Preview theme: ${themeModeLabel(themeMode)}${themeMode === 'system' ? ` (${effectiveTheme})` : ''} (click to cycle)`}
-        aria-label="Cycle theme mode preview"
+        title={`Preview theme: ${themePreviewLabel} (click to cycle)`}
         className="inline-flex w-full items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-colors duration-200 hover:bg-white/10 hover:text-white active:scale-95 cursor-pointer touch-manipulation focus-visible:ring-1 focus-visible:ring-accent-gold"
       >
         {themeMode === 'light' ? (
@@ -1430,7 +1431,6 @@ function DefaultContextZone(props: VisualEditorSidebarProps) {
             type="button"
             onClick={props.onOpenPageNavigator}
             title="Page Structure Navigator & Tree (⌘7)"
-            aria-label="Page Structure Navigator"
             className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-sky-400/30 bg-sky-400/15 px-2.5 py-1.5 text-xs font-bold text-sky-300 transition-colors hover:bg-sky-400/25 focus-visible:ring-2 focus-visible:ring-sky-400"
           >
             <ListTree size={14} />
@@ -1454,7 +1454,6 @@ function DefaultContextZone(props: VisualEditorSidebarProps) {
             type="button"
             onClick={props.onOpenSettings}
             title="Edit page title, slug, and featured image"
-            aria-label="Edit page title, slug, and featured image"
             className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-accent-gold"
           >
             <Settings size={14} />
@@ -1467,7 +1466,6 @@ function DefaultContextZone(props: VisualEditorSidebarProps) {
             type="button"
             onClick={props.onOpenRevisions}
             title="View page revision history and restore previous snapshots"
-            aria-label="View page revision history and restore previous snapshots"
             className="inline-flex w-full items-center gap-1.5 rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-accent-gold"
           >
             <History size={14} />

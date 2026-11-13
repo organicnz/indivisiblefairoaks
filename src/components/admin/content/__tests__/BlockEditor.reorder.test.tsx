@@ -5,6 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BlockEditor } from '@/components/admin/content/BlockEditor';
 import { type Block, blockText, parseHtml, resetBlockIds } from '@/lib/blocks';
 
+(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
 /** The visible text of each block, in order — what a reorder assertion means. */
 const texts = (blocks: Block[]) => blocks.map(blockText);
 

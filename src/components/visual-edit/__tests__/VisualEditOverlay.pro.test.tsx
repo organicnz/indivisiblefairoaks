@@ -168,7 +168,7 @@ describe('VisualEditOverlay 10x Pro Features', () => {
     await mount();
 
     const cmdButton = container.querySelector<HTMLButtonElement>(
-      'button[aria-label="Open Command Palette"]'
+      'button[title^="Open Command Palette"]'
     );
     expect(cmdButton).not.toBeNull();
     expect(cmdButton?.textContent).toContain('⌘K');
@@ -216,7 +216,7 @@ describe('VisualEditOverlay 10x Pro Features', () => {
     await mount();
 
     const inspectorBtn = container.querySelector<HTMLButtonElement>(
-      'button[aria-label="Toggle Inspector HUD"]'
+      'button[title*="inspector HUD"]'
     );
     expect(inspectorBtn).not.toBeNull();
 
@@ -266,7 +266,7 @@ describe('VisualEditOverlay 10x Pro Features', () => {
     await mount();
 
     const diffBtn = container.querySelector<HTMLButtonElement>(
-      'button[aria-label="Review visual changes diff"]'
+      'button[title^="Review visual changes"]'
     );
     expect(diffBtn).not.toBeNull();
 

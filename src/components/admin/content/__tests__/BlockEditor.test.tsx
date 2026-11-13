@@ -5,6 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BlockEditor } from '@/components/admin/content/BlockEditor';
 import { type Block, parseHtml, resetBlockIds, serializeBlocks, stripTags } from '@/lib/blocks';
 
+(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
 // The editor deliberately does not render block content through React: the DOM
 // is the source of truth while typing and the model is read back on `input`.
 // That architecture is the whole reason a keystroke does not lose the caret,
