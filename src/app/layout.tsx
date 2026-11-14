@@ -13,6 +13,7 @@ import { Header } from '@/components/layout/Header';
 import { ThemeAwareToaster } from '@/components/layout/ThemeAwareToaster';
 import { ThemeHud } from '@/components/layout/ThemeHud';
 import { VgpuThemeCanvas } from '@/components/layout/VgpuThemeCanvas';
+import { DataPointsProvider } from '@/components/ui/DataPointsProvider';
 import { WallEChatWidget } from '@/components/ui/WallEChatWidget';
 import { VisualEditErrorBoundary } from '@/components/visual-edit/VisualEditErrorBoundary';
 import { VisualEditLazyMount } from '@/components/visual-edit/VisualEditLazyMount';
@@ -28,6 +29,7 @@ import {
   webSiteJsonLd,
 } from '@/config/site';
 import { env } from '@/lib/env';
+import { getDataPoints } from '@/lib/queries/civic';
 import type { UserSettings } from '@/lib/store/settings';
 import { getSettings } from '@/lib/supabase-server';
 import { themeBootstrapScript } from '@/lib/theme';
@@ -124,11 +126,13 @@ async function SettingsLoader() {
   return <SettingsHydrator settings={settings as UserSettings | null} />;
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const dataPoints = await getDataPoints();
+
   return (
     <html
       lang="en"
@@ -167,24 +171,26 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col bg-background text-foreground font-sans selection:bg-primary selection:text-white">
         <Providers>
-          <a
-            href="#main-content"
-            className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[200] focus:bg-primary focus:text-white focus:font-black focus:uppercase focus:tracking-widest focus:text-xs focus:px-4 focus:py-2 focus:rounded-full"
-          >
-            Skip to content
-          </a>
-          <Suspense fallback={null}>
-            <SettingsLoader />
-          </Suspense>
-          <Header />
-          <main id="main-content" className="flex-grow flex flex-col">
-            {children}
-          </main>
-          <Footer />
-          <WallEChatWidget />
-          <VisualEditErrorBoundary>
-            <VisualEditLazyMount />
-          </VisualEditErrorBoundary>
+          <DataPointsProvider dataPoints={dataPoints}>
+            <a
+              href="#main-content"
+              className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[200] focus:bg-primary focus:text-white focus:font-black focus:uppercase focus:tracking-widest focus:text-xs focus:px-4 focus:py-2 focus:rounded-full"
+            >
+              Skip to content
+            </a>
+            <Suspense fallback={null}>
+              <SettingsLoader />
+            </Suspense>
+            <Header />
+            <main id="main-content" className="flex-grow flex flex-col">
+              {children}
+            </main>
+            <Footer />
+            <WallEChatWidget />
+            <VisualEditErrorBoundary>
+              <VisualEditLazyMount />
+            </VisualEditErrorBoundary>
+          </DataPointsProvider>
         </Providers>
         <ThemeAwareToaster />
         <ThemeHud />

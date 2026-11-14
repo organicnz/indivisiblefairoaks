@@ -3,6 +3,8 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DataPoint } from '@/components/ui/DataPoint';
+import { DataPointsProvider } from '@/components/ui/DataPointsProvider';
+import { useDataPoints } from '@/hooks/useDataPoints';
 import * as civicClient from '@/lib/queries/civic-client';
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -290,5 +292,24 @@ describe('useDataPoints and Edge API Integration', () => {
     expect(container.querySelector('[data-data-point="voter.header.title"]')?.textContent).toBe(
       'Voter Information'
     );
+  });
+
+  it('seeds useDataPoints from the server snapshot on the first render', async () => {
+    vi.spyOn(civicClient, 'getDataPoints').mockResolvedValue({ dataPoints: {}, rows: [] });
+
+    function SnapshotConsumer() {
+      const { dataPoints } = useDataPoints('header');
+      return <span data-snapshot>{dataPoints['header.logo.title']}</span>;
+    }
+
+    await act(async () => {
+      root.render(
+        <DataPointsProvider dataPoints={{ 'header.logo.title': 'From the server snapshot' }}>
+          <SnapshotConsumer />
+        </DataPointsProvider>
+      );
+    });
+
+    expect(container.querySelector('[data-snapshot]')?.textContent).toBe('From the server snapshot');
   });
 });

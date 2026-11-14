@@ -1,8 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useDataPointsSnapshot } from '@/components/ui/DataPointsProvider';
 import { dataPointGroup } from '@/lib/data-point-groups';
 import { getDataPoints } from '@/lib/queries/civic-client';
+
+const EMPTY_DATA_POINTS: Record<string, string> = {};
 
 /**
  * A page can mount hundreds of DataPoints in one render. They all ask for the
@@ -28,10 +31,16 @@ function fetchGroup(group?: string): Promise<Record<string, string>> {
 
 /**
  * React hook to fetch and reactively sync data points from Supabase via Edge API functions.
- * Listens for local visual-edit save events for real-time instantaneous DOM synchronization.
+ * The root layout supplies the whole table as a server snapshot, so the first
+ * render already has database copy; the mount fetch keeps it fresh. Listens for
+ * local visual-edit save events for real-time instantaneous DOM synchronization.
  */
 export function useDataPoints(group?: string, initialData: Record<string, string> = {}) {
-  const [dataPoints, setDataPoints] = useState<Record<string, string>>(initialData);
+  const snapshot = useDataPointsSnapshot();
+  const seeded = snapshot ?? EMPTY_DATA_POINTS;
+  const [dataPoints, setDataPoints] = useState<Record<string, string>>(
+    Object.keys(initialData).length > 0 ? { ...seeded, ...initialData } : seeded
+  );
   const [loading, setLoading] = useState<boolean>(false);
 
   const fetchLive = useCallback(async () => {
