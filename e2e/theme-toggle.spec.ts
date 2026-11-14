@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 /**
  * Theme toggle behaviour — system, light, dark, and the persistence between.
@@ -15,7 +15,26 @@ import { expect, test } from '@playwright/test';
  *    store; a page that forgets it strands a reader back in `system`.
  * 3. **Choosing System withdraws the pin** rather than remembering "system" as
  *    a value, so the OS is consulted again.
+ *
+ * The assertions read the painted *lightness* rather than a literal RGB. They
+ * once pinned the palette's hex values, and when the site moved from the blue
+ * palette to the civic-paper one, three theming assertions failed over a colour
+ * change none of them was about. A page background's job here is to be light in
+ * light mode and dark in dark mode; that is what is measured now.
  */
+
+/** WCAG relative luminance of the colour the page actually paints. */
+function pageLuminance(page: Page): Promise<number> {
+  return page.evaluate(() => {
+    const raw = getComputedStyle(document.body).backgroundColor;
+    const [r = 0, g = 0, b = 0] = (raw.match(/\d+(?:\.\d+)?/g) ?? []).slice(0, 3).map(Number);
+    const linear = (channel: number) => {
+      const value = channel / 255;
+      return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+    };
+    return 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b);
+  });
+}
 
 test.describe('theme toggle', () => {
   test('follows the OS setting by default and flips live', async ({ page }) => {
@@ -24,12 +43,13 @@ test.describe('theme toggle', () => {
 
     const html = page.locator('html');
     await expect(html).toHaveAttribute('data-theme', 'light');
+    await expect.poll(() => pageLuminance(page)).toBeGreaterThan(0.5);
 
     // The listener, not a reload: a reader changing their OS setting while the
     // page is open must see the palette follow.
     await page.emulateMedia({ colorScheme: 'dark' });
     await expect(html).toHaveAttribute('data-theme', 'dark');
-    await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(22, 48, 92)');
+    await expect.poll(() => pageLuminance(page)).toBeLessThan(0.1);
   });
 
   test('cycles system → light → dark → system, pinning each', async ({ page }) => {
@@ -45,11 +65,12 @@ test.describe('theme toggle', () => {
 
     await toggle.click();
     await expect(html).toHaveAttribute('data-theme', 'light');
-    await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(238, 244, 255)');
+    await expect.poll(() => pageLuminance(page)).toBeGreaterThan(0.5);
     expect(await page.evaluate(() => localStorage.getItem('indivisible:theme-mode'))).toBe('light');
 
     await toggle.click();
     await expect(html).toHaveAttribute('data-theme', 'dark');
+    await expect.poll(() => pageLuminance(page)).toBeLessThan(0.1);
     expect(await page.evaluate(() => localStorage.getItem('indivisible:theme-mode'))).toBe('dark');
 
     // Back to system: the key is removed rather than set to 'system', so the
@@ -63,6 +84,8 @@ test.describe('theme toggle', () => {
   test('a pinned theme survives a reload and overrides the OS', async ({ page }) => {
     await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' });
     await page.goto('/about');
+
+    const lightLuminance = await pageLuminance(page);
 
     await page
       .getByRole('button', { name: /^Color theme:/ })
@@ -78,7 +101,9 @@ test.describe('theme toggle', () => {
     // bootstrap script reads it before paint, so there is no light flash.
     await page.reload({ waitUntil: 'load' });
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
-    await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(22, 48, 92)');
+    const pinnedLuminance = await pageLuminance(page);
+    expect(pinnedLuminance).toBeLessThan(0.1);
+    expect(pinnedLuminance).toBeLessThan(lightLuminance);
   });
 
   test('the drawer control and the header control stay in sync', async ({ page }) => {

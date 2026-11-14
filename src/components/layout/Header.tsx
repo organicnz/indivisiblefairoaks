@@ -174,7 +174,7 @@ function HeaderInner() {
                 </DataPoint>
               </Link>
 
-              <div className="hidden xl:block">
+              <div className="hidden md:block">
                 <AccountButton />
               </div>
 

@@ -368,7 +368,7 @@ export function SacramentoRepresentativeFinder({
                 <a
                   href={`tel:${official.phone.replace(/[^0-9]/g, '')}`}
                   aria-label={`${dataPoints['voter.repfinder.call_action_label'] || 'Call Official'}: ${official.name} — ${official.phone.split('•')[0].trim()}`}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600/10 text-emerald-700 hover:bg-emerald-600/20 dark:bg-emerald-600/20 dark:text-emerald-300 dark:hover:bg-emerald-600/30 border border-emerald-500/30 text-xs font-mono font-semibold transition-colors"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600/10 text-emerald-800 hover:bg-emerald-600/20 dark:bg-emerald-600/20 dark:text-emerald-300 dark:hover:bg-emerald-600/30 border border-emerald-500/30 text-xs font-mono font-semibold transition-colors"
                 >
                   <Phone size={12} />
                   <span>{official.phone.split('•')[0].trim()}</span>

@@ -119,19 +119,36 @@ test.describe('header layout', () => {
     }
   });
 
-  test('nav labels never wrap to two lines', async ({ page }) => {
+  test('nav labels stay on one line and inside their control', async ({ page }) => {
     await page.setViewportSize({ width: 1920, height: 900 });
     await page.goto('/', { waitUntil: 'domcontentloaded' });
     await page.waitForLoadState('load').catch(() => {});
     await page.waitForTimeout(300);
 
-    const wrapped = await page.evaluate(() => {
+    const broken = await page.evaluate(() => {
       const nav = document.querySelector('nav[aria-label="Primary"]');
       if (!nav) return [];
-      return [...nav.querySelectorAll('a')]
-        .filter((a) => a.getBoundingClientRect().height > 32)
-        .map((a) => a.textContent?.trim());
+
+      return [...nav.querySelectorAll<HTMLElement>(':is(a, button)')].flatMap((control) => {
+        const label = [...control.childNodes].find(
+          (node) => node.nodeType === Node.TEXT_NODE && node.textContent?.trim()
+        );
+        if (!label) return [];
+
+        // One rect per line fragment. The measurement is about the label, not
+        // the control's box: the old `height > 32` test flagged every link the
+        // moment the nav row itself grew to 40px.
+        const range = document.createRange();
+        range.selectNodeContents(label);
+        const lines = range.getClientRects();
+        const painted = lines[0]?.width ?? 0;
+        const box = control.getBoundingClientRect();
+        const clipped = painted > box.width + 1;
+
+        return lines.length > 1 || clipped ? [control.textContent?.trim()] : [];
+      });
     });
-    expect(wrapped).toEqual([]);
+
+    expect(broken).toEqual([]);
   });
 });

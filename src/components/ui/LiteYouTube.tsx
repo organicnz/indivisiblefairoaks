@@ -51,7 +51,7 @@ export function LiteYouTube({
           <button
             type="button"
             onClick={() => setPlaying(true)}
-            aria-label={`Play video: ${title}`}
+            aria-label={`Play film: ${title}`}
             className="group absolute inset-0 flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent-gold"
           >
             <span className="flex size-16 items-center justify-center border border-white/40 bg-background/95 text-foreground transition-transform duration-300 group-hover:scale-105">

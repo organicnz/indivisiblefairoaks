@@ -34,15 +34,20 @@ test.describe('navbar account entry', () => {
     await expect(account).toHaveAttribute('href', '/login');
   });
 
-  test('lg viewport (1024) uses drawer and the header row never overflows', async ({ page }) => {
-    // 9 links + actions measure ~1080px — wider than the 1024 viewport —
-    // so the full nav only renders at xl+. Guard against regressions that
-    // push action buttons off-screen.
+  test('tablet viewport (1024) shows the inline account entry, not a drawer', async ({ page }) => {
+    // The nav row starts at md and the drawer is md:hidden, so 1024 gets the
+    // two-tier desktop header. This test used to expect a drawer here, from
+    // when the row only appeared at xl — and that assumption is exactly what
+    // let the account entry go missing between 768 and 1279.
     await page.setViewportSize({ width: 1024, height: 800 });
     await page.goto('/');
     await page.waitForLoadState('load');
 
-    await expect(page.getByRole('button', { name: 'Open navigation menu' })).toBeVisible();
+    const signIn = page.getByRole('link', { name: 'Sign in to your account' });
+    await expect(signIn).toBeVisible();
+    await expect(signIn).toHaveAttribute('href', '/login');
+    await expect(page.locator('nav[aria-label="Primary"]')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Open navigation menu' })).toBeHidden();
 
     const overflow = await page.evaluate(() => {
       const row = document.querySelector('header > div > div');

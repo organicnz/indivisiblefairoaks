@@ -791,7 +791,7 @@ export default async function HomePage() {
                 name="home.cta.eyebrow"
                 as="span"
                 initialData={dataPoints}
-                className="civic-kicker text-accent-gold before:bg-accent-gold"
+                className="civic-kicker text-white before:bg-accent-gold"
               >
                 Grassroots Power Runs On Grassroots Support
               </DataPoint>
@@ -807,7 +807,7 @@ export default async function HomePage() {
                 name="home.cta.desc"
                 as="p"
                 initialData={dataPoints}
-                className="mt-6 max-w-2xl text-base leading-relaxed text-white/80"
+                className="mt-6 max-w-2xl text-base leading-relaxed text-white"
               >
                 Every dollar contributed to our chapter directly supports community meeting spaces,
                 protest banners, sound equipment for the Resistance Choir, voter registration printing,
