@@ -52,6 +52,8 @@ e2e/.auth/
 # Audit manifests, screenshots and staged legacy downloads contain private
 # archival copies and must never be committed.
 tmp/
+backups/
+screenshots/
 .worktrees/
 .vitest/
 .agents/tasks/
