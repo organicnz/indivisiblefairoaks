@@ -17,9 +17,9 @@
  *
  * ## What it blocks, and why each one matters
  *
- *   - `#!/usr/bin/env node` shebangs — the file becomes unrunnable here. The
- *     shebang is also the only thing that decides which interpreter a script
- *     gets, so it is the whole of the risk.
+ *   - `node` / `nodejs` shebangs and command invocations — the file becomes
+ *     unrunnable here, or a script starts the runtime this project removed.
+ *     The shebang decides the interpreter; an invocation names it directly.
  *   - `node:child_process` — the only builtin that *starts another runtime*.
  *     `node:fs`, `node:path` and `node:crypto` are portable APIs Bun
  *     implements natively and are not Node.js in any meaningful sense; this
@@ -175,6 +175,8 @@ const EXCLUDED_DIRS = new Set([
   'test-results',
   '.turbo',
   'dist',
+  // Nested checkouts are separate working trees, not this repository's source.
+  '.worktrees',
   // Vendored skills — pinned in skills-lock.json, rewritten by `bunx skills update`.
   'skills',
   // Local working directories, gitignored.
@@ -207,6 +209,13 @@ const SCANNED_EXTENSIONS = new Set([
 ]);
 
 /**
+ * Executable tooling with no extension. `bin/npx` is the one such file this
+ * repository owns; it is not covered by the extension rule, so it is named
+ * here and in lefthook.yml rather than silently skipped by both modes.
+ */
+const SCANNED_PATHS = new Set(['bin/npx']);
+
+/**
  * Whether a path is one this guard has no business judging.
  */
 function isExcluded(path) {
@@ -222,6 +231,7 @@ function isExcluded(path) {
 
   const parts = path.split('/').filter(Boolean);
   if (parts.some((p) => EXCLUDED_DIRS.has(p))) return true;
+  if (SCANNED_PATHS.has(path)) return false;
   const dot = path.lastIndexOf('.');
   if (dot === -1) return true;
   return !SCANNED_EXTENSIONS.has(path.slice(dot));
@@ -246,14 +256,28 @@ const RULES = [
   {
     name: 'node shebang',
     why: 'a `node` shebang makes the file unrunnable — there is no Node runtime here',
-    test: (line) => /^#!\s*\/usr\/bin\/env\s+node\b/.test(line) || /^#!\s*\/usr\/bin\/node\b/.test(line),
+    test: (line) => /^#!.*(?:[\s/])node(?:js)?(?:\s|$)/.test(line),
     // The shebang is the executable form of a comment-shaped line.
     comments: false,
   },
   {
+    name: 'node invocation',
+    why: 'running `node` starts the runtime this project removed — use `bun`',
+    test: (line) =>
+      /(?:^|[\s;&|('"`=])(?:\S*\/)?node(?:js)?\s+(?:--?[A-Za-z]|(?:\.{0,2}\/)?[^\s'"]+\.(?:[cm]?[jt]sx?)\b)/.test(
+        line
+      ) ||
+      /\[\s*['"]node(?:js)?['"]\s*,\s*['"](?:--?[A-Za-z]|[^'"]+\.(?:[cm]?[jt]sx?))['"]/.test(
+        line
+      ),
+  },
+  {
     name: 'node:child_process',
     why: 'the only builtin that starts another runtime — use Bun.spawn / Bun.spawnSync (scripts/bun-exec.mjs)',
-    test: (line) => /from\s+['"]node:child_process['"]/.test(line) || /require\(['"]node:child_process['"]\)/.test(line),
+    test: (line) =>
+      /(?:from\s+|import\s*\(\s*|import\s+|require\s*\(\s*)['"]node:child_process['"]/.test(
+        line
+      ),
   },
   {
     name: 'second package manager',
@@ -278,7 +302,8 @@ const RULES = [
   {
     name: 'node engine',
     why: 'declaring a Node engine tells a platform that Node is supported here — it is not',
-    test: (line) => /"engines"\s*:\s*\{[^}]*"node"/.test(line),
+    test: (line) =>
+      /"engines"\s*:\s*\{[^}]*"node"/.test(line) || /^\s*"node"\s*:\s*"/.test(line),
   },
   {
     name: 'node runtime declaration',

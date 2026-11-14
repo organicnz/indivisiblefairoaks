@@ -14,8 +14,14 @@ export async function Footer() {
   const dataPoints = await getDataPoints('footer');
 
   return (
-    <footer className="mt-auto border-t-4 border-accent bg-secondary text-ink-on-dark">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-16">
+    <footer className="relative mt-auto overflow-hidden bg-secondary text-ink-on-dark">
+      <div aria-hidden="true" className="relative z-10 flex h-1 w-full">
+        <span className="h-full w-[52%] bg-accent" />
+        <span className="h-full w-[31%] bg-primary" />
+        <span className="h-full flex-1 bg-accent-gold" />
+      </div>
+      <span aria-hidden="true" className="civic-footer-watermark" />
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-16">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-10 lg:gap-12">
           {/* Brand & Mission Column */}
           <div className="col-span-1 md:col-span-1">

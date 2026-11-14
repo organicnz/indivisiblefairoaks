@@ -351,13 +351,13 @@ pre-commit:
     # binary is involved in using them. `node:child_process` is the one
     # builtin that starts another runtime, and it is blocked.
     #
-    # The glob is by extension, not by path, and lefthook matches an
-    # extension-only pattern at any depth — so `scripts/hooks/*.mjs` and
+    # The extension glob matches at any depth — so `scripts/hooks/*.mjs` and
     # `.github/workflows/*.yml` are both covered, not only root-level files.
     # The extension list is the guard's own: `.md` is not in it, because prose
     # mentioning `npm install -g vercel` is a sentence about the past rather
     # than a command, and a guard that fires on prose teaches people to reach
-    # for the bypass.
+    # for the bypass. `bin/npx` has no extension, so the second glob names it
+    # explicitly; without that, the shim would never reach the guard.
     #
     # This half sees only the files about to be committed, so it catches a
     # *reintroduction*. The other half — a file that arrived another way, a
@@ -366,7 +366,9 @@ pre-commit:
     # while the violation sits there.
     no-node-runtime:
       priority: 30
-      glob: "*.{js,jsx,mjs,cjs,ts,tsx,json,yml,yaml,toml,sh}"
+      glob:
+        - "*.{js,jsx,mjs,cjs,ts,tsx,json,yml,yaml,toml,sh}"
+        - "bin/npx"
       run: bun scripts/hooks/no-node-runtime.mjs {staged_files}
 
     # ── 34. A test that uses Bun.* must declare the `node` environment ───────

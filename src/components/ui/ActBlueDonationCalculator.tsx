@@ -4,6 +4,13 @@ import { Check, CreditCard, ExternalLink, Heart, ShieldCheck } from 'lucide-reac
 import { useState } from 'react';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { useDataPoints } from '@/hooks/useDataPoints';
+import {
+  ACTBLUE_MAX_DONATION,
+  ACTBLUE_MIN_DONATION,
+  ACTBLUE_PRESET_DONATION_AMOUNTS,
+  buildActBlueDonationUrl,
+  normalizeDonationAmount,
+} from '@/lib/actblue';
 
 interface ImpactTier {
   amount: number;
@@ -15,6 +22,15 @@ interface ImpactTier {
 }
 
 const TIERS: Record<number, ImpactTier> = {
+  5: {
+    amount: 5,
+    label: '$5',
+    badge: 'Neighborhood Supporter',
+    impactTitle: 'Voter Postcards',
+    impactDescription:
+      'Funds 10 pre-addressed voter turnout postcards and postage for neighbors in Sacramento County.',
+    tangibleMetrics: ['10 Voter Postcards', '5 Action Handouts', '1 Rally Songsheet'],
+  },
   10: {
     amount: 10,
     label: '$10',
@@ -80,21 +96,12 @@ export function ActBlueDonationCalculator({
   const [isMonthly, setIsMonthly] = useState<boolean>(false);
   const [customAmount, setCustomAmount] = useState<string>('');
 
-  const currentAmount = customAmount ? Math.max(5, Number(customAmount) || 5) : selectedAmount;
+  const currentAmount = customAmount ? normalizeDonationAmount(customAmount) : selectedAmount;
 
-  // Derive closest impact tier or construct dynamic
+  // Show the closest lower impact tier for custom amounts between presets.
   const getImpact = () => {
-    const rawTier =
-      TIERS[currentAmount] ||
-      (currentAmount < 25
-        ? TIERS[10]
-        : currentAmount < 50
-          ? TIERS[25]
-          : currentAmount < 100
-            ? TIERS[50]
-            : currentAmount < 250
-              ? TIERS[100]
-              : TIERS[250]);
+    const fallbackTier = [250, 100, 50, 25, 10, 5].find((amount) => currentAmount >= amount) ?? 5;
+    const rawTier = TIERS[currentAmount] || TIERS[fallbackTier];
 
     const amt = rawTier.amount;
     const badge = dataPoints[`donate.calc.tier.${amt}.badge`] || rawTier.badge;
@@ -115,15 +122,7 @@ export function ActBlueDonationCalculator({
 
   const impact = getImpact();
 
-  const getActBlueUrl = () => {
-    const base = 'https://secure.actblue.com/donate/indivisiblefoc1432155925';
-    const params = new URLSearchParams();
-    params.set('amount', currentAmount.toString());
-    if (isMonthly) {
-      params.set('recurring', '1');
-    }
-    return `${base}?${params.toString()}`;
-  };
+  const getActBlueUrl = () => buildActBlueDonationUrl(currentAmount, isMonthly);
 
   return (
     <div className="border-y border-foreground/20 py-8 sm:py-10">
@@ -201,8 +200,8 @@ export function ActBlueDonationCalculator({
             <legend className="mb-3 block text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
               Select an amount
             </legend>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-              {[10, 25, 50, 100, 250].map((amt) => {
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+              {ACTBLUE_PRESET_DONATION_AMOUNTS.map((amt) => {
                 const isSelected = !customAmount && selectedAmount === amt;
                 return (
                   <button
@@ -273,23 +272,29 @@ export function ActBlueDonationCalculator({
               <input
                 id="custom-amount"
                 type="number"
-                min={5}
+                min={ACTBLUE_MIN_DONATION}
+                max={ACTBLUE_MAX_DONATION}
                 step={1}
                 inputMode="numeric"
                 placeholder={dataPoints['donate.calc.custom_amount_placeholder'] || 'e.g. 75'}
                 value={customAmount}
                 onChange={(e) => setCustomAmount(e.target.value)}
+                onBlur={() => {
+                  if (customAmount) setCustomAmount(String(normalizeDonationAmount(customAmount)));
+                }}
                 className="w-full border-0 bg-transparent py-2 pl-6 pr-2 font-display text-2xl font-semibold text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-4 focus-visible:ring-offset-background"
               />
             </div>
             <p className="mt-1 text-[10px] uppercase tracking-[0.1em] text-muted-foreground">
-              Minimum $5 · every dollar stays local
+              ${ACTBLUE_MIN_DONATION} minimum · ${ACTBLUE_MAX_DONATION.toLocaleString('en-US')}{' '}
+              maximum · every dollar stays local
             </p>
           </div>
 
           <p className="mt-5 max-w-md text-xs leading-relaxed text-muted-foreground">
-            You&rsquo;ll finish your secure contribution on ActBlue. Recurring gifts can be changed
-            or canceled at any time.
+            Continue to ActBlue to complete your secure contribution in a new tab. ActBlue will
+            email your receipt and manage any recurring gift. Recurring gifts can be changed or
+            canceled at any time.
           </p>
         </div>
 
@@ -339,52 +344,63 @@ export function ActBlueDonationCalculator({
               Your contribution
             </p>
             <p className="mt-1 font-display text-2xl font-semibold leading-none tracking-[-0.03em] text-foreground">
-              ${currentAmount}
+              ${currentAmount.toLocaleString('en-US')}
               <span className="ml-2 font-sans text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
                 {isMonthly ? 'Per Month' : 'One-Time'}
               </span>
             </p>
           </div>
 
-          <a
-            href={getActBlueUrl()}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="group flex min-h-12 w-full items-center justify-center gap-2 bg-accent-gold px-5 py-3.5 text-center text-[10px] font-bold uppercase tracking-[0.13em] text-ink-strong transition-colors hover:brightness-95 sm:w-auto sm:min-w-[19rem]"
-          >
-            <CreditCard aria-hidden="true" size={16} className="shrink-0" />
-            <span className="flex flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5">
-              <DataPoint as="span" name="donate.calc.give_btn_prefix" initialData={dataPoints}>
-                Give
-              </DataPoint>{' '}
-              <span>${currentAmount}</span>{' '}
-              {isMonthly ? (
+          <div className="w-full sm:max-w-md">
+            <p
+              id="donation-ask"
+              className="mb-3 text-sm font-semibold leading-relaxed text-foreground"
+            >
+              {isMonthly
+                ? `Will you make a $${currentAmount.toLocaleString('en-US')} monthly contribution to sustain this local work?`
+                : `Make a one-time $${currentAmount.toLocaleString('en-US')} contribution to sustain this local work.`}
+            </p>
+            <a
+              href={getActBlueUrl()}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-describedby="donation-ask"
+              className="group flex min-h-12 w-full items-center justify-center gap-2 bg-accent-gold px-5 py-3.5 text-center text-[10px] font-bold uppercase tracking-[0.13em] text-ink-strong transition-colors hover:brightness-95 sm:w-auto sm:min-w-[19rem]"
+            >
+              <CreditCard aria-hidden="true" size={16} className="shrink-0" />
+              <span className="flex flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5">
+                <DataPoint as="span" name="donate.calc.give_btn_prefix" initialData={dataPoints}>
+                  Give
+                </DataPoint>{' '}
+                <span>${currentAmount.toLocaleString('en-US')}</span>{' '}
+                {isMonthly ? (
+                  <DataPoint
+                    as="span"
+                    name="donate.calc.give_btn_monthly"
+                    initialData={dataPoints}
+                  >
+                    Monthly
+                  </DataPoint>
+                ) : (
+                  <DataPoint as="span" name="donate.calc.give_btn_now" initialData={dataPoints}>
+                    Now
+                  </DataPoint>
+                )}{' '}
                 <DataPoint
                   as="span"
-                  name="donate.calc.give_btn_monthly"
+                  name="donate.calc.give_btn_suffix"
                   initialData={dataPoints}
                 >
-                  Monthly
+                  via ActBlue
                 </DataPoint>
-              ) : (
-                <DataPoint as="span" name="donate.calc.give_btn_now" initialData={dataPoints}>
-                  Now
-                </DataPoint>
-              )}{' '}
-              <DataPoint
-                as="span"
-                name="donate.calc.give_btn_suffix"
-                initialData={dataPoints}
-              >
-                via ActBlue
-              </DataPoint>
-            </span>
-            <ExternalLink
-              aria-hidden="true"
-              size={15}
-              className="shrink-0 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
-            />
-          </a>
+              </span>
+              <ExternalLink
+                aria-hidden="true"
+                size={15}
+                className="shrink-0 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+              />
+            </a>
+          </div>
         </div>
 
         <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] uppercase tracking-[0.08em] text-muted-foreground sm:justify-end">

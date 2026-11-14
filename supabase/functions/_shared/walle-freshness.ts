@@ -6,7 +6,11 @@
 // of "current" for both the live retrieval path and the scheduled snapshots.
 
 export const WALLE_TIME_ZONE = 'America/Los_Angeles'
-export const SNAPSHOT_MAX_AGE_MS = 48 * 60 * 60 * 1000
+// The refresh workflow runs daily at 04:17 UTC. A snapshot is therefore at
+// most ~24 hours old when it is healthy. If that run is missed, WALL-E should
+// say the live check is incomplete instead of serving yesterday's copy for a
+// second day.
+export const SNAPSHOT_MAX_AGE_MS = 24 * 60 * 60 * 1000
 
 /** Snapshot sources that still correspond to a live public surface. */
 export const WALLE_SNAPSHOT_SOURCES = [
@@ -105,6 +109,18 @@ export function copyRegionPath(slug: unknown): string | null {
   return prefix ? COPY_REGION_PATHS[prefix] : null
 }
 
+const MONTH_NAME_TOKEN =
+  'jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?'
+
+// A page, FAQ, or data point that names a calendar date is an announcement or
+// a historical record, not a recurring schedule fact. Keeping it out of the
+// schedule branch prevents a dated sentence from being presented as a current
+// weekly or monthly occurrence.
+const EXPLICIT_CALENDAR_DATE = new RegExp(
+  `\\b(?:20\\d{2}-\\d{1,2}-\\d{1,2}|\\d{1,2}\\/\\d{1,2}(?:\\/\\d{2,4})?|(?:${MONTH_NAME_TOKEN})\\.?\\s+\\d{1,2}(?:st|nd|rd|th)?|\\d{1,2}(?:st|nd|rd|th)?\\s+(?:of\\s+)?(?:${MONTH_NAME_TOKEN}))\\b`,
+  'i'
+)
+
 // "Every voter" and "every dollar" are not schedules. Every/each needs a
 // following recurrence unit, weekday, or ordinal to qualify.
 const SCHEDULE_FACT_RECURRENCE =
@@ -122,6 +138,7 @@ const SCHEDULE_FACT_PLACE =
 /** A recurring schedule or venue statement, not a dated event occurrence. */
 export function isScheduleFactText(value: unknown): boolean {
   const text = readText(value, 2_000)
+  if (EXPLICIT_CALENDAR_DATE.test(text)) return false
   return (
     SCHEDULE_FACT_RECURRENCE.test(text) ||
     SCHEDULE_FACT_EVERY.test(text) ||
@@ -474,12 +491,408 @@ function titlesOverlap(a: string, b: string): boolean {
   return a === b || a.includes(b) || b.includes(a)
 }
 
+const PACIFIC_DATE_FORMATTER = new Intl.DateTimeFormat('en-CA', {
+  timeZone: WALLE_TIME_ZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+})
+const WEEKDAY_NAMES = [
+  'sunday',
+  'monday',
+  'tuesday',
+  'wednesday',
+  'thursday',
+  'friday',
+  'saturday',
+] as const
+const WEEKDAY_INDEX: Record<string, number> = {
+  sunday: 0,
+  monday: 1,
+  tuesday: 2,
+  wednesday: 3,
+  thursday: 4,
+  friday: 5,
+  saturday: 6,
+}
+const MONTH_INDEX: Record<string, number> = {
+  january: 0,
+  jan: 0,
+  february: 1,
+  feb: 1,
+  march: 2,
+  mar: 2,
+  april: 3,
+  apr: 3,
+  may: 4,
+  june: 5,
+  jun: 5,
+  july: 6,
+  jul: 6,
+  august: 7,
+  aug: 7,
+  september: 8,
+  sept: 8,
+  sep: 8,
+  october: 9,
+  oct: 9,
+  november: 10,
+  nov: 10,
+  december: 11,
+  dec: 11,
+}
+const MONTH_LABELS = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+]
+
+export type EventDateScope = {
+  label: string
+  /** Pacific calendar dates (YYYY-MM-DD), inclusive. */
+  dates: ReadonlySet<string>
+}
+
+function pacificDateParts(value: Date): { year: number; month: number; day: number } | null {
+  if (!Number.isFinite(value.getTime())) return null
+  const parts = PACIFIC_DATE_FORMATTER.formatToParts(value)
+  const year = Number(parts.find((part) => part.type === 'year')?.value)
+  const month = Number(parts.find((part) => part.type === 'month')?.value)
+  const day = Number(parts.find((part) => part.type === 'day')?.value)
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) return null
+  return { year, month, day }
+}
+
+function pacificDateKey(value: Date | number): string | null {
+  const date = value instanceof Date ? value : new Date(value)
+  const parts = pacificDateParts(date)
+  if (!parts) return null
+  return calendarDateKey(parts.year, parts.month, parts.day)
+}
+
+function calendarDateKey(year: number, month: number, day: number): string | null {
+  const date = new Date(Date.UTC(year, month - 1, day))
+  if (
+    !Number.isFinite(date.getTime()) ||
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) {
+    return null
+  }
+  return `${year.toString().padStart(4, '0')}-${month.toString().padStart(2, '0')}-${day
+    .toString()
+    .padStart(2, '0')}`
+}
+
+function shiftDateKey(key: string, days: number): string {
+  const [year, month, day] = key.split('-').map(Number)
+  return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10)
+}
+
+function dateKeyWeekday(key: string): number {
+  return new Date(`${key}T00:00:00Z`).getUTCDay()
+}
+
+function daysInMonth(year: number, monthIndex: number): number {
+  return new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate()
+}
+
+function dateKeysInRange(start: string, end: string): string[] {
+  if (start > end) return []
+  const keys: string[] = []
+  let cursor = start
+  for (let index = 0; index < 62 && cursor <= end; index += 1) {
+    keys.push(cursor)
+    cursor = shiftDateKey(cursor, 1)
+  }
+  return keys
+}
+
+function makeDateScope(label: string, dates: readonly string[]): EventDateScope {
+  return { label, dates: new Set(dates.filter(Boolean)) }
+}
+
+function monthScope(year: number, monthIndex: number): EventDateScope {
+  const first = calendarDateKey(year, monthIndex + 1, 1)
+  const last = calendarDateKey(year, monthIndex + 1, daysInMonth(year, monthIndex))
+  return makeDateScope(
+    `${MONTH_LABELS[monthIndex]} ${year}`,
+    first && last ? dateKeysInRange(first, last) : []
+  )
+}
+
+function explicitDateScope(
+  monthIndex: number,
+  day: number,
+  year: number | undefined,
+  today: { year: number; month: number; day: number }
+): EventDateScope | null {
+  const resolvedYear =
+    year ??
+    (monthIndex < today.month - 1 || (monthIndex === today.month - 1 && day < today.day)
+      ? today.year + 1
+      : today.year)
+  const key = calendarDateKey(resolvedYear, monthIndex + 1, day)
+  if (!key) return null
+  return makeDateScope(`${MONTH_LABELS[monthIndex]} ${day}, ${resolvedYear}`, [key])
+}
+
+/**
+ * A time period the visitor explicitly asked about. This is intentionally
+ * limited to common calendar phrases: guessing a period is worse than leaving
+ * the calendar un-scoped and letting the model apply the prompt rules.
+ */
+export function eventDateScope(message: string, now = new Date()): EventDateScope | null {
+  const text = message.toLowerCase().replace(/[’‘]/g, "'")
+  const today = pacificDateParts(now)
+  if (!today) return null
+  const todayKey = calendarDateKey(today.year, today.month, today.day)
+  if (!todayKey) return null
+  const currentMonth = today.month - 1
+  const weekday = dateKeyWeekday(todayKey)
+
+  if (/\b(?:today|tonight|this (?:morning|afternoon|evening))\b/.test(text)) {
+    return makeDateScope('today', [todayKey])
+  }
+  if (/\btomorrow\b/.test(text)) return makeDateScope('tomorrow', [shiftDateKey(todayKey, 1)])
+
+  // Weekends are Saturday/Sunday. On Sunday, "this weekend" still includes
+  // yesterday, but past one-offs are removed by the current-event filter.
+  const thisSaturday =
+    weekday === 0
+      ? shiftDateKey(todayKey, -1)
+      : shiftDateKey(todayKey, (6 - weekday + 7) % 7)
+  if (/\bthis weekend\b/.test(text)) {
+    return makeDateScope('this weekend', [thisSaturday, shiftDateKey(thisSaturday, 1)])
+  }
+  if (/\bnext weekend\b/.test(text)) {
+    const nextSaturday = shiftDateKey(thisSaturday, 7)
+    return makeDateScope('next weekend', [nextSaturday, shiftDateKey(nextSaturday, 1)])
+  }
+  const monday = shiftDateKey(todayKey, -((weekday + 6) % 7))
+  if (/\bthis week\b/.test(text)) {
+    return makeDateScope('this week', dateKeysInRange(monday, shiftDateKey(monday, 6)))
+  }
+  if (/\bnext week\b/.test(text)) {
+    const nextMonday = shiftDateKey(monday, 7)
+    return makeDateScope('next week', dateKeysInRange(nextMonday, shiftDateKey(nextMonday, 6)))
+  }
+  if (/\bthis month\b/.test(text)) return monthScope(today.year, currentMonth)
+  if (/\bnext month\b/.test(text)) {
+    const nextMonth = currentMonth + 1
+    return nextMonth > 11
+      ? monthScope(today.year + 1, 0)
+      : monthScope(today.year, nextMonth)
+  }
+
+  // Explicit calendar dates. Numeric dates use the US month/day convention.
+  const iso = /\b(20\d{2})-(\d{1,2})-(\d{1,2})\b/.exec(text)
+  if (iso) {
+    const month = Number(iso[2]) - 1
+    const day = Number(iso[3])
+    if (month >= 0 && month <= 11) {
+      return explicitDateScope(month, day, Number(iso[1]), today)
+    }
+  }
+  const numeric = /\b(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\b/.exec(text)
+  if (numeric) {
+    const month = Number(numeric[1]) - 1
+    const day = Number(numeric[2])
+    const rawYear = numeric[3] ? Number(numeric[3]) : undefined
+    const year = rawYear === undefined ? undefined : rawYear < 100 ? 2000 + rawYear : rawYear
+    if (month >= 0 && month <= 11) return explicitDateScope(month, day, year, today)
+  }
+  const monthDay = new RegExp(
+    `\\b(${MONTH_NAME_TOKEN})\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?(?:,?\\s*(20\\d{2}))?\\b`
+  ).exec(text)
+  if (monthDay) {
+    const month = MONTH_INDEX[monthDay[1]]
+    if (month !== undefined) {
+      return explicitDateScope(
+        month,
+        Number(monthDay[2]),
+        monthDay[3] ? Number(monthDay[3]) : undefined,
+        today
+      )
+    }
+  }
+  const dayMonth = new RegExp(
+    `\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?(${MONTH_NAME_TOKEN})\\b(?:,?\\s*(20\\d{2}))?`
+  ).exec(text)
+  if (dayMonth) {
+    const month = MONTH_INDEX[dayMonth[2]]
+    if (month !== undefined) {
+      return explicitDateScope(
+        month,
+        Number(dayMonth[1]),
+        dayMonth[3] ? Number(dayMonth[3]) : undefined,
+        today
+      )
+    }
+  }
+  const dayOnly = /\b(?:on|the)\s+(\d{1,2})(?:st|nd|rd|th)\b/.exec(text)
+  if (dayOnly) {
+    const day = Number(dayOnly[1])
+    let year = today.year
+    let month = currentMonth
+    let key = calendarDateKey(year, month + 1, day)
+    if (!key || key < todayKey) {
+      month += 1
+      if (month > 11) {
+        month = 0
+        year += 1
+      }
+      key = calendarDateKey(year, month + 1, day)
+      if (!key) return null
+    }
+    return makeDateScope(`${MONTH_LABELS[month]} ${day}, ${year}`, [key])
+  }
+  if (
+    /\b(?:on|over|for|during)\s+(?:the\s+)?weekend\b/.test(text) &&
+    !/\b(?:every|each)\s+(?:(?:other|single)\s+)?weekend\b/.test(text)
+  ) {
+    return makeDateScope('this weekend', [thisSaturday, shiftDateKey(thisSaturday, 1)])
+  }
+
+  const relativeWeekday = new RegExp(
+    `\\b(this|next)\\s+(${WEEKDAY_NAMES.join('|')})\\b`
+  ).exec(text)
+  if (relativeWeekday) {
+    const modifier = relativeWeekday[1]
+    const index = WEEKDAY_INDEX[relativeWeekday[2]]
+    if (index !== undefined) {
+      const targetInCurrentWeek = shiftDateKey(monday, (index + 6) % 7)
+      const target =
+        modifier === 'next' || targetInCurrentWeek < todayKey
+          ? shiftDateKey(targetInCurrentWeek, 7)
+          : targetInCurrentWeek
+      return makeDateScope(`${modifier} ${relativeWeekday[2]}`, [target])
+    }
+  }
+  const hasOrdinalWeekday = new RegExp(
+    `\\b(?:first|second|third|fourth|fifth|last)\\s+(?:${WEEKDAY_NAMES.join('|')})\\b`
+  ).test(text)
+  const hasEveryWeekday = new RegExp(
+    `\\b(?:every|each)\\s+(?:(?:other|single)\\s+)?(?:${WEEKDAY_NAMES.join('|')})\\b`
+  ).test(text)
+  const bareWeekday =
+    hasOrdinalWeekday || hasEveryWeekday
+      ? null
+      : new RegExp(`\\b(?:on\\s+)?(${WEEKDAY_NAMES.join('|')})\\b`).exec(text)
+  if (bareWeekday) {
+    const index = WEEKDAY_INDEX[bareWeekday[1]]
+    if (index !== undefined) {
+      const target = shiftDateKey(todayKey, (index - weekday + 7) % 7)
+      return makeDateScope(bareWeekday[1], [target])
+    }
+  }
+
+  const monthModifier = new RegExp(`\\b(this|next)\\s+(${MONTH_NAME_TOKEN})\\b`).exec(text)
+  if (monthModifier) {
+    const month = MONTH_INDEX[monthModifier[2]]
+    if (month !== undefined) {
+      const year =
+        monthModifier[1] === 'next' && month <= currentMonth ? today.year + 1 : today.year
+      return monthScope(year, month)
+    }
+  }
+  const monthYear = new RegExp(`\\b(${MONTH_NAME_TOKEN})\\s+(20\\d{2})\\b`).exec(text)
+  if (monthYear) {
+    const month = MONTH_INDEX[monthYear[1]]
+    if (month !== undefined) return monthScope(Number(monthYear[2]), month)
+  }
+  const monthContext = new RegExp(
+    `\\b(?:in|on|during|for|of)\\s+(${MONTH_NAME_TOKEN})\\b|\\b(${MONTH_NAME_TOKEN})\\s+(?:events?|calendar|schedule)\\b`
+  ).exec(text)
+  if (monthContext) {
+    const token = monthContext[1] ?? monthContext[2]
+    const month = MONTH_INDEX[token]
+    if (month !== undefined) {
+      const year = month < currentMonth ? today.year + 1 : today.year
+      return monthScope(year, month)
+    }
+  }
+
+  return null
+}
+
+function ordinalMatchesDate(key: string, ordinal: string): boolean {
+  const year = Number(key.slice(0, 4))
+  const month = Number(key.slice(5, 7))
+  const day = Number(key.slice(8, 10))
+  if (ordinal === 'first') return day <= 7
+  if (ordinal === 'second') return day > 7 && day <= 14
+  if (ordinal === 'third') return day > 14 && day <= 21
+  if (ordinal === 'fourth') return day > 21 && day <= 28
+  if (ordinal === 'fifth') return day >= 29
+  if (ordinal === 'last') return day + 7 > daysInMonth(year, month - 1)
+  return false
+}
+
+/** Recurring rows have no reliable next occurrence; match their stated weekday. */
+function recurringEventMatchesScope(row: Record<string, unknown>, scope: EventDateScope): boolean {
+  const label = readText(row.date_label, 300).toLowerCase()
+  const weekdays = WEEKDAY_NAMES.filter((name) =>
+    new RegExp(`\\b${name}\\b`).test(label)
+  )
+  if (weekdays.length === 0) {
+    if (/\bweekend\b/.test(label)) {
+      return [...scope.dates].some((key) => [0, 6].includes(dateKeyWeekday(key)))
+    }
+    // Monthly/daily/recurring copy has no weekday to filter on. Keep it as a
+    // schedule fact, never as a confirmed dated occurrence.
+    return true
+  }
+  const allowed = new Set(weekdays.map((name) => WEEKDAY_INDEX[name]))
+  const matchingDates = [...scope.dates].filter((key) => allowed.has(dateKeyWeekday(key)))
+  if (matchingDates.length === 0) return false
+  const ordinal = /\b(first|second|third|fourth|fifth|last)\b/.exec(label)?.[1]
+  return ordinal ? matchingDates.some((key) => ordinalMatchesDate(key, ordinal)) : true
+}
+
+/**
+ * Whether an event row falls inside an explicit period. Recurring rows are
+ * matched by their stated weekday/ordinal, not by their old stored reference
+ * date, so a weekly event is not discarded merely because its seed date passed.
+ */
+export function eventMatchesDateScope(
+  row: Record<string, unknown>,
+  scope: EventDateScope | null,
+  now = new Date()
+): boolean {
+  if (!scope) return true
+  if (isRecurringEvent(row)) return recurringEventMatchesScope(row, scope)
+  const start = timestamp(row.starts_at)
+  if (start === null) {
+    // Some hand-entered rows have a dated label but no stored instant. The
+    // label is still usable for matching; it is never treated as a confirmed
+    // start time in the answer.
+    const labelScope = eventDateScope(readText(row.date_label, 300), now)
+    return Boolean(labelScope && [...labelScope.dates].some((key) => scope.dates.has(key)))
+  }
+  const end = Math.max(start, timestamp(row.ends_at) ?? start)
+  const startKey = pacificDateKey(start)
+  const endKey = pacificDateKey(end)
+  if (!startKey || !endKey) return false
+  return [...scope.dates].some((key) => key >= startKey && key <= endKey)
+}
+
 const EVENT_NOUN =
   /\b(events?|calendar|schedules?|meet(?:ings?|s)?|gatherings?|rall(?:y|ies)|protests?|rehears(?:al|als|e|es|ing)?|canvass(?:ing)?|actions?|volunteer(?:ing)?|phone[ -]?bank(?:ing)?|postcard(?:ing)?|happening(?:s)?)\b/i
 const SCHEDULE_TIME =
-  /\b(today|tonight|tomorrow|this (?:week|weekend|month|morning|afternoon|evening)|next (?:week|weekend|month|monday|tuesday|wednesday|thursday|friday|saturday|sunday)|upcoming|coming up|when(?:'s| is| are)?|what time|date|day|(?:meetings?|events?|gatherings?|rehearsals?|rall(?:y|ies)|protests?)\s+(?:time|location|place))\b/i
+  /\b(today|tonight|tomorrow|this (?:week|weekend|month|morning|afternoon|evening)|next (?:week|weekend|month|monday|tuesday|wednesday|thursday|friday|saturday|sunday)|weekend|monday|tuesday|wednesday|thursday|friday|saturday|sunday|upcoming|coming up|when(?:'s| is| are)?|what time|date|day|(?:meetings?|events?|gatherings?|rehearsals?|rall(?:y|ies)|protests?)\s+(?:time|location|place))\b/i
 const MONTH_OR_DATE =
-  /\b(?:january|february|march|april|june|july|august|september|october|november|december)\b|\b(?:in|on|this|next|for|during)\s+(?:may|jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec)\b|\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)\.?\s+\d{1,2}(?:,\s*\d{4})?\b|\b\d{1,2}\/\d{1,2}(?:\/\d{2,4})?\b|\b20\d{2}\b/i
+  /\b(?:january|february|march|april|june|july|august|september|october|november|december)\b|\b(?:in|on|this|next|for|during)\s+(?:may|jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec)\b|\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)\.?\s+\d{1,2}(?:,\s*\d{4})?\b|\b\d{1,2}\/\d{1,2}(?:\/\d{2,4})?\b|\b(?:on|the)\s+\d{1,2}(?:st|nd|rd|th)\b|\b20\d{2}\b/i
 const LOCATION_EVENT =
   /\b(events?|meet(?:ings?|s)?|gatherings?|rall(?:y|ies)|protests?|rehears(?:al|als|e|es|ing)?)\b/i
 const WHERE_QUESTION = /\bwhere(?:'s| is| are)?\b/i

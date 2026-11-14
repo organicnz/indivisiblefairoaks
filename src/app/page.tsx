@@ -213,7 +213,7 @@ export default async function HomePage() {
                       name="home.impact.districts"
                       as="div"
                       initialData={dataPoints}
-                      className="font-display text-3xl font-semibold leading-none tracking-[-0.03em] text-foreground"
+                      className="whitespace-nowrap font-display text-[clamp(1.1rem,1.9vw,1.55rem)] font-semibold leading-none tracking-[-0.03em] text-foreground"
                     >
                       CA-03 / 06
                     </DataPoint>
@@ -773,8 +773,9 @@ export default async function HomePage() {
 
       {/* Support & Donation CTA. A solid civic-blue field closes the page; the
           previous pastel gradient was the most generic surface on the site. */}
-      <section className="border-y border-primary-dark bg-primary py-16 text-white md:py-20">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <section className="relative overflow-hidden border-y border-primary-dark bg-primary py-16 text-white md:py-20">
+        <span aria-hidden="true" className="civic-cta-halftone pointer-events-none absolute inset-0" />
+        <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="grid gap-10 lg:grid-cols-12 lg:items-end lg:gap-12">
             <div className="lg:col-span-8">
               <DataPoint

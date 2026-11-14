@@ -5,6 +5,8 @@ import {
   copyRegionPath,
   currentEventOrFilter,
   dataPointPath,
+  eventDateScope,
+  eventMatchesDateScope,
   eventStatus,
   formatPacificNow,
   hasCurrentDateIntent,
@@ -260,6 +262,7 @@ describe('WALL-E date and retrieval relevance', () => {
 
   it('classifies recurring schedule copy separately from dated events', () => {
     expect(isScheduleFactText('First Tuesday of the month (6:30 – 8:00 PM)')).toBe(true);
+    expect(isScheduleFactText('Join our meeting on November 20 at the church')).toBe(false);
     expect(
       isScheduleFactText('Every Other Wednesday at St. Michael’s Episcopal Church')
     ).toBe(true);
@@ -311,9 +314,141 @@ describe('WALL-E date and retrieval relevance', () => {
     expect(hasScheduleIntent('How may I help with events?')).toBe(false);
   });
 
-  it('rejects snapshots older than the 48-hour window', () => {
+  it('rejects snapshots older than the 24-hour window', () => {
     expect(snapshotIsFresh('2026-11-13T05:25:05.875-08:00', NOW)).toBe(true);
+    expect(snapshotIsFresh('2026-11-13T03:30:00.000Z', NOW)).toBe(true);
+    expect(snapshotIsFresh('2026-11-13T01:30:00.000Z', NOW)).toBe(false);
     expect(snapshotIsFresh('2026-11-12T01:00:00.000Z', NOW)).toBe(false);
     expect(snapshotIsFresh('nonsense', NOW)).toBe(false);
+  });
+
+  it('scopes explicit day, weekend, week, and month questions in Pacific time', () => {
+    expect([...eventDateScope('What events are on November 20?', NOW)!.dates]).toEqual([
+      '2026-11-20',
+    ]);
+    expect([...eventDateScope("What's happening tomorrow?", NOW)!.dates]).toEqual([
+      '2026-11-14',
+    ]);
+    expect([...eventDateScope("What's happening this evening?", NOW)!.dates]).toEqual([
+      '2026-11-13',
+    ]);
+    expect(eventDateScope('What events are on the 20th?', NOW)!.label).toBe(
+      'November 20, 2026'
+    );
+    expect([...eventDateScope("What's happening on Saturday?", NOW)!.dates]).toEqual([
+      '2026-11-14',
+    ]);
+    expect([...eventDateScope("What's happening over the weekend?", NOW)!.dates]).toEqual([
+      '2026-11-14',
+      '2026-11-15',
+    ]);
+    expect([...eventDateScope("What's happening for the weekend?", NOW)!.dates]).toEqual([
+      '2026-11-14',
+      '2026-11-15',
+    ]);
+    expect(eventDateScope("What's happening every Saturday?", NOW)).toBeNull();
+    expect(eventDateScope("What's happening every weekend?", NOW)).toBeNull();
+    expect([...eventDateScope("What's happening this weekend?", NOW)!.dates]).toEqual([
+      '2026-11-14',
+      '2026-11-15',
+    ]);
+    expect([...eventDateScope("What's happening next week?", NOW)!.dates]).toEqual([
+      '2026-11-16',
+      '2026-11-17',
+      '2026-11-18',
+      '2026-11-19',
+      '2026-11-20',
+      '2026-11-21',
+      '2026-11-22',
+    ]);
+    expect(eventDateScope("What's happening next month?", NOW)!.label).toBe('December 2026');
+    expect([...eventDateScope('What events are in January?', NOW)!.dates]).toContain(
+      '2027-01-01'
+    );
+    expect(eventDateScope('What events are in December 2027?', NOW)!.label).toBe(
+      'December 2027'
+    );
+    expect(eventDateScope('What events are in November 2026?', NOW)!.label).toBe(
+      'November 2026'
+    );
+    expect(eventDateScope('What events are on 20 November 2027?', NOW)!.label).toBe(
+      'November 20, 2027'
+    );
+    const lateNovember = new Date('2026-11-26T02:30:00.000Z'); // Nov 25, 6:30 PM PST
+    expect(eventDateScope('What events are on November 20?', lateNovember)!.label).toBe(
+      'November 20, 2027'
+    );
+  });
+
+  it('matches dated and recurring events only inside the requested period', () => {
+    const november20 = eventDateScope('What events are on November 20?', NOW)!;
+    expect(
+      eventMatchesDateScope(
+        event('nov-20', {
+          starts_at: '2026-11-20T18:30:00-08:00',
+          ends_at: '2026-11-20T20:00:00-08:00',
+        }),
+        november20
+      )
+    ).toBe(true);
+    expect(
+      eventMatchesDateScope(
+        event('nov-21', {
+          starts_at: '2026-11-21T18:30:00-08:00',
+          ends_at: '2026-11-21T20:00:00-08:00',
+        }),
+        november20
+      )
+    ).toBe(false);
+    expect(
+      eventMatchesDateScope(
+        event('undated-label', {
+          starts_at: null,
+          ends_at: null,
+          date_label: 'Friday, November 20, 2026',
+        }),
+        november20
+      )
+    ).toBe(true);
+
+    const weekend = eventDateScope("What's happening this weekend?", NOW)!;
+    expect(
+      eventMatchesDateScope(
+        event('saturday-singing', {
+          date_label: 'Ongoing Every Saturday Afternoon',
+          starts_at: '2026-10-17T15:00:00-07:00',
+          ends_at: '2026-10-17T16:30:00-07:00',
+        }),
+        weekend
+      )
+    ).toBe(true);
+    expect(
+      eventMatchesDateScope(
+        event('wednesday-rehearsal', {
+          date_label: 'Every Other Wednesday',
+          starts_at: '2026-10-21T18:30:00-07:00',
+          ends_at: '2026-10-21T20:00:00-07:00',
+        }),
+        weekend
+      )
+    ).toBe(false);
+
+    const firstTuesday = event('first-tuesday', {
+      date_label: 'First Tuesday of the month',
+      starts_at: '2026-11-03T18:30:00-08:00',
+      ends_at: '2026-11-03T20:00:00-08:00',
+    });
+    expect(
+      eventMatchesDateScope(
+        firstTuesday,
+        eventDateScope('What events are on December 1, 2026?', NOW)!
+      )
+    ).toBe(true);
+    expect(
+      eventMatchesDateScope(
+        firstTuesday,
+        eventDateScope('What events are on December 8, 2026?', NOW)!
+      )
+    ).toBe(false);
   });
 });

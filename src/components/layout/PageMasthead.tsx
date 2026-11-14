@@ -69,31 +69,66 @@ export function PageMasthead({
             {intro ? (
               <div className="mt-6 border-l-2 border-accent pl-4 sm:pl-5">{intro}</div>
             ) : null}
+
+            <div className="mt-7 flex items-center gap-3 lg:hidden" aria-hidden="true">
+              <span className="relative flex size-11 shrink-0 items-center justify-center overflow-hidden border border-foreground/20 bg-surface-card">
+                <span className="civic-plate-halftone absolute inset-0" />
+                <span className="absolute left-1.5 top-1.5 size-1.5 bg-accent" />
+                <Icon aria-hidden="true" strokeWidth={0.9} className="relative size-5 text-primary" />
+              </span>
+              <span className="h-px flex-1 bg-foreground/20" />
+              <span className="civic-meta whitespace-nowrap text-[9px]">
+                Fair Oaks &middot; Carmichael
+              </span>
+            </div>
+
             {meta ? <div className="mt-7">{meta}</div> : null}
           </div>
 
           <div className="hidden lg:col-span-4 lg:flex lg:justify-end">
             {visual ?? (
-              <div className="relative">
+              <div className="relative" aria-hidden="true">
+                <div className="absolute -left-3 -top-3 h-full w-full border border-accent/70" />
+                <div className="absolute -bottom-3 -right-3 h-full w-full border border-primary/25" />
                 <div
-                  aria-hidden="true"
-                  className="absolute -left-3 -top-3 h-full w-full border border-accent/70"
-                />
-                <div
-                  className={`relative flex aspect-square items-center justify-center border border-foreground/25 bg-surface-card ${
+                  className={`civic-plate relative flex aspect-square items-center justify-center overflow-hidden border border-foreground/25 ${
                     compact ? 'w-32 xl:w-36' : 'w-44 xl:w-52'
                   }`}
                 >
-                  <Icon
-                    aria-hidden="true"
-                    strokeWidth={0.7}
-                    className={compact ? 'size-16 text-primary' : 'size-24 text-primary'}
-                  />
-                  <span aria-hidden="true" className="absolute left-3 top-3 size-2 bg-accent" />
+                  <span className="civic-plate-halftone absolute inset-0" />
+                  <span className="absolute inset-2 border border-foreground/10" />
+                  <span className="absolute left-3 top-3 z-10 size-2 bg-accent" />
+                  <span className="absolute right-3 top-3 z-10 h-px w-8 bg-foreground/30" />
+
+                  <div
+                    className={`relative flex items-center justify-center ${
+                      compact ? 'size-24' : 'size-36 xl:size-40'
+                    }`}
+                  >
+                    <span className="civic-plate-ticks absolute inset-0" />
+                    <span className="absolute inset-4 rounded-full border border-foreground/15" />
+                    <Icon
+                      aria-hidden="true"
+                      strokeWidth={0.7}
+                      className={`absolute translate-x-1 translate-y-1 text-accent opacity-20 ${
+                        compact ? 'size-14' : 'size-24'
+                      }`}
+                    />
+                    <Icon
+                      aria-hidden="true"
+                      strokeWidth={0.7}
+                      className={`relative text-primary ${compact ? 'size-14' : 'size-24'}`}
+                    />
+                  </div>
+
                   <span
-                    aria-hidden="true"
-                    className="absolute bottom-3 right-3 h-px w-10 bg-foreground/30"
-                  />
+                    className={`absolute inset-x-3 bottom-3 z-10 flex items-center justify-between font-mono font-bold uppercase text-muted-foreground ${
+                      compact ? 'text-[6px] tracking-[0.08em]' : 'text-[7px] tracking-[0.14em]'
+                    }`}
+                  >
+                    <span>Fair Oaks</span>
+                    <span>Carmichael</span>
+                  </span>
                 </div>
               </div>
             )}

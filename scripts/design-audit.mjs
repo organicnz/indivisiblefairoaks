@@ -63,17 +63,11 @@ async function collectPages() {
 
 async function collectTargets() {
   const pages = await collectPages();
-  const errorSurfaces = [];
-  for (const path of ['src/app/error.tsx']) {
-    if (await exists(path)) errorSurfaces.push(path);
+  const additional = [];
+  for (const path of ['src/app/error.tsx', ...PUBLIC_COMPONENTS]) {
+    if (await exists(path)) additional.push(path);
   }
-
-  const components = [];
-  for (const path of PUBLIC_COMPONENTS) {
-    if (await exists(path)) components.push(path);
-  }
-
-  return { pages, targets: [...pages, ...errorSurfaces, ...components] };
+  return { pages, targets: [...pages, ...additional] };
 }
 
 const RULES = [
