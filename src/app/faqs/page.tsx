@@ -1,8 +1,12 @@
 import { HelpCircle } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import {
+  MASTHEAD_INTRO,
+  MASTHEAD_TITLE,
+  PageMasthead,
+} from '@/components/layout/PageMasthead';
 import { DataPoint } from '@/components/ui/DataPoint';
-import { VgpuAtmosphericHalo } from '@/components/ui/VgpuAtmosphericHalo';
 import { siteUrl } from '@/config/site';
 import { pageMetadata } from '@/lib/metadata';
 import { type FAQRow, getDataPoints, getFaqs } from '@/lib/queries/civic';
@@ -125,36 +129,35 @@ export default async function FAQPage() {
         dangerouslySetInnerHTML={{ __html: serializeJsonLd(faqJsonLd) }}
       />
 
-      {/* Header Banner with VGPU Atmospheric 22° Ice Halo & Parhelia */}
-      <section className="relative overflow-hidden bg-surface-muted border-b border-border text-foreground dark:bg-secondary dark:text-white py-16 mb-12">
-        <VgpuAtmosphericHalo />
-        <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary dark:bg-primary-bright/10 dark:border-primary-on-dark-muted/30 dark:text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
-            <HelpCircle size={14} className="text-accent-gold" />
-            <DataPoint initialData={dataPoints} name="faqs.hero.eyebrow">
-              Frequently Asked Questions
-            </DataPoint>
-          </div>
+      <PageMasthead
+        icon={HelpCircle}
+        eyebrow={
+          <DataPoint initialData={dataPoints} name="faqs.hero.eyebrow">
+            Frequently Asked Questions
+          </DataPoint>
+        }
+        title={
           <DataPoint
             initialData={dataPoints}
             name="faqs.hero.headline"
             as="h1"
-            className="text-4xl sm:text-5xl font-black tracking-tight mb-4 text-foreground dark:text-white"
+            className={MASTHEAD_TITLE}
           >
             Frequently Asked Questions
           </DataPoint>
-          <div className="h-1.5 w-24 bg-primary dark:bg-accent-gold rounded-full mb-4 mx-auto" />
+        }
+        intro={
           <DataPoint
             initialData={dataPoints}
             name="faqs.hero.intro"
             as="p"
-            className="text-muted-foreground dark:text-ink-on-dark text-sm sm:text-base max-w-xl mx-auto"
+            className={MASTHEAD_INTRO}
           >
             Have questions about attending a meeting, singing with the choir, or getting involved?
             Find quick answers below.
           </DataPoint>
-        </div>
-      </section>
+        }
+      />
 
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="space-y-12">

@@ -1,8 +1,12 @@
 import { ExternalLink, Handshake } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import {
+  MASTHEAD_INTRO,
+  MASTHEAD_TITLE,
+  PageMasthead,
+} from '@/components/layout/PageMasthead';
 import { DataPoint } from '@/components/ui/DataPoint';
-import { VgpuMagnetosphere } from '@/components/ui/VgpuMagnetosphere';
 import { pageMetadata } from '@/lib/metadata';
 import { getDataPoints, getPartners } from '@/lib/queries/civic';
 
@@ -79,38 +83,37 @@ export default async function PartnersPage() {
   }
 
   return (
-    <div className="bg-background text-foreground min-h-screen">
-      {/* Header Banner with VGPU Magnetosphere & Coalition Shield */}
-      <div className="relative overflow-hidden bg-surface-muted border-b border-border text-foreground dark:bg-gradient-to-b dark:from-slate-900 dark:to-slate-950 dark:border-white/10 pt-28 pb-16 px-4 sm:px-6 lg:px-8">
-        <VgpuMagnetosphere />
-        <div className="relative z-10 max-w-5xl mx-auto flex flex-col items-center text-center pointer-events-auto">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary-ink dark:bg-primary-bright/10 dark:border-primary-on-dark-muted/30 dark:text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
-            <Handshake size={14} className="text-accent-gold" />
-            <DataPoint initialData={dataPoints} name="partners.hero.eyebrow">
-              Grassroots Coalition Network
-            </DataPoint>
-          </div>
+    <div className="min-h-screen bg-background pt-(--header-clearance) pb-20 text-foreground">
+      <PageMasthead
+        icon={Handshake}
+        eyebrow={
+          <DataPoint initialData={dataPoints} name="partners.hero.eyebrow">
+            Grassroots Coalition Network
+          </DataPoint>
+        }
+        title={
           <DataPoint
             initialData={dataPoints}
             name="partners.hero.headline"
             as="h1"
-            className="text-4xl sm:text-5xl font-black text-foreground dark:text-white tracking-tight mb-4"
+            className={MASTHEAD_TITLE}
           >
             Our Coalition Partners & Allies
           </DataPoint>
-          <div className="h-1.5 w-24 bg-accent-gold rounded-full mb-4" />
+        }
+        intro={
           <DataPoint
             initialData={dataPoints}
             name="partners.hero.intro"
             as="p"
-            className="text-muted-foreground dark:text-ink-on-dark text-sm sm:text-base max-w-2xl leading-relaxed"
+            className={MASTHEAD_INTRO}
           >
             We believe democracy is a team sport. Indivisible Fair Oaks-Carmichael works in close
             partnership with national organizations, California coalitions, and Sacramento community
             advocates.
           </DataPoint>
-        </div>
-      </div>
+        }
+      />
 
       <div className="max-w-5xl mx-auto space-y-12 px-4 sm:px-6 lg:px-8 py-16">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

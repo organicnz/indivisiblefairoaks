@@ -13,9 +13,14 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { LegacyDocumentArchive } from '@/components/archive/LegacyDocumentArchive';
 import { CopyRegion } from '@/components/cms/CopyRegion';
+import {
+  MASTHEAD_INTRO,
+  MASTHEAD_TITLE,
+  PageMasthead,
+} from '@/components/layout/PageMasthead';
 import { ChoirSongbookExplorer } from '@/components/ui/ChoirSongbookExplorer';
 import { DataPoint } from '@/components/ui/DataPoint';
-import { VgpuChoirHarmonics } from '@/components/ui/VgpuChoirHarmonics';
+import { LiteYouTube } from '@/components/ui/LiteYouTube';
 import { pageMetadata } from '@/lib/metadata';
 import { getDataPoints } from '@/lib/queries/civic';
 import { getLegacyDocuments } from '@/lib/queries/legacy';
@@ -35,25 +40,25 @@ export default async function ChoirPage() {
 
   return (
     <div className="w-full bg-background text-foreground min-h-screen pt-(--header-clearance) pb-20">
-      {/* Header Banner with VGPU Harmonic Soundwave Atmosphere */}
-      <div className="relative overflow-hidden bg-surface-muted border-b border-border dark:bg-gradient-to-b dark:from-slate-900 dark:to-slate-950 dark:border-white/10 py-20">
-        <VgpuChoirHarmonics />
-        <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center pointer-events-auto">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary dark:bg-primary-bright/10 dark:border-primary-on-dark-muted/30 dark:text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
-            <Music size={14} className="text-accent-gold" />
-            <DataPoint name="choir.hero.eyebrow" initialData={dataPoints}>
-              Harmonizing For Justice
-            </DataPoint>
-          </div>
+      <PageMasthead
+        icon={Music}
+        eyebrow={
+          <DataPoint name="choir.hero.eyebrow" initialData={dataPoints}>
+            Harmonizing For Justice
+          </DataPoint>
+        }
+        title={
           <DataPoint
             name="choir.hero.title"
             as="h1"
             initialData={dataPoints}
-            className="text-4xl sm:text-5xl font-black tracking-tight mb-4 text-foreground dark:text-white"
+            className={MASTHEAD_TITLE}
           >
             The Carmichael Resistance Choir
           </DataPoint>
-          <p className="text-lg text-muted-foreground dark:text-ink-on-dark max-w-2xl mx-auto leading-relaxed italic">
+        }
+        intro={
+          <p className={`${MASTHEAD_INTRO} italic`}>
             &ldquo;
             <DataPoint name="choir.hero.quote" initialData={dataPoints}>
               Every good protest movement needs music. Music lifts us up, keeps us motivated, and
@@ -61,8 +66,8 @@ export default async function ChoirPage() {
             </DataPoint>
             &rdquo;
           </p>
-        </div>
-      </div>
+        }
+      />
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-16">
         {/* About the Choir */}
@@ -256,15 +261,11 @@ export default async function ChoirPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="rounded-2xl overflow-hidden bg-surface-card border border-border p-4 shadow-xl space-y-3">
-              <div className="aspect-video rounded-xl overflow-hidden bg-surface-deep dark:bg-secondary">
-                <iframe
-                  className="w-full h-full"
-                  src="https://www.youtube.com/embed/BhdjDlRUMUw"
-                  title="Carmichael Resistance Choir Singing Demonstration 1"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
-              </div>
+              <LiteYouTube
+                videoId="BhdjDlRUMUw"
+                title="Carmichael Resistance Choir Singing Demonstration 1"
+                poster="/images/gallery/carmichael-resistance-choir.jpg"
+              />
               <DataPoint
                 name="choir.videos.v1_title"
                 as="h3"

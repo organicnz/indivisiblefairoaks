@@ -1,12 +1,16 @@
 import { Megaphone, Newspaper } from 'lucide-react';
 import type { Metadata } from 'next';
 import { LegacyDocumentArchive } from '@/components/archive/LegacyDocumentArchive';
+import {
+  MASTHEAD_INTRO,
+  MASTHEAD_TITLE,
+  PageMasthead,
+} from '@/components/layout/PageMasthead';
 import { ActionAlertsSubscription } from '@/components/ui/ActionAlertsSubscription';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { InteractiveNewslettersList } from '@/components/ui/InteractiveNewslettersList';
 import { InteractivePostsList } from '@/components/ui/InteractivePostsList';
 import { MeetingMaterials } from '@/components/ui/MeetingMaterials';
-import { VgpuNoctilucentWaves } from '@/components/ui/VgpuNoctilucentWaves';
 import { pageMetadata } from '@/lib/metadata';
 import { getDataPoints, getNewsletters } from '@/lib/queries/civic';
 import { getLegacyDocuments } from '@/lib/queries/legacy';
@@ -29,36 +33,36 @@ export default async function NewsPage() {
   const initialNewsletters = newslettersRows.length > 0 ? newslettersRows : undefined;
   return (
     <div className="w-full bg-background text-foreground min-h-screen pt-(--header-clearance) pb-20">
-      {/* Header Banner with VGPU Noctilucent Mesospheric Waves */}
-      <section className="relative overflow-hidden bg-surface-muted border-b border-border text-foreground dark:bg-secondary dark:text-white py-16">
-        <VgpuNoctilucentWaves />
-        <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary dark:bg-primary-bright/10 dark:border-primary-on-dark-muted/30 dark:text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
-            <Newspaper size={14} className="text-accent-gold" />
-            <DataPoint initialData={dataPoints} name="news.hero.eyebrow">
-              Chapter Bulletins, Minutes &amp; Handouts
-            </DataPoint>
-          </div>
+      <PageMasthead
+        icon={Newspaper}
+        eyebrow={
+          <DataPoint initialData={dataPoints} name="news.hero.eyebrow">
+            Chapter Bulletins, Minutes &amp; Handouts
+          </DataPoint>
+        }
+        title={
           <DataPoint
             initialData={dataPoints}
             name="news.hero.headline"
             as="h1"
-            className="text-4xl sm:text-5xl font-black text-foreground dark:text-white tracking-tight mb-4"
+            className={MASTHEAD_TITLE}
           >
             Newsletters &amp; Chapter Updates
           </DataPoint>
+        }
+        intro={
           <DataPoint
             initialData={dataPoints}
             name="news.hero.intro"
             as="p"
-            className="text-lg text-muted-foreground dark:text-ink-on-dark max-w-2xl mx-auto leading-relaxed"
+            className={MASTHEAD_INTRO}
           >
             Stay up to date with our grassroots organizing, chapter meeting minutes, printable
             handouts, and Christiana&apos;s regular email news blasts across Fair Oaks, Carmichael, and
             Sacramento County.
           </DataPoint>
-        </div>
-      </section>
+        }
+      />
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-16">
         {/* Interactive Action Alerts Subscription */}

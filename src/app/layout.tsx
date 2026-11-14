@@ -50,6 +50,17 @@ const outfit = localFont({
   weight: '100 900',
 });
 
+// Display face for the civic-poster identity. Fraunces is a variable serif with
+// enough optical range to carry a 7rem headline and a 1rem label without
+// looking like two unrelated families. Bundled locally, like Inter and Outfit,
+// so the design does not depend on a third-party font request at runtime.
+const fraunces = localFont({
+  src: './fonts/Fraunces-Variable.woff2',
+  variable: '--font-fraunces',
+  display: 'swap',
+  weight: '100 900',
+});
+
 export const metadata: Metadata = {
   // Derived from env so the apex cutover is a Vercel env change. Previously
   // hardcoded, which meant staging shipped apex canonicals for every page.
@@ -111,7 +122,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: 'cover',
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: light)', color: '#f4efe4' },
     { media: '(prefers-color-scheme: dark)', color: BRAND.surfaceDark },
   ],
 };
@@ -153,7 +164,7 @@ export default async function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${inter.variable} ${outfit.variable} h-full antialiased`}
+      className={`${inter.variable} ${outfit.variable} ${fraunces.variable} h-full antialiased`}
     >
       <head>
         {/* The palette must be chosen before the first paint. The theme store

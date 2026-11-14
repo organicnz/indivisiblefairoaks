@@ -62,26 +62,15 @@ export function ActionAlertsSubscription({ initialData, className = '' }: Action
   return (
     <section
       aria-labelledby="action-alerts-headline"
-      className={`relative overflow-hidden rounded-3xl border border-border bg-surface-card p-6 sm:p-8 md:p-10 shadow-xl transition-all duration-300 dark:border-primary-bright/25 dark:bg-gradient-to-tr dark:from-blue-950/70 dark:via-slate-900/90 dark:to-indigo-950/70 ${className}`}
+      className={`relative overflow-hidden border-y-2 border-foreground/25 bg-surface-muted p-6 transition-all duration-300 sm:p-8 md:p-10 ${className}`}
     >
-      {/* Decorative ambient background blur */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-accent-gold/15 blur-3xl dark:bg-accent-gold/10"
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -bottom-16 -left-16 h-64 w-64 rounded-full bg-primary-bright/10 blur-3xl dark:bg-blue-600/10"
-      />
-
       <div className="relative z-10 space-y-6">
-        {/* Eyebrow badge */}
-        <div className="inline-flex items-center gap-2 rounded-full border border-accent-gold/30 bg-accent-gold/20 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-ink-strong shadow-sm dark:text-accent-gold">
+        {/* Eyebrow is a ruled kicker, matching the rest of the public pages. */}
+        <div className="civic-kicker">
           <Mail size={12} className="shrink-0" />
           <DataPoint initialData={initialData} as="span" name="news.subscribe.badge">
             Direct To Your Inbox
           </DataPoint>
-          <span className="flex h-1.5 w-1.5 rounded-full bg-accent-gold animate-pulse" aria-hidden="true" />
         </div>
 
         {/* Headline & Description */}
@@ -91,7 +80,7 @@ export function ActionAlertsSubscription({ initialData, className = '' }: Action
             name="news.subscribe.headline"
             as="h2"
             id="action-alerts-headline"
-            className="text-2xl sm:text-3xl font-black tracking-tight text-foreground dark:text-white"
+            className="font-display text-3xl font-semibold tracking-[-0.03em] text-foreground sm:text-4xl"
           >
             Subscribe to Action Alerts
           </DataPoint>

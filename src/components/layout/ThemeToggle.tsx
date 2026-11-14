@@ -49,7 +49,7 @@ function SegmentedPill({ layoutId, mode }: { layoutId: string; mode: ThemeMode }
 // Focus ring, matching the header's other controls. Declared per component by
 // convention (Header, NavDropdown, CivicCommandPalette each carry their own).
 const FOCUS_RING =
-  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold focus-visible:ring-offset-2 focus-visible:ring-offset-secondary';
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background';
 
 const MODE_ICON: Record<ThemeMode, typeof Monitor> = {
   system: Monitor,
@@ -224,7 +224,7 @@ export function ThemeToggle({ variant = 'icon' }: { variant?: 'icon' | 'block' |
         data-theme-effective={effective}
         aria-label={label}
         title={label}
-        className={`group relative inline-flex items-center justify-center size-11 rounded-lg text-ink-on-dark hover:text-white hover:bg-white/10 transition-all duration-300 ease-out active:scale-95 cursor-pointer ${FOCUS_RING}`}
+        className={`group relative inline-flex size-11 items-center justify-center rounded-sm text-foreground/75 transition-all duration-300 ease-out hover:bg-surface-muted hover:text-foreground active:scale-95 cursor-pointer ${FOCUS_RING}`}
       >
         <span className="relative flex items-center justify-center transition-transform duration-300 ease-out group-hover:rotate-12 group-active:scale-90">
           <Icon size={18} aria-hidden="true" className="transition-all duration-300 ease-out" />
@@ -235,8 +235,8 @@ export function ThemeToggle({ variant = 'icon' }: { variant?: 'icon' | 'block' |
             className="absolute bottom-2 right-2 flex size-2 items-center justify-center pointer-events-none"
           >
             <span
-              className={`relative inline-flex size-1.5 rounded-full ring-1 ring-secondary shadow-xs transition-colors duration-300 ${
-                effective === 'dark' ? 'bg-sky-400' : 'bg-amber-400'
+              className={`relative inline-flex size-1.5 rounded-full ring-1 ring-background shadow-xs transition-colors duration-300 ${
+                effective === 'dark' ? 'bg-primary' : 'bg-accent'
               }`}
             />
           </span>

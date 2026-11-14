@@ -1,9 +1,13 @@
 import { Archive, ArrowUpRight, Compass } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import {
+  MASTHEAD_INTRO,
+  MASTHEAD_TITLE,
+  PageMasthead,
+} from '@/components/layout/PageMasthead';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { InteractiveLinksDirectory } from '@/components/ui/InteractiveLinksDirectory';
-import { VgpuBirkelandCurrents } from '@/components/ui/VgpuBirkelandCurrents';
 import { pageMetadata } from '@/lib/metadata';
 import { getCoalitionLinks, getDataPoints } from '@/lib/queries/civic';
 
@@ -166,35 +170,35 @@ export default async function LinksPage() {
 
   return (
     <div className="w-full bg-background text-foreground min-h-screen pt-(--header-clearance) pb-20">
-      {/* Header Banner with VGPU Birkeland Helical Plasma Currents */}
-      <section className="relative overflow-hidden bg-surface-muted border-b border-border text-foreground dark:bg-secondary dark:text-white py-16">
-        <VgpuBirkelandCurrents />
-        <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center pointer-events-auto">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary dark:bg-primary-bright/10 dark:border-primary-on-dark-muted/30 dark:text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
-            <Compass size={14} className="text-accent-gold" />
-            <DataPoint name="links.hero.eyebrow" initialData={dataPoints}>
-              Link Tree &amp; Civic Directory
-            </DataPoint>
-          </div>
+      <PageMasthead
+        icon={Compass}
+        eyebrow={
+          <DataPoint name="links.hero.eyebrow" initialData={dataPoints}>
+            Link Tree &amp; Civic Directory
+          </DataPoint>
+        }
+        title={
           <DataPoint
             name="links.hero.headline"
             as="h1"
             initialData={dataPoints}
-            className="text-4xl sm:text-5xl font-black text-foreground dark:text-white tracking-tight mb-4"
+            className={MASTHEAD_TITLE}
           >
             Link Tree &amp; Coalition Directory
           </DataPoint>
+        }
+        intro={
           <DataPoint
             name="links.hero.intro"
             as="p"
             initialData={dataPoints}
-            className="text-lg text-muted-foreground dark:text-ink-on-dark max-w-2xl mx-auto leading-relaxed"
+            className={MASTHEAD_INTRO}
           >
             Essential chapter quick-access links, nonpartisan voter tools, grassroots allies, and democracy defense
             resources vetted by our chapter.
           </DataPoint>
-        </div>
-      </section>
+        }
+      />
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-8">
         <InteractiveLinksDirectory initialLinks={items} initialData={dataPoints} />

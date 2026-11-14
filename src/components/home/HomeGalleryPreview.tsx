@@ -89,13 +89,13 @@ export function HomeGalleryPreview({
       : previewPhotos.filter((p) => p.category === selectedFilter);
 
   return (
-    <section className="py-16 md:py-24 bg-surface-muted text-foreground border-t border-border dark:bg-secondary dark:text-white dark:border-white/10">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <section className="border-t border-border bg-surface-muted py-16 text-foreground md:py-24">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between mb-10 gap-6">
+        <div className="mb-9 flex flex-col justify-between gap-6 md:flex-row md:items-end">
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary-ink dark:bg-primary-bright/10 dark:border-primary-on-dark-muted/30 dark:text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-3">
-              <Camera size={14} className="text-accent-gold" />
+            <div className="civic-kicker">
+              <Camera size={13} aria-hidden="true" />
               <DataPoint name="home.gallery.eyebrow" initialData={dataPoints}>
                 Photojournalism In Action
               </DataPoint>
@@ -104,7 +104,7 @@ export function HomeGalleryPreview({
               name="home.gallery.headline"
               as="h2"
               initialData={dataPoints}
-              className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-foreground dark:text-white"
+              className="mt-5 max-w-3xl font-display text-4xl font-semibold leading-[0.98] tracking-[-0.04em] text-foreground sm:text-5xl"
             >
               Moments of Peaceful Resistance
             </DataPoint>
@@ -112,7 +112,7 @@ export function HomeGalleryPreview({
               name="home.gallery.intro"
               as="p"
               initialData={dataPoints}
-              className="text-sm sm:text-base text-muted-foreground dark:text-ink-on-dark mt-2 max-w-2xl leading-relaxed"
+              className="mt-4 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base"
             >
               Snapshots of our neighbors gathering, singing, holding signs, and speaking truth to
               power across Sacramento County. Strictly 100% grassroots — zero politicians, zero
@@ -122,30 +122,27 @@ export function HomeGalleryPreview({
 
           <Link
             href="/gallery"
-            className="inline-flex items-center gap-2 text-sm font-bold text-primary-ink dark:text-accent-gold hover:text-primary-dark dark:hover:text-accent-gold transition-colors uppercase tracking-wider group shrink-0"
+            className="group inline-flex shrink-0 items-center gap-2 border-b border-foreground/30 pb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-foreground transition-colors hover:border-accent hover:text-accent"
           >
             <DataPoint name="home.gallery.btn_view_all" as="span" initialData={dataPoints}>
               Explore Full Gallery
             </DataPoint>
-            <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+            <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
           </Link>
         </div>
 
-        {/* Interactive Filter Pills */}
-        <div className="flex items-center gap-2 flex-wrap mb-8 pb-2">
-          <Filter
-            size={14}
-            className="text-muted-foreground dark:text-ink-muted-on-dark mr-1 hidden sm:inline-block"
-          />
+        {/* Filters stay compact so they read as a toolbar, not another card row. */}
+        <div className="mb-8 flex items-center gap-2 overflow-x-auto border-t border-foreground/15 pb-2 pt-4 sm:flex-wrap sm:overflow-visible sm:pb-0">
+          <Filter size={14} className="mr-1 hidden text-muted-foreground sm:inline-block" />
           {filterOptions.map((option) => (
             <button
               key={option.id}
               type="button"
               onClick={() => setSelectedFilter(option.id)}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+              className={`shrink-0 cursor-pointer border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.08em] transition-colors ${
                 selectedFilter === option.id
-                  ? 'bg-primary hover:bg-primary-dark text-white dark:bg-primary-bright shadow-md shadow-blue-500/25 scale-105'
-                  : 'bg-surface-card text-muted-foreground hover:text-foreground hover:bg-surface-muted border border-border dark:bg-secondary dark:text-ink-muted-on-dark dark:hover:text-white dark:hover:bg-white/5 dark:border-white/10'
+                  ? 'border-secondary bg-secondary text-white'
+                  : 'border-border bg-transparent text-muted-foreground hover:border-foreground/40 hover:text-foreground'
               }`}
             >
               <DataPoint as="span" name={option.key} initialData={dataPoints}>
@@ -155,13 +152,13 @@ export function HomeGalleryPreview({
           ))}
         </div>
 
-        {/* Responsive Photojournalism Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* One horizontal, snap-scrolling strip on phones; a 3-up grid from sm. */}
+        <div className="-mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-4 sm:mx-0 sm:grid sm:grid-cols-2 sm:px-0 lg:grid-cols-3">
           {displayedPhotos.map((photo) => (
             <Link
               key={photo.id}
               href="/gallery"
-              className="group relative h-88 rounded-3xl overflow-hidden border border-border bg-surface-card shadow-card dark:border-white/10 dark:bg-secondary dark:shadow-xl hover:border-primary/40 dark:hover:border-slate-700 transition-all block text-left"
+              className="group relative block h-80 w-[82vw] max-w-[340px] shrink-0 snap-start overflow-hidden rounded-sm border border-foreground/20 bg-surface-card text-left transition-colors hover:border-primary/40 sm:h-88 sm:w-auto sm:max-w-none"
             >
               <GalleryImage
                 src={photo.image}
@@ -171,15 +168,15 @@ export function HomeGalleryPreview({
               />
 
               {/* Gradient Scrim */}
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent opacity-90 group-hover:opacity-80 transition-opacity" />
+              <div className="absolute inset-0 bg-gradient-to-t from-secondary via-secondary/35 to-transparent opacity-90 transition-opacity group-hover:opacity-80" />
 
               {/* Top Badges */}
-              <div className="absolute top-4 left-4 z-10 flex flex-col items-start gap-1.5 max-w-[85%]">
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-secondary/85 backdrop-blur-md border border-slate-700 text-accent-gold">
+              <div className="absolute left-4 top-4 z-10 flex max-w-[85%] flex-col items-start gap-1.5">
+                <span className="border border-white/20 bg-secondary/85 px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-accent-gold backdrop-blur-md">
                   {photo.category}
                 </span>
                 {photo.signQuote && (
-                  <span className="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-accent-gold text-slate-950 shadow-md truncate max-w-full">
+                  <span className="max-w-full truncate bg-accent-gold px-2 py-0.5 text-[10px] font-bold text-ink-strong">
                     “{photo.signQuote}”
                   </span>
                 )}
@@ -187,7 +184,7 @@ export function HomeGalleryPreview({
 
               {/* Bottom Metadata */}
               <div className="absolute bottom-0 inset-x-0 p-5 z-10 space-y-1.5">
-                <h3 className="font-bold text-white text-base sm:text-lg leading-snug group-hover:text-primary-on-dark transition-colors">
+                <h3 className="font-display text-xl font-semibold leading-snug text-white transition-colors group-hover:text-accent-gold">
                   {photo.title}
                 </h3>
                 <div className="flex items-center justify-between text-xs text-ink-muted-on-dark">

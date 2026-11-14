@@ -12,9 +12,13 @@ import {
 import type { Metadata } from 'next';
 import { LegacyDocumentArchive } from '@/components/archive/LegacyDocumentArchive';
 import { CopyRegion } from '@/components/cms/CopyRegion';
+import {
+  MASTHEAD_INTRO,
+  MASTHEAD_TITLE,
+  PageMasthead,
+} from '@/components/layout/PageMasthead';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { SacramentoRepresentativeFinder } from '@/components/ui/SacramentoRepresentativeFinder';
-import { VgpuGeomagneticCusp } from '@/components/ui/VgpuGeomagneticCusp';
 import { pageMetadata } from '@/lib/metadata';
 import { getDataPoints } from '@/lib/queries/civic';
 import {
@@ -42,35 +46,35 @@ export default async function VoterInfoPage() {
 
   return (
     <div className="w-full bg-background text-foreground min-h-screen pt-(--header-clearance) pb-20">
-      {/* Header Banner with VGPU Geomagnetic Cusp & True North Arcs */}
-      <div className="relative overflow-hidden bg-surface-muted border-b border-border text-foreground dark:bg-gradient-to-b dark:from-slate-900 dark:to-slate-950 dark:border-white/10 py-16">
-        <VgpuGeomagneticCusp />
-        <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center pointer-events-auto">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary-ink dark:bg-primary-bright/10 dark:border-primary-on-dark-muted/30 dark:text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
-            <Vote size={14} className="text-accent-gold" />
-            <DataPoint initialData={dataPoints} name="voter.hero.eyebrow">
-              Sacramento County Voter Center
-            </DataPoint>
-          </div>
+      <PageMasthead
+        icon={Vote}
+        eyebrow={
+          <DataPoint initialData={dataPoints} name="voter.hero.eyebrow">
+            Sacramento County Voter Center
+          </DataPoint>
+        }
+        title={
           <DataPoint
             initialData={dataPoints}
             as="h1"
             name="voter.hero.title"
-            className="text-4xl sm:text-5xl font-black text-foreground dark:text-white tracking-tight mb-4"
+            className={MASTHEAD_TITLE}
           >
             Voter Information & Guides
           </DataPoint>
+        }
+        intro={
           <DataPoint
             initialData={dataPoints}
             as="p"
             name="voter.hero.intro"
-            className="text-lg text-muted-foreground dark:text-ink-on-dark max-w-2xl mx-auto leading-relaxed"
+            className={MASTHEAD_INTRO}
           >
             Your vote is your voice and your power. Explore official guides, check your registration
             status, and know your rights as a California voter.
           </DataPoint>
-        </div>
-      </div>
+        }
+      />
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-16">
         {/* Quick Action Cards */}

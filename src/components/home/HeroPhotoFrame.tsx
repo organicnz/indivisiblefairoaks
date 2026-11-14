@@ -1,6 +1,6 @@
 'use client';
 
-import { AnimatePresence, motion, useReducedMotion, type Variants } from 'motion/react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { GalleryImage } from '@/components/gallery/GalleryImage';
@@ -96,15 +96,6 @@ const HERO_INTERVAL = 6000; // ms between hero crossfades
 
 const EASE_STD = [0.4, 0, 0.2, 1] as const;
 
-const rowVariants: Variants = {
-  hidden: { opacity: 0, y: 14 },
-  visible: (i: number) => ({
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.5, ease: EASE_STD, delay: i * 0.11 },
-  }),
-};
-
 export function HeroPhotoFrame({
   photos: initialPhotos,
   initialData,
@@ -127,18 +118,12 @@ export function HeroPhotoFrame({
   const dur = reduced !== false ? 0 : undefined;
 
   return (
-    <div className="flex flex-col gap-3 select-none w-full max-w-full md:max-w-2xl lg:max-w-3xl mx-auto">
-      <div aria-hidden="true" className="flex flex-col gap-3">
+    <div className="mx-auto flex w-full max-w-full select-none flex-col gap-4 md:max-w-2xl lg:max-w-3xl">
+      <div aria-hidden="true" className="flex flex-col gap-4">
         {/* ── Row 1: crossfading large photo ── */}
-        <motion.div
-          custom={0}
-          variants={rowVariants}
-          initial={reduced !== false ? 'visible' : 'hidden'}
-          animate="visible"
-          className="relative rounded-2xl overflow-hidden border border-border dark:border-white/10 shadow-2xl shadow-black/20 dark:shadow-black/50 aspect-[4/3]"
-        >
+        <div className="relative aspect-[4/3] overflow-hidden rounded-sm border border-foreground/25 bg-surface-deep shadow-[8px_8px_0_var(--surface-deep)]">
           {heroPhotos.length > 0 && (
-            <AnimatePresence mode="sync">
+            <AnimatePresence mode="sync" initial={false}>
               <motion.div
                 key={heroPhotos[heroIndex]?.id}
                 className="absolute inset-0"
@@ -167,18 +152,18 @@ export function HeroPhotoFrame({
             </div>
           )}
 
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/65 via-transparent to-transparent pointer-events-none" />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-secondary/80 via-secondary/10 to-transparent" />
 
           {heroPhotos.length > 0 && (
             <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between">
-              <AnimatePresence mode="wait">
+              <AnimatePresence mode="wait" initial={false}>
                 <motion.span
                   key={heroPhotos[heroIndex]?.id}
                   initial={{ opacity: 0, x: -5 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: 5 }}
                   transition={{ duration: dur ?? 0.3 }}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-card/90 dark:bg-secondary/70 backdrop-blur-sm border border-border dark:border-white/10 text-[10px] font-bold uppercase tracking-wider text-foreground dark:text-ink-on-dark"
+                  className="inline-flex items-center gap-1.5 border border-foreground/20 bg-background/90 px-2 py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-foreground backdrop-blur-sm"
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-accent-gold shrink-0" />
                   {heroPhotos[heroIndex]?.label}
@@ -190,27 +175,21 @@ export function HeroPhotoFrame({
                   <span
                     key={p.id}
                     className={`block rounded-full transition-all duration-300 ${
-                      i === heroIndex ? 'w-4 h-1.5 bg-accent-gold' : 'w-1.5 h-1.5 bg-white/25'
+                      i === heroIndex ? 'w-4 h-1.5 bg-accent-gold' : 'w-1.5 h-1.5 bg-white/40'
                     }`}
                   />
                 ))}
               </div>
             </div>
           )}
-        </motion.div>
+        </div>
 
         {/* ── Row 2: fixed pair ── */}
-        <motion.div
-          custom={1}
-          variants={rowVariants}
-          initial={reduced !== false ? 'visible' : 'hidden'}
-          animate="visible"
-          className="grid grid-cols-2 gap-3"
-        >
+        <div className="grid grid-cols-2 gap-4">
           {pairPhotos.map((photo) => (
             <div
               key={photo.id}
-              className="relative rounded-xl overflow-hidden border border-border dark:border-white/10 shadow-lg aspect-square"
+              className="relative aspect-square overflow-hidden rounded-sm border border-foreground/20 bg-surface-deep"
             >
               <GalleryImage
                 src={photo.src}
@@ -218,19 +197,19 @@ export function HeroPhotoFrame({
                 className="object-cover"
                 sizes="(min-width: 1024px) 22vw, 50vw"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/55 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-secondary/70 to-transparent" />
               <div className="absolute bottom-2 left-2 right-2">
-                <span className="text-[9px] font-bold uppercase tracking-wider text-ink-on-dark bg-secondary/60 backdrop-blur-sm px-1.5 py-0.5 rounded-full">
+                <span className="bg-secondary/70 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.1em] text-white backdrop-blur-sm">
                   {photo.label}
                 </span>
               </div>
             </div>
           ))}
-        </motion.div>
+        </div>
       </div>
 
       {/* Caption strip — outside aria-hidden so the link is keyboard-reachable */}
-      <div className="flex items-center justify-between px-1">
+      <div className="flex items-center justify-between border-t border-foreground/20 pt-3">
         <span
           className="text-[10px] text-muted-foreground dark:text-ink-muted-on-dark font-medium"
           aria-hidden="true"

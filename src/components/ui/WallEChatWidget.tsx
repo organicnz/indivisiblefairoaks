@@ -23,9 +23,11 @@ const SUGGESTIONS = [
     prompt: 'Where can I find voter registration and election info?',
   },
   {
+    // The store was retired. Keep the key for the existing data-point row,
+    // but do not invite a question WALL-E has no live source to answer.
     key: 'walle.chip.signs',
-    defaultLabel: '🪧 Yard Signs & Gear',
-    prompt: 'Where can I get Defend Democracy yard signs and chapter gear?',
+    defaultLabel: '🤝 Get Involved',
+    prompt: 'How can I get involved with the chapter?',
   },
   {
     key: 'walle.chip.partners',
@@ -241,7 +243,7 @@ export function WallEChatWidget() {
                 initialData={dataPoints}
                 className="relative mt-4 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-ink-on-dark"
               >
-                Ask about events, voter resources, partners, or gear.
+                Ask about events, voter resources, partners, or getting involved.
               </DataPoint>
             </header>
             <div

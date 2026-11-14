@@ -3,9 +3,13 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { LegacyDocumentArchive } from '@/components/archive/LegacyDocumentArchive';
 import { CopyRegion } from '@/components/cms/CopyRegion';
+import {
+  MASTHEAD_INTRO,
+  MASTHEAD_TITLE,
+  PageMasthead,
+} from '@/components/layout/PageMasthead';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { InteractiveEventsCalendar } from '@/components/ui/InteractiveEventsCalendar';
-import { VgpuPolarAurora } from '@/components/ui/VgpuPolarAurora';
 import { pageMetadata } from '@/lib/metadata';
 import { getDataPoints, getEvents } from '@/lib/queries/civic';
 import { getLegacyDocuments } from '@/lib/queries/legacy';
@@ -26,35 +30,35 @@ export default async function EventsPage() {
   const initialEvents = initialEventsRows.length > 0 ? initialEventsRows : undefined;
   return (
     <div className="w-full bg-background text-foreground min-h-screen pt-(--header-clearance) pb-20">
-      {/* Header Banner with VGPU Polar Aurora Draperies */}
-      <div className="relative overflow-hidden bg-surface-muted border-b border-border text-foreground dark:bg-gradient-to-b dark:from-slate-900 dark:to-slate-950 dark:border-white/10 py-16">
-        <VgpuPolarAurora />
-        <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center pointer-events-auto">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary-ink dark:bg-primary-bright/10 dark:border-primary-on-dark-muted/30 dark:text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
-            <Calendar size={14} className="text-accent-gold" />
-            <DataPoint initialData={dataPoints} name="events.hero.eyebrow">
-              Community Actions & Calendar
-            </DataPoint>
-          </div>
+      <PageMasthead
+        icon={Calendar}
+        eyebrow={
+          <DataPoint initialData={dataPoints} name="events.hero.eyebrow">
+            Community Actions & Calendar
+          </DataPoint>
+        }
+        title={
           <DataPoint
             initialData={dataPoints}
             name="events.hero.headline"
             as="h1"
-            className="text-4xl sm:text-5xl font-black text-foreground dark:text-white tracking-tight mb-4"
+            className={MASTHEAD_TITLE}
           >
             Upcoming Events & Mobilizations
           </DataPoint>
+        }
+        intro={
           <DataPoint
             initialData={dataPoints}
             name="events.hero.intro"
             as="p"
-            className="text-lg text-muted-foreground dark:text-ink-on-dark max-w-2xl mx-auto leading-relaxed"
+            className={MASTHEAD_INTRO}
           >
             Find out when and where our chapter is gathering. All community members committed to
             peaceful, democratic activism are warmly welcome.
           </DataPoint>
-        </div>
-      </div>
+        }
+      />
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-12">
         <InteractiveEventsCalendar initialEvents={initialEvents} initialData={dataPoints} />

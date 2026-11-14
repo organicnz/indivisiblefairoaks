@@ -230,7 +230,7 @@ const ADMIN_PALETTE_ITEMS: PaletteItem[] = [
 ];
 
 const FOCUS_RING =
-  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold focus-visible:ring-offset-2 focus-visible:ring-offset-secondary';
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background';
 
 export function CivicCommandPalette({
   isOpen: controlledOpen,
@@ -352,7 +352,7 @@ export function CivicCommandPalette({
         type="button"
         onClick={() => setIsOpen(true)}
         // p-2 plus a 20px glyph is 36px — under the 44px minimum target.
-        className={`inline-flex items-center justify-center size-11 -mr-1 rounded-lg text-ink-on-dark hover:text-white hover:bg-white/10 transition-colors duration-300 ease-out ${FOCUS_RING}`}
+        className={`inline-flex size-11 items-center justify-center rounded-sm text-foreground/75 transition-colors duration-300 ease-out hover:bg-surface-muted hover:text-foreground ${FOCUS_RING}`}
         aria-label="Search site (Command K)"
         title="Search site (⌘K)"
       >

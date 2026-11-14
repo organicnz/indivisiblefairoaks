@@ -40,12 +40,19 @@ export function AccountButton({ variant = 'pill', onNavigate }: AccountButtonPro
   useEffect(() => {
     const supabase = createClient();
     let mounted = true;
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (mounted) {
-        setUser(session?.user ?? null);
-        setLoading(false);
-      }
-    });
+    supabase.auth
+      .getSession()
+      .then(({ data: { session } }) => {
+        if (mounted) {
+          setUser(session?.user ?? null);
+          setLoading(false);
+        }
+      })
+      .catch(() => {
+        // Auth being unreachable must not leave a permanent loading pill in the
+        // masthead. Fall back to the signed-out entry point.
+        if (mounted) setLoading(false);
+      });
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -64,7 +71,14 @@ export function AccountButton({ variant = 'pill', onNavigate }: AccountButtonPro
     return variant === 'block' ? (
       <span aria-hidden="true" className="block w-full h-[60px] rounded-2xl bg-white/10" />
     ) : (
-      <span aria-hidden="true" className="inline-block h-10 w-28 rounded-full bg-white/10" />
+      <span
+        aria-hidden="true"
+        className="inline-flex h-10 w-28 items-center justify-center gap-1 rounded-full border border-foreground/15 bg-surface-muted"
+      >
+        <span className="size-1 animate-pulse rounded-full bg-foreground/30" />
+        <span className="size-1 animate-pulse rounded-full bg-foreground/30 [animation-delay:120ms]" />
+        <span className="size-1 animate-pulse rounded-full bg-foreground/30 [animation-delay:240ms]" />
+      </span>
     );
   }
 
@@ -118,11 +132,11 @@ export function AccountButton({ variant = 'pill', onNavigate }: AccountButtonPro
     return (
       <Link
         href="/login"
-        className="group inline-flex h-10 shrink-0 items-center gap-2 rounded-full border border-white/15 bg-white/5 py-1 pl-1.5 pr-4 shadow-md shadow-slate-950/10 transition-all duration-300 ease-out hover:border-accent-gold/50 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold/70"
+        className="group inline-flex h-10 shrink-0 items-center gap-2 rounded-full border border-foreground/20 bg-transparent py-1 pl-1.5 pr-4 transition-all duration-300 ease-out hover:border-primary/50 hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         aria-label="Sign in to your account"
       >
         {placeholder}
-        <span className="whitespace-nowrap text-xs font-bold uppercase tracking-wider text-white">
+        <span className="whitespace-nowrap text-xs font-bold uppercase tracking-wider text-foreground">
           <DataPoint as="span" name="account.btn.sign_in" initialData={dataPoints}>
             Sign In
           </DataPoint>

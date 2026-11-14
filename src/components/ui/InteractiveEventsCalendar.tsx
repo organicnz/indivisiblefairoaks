@@ -505,10 +505,10 @@ export function InteractiveEventsCalendar({
             {filteredEvents.map((event) => (
               <div
                 key={event.id}
-                className={`rounded-2xl p-6 sm:p-8 transition-all relative overflow-hidden flex flex-col justify-between shadow-xs ${
+                className={`relative flex flex-col justify-between overflow-hidden rounded-sm border p-6 transition-colors sm:p-8 ${
                   event.highlight
-                    ? 'bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/80 border border-primary/30 dark:from-blue-950/60 dark:via-slate-900 dark:to-indigo-950/60 dark:border-primary-bright/40 shadow-xl'
-                    : 'bg-surface-card border border-border hover:border-primary/40 dark:bg-secondary dark:border-white/10 dark:hover:border-white/20'
+                    ? 'border-foreground/25 border-l-4 border-l-primary bg-surface-muted'
+                    : 'border-border bg-surface-card hover:border-primary/40'
                 }`}
               >
                 <div>
@@ -552,7 +552,7 @@ export function InteractiveEventsCalendar({
                     )}
                   </div>
 
-                  <h3 className="text-xl sm:text-2xl font-black text-foreground dark:text-white tracking-tight mb-4">
+                  <h3 className="mb-4 font-display text-2xl font-semibold tracking-[-0.03em] text-foreground sm:text-3xl">
                     {event.title}
                   </h3>
 

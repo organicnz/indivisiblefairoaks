@@ -14,7 +14,7 @@ export async function Footer() {
   const dataPoints = await getDataPoints('footer');
 
   return (
-    <footer className="bg-secondary text-ink-on-dark border-t border-white/10 mt-auto">
+    <footer className="mt-auto border-t-4 border-accent bg-secondary text-ink-on-dark">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-16">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-10 lg:gap-12">
           {/* Brand & Mission Column */}
@@ -31,12 +31,12 @@ export async function Footer() {
                 />
               </div>
               <div>
-                <span className="text-white font-black text-lg tracking-tight uppercase block leading-tight group-hover:text-primary-on-dark-muted transition-colors">
+                <span className="block font-display text-2xl font-semibold leading-none tracking-[-0.03em] text-white transition-colors group-hover:text-accent-gold">
                   <DataPoint name="footer.brand.indivisible" initialData={dataPoints}>
                     Indivisible
                   </DataPoint>
                 </span>
-                <span className="text-primary-on-dark-muted text-xs font-semibold uppercase block leading-tight">
+                <span className="mt-1 block text-[9px] font-bold uppercase leading-tight tracking-[0.16em] text-primary-on-dark-muted">
                   <DataPoint name="footer.brand.chapter" initialData={dataPoints}>
                     Fair Oaks & Carmichael
                   </DataPoint>
@@ -52,7 +52,7 @@ export async function Footer() {
               A grassroots movement dedicated to defending democracy, resisting authoritarianism,
               electing progressive leaders, and taking direct non-violent action for our community.
             </DataPoint>
-            <div className="mt-5 p-3 rounded-xl bg-white/5 border border-white/10 text-xs text-ink-on-dark flex items-start gap-2.5">
+            <div className="mt-5 flex items-start gap-2.5 border border-white/15 bg-white/5 p-3 text-xs text-ink-on-dark">
               <MapPin className="text-accent-gold shrink-0 mt-0.5" size={16} />
               <DataPoint name="footer.meeting_notice" as="span" initialData={dataPoints}>
                 Meetings held monthly in Carmichael, CA. Bring a non-perishable food item for local
@@ -63,7 +63,7 @@ export async function Footer() {
 
           {/* Site Navigation */}
           <div className="col-span-1">
-            <h3 className="text-accent-gold text-xs font-black uppercase tracking-widest mb-4">
+            <h3 className="mb-4 font-display text-xl font-semibold tracking-[-0.02em] text-accent-gold">
               <DataPoint name="footer.col_explore" initialData={dataPoints}>
                 Explore
               </DataPoint>
@@ -123,7 +123,7 @@ export async function Footer() {
 
           {/* Action & Engagement */}
           <div className="col-span-1">
-            <h3 className="text-accent-gold text-xs font-black uppercase tracking-widest mb-4">
+            <h3 className="mb-4 font-display text-xl font-semibold tracking-[-0.02em] text-accent-gold">
               <DataPoint name="footer.col_involved" initialData={dataPoints}>
                 Get Involved
               </DataPoint>
@@ -179,7 +179,7 @@ export async function Footer() {
 
           {/* Contact & Transparency */}
           <div className="col-span-1">
-            <h3 className="text-accent-gold text-xs font-black uppercase tracking-widest mb-4">
+            <h3 className="mb-4 font-display text-xl font-semibold tracking-[-0.02em] text-accent-gold">
               <DataPoint name="footer.col_connect" initialData={dataPoints}>
                 Connect With Us
               </DataPoint>

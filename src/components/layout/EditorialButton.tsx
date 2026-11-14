@@ -68,12 +68,9 @@ export function EditorialButton() {
   }, [toggle, loading, isAdmin]);
 
   if (loading) {
-    return (
-      <span
-        aria-hidden="true"
-        className="inline-block size-11 rounded-2xl bg-gradient-to-br from-slate-700 to-slate-800 animate-pulse"
-      />
-    );
+    // Admin-only affordance: do not paint a dark placeholder in the public
+    // masthead while the edit-context request is still resolving.
+    return null;
   }
 
   if (!isAdmin) return null;

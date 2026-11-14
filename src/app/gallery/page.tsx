@@ -14,9 +14,13 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  MASTHEAD_INTRO,
+  MASTHEAD_TITLE,
+  PageMasthead,
+} from '@/components/layout/PageMasthead';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { GalleryImage } from '@/components/gallery/GalleryImage';
-import { VgpuCosmicRayCascade } from '@/components/ui/VgpuCosmicRayCascade';
 import { useDataPoints } from '@/hooks/useDataPoints';
 import { type GalleryPhoto, getGalleryPhotos } from '@/lib/queries/content-client';
 
@@ -145,34 +149,29 @@ export default function GalleryPage() {
 
   return (
     <div className="bg-background text-foreground min-h-screen pt-(--header-clearance) pb-20">
-      {/* Hero Header with VGPU Cosmic Ray Cherenkov Filament Cascades */}
-      <div className="relative overflow-hidden bg-surface-muted border-b border-border dark:bg-gradient-to-b dark:from-slate-900 dark:to-slate-950 dark:border-white/10 py-16 px-4 sm:px-6 lg:px-8">
-        <VgpuCosmicRayCascade />
-        <div className="relative z-10 max-w-7xl mx-auto flex flex-col items-center text-center space-y-4 pointer-events-auto">
-          {/* Eyebrow Pill */}
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary dark:bg-primary-bright/15 dark:border-primary-on-dark-muted/30 dark:text-primary-on-dark text-xs font-bold uppercase tracking-wider backdrop-blur-md">
-            <Camera size={14} className="text-accent-gold" />
-            <DataPoint initialData={dataPoints} name="gallery.hero.eyebrow">
-              Photojournalism In Action • Moments of Peaceful Resistance
-            </DataPoint>
-          </div>
-
+      <PageMasthead
+        icon={Camera}
+        eyebrow={
+          <DataPoint initialData={dataPoints} name="gallery.hero.eyebrow">
+            Photojournalism In Action • Moments of Peaceful Resistance
+          </DataPoint>
+        }
+        title={
           <DataPoint
             initialData={dataPoints}
             name="gallery.hero.headline"
             as="h1"
-            className="text-4xl sm:text-5xl md:text-6xl font-black uppercase text-foreground dark:text-white tracking-tighter leading-[1.08]"
+            className={MASTHEAD_TITLE}
           >
             Democracy In Full View
           </DataPoint>
-
-          <div className="h-1.5 w-24 bg-primary dark:bg-accent-gold rounded-full" />
-
+        }
+        intro={
           <DataPoint
             initialData={dataPoints}
             name="gallery.hero.intro"
             as="p"
-            className="text-base sm:text-lg text-muted-foreground dark:text-ink-on-dark leading-relaxed max-w-3xl"
+            className={MASTHEAD_INTRO}
           >
             Snapshots of our neighbors gathering, singing, holding signs, and speaking truth to
             power across Sacramento County. Curated from our legacy site archives, Sacramento No
@@ -180,15 +179,19 @@ export default function GalleryPage() {
             witty grassroots cardboard art. Strictly 100% grassroots — zero politicians, zero
             corporate branding.
           </DataPoint>
+        }
+      />
 
+      <section className="border-b border-border bg-surface-muted/60">
+        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
           {/* Quick Metrics Bar */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full max-w-4xl pt-4">
-            <div className="min-w-0 p-4 rounded-2xl bg-surface-card border border-border text-center">
+          <div className="grid w-full grid-cols-2 border-y border-foreground/15 sm:grid-cols-4">
+            <div className="min-w-0 border-b border-foreground/15 p-4 text-left odd:border-r sm:border-b-0 sm:border-r sm:text-center sm:last:border-r-0">
               <DataPoint
                 initialData={dataPoints}
                 as="span"
                 name="gallery.metrics.m1_stat"
-                className="text-xl sm:text-2xl font-black text-amber-600 dark:text-accent-gold block font-mono break-words"
+                className="block break-words font-display text-2xl font-semibold text-foreground"
               >
                 No Kings
               </DataPoint>
@@ -201,12 +204,12 @@ export default function GalleryPage() {
                 Sacramento Actions
               </DataPoint>
             </div>
-            <div className="min-w-0 p-4 rounded-2xl bg-surface-card border border-border text-center">
+            <div className="min-w-0 border-b border-foreground/15 p-4 text-left odd:border-r sm:border-b-0 sm:border-r sm:text-center sm:last:border-r-0">
               <DataPoint
                 initialData={dataPoints}
                 as="span"
                 name="gallery.metrics.m2_stat"
-                className="text-xl sm:text-2xl font-black text-emerald-600 dark:text-emerald-400 block font-mono break-words"
+                className="block break-words font-display text-2xl font-semibold text-foreground"
               >
                 NorCal Resist
               </DataPoint>
@@ -219,12 +222,12 @@ export default function GalleryPage() {
                 Direct Solidarity
               </DataPoint>
             </div>
-            <div className="min-w-0 p-4 rounded-2xl bg-surface-card border border-border text-center">
+            <div className="min-w-0 border-b border-foreground/15 p-4 text-left odd:border-r sm:border-b-0 sm:border-r sm:text-center sm:last:border-r-0">
               <DataPoint
                 initialData={dataPoints}
                 as="span"
                 name="gallery.metrics.m3_stat"
-                className="text-xl sm:text-2xl font-black text-primary dark:text-primary-on-dark-muted block font-mono break-words"
+                className="block break-words font-display text-2xl font-semibold text-foreground"
               >
                 Witty Signs
               </DataPoint>
@@ -237,12 +240,12 @@ export default function GalleryPage() {
                 Grassroots Humor
               </DataPoint>
             </div>
-            <div className="min-w-0 p-4 rounded-2xl bg-surface-card border border-border text-center">
+            <div className="min-w-0 border-b border-foreground/15 p-4 text-left odd:border-r sm:border-b-0 sm:border-r sm:text-center sm:last:border-r-0">
               <DataPoint
                 initialData={dataPoints}
                 as="span"
                 name="gallery.metrics.m4_stat"
-                className="text-xl sm:text-2xl font-black text-violet-600 dark:text-purple-400 block font-mono break-words"
+                className="block break-words font-display text-2xl font-semibold text-foreground"
               >
                 0 Politicians
               </DataPoint>
@@ -258,7 +261,7 @@ export default function GalleryPage() {
           </div>
 
           {/* Real-time Search & Filter Controls */}
-          <div className="w-full max-w-2xl pt-6 space-y-4">
+          <div className="mt-8 w-full max-w-2xl space-y-4">
             <div className="relative">
               <Search
                 size={18}
@@ -271,7 +274,7 @@ export default function GalleryPage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search by quote, slogan, location (e.g. 'IKEA', 'Tower Bridge', 'Brake Light')..."
-                className="w-full pl-12 pr-10 py-3 rounded-2xl bg-surface-card border border-border dark:border-slate-700 text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-ink-muted-on-dark text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all backdrop-blur-md shadow-lg"
+                className="w-full rounded-sm border border-border bg-surface-card py-3 pl-12 pr-10 text-sm text-foreground placeholder:text-muted-foreground transition-all focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/25"
               />
               {searchQuery && (
                 <button
@@ -286,7 +289,7 @@ export default function GalleryPage() {
             </div>
 
             {/* Category Filter Chips */}
-            <div className="flex items-center justify-center gap-2 flex-wrap">
+            <div className="flex flex-wrap items-center justify-start gap-2">
               <Filter
                 size={15}
                 className="text-muted-foreground dark:text-ink-muted-on-dark mr-1 hidden sm:inline-block"
@@ -303,7 +306,7 @@ export default function GalleryPage() {
                     type="button"
                     aria-pressed={isSelected}
                     onClick={() => setSelectedCategory(category)}
-                    className={`px-3.5 min-h-11 rounded-xl text-xs sm:text-sm font-semibold transition-colors duration-300 ease-out cursor-pointer flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold ${
+                    className={`flex min-h-11 cursor-pointer items-center gap-1.5 rounded-sm px-3.5 text-xs font-semibold transition-colors duration-300 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:text-sm ${
                       isSelected
                         ? 'bg-primary text-white shadow-raised'
                         : 'bg-surface-card/90 text-muted-foreground dark:text-ink-on-dark hover:text-foreground dark:text-white hover:bg-surface-muted dark:hover:bg-white/5 border border-border dark:border-white/10'
@@ -325,7 +328,7 @@ export default function GalleryPage() {
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
       {/* Filtering and searching produced a silently-changing grid. */}
       <p role="status" aria-live="polite" className="sr-only">
@@ -392,7 +395,7 @@ export default function GalleryPage() {
 
                 {/* Bottom Caption */}
                 <div className="absolute bottom-0 inset-x-0 p-5 z-10 space-y-1.5">
-                  <h2 className="font-bold text-foreground dark:text-white text-base sm:text-lg leading-snug group-hover:text-primary-dark dark:group-hover:text-primary-light transition-colors duration-300 ease-out line-clamp-2">
+                  <h2 className="line-clamp-2 font-display text-xl font-semibold leading-snug text-white transition-colors group-hover:text-accent-gold">
                     {photo.caption}
                   </h2>
                   <div className="flex items-center justify-between text-xs text-muted-foreground dark:text-ink-muted-on-dark">

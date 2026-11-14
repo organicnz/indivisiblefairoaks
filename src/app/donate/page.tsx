@@ -1,9 +1,13 @@
 import { Heart, Megaphone, Music, Shield, Users } from 'lucide-react';
 import type { Metadata } from 'next';
 import { CopyRegion } from '@/components/cms/CopyRegion';
+import {
+  MASTHEAD_INTRO,
+  MASTHEAD_TITLE,
+  PageMasthead,
+} from '@/components/layout/PageMasthead';
 import { ActBlueDonationCalculator } from '@/components/ui/ActBlueDonationCalculator';
 import { DataPoint } from '@/components/ui/DataPoint';
-import { VgpuSolarCorona } from '@/components/ui/VgpuSolarCorona';
 import { pageMetadata } from '@/lib/metadata';
 import { getDataPoints } from '@/lib/queries/civic';
 
@@ -19,35 +23,35 @@ export default async function DonatePage() {
 
   return (
     <div className="w-full bg-background text-foreground min-h-screen pt-(--header-clearance) pb-20">
-      {/* Header Banner with VGPU Solar Corona & Prominence Loops */}
-      <div className="relative overflow-hidden bg-surface-muted border-b border-border text-foreground dark:bg-gradient-to-b dark:from-slate-900 dark:to-slate-950 dark:border-white/10 py-16">
-        <VgpuSolarCorona />
-        <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center pointer-events-auto">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-accent-gold/15 border border-accent-gold/40 text-amber-800 dark:text-accent-gold text-xs font-bold uppercase tracking-wider mb-4">
-            <Heart size={14} className="fill-current text-accent dark:text-accent-gold" />
-            <DataPoint name="donate.hero.eyebrow" initialData={dataPoints}>
-              100% Grassroots Funded
-            </DataPoint>
-          </div>
+      <PageMasthead
+        icon={Heart}
+        eyebrow={
+          <DataPoint name="donate.hero.eyebrow" initialData={dataPoints}>
+            100% Grassroots Funded
+          </DataPoint>
+        }
+        title={
           <DataPoint
             name="donate.hero.title"
             as="h1"
             initialData={dataPoints}
-            className="text-4xl sm:text-5xl font-black tracking-tight mb-4 text-foreground dark:text-white"
+            className={MASTHEAD_TITLE}
           >
             Fuel The Fair Oaks - Carmichael Resistance
           </DataPoint>
+        }
+        intro={
           <DataPoint
             name="donate.hero.intro"
             as="p"
             initialData={dataPoints}
-            className="text-lg text-muted-foreground dark:text-ink-on-dark max-w-2xl mx-auto leading-relaxed"
+            className={MASTHEAD_INTRO}
           >
             We don't take corporate PAC money. Our work is powered entirely by neighbors like you
             who pitch in to defend democracy right here in Sacramento County.
           </DataPoint>
-        </div>
-      </div>
+        }
+      />
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-16">
         {/* 10x Pro Interactive ActBlue Donation Calculator */}
