@@ -197,7 +197,7 @@ export default async function LinksPage() {
       </section>
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-8">
-        <InteractiveLinksDirectory initialLinks={items} />
+        <InteractiveLinksDirectory initialLinks={items} initialData={dataPoints} />
 
         <div className="rounded-2xl border border-border bg-surface-card p-6 sm:p-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
           <div className="flex items-start gap-3">

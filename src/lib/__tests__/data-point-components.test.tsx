@@ -294,6 +294,33 @@ describe('useDataPoints and Edge API Integration', () => {
     );
   });
 
+  it('combines a global server snapshot with page-specific initialData', async () => {
+    vi.spyOn(civicClient, 'getDataPoints').mockResolvedValue({ dataPoints: {}, rows: [] });
+
+    function ScopedConsumer() {
+      const { dataPoints } = useDataPoints('home', {
+        'home.hero.headline': 'Page copy',
+      });
+      return (
+        <div>
+          <span data-header>{dataPoints['header.logo.title']}</span>
+          <span data-home>{dataPoints['home.hero.headline']}</span>
+        </div>
+      );
+    }
+
+    await act(async () => {
+      root.render(
+        <DataPointsProvider dataPoints={{ 'header.logo.title': 'Global copy' }}>
+          <ScopedConsumer />
+        </DataPointsProvider>
+      );
+    });
+
+    expect(container.querySelector('[data-header]')?.textContent).toBe('Global copy');
+    expect(container.querySelector('[data-home]')?.textContent).toBe('Page copy');
+  });
+
   it('prefers the server snapshot over fallback initialData on the first render', async () => {
     vi.spyOn(civicClient, 'getDataPoints').mockResolvedValue({ dataPoints: {}, rows: [] });
 

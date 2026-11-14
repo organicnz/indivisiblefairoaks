@@ -70,8 +70,12 @@ const TIERS: Record<number, ImpactTier> = {
   },
 };
 
-export function ActBlueDonationCalculator() {
-  const { dataPoints } = useDataPoints('donate');
+export function ActBlueDonationCalculator({
+  initialData,
+}: {
+  initialData?: Record<string, string>;
+} = {}) {
+  const { dataPoints } = useDataPoints('donate', initialData);
   const [selectedAmount, setSelectedAmount] = useState<number>(50);
   const [isMonthly, setIsMonthly] = useState<boolean>(false);
   const [customAmount, setCustomAmount] = useState<string>('');

@@ -175,14 +175,18 @@ const DISTRICT_DATABASE: Record<string, DistrictInfo> = {
   },
 };
 
-export function SacramentoRepresentativeFinder() {
+export function SacramentoRepresentativeFinder({
+  initialData,
+}: {
+  initialData?: Record<string, string>;
+} = {}) {
   const [zipInput, setZipInput] = useState('95628');
   const [activeDistrict, setActiveDistrict] = useState<DistrictInfo>(DISTRICT_DATABASE['95628']);
   const [copiedScript, setCopiedScript] = useState(false);
   const [selectedIssue, setSelectedIssue] = useState<'voting' | 'democracy' | 'environment'>(
     'voting'
   );
-  const { dataPoints } = useDataPoints('voter');
+  const { dataPoints } = useDataPoints('voter', initialData);
   // Party names double as comparison vocabulary (the colour map below compares
   // the raw value), so the seed supplies only the display label.
   const partyLabel = (party: string) =>

@@ -224,13 +224,13 @@ export default async function HomePage() {
             </CopyRegion>
 
             {/* Right — community photo frame */}
-            <HeroPhotoFrame photos={galleryPhotos} />
+            <HeroPhotoFrame photos={galleryPhotos} initialData={dataPoints} />
           </div>
         </div>
       </section>
 
       {/* Live Civic Action Ticker */}
-      <CivicActionTicker items={tickerItems} />
+      <CivicActionTicker items={tickerItems} initialData={dataPoints} />
 
       {/* Urgent Community Gathering Alert Card */}
       {/* Light section: breaks the dark hero run so the page alternates instead

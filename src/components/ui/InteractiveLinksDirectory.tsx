@@ -20,8 +20,14 @@ export interface LinkItem {
   sort_order?: number;
 }
 
-export function InteractiveLinksDirectory({ initialLinks }: { initialLinks: LinkItem[] }) {
-  const { dataPoints } = useDataPoints('links');
+export function InteractiveLinksDirectory({
+  initialLinks,
+  initialData,
+}: {
+  initialLinks: LinkItem[];
+  initialData?: Record<string, string>;
+}) {
+  const { dataPoints } = useDataPoints('links', initialData);
   const { isAdmin } = useEditContext('/links');
 
   const [linksList, setLinksList] = useState<LinkItem[]>(initialLinks);

@@ -29,7 +29,7 @@ import {
   webSiteJsonLd,
 } from '@/config/site';
 import { env } from '@/lib/env';
-import { getDataPoints } from '@/lib/queries/civic';
+import { getDataPointsForGroups } from '@/lib/queries/civic';
 import type { UserSettings } from '@/lib/store/settings';
 import { getSettings } from '@/lib/supabase-server';
 import { themeBootstrapScript } from '@/lib/theme';
@@ -126,12 +126,28 @@ async function SettingsLoader() {
   return <SettingsHydrator settings={settings as UserSettings | null} />;
 }
 
+const GLOBAL_DATA_POINT_GROUPS = [
+  'header',
+  'account',
+  'walle',
+  'palette',
+  'auth',
+  'login',
+  'gallery',
+  'contact',
+  'notfound',
+  'error',
+  'admin',
+  'search',
+  'content',
+] as const;
+
 export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const dataPoints = await getDataPoints();
+  const dataPoints = await getDataPointsForGroups(GLOBAL_DATA_POINT_GROUPS);
 
   return (
     <html

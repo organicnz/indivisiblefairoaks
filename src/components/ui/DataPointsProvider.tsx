@@ -3,11 +3,12 @@
 import { createContext, type ReactNode, useContext } from 'react';
 
 /**
- * The server reads the whole data_points table once per cached layout render
- * and passes it here. Client widgets that used to paint their JSX literals
- * until their own fetch resolved can now render the database copy on the first
- * paint. `useDataPoints` still refreshes its group after mount, so an editor's
- * save propagates without a reload.
+ * The server reads the globally needed data-point groups once per cached
+ * layout render and passes them here. Pages that own client widgets add their
+ * own group through the widget's `initialData` prop, so the first paint uses
+ * database copy without putting the whole table on every page. Nested
+ * providers merge rather than replace. `useDataPoints` still refreshes its
+ * group after mount, so an editor's save propagates without a reload.
  */
 const DataPointsContext = createContext<Record<string, string> | null>(null);
 
@@ -18,7 +19,9 @@ export function DataPointsProvider({
   dataPoints: Record<string, string>;
   children: ReactNode;
 }) {
-  return <DataPointsContext.Provider value={dataPoints}>{children}</DataPointsContext.Provider>;
+  const parent = useContext(DataPointsContext);
+  const value = parent ? { ...parent, ...dataPoints } : dataPoints;
+  return <DataPointsContext.Provider value={value}>{children}</DataPointsContext.Provider>;
 }
 
 export function useDataPointsSnapshot(): Record<string, string> | null {

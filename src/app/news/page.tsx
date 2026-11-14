@@ -81,7 +81,10 @@ export default async function NewsPage() {
             </DataPoint>
           </h2>
 
-          <InteractiveNewslettersList initialNewsletters={initialNewsletters} />
+          <InteractiveNewslettersList
+            initialNewsletters={initialNewsletters}
+            initialData={dataPoints}
+          />
         </div>
 
         {legacyNewsletters.length > 0 ? (

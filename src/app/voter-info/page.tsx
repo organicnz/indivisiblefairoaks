@@ -182,7 +182,7 @@ export default async function VoterInfoPage() {
         {/* `id` is a nav target: the Voter Info dropdown links here. `scroll-mt`
             clears the fixed header so the anchored section is not hidden under it. */}
         <div id="representatives" className="scroll-mt-28">
-          <SacramentoRepresentativeFinder />
+          <SacramentoRepresentativeFinder initialData={dataPoints} />
         </div>
 
         {/* Detailed Guides Section — copy region */}

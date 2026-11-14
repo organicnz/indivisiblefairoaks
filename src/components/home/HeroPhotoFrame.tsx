@@ -105,8 +105,14 @@ const rowVariants: Variants = {
   }),
 };
 
-export function HeroPhotoFrame({ photos: initialPhotos }: { photos?: GalleryPhotoView[] } = {}) {
-  const { dataPoints } = useDataPoints('home');
+export function HeroPhotoFrame({
+  photos: initialPhotos,
+  initialData,
+}: {
+  photos?: GalleryPhotoView[];
+  initialData?: Record<string, string>;
+} = {}) {
+  const { dataPoints } = useDataPoints('home', initialData);
   const reduced = useReducedMotion();
   const heroPhotos = useHeroPhotos(initialPhotos);
   const pairPhotos = usePairPhotos(initialPhotos);

@@ -52,10 +52,12 @@ const FALLBACK_NEWSLETTERS: NewsletterRow[] = [
 
 export function InteractiveNewslettersList({
   initialNewsletters,
+  initialData,
 }: {
   initialNewsletters?: NewsletterRow[];
+  initialData?: Record<string, string>;
 } = {}) {
-  const { dataPoints } = useDataPoints('news');
+  const { dataPoints } = useDataPoints('news', initialData);
   const { isAdmin } = useEditContext('/news');
 
   const [newslettersList, setNewslettersList] = useState<NewsletterRow[]>(

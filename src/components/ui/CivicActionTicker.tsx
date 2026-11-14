@@ -53,8 +53,14 @@ const DEFAULT_TICKER_ITEMS: TickerItem[] = [
   },
 ];
 
-export function CivicActionTicker({ items: initialItems }: { items?: TickerItem[] } = {}) {
-  const { dataPoints } = useDataPoints('home');
+export function CivicActionTicker({
+  items: initialItems,
+  initialData,
+}: {
+  items?: TickerItem[];
+  initialData?: Record<string, string>;
+} = {}) {
+  const { dataPoints } = useDataPoints('home', initialData);
   const [items, setItems] = useState<TickerItem[]>(initialItems ?? []);
 
   useEffect(() => {

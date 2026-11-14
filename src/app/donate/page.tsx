@@ -51,7 +51,7 @@ export default async function DonatePage() {
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-16">
         {/* 10x Pro Interactive ActBlue Donation Calculator */}
-        <ActBlueDonationCalculator />
+        <ActBlueDonationCalculator initialData={dataPoints} />
 
         {/* How Your Contribution Is Put To Work */}
         <div className="space-y-6">

@@ -57,7 +57,7 @@ export default async function EventsPage() {
       </div>
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-12">
-        <InteractiveEventsCalendar initialEvents={initialEvents} />
+        <InteractiveEventsCalendar initialEvents={initialEvents} initialData={dataPoints} />
 
         {/* Ongoing Street Corner Singing Protest Spotlight (Issue #87) */}
         <div className="p-6 sm:p-8 rounded-2xl bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/80 border border-border dark:from-blue-950/40 dark:via-slate-900 dark:to-indigo-950/40 dark:border-white/10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-xl">

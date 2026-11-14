@@ -137,10 +137,12 @@ const CATEGORIES = [
 
 export function InteractiveEventsCalendar({
   initialEvents,
+  initialData,
 }: {
   initialEvents?: CivicEvent[];
+  initialData?: Record<string, string>;
 } = {}) {
-  const { dataPoints } = useDataPoints('events');
+  const { dataPoints } = useDataPoints('events', initialData);
   const { isAdmin } = useEditContext('/events');
   const [activeCategory, setActiveCategory] = useState<string>('All Actions');
   const [searchQuery, setSearchQuery] = useState('');
