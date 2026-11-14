@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
-import { copyRegionSlug } from '@/lib/copy-regions';
+import { COPY_REGION_VERSION_ATTR, copyRegionSlug } from '@/lib/copy-regions';
 import { getDataPoints } from '@/lib/queries/civic';
-import { getCopyRegionBody } from '@/lib/queries/content';
+import { getCopyRegion } from '@/lib/queries/content';
 import { sanitizeWPContent } from '@/lib/sanitize';
 
 /**
@@ -57,17 +57,18 @@ export async function CopyRegion({
 }) {
   const slug = copyRegionSlug(id);
 
-  // Cached in `getCopyRegionBody` and `getDataPoints`, not here: `'use cache'` is what keeps
+  // Cached in `getCopyRegion` and `getDataPoints`, not here: `'use cache'` is what keeps
   // `new Date()` out of the prerender and costs one query per region per build
   // rather than one per route.
-  const [body, dataPoints] = await Promise.all([getCopyRegionBody(slug), getDataPoints()]);
+  const [region, dataPoints] = await Promise.all([getCopyRegion(slug), getDataPoints()]);
 
-  const sanitized = body
+  const sanitized = region
     ? hydrateDataPointsInHtml(
-        sanitizeWPContent(body).replace(/\s*contenteditable=["']false["']/gi, ''),
+        sanitizeWPContent(region.body).replace(/\s*contenteditable=["']false["']/gi, ''),
         dataPoints
       )
     : null;
+  const regionVersion = region?.updatedAt ?? '';
 
   // `display: contents` in both branches, deliberately. It is what makes the
   // two modes interchangeable for layout *and* for the visual editor: the
@@ -76,10 +77,15 @@ export async function CopyRegion({
   // both modes — which is exactly the shape `buildVisualSections` pairs blocks
   // against. Nesting the HTML one level deeper would silently shift every
   // section's DOM ordinal.
+  /*
+   * Empty means known-null; an absent attribute means this element did not carry
+   * a version and the next write has no precondition to assert.
+   */
   return sanitized ? (
     <div
       data-copy-region={id}
       data-copy-region-source="cms"
+      {...{ [COPY_REGION_VERSION_ATTR]: regionVersion }}
       className="contents"
       // A CMS body is untrusted HTML by definition; `sanitizeWPContent` is the
       // only thing between it and the page, exactly as on the `[slug]` route.

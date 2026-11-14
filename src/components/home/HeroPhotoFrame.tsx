@@ -1,5 +1,6 @@
 'use client';
 
+import { Pause, Play } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
@@ -134,20 +135,33 @@ export function HeroPhotoFrame({
   const heroPhotos = useHeroPhotos(initialPhotos);
   const pairPhotos = usePairPhotos(initialPhotos);
   const [heroIndex, setHeroIndex] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
 
   useEffect(() => {
-    if (reduced !== false || heroPhotos.length === 0) return;
+    if (reduced !== false || isPaused || heroPhotos.length < 2) return;
     const t = setInterval(() => setHeroIndex((p) => (p + 1) % heroPhotos.length), HERO_INTERVAL);
     return () => clearInterval(t);
-  }, [reduced, heroPhotos.length]);
+  }, [heroPhotos.length, isPaused, reduced]);
+
+  const selectHero = (index: number) => {
+    setHeroIndex(index);
+    // Choosing a frame should keep it on screen rather than letting the timer
+    // immediately move on. The explicit pause control is still available.
+    setIsPaused(true);
+  };
 
   const dur = reduced !== false ? 0 : undefined;
 
   return (
     <div className="mx-auto flex w-full max-w-full select-none flex-col gap-4 md:max-w-2xl lg:max-w-3xl">
-      <div aria-hidden="true" className="flex flex-col gap-4">
+      <div className="flex flex-col gap-4">
         {/* ── Row 1: crossfading large photo ── */}
-        <div className="relative aspect-[4/3] overflow-hidden rounded-sm border border-foreground/25 bg-surface-deep shadow-[8px_8px_0_var(--surface-deep)]">
+        <div
+          role="group"
+          aria-roledescription="carousel"
+          aria-label="Community photo highlights"
+          className="relative aspect-[4/3] overflow-hidden rounded-sm border border-foreground/25 bg-surface-deep shadow-[8px_8px_0_var(--surface-deep)]"
+        >
           {heroPhotos.length > 0 && (
             <AnimatePresence mode="sync" initial={false}>
               <motion.div
@@ -196,15 +210,40 @@ export function HeroPhotoFrame({
                 </motion.span>
               </AnimatePresence>
 
-              <div className="flex items-center gap-1.5">
-                {heroPhotos.map((p, i) => (
-                  <span
-                    key={p.id}
-                    className={`block rounded-full transition-all duration-300 ${
-                      i === heroIndex ? 'w-4 h-1.5 bg-accent-gold' : 'w-1.5 h-1.5 bg-white/40'
-                    }`}
-                  />
-                ))}
+              <div className="flex items-center gap-2">
+                <div role="group" aria-label="Choose a community photo" className="flex items-center gap-1">
+                  {heroPhotos.map((p, i) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => selectHero(i)}
+                      aria-label={`Show photo ${i + 1} of ${heroPhotos.length}: ${p.label}`}
+                      aria-pressed={i === heroIndex}
+                      className="inline-flex size-7 items-center justify-center rounded-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold focus-visible:ring-offset-2 focus-visible:ring-offset-secondary"
+                    >
+                      <span
+                        className={`block h-1.5 rounded-full transition-all duration-300 ${
+                          i === heroIndex ? 'w-4 bg-accent-gold' : 'w-1.5 bg-white/50'
+                        }`}
+                      />
+                    </button>
+                  ))}
+                </div>
+                {heroPhotos.length > 1 ? (
+                  <button
+                    type="button"
+                    onClick={() => setIsPaused((paused) => !paused)}
+                    aria-label={isPaused ? 'Resume photo rotation' : 'Pause photo rotation'}
+                    aria-pressed={isPaused}
+                    className="inline-flex size-7 items-center justify-center rounded-sm border border-white/30 bg-secondary/60 text-white transition-colors hover:bg-secondary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold motion-reduce:hidden"
+                  >
+                    {isPaused ? (
+                      <Play size={12} aria-hidden="true" />
+                    ) : (
+                      <Pause size={12} aria-hidden="true" />
+                    )}
+                  </button>
+                ) : null}
               </div>
             </div>
           )}

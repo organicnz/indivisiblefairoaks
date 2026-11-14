@@ -87,6 +87,8 @@ function HeaderFallback() {
 
 function HeaderInner() {
   const { dataPoints } = useDataPoints('header');
+  const alertRoute = ROUTES.find((link) => link.href === '/ice-alerts');
+  const primaryRoutes = ROUTES.filter((link) => link.href !== '/ice-alerts');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
@@ -158,7 +160,17 @@ function HeaderInner() {
             </Link>
 
             <div className="flex items-center gap-1 sm:gap-1.5">
-              <CivicCommandPalette isOpen={isSearchOpen} setIsOpen={setIsSearchOpen} />
+              <div className="hidden sm:block">
+                <CivicCommandPalette isOpen={isSearchOpen} setIsOpen={setIsSearchOpen} />
+              </div>
+
+              <Link
+                href="/donate"
+                aria-label="Donate to Indivisible Fair Oaks-Carmichael"
+                className={`inline-flex size-11 items-center justify-center rounded-sm bg-foreground text-background transition-colors duration-300 ease-out hover:bg-primary sm:hidden ${FOCUS_RING}`}
+              >
+                <Heart size={17} className="fill-accent-gold text-accent-gold" aria-hidden="true" />
+              </Link>
 
               <div className="hidden sm:block">
                 <ThemeToggle />
@@ -166,7 +178,7 @@ function HeaderInner() {
               <EditorialButton />
               <Link
                 href="/donate"
-                className={`hidden h-9 items-center gap-1.5 rounded-sm border border-foreground bg-foreground px-3.5 text-[10px] font-bold uppercase tracking-[0.13em] text-background transition-colors duration-300 ease-out hover:border-primary hover:bg-primary md:inline-flex ${FOCUS_RING}`}
+                className={`hidden h-9 items-center gap-1.5 rounded-sm border border-foreground bg-foreground px-3.5 text-[10px] font-bold uppercase tracking-[0.13em] text-background transition-colors duration-300 ease-out hover:border-primary hover:bg-primary sm:inline-flex ${FOCUS_RING}`}
               >
                 <Heart size={13} className="fill-accent-gold text-accent-gold" aria-hidden="true" />
                 <DataPoint as="span" name="header.donate_btn" initialData={dataPoints}>
@@ -197,7 +209,7 @@ function HeaderInner() {
               navigation behind a menu at desktop sizes. */}
           <div className="hidden h-10 items-center justify-between border-t border-border md:flex">
             <nav aria-label="Primary" className="flex h-full min-w-0 items-center gap-0.5 xl:gap-1">
-              {ROUTES.map((link) => {
+              {primaryRoutes.map((link) => {
                 const isActive = isActiveRoute(pathname, link);
                 if (link.children) {
                   return <NavDropdown key={link.href} link={link} isActive={isActive} />;
@@ -225,9 +237,26 @@ function HeaderInner() {
               })}
             </nav>
 
-            <span className="hidden shrink-0 border-l border-border pl-4 text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground xl:inline-block">
-              Fair Oaks · Carmichael, CA
-            </span>
+            <div className="flex h-full shrink-0 items-center gap-3">
+              <span className="hidden border-l border-border pl-4 text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground xl:inline-block">
+                Fair Oaks · Carmichael, CA
+              </span>
+              {alertRoute ? (
+                <Link
+                  href={alertRoute.href}
+                  aria-current={isActiveRoute(pathname, alertRoute) ? 'page' : undefined}
+                  className={`relative inline-flex h-full items-center whitespace-nowrap rounded-sm px-1 text-[11px] font-bold uppercase tracking-[0.1em] text-accent transition-colors duration-300 ease-out hover:text-foreground ${FOCUS_RING}`}
+                >
+                  {alertRoute.short ?? alertRoute.label}
+                  {isActiveRoute(pathname, alertRoute) ? (
+                    <span
+                      aria-hidden="true"
+                      className="absolute inset-x-1 bottom-0 h-0.5 bg-accent"
+                    />
+                  ) : null}
+                </Link>
+              ) : null}
+            </div>
           </div>
         </div>
       </header>
@@ -324,6 +353,7 @@ function HeaderInner() {
               {ROUTES.map((link, index) => {
                 const isActive = isActiveRoute(pathname, link);
                 const groupLabel =
+                  link.group !== 'more' &&
                   link.group &&
                   !ROUTES.slice(0, index).some((previous) => previous.group === link.group)
                     ? NAV_GROUPS.find((group) => group.id === link.group)?.label
@@ -367,7 +397,16 @@ function HeaderInner() {
                               <Link
                                 href={child.href}
                                 onClick={() => setIsMenuOpen(false)}
-                                className={`block text-base font-medium transition-colors duration-300 ease-out py-1.5 rounded-sm ${FOCUS_RING} text-ink-muted-on-dark hover:text-white`}
+                                aria-current={
+                                  !child.href.includes('#') && child.href === pathname
+                                    ? 'page'
+                                    : undefined
+                                }
+                                className={`block text-base font-medium transition-colors duration-300 ease-out py-1.5 rounded-sm ${FOCUS_RING} ${
+                                  !child.href.includes('#') && child.href === pathname
+                                    ? 'text-accent-gold'
+                                    : 'text-ink-muted-on-dark hover:text-white'
+                                }`}
                               >
                                 {child.label}
                               </Link>

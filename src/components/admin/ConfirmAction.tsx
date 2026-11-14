@@ -100,6 +100,7 @@ export function ConfirmAction({
       <button
         ref={confirmRef}
         type="button"
+        disabled={disabled || busy}
         onClick={() => {
           setConfirming(false);
           onConfirm();

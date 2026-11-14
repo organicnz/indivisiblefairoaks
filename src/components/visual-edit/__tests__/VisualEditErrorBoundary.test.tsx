@@ -3,6 +3,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { VisualEditErrorBoundary } from '@/components/visual-edit/VisualEditErrorBoundary';
+import { VISUAL_EDIT_EVENTS } from '@/lib/visual-edit-events';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -54,8 +55,10 @@ describe('VisualEditErrorBoundary', () => {
     spy.mockRestore();
   });
 
-  it('renders a fallback message in development mode', async () => {
+  it('renders a recoverable fallback and announces the crash', async () => {
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const onCrash = vi.fn();
+    window.addEventListener(VISUAL_EDIT_EVENTS.crashed, onCrash);
     await act(async () => {
       root.render(
         <VisualEditErrorBoundary>
@@ -63,7 +66,15 @@ describe('VisualEditErrorBoundary', () => {
         </VisualEditErrorBoundary>
       );
     });
-    expect(container.textContent).toContain('Visual editor failed to load');
+
+    expect(container.textContent).toContain('Visual editor stopped unexpectedly');
+    expect(container.textContent).toContain('Reload editor');
+    expect(container.querySelector('a[href="/admin/content"]')?.textContent).toContain(
+      'Pages & Posts'
+    );
+    expect(onCrash).toHaveBeenCalledTimes(1);
+
+    window.removeEventListener(VISUAL_EDIT_EVENTS.crashed, onCrash);
     spy.mockRestore();
   });
 });

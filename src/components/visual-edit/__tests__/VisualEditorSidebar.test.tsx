@@ -9,6 +9,7 @@ import {
 import type { ImageEditSession, InlineEditSession } from '@/components/visual-edit/VisualEditOverlay';
 import type { Block } from '@/lib/blocks';
 import { EMPTY_HISTORY } from '@/lib/editor-history';
+import type { VisualContentRow } from '@/types/unified';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -33,6 +34,21 @@ describe('VisualEditorSidebar', () => {
     { id: 'b1', type: 'heading', level: 1, html: 'Civic Action' },
     { id: 'b2', type: 'paragraph', html: '<p>Join our newsletter</p>' },
   ];
+
+  const connectedRow: VisualContentRow = {
+    id: 1,
+    title: 'Action Page',
+    slug: 'action',
+    excerpt: null,
+    type: 'page',
+    status: 'publish',
+    body: '',
+    featured_image: null,
+    metadata: {},
+    created_at: '2026-10-09T00:00:00Z',
+    updated_at: '2026-10-09T00:00:00Z',
+    published_at: '2026-10-09T00:00:00Z',
+  };
 
   function createInlineSession(): InlineEditSession {
     return {
@@ -177,7 +193,7 @@ describe('VisualEditorSidebar', () => {
   }
 
   it('renders blocks list with drag handles and atomic delete actions', async () => {
-    const props = createProps();
+    const props = createProps({ documentLoadState: 'ready' });
     await act(async () => {
       root.render(<VisualEditorSidebar {...props} />);
     });
@@ -194,7 +210,7 @@ describe('VisualEditorSidebar', () => {
 
   it('invokes onReorderSection when dropping a block item onto another', async () => {
     const onReorder = vi.fn();
-    const props = createProps({ onReorderSection: onReorder });
+    const props = createProps({ documentLoadState: 'ready', onReorderSection: onReorder });
     await act(async () => {
       root.render(<VisualEditorSidebar {...props} />);
     });
@@ -218,7 +234,7 @@ describe('VisualEditorSidebar', () => {
 
   it('requires atomic confirmation before executing onDeleteSection', async () => {
     const onDelete = vi.fn();
-    const props = createProps({ onDeleteSection: onDelete });
+    const props = createProps({ documentLoadState: 'ready', onDeleteSection: onDelete });
     await act(async () => {
       root.render(<VisualEditorSidebar {...props} />);
     });
@@ -247,6 +263,44 @@ describe('VisualEditorSidebar', () => {
     });
 
     expect(onDelete).toHaveBeenCalledWith(0);
+  });
+
+  it('disables copy-region switching while the saved document is unavailable', async () => {
+    const onSetRegion = vi.fn();
+    const props = createProps({
+      documentLoadState: 'degraded',
+      pageRegions: [{ id: 'about-mission', label: 'About mission' }],
+      onSetRegion,
+    });
+    await act(async () => {
+      root.render(<VisualEditorSidebar {...props} />);
+    });
+
+    const region = Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find(
+      (button) => button.textContent?.trim() === 'About mission'
+    );
+    expect(region?.disabled).toBe(true);
+    await act(async () => {
+      region?.click();
+    });
+    expect(onSetRegion).not.toHaveBeenCalled();
+  });
+
+  it('disables Connect while the composer owns an open draft', async () => {
+    const onInitializeCMSPage = vi.fn();
+    const props = createProps({ isVisualComposerOpen: true, onInitializeCMSPage });
+    await act(async () => {
+      root.render(<VisualEditorSidebar {...props} />);
+    });
+
+    const connect = Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find(
+      (button) => button.textContent?.trim() === 'Connect to Supabase'
+    );
+    expect(connect?.disabled).toBe(true);
+    await act(async () => {
+      connect?.click();
+    });
+    expect(onInitializeCMSPage).not.toHaveBeenCalled();
   });
 
   it('opens Visual Composer directly when Full Editor is clicked in inline edit mode', async () => {
@@ -393,5 +447,182 @@ describe('VisualEditorSidebar', () => {
     const zone = container.querySelector<HTMLElement>('[aria-label="Image asset controls"]');
     expect(zone?.getAttribute('role')).toBe('group');
     expect(zone?.querySelector('[role="toolbar"]')).toBeNull();
+  });
+
+  it('shows a write in flight without pulsing a settled document', async () => {
+    const props = createProps({
+      contentRow: connectedRow,
+      documentLoadState: 'ready',
+      dirty: true,
+      savingBackend: true,
+    });
+    await act(async () => {
+      root.render(<VisualEditorSidebar {...props} />);
+    });
+
+    const savingBadge = Array.from(container.querySelectorAll('span')).find(
+      (span) => span.textContent === 'Saving'
+    );
+    expect(savingBadge).toBeDefined();
+    expect(savingBadge?.className).toContain('bg-sky-500/20');
+
+    const savingDot = container.querySelector<HTMLElement>('aside span.size-2');
+    expect(savingDot?.className).toContain('bg-sky-400');
+    expect(savingDot?.className).toContain('animate-pulse');
+
+    await act(async () => {
+      root.render(
+        <VisualEditorSidebar {...props} dirty={false} savingBackend={false} />
+      );
+    });
+
+    const savedBadge = Array.from(container.querySelectorAll('span')).find(
+      (span) => span.textContent === 'Saved'
+    );
+    expect(savedBadge?.className).toContain('bg-emerald-500/20');
+
+    const savedDot = container.querySelector<HTMLElement>('aside span.size-2');
+    expect(savedDot?.className).toContain('bg-emerald-400');
+    expect(savedDot?.className).not.toContain('animate-pulse');
+  });
+
+  it('does not call a page with no CMS row "Saved"', async () => {
+    const props = createProps({ documentLoadState: 'ready', contentRow: null });
+    await act(async () => {
+      root.render(<VisualEditorSidebar {...props} />);
+    });
+
+    const badge = Array.from(container.querySelectorAll('span')).find(
+      (span) => span.textContent === 'Not connected'
+    );
+    expect(badge).toBeDefined();
+
+    const dot = container.querySelector<HTMLElement>('aside span.size-2');
+    expect(dot?.getAttribute('aria-label')).toBe('Not connected to Supabase');
+    expect(dot?.className).toContain('bg-amber-400');
+    expect(dot?.className).not.toContain('bg-emerald-400');
+  });
+
+  it('treats an idle document as opening and locks its write controls', async () => {
+    const props = createProps({ contentRow: connectedRow, dirty: true });
+    await act(async () => {
+      root.render(<VisualEditorSidebar {...props} />);
+    });
+
+    const badge = Array.from(container.querySelectorAll('span')).find(
+      (span) => span.textContent === 'Opening'
+    );
+    expect(badge).toBeDefined();
+    expect(container.querySelector('[data-testid="composer-document-loading"]')).not.toBeNull();
+
+    const save = Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find(
+      (button) => button.textContent?.trim().startsWith('Save')
+    );
+    expect(save?.disabled).toBe(true);
+
+    const addBlock = Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find(
+      (button) => button.textContent?.trim() === 'Add Block'
+    );
+    expect(addBlock?.disabled).toBe(true);
+  });
+
+  it('locks settings and revisions until the saved document is ready', async () => {
+    const props = createProps({ contentRow: connectedRow, documentLoadState: 'loading' });
+    await act(async () => {
+      root.render(<VisualEditorSidebar {...props} />);
+    });
+
+    const findButton = (label: string) =>
+      Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find(
+        (button) => button.textContent?.trim() === label
+      );
+    expect(findButton('Settings')?.disabled).toBe(true);
+    expect(findButton('Revisions')?.disabled).toBe(true);
+
+    await act(async () => {
+      root.render(
+        <VisualEditorSidebar {...props} documentLoadState="ready" />
+      );
+    });
+    expect(findButton('Settings')?.disabled).toBe(false);
+    expect(findButton('Revisions')?.disabled).toBe(false);
+  });
+
+  it('reports a coded route as region-only rather than saved', async () => {
+    const props = createProps({
+      documentLoadState: 'ready',
+      contentRow: null,
+      unsaveableReason:
+        'This page’s text is written in code, so page-level edits cannot be saved.',
+    });
+    await act(async () => {
+      root.render(<VisualEditorSidebar {...props} />);
+    });
+
+    const badge = Array.from(container.querySelectorAll('span')).find(
+      (span) => span.textContent === 'Region only'
+    );
+    expect(badge).toBeDefined();
+
+    const dot = container.querySelector<HTMLElement>('aside span.size-2');
+    expect(dot?.getAttribute('aria-label')).toBe(
+      'Page-level copy is not savable — edit a copy region'
+    );
+    expect(dot?.className).toContain('bg-amber-400');
+  });
+
+  it('reports a failed saved-document load and offers a retry', async () => {
+    const onRetryDocumentLoad = vi.fn();
+    const props = createProps({
+      documentLoadState: 'degraded',
+      onRetryDocumentLoad,
+    });
+    await act(async () => {
+      root.render(<VisualEditorSidebar {...props} />);
+    });
+
+    const aside = container.querySelector<HTMLElement>('aside[aria-label="Visual Editor Toolbar"]');
+    expect(aside?.getAttribute('data-document-state')).toBe('degraded');
+
+    const banner = container.querySelector<HTMLElement>(
+      '[data-testid="composer-document-error"]'
+    );
+    expect(banner).not.toBeNull();
+    expect(banner?.textContent).toContain('Document not loaded');
+    expect(banner?.textContent).toContain('Editing and saving are locked');
+
+    const addBlock = Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find(
+      (button) => button.textContent?.trim() === 'Add Block'
+    );
+    expect(addBlock?.disabled).toBe(true);
+
+    // Structural editing and the destructive block controls are locked too,
+    // not merely the add path.
+    expect(container.querySelectorAll('span[draggable="true"]').length).toBe(0);
+    const deleteBlock = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Delete block Civic Action"]'
+    );
+    expect(deleteBlock?.disabled).toBe(true);
+
+    // The lock is part of the sidebar shell, not the Blocks tab, so switching
+    // to Studio cannot hide the reason its canvas is read-only.
+    const studioTab = container.querySelector<HTMLButtonElement>('#sidebar-tab-button-composer');
+    await act(async () => {
+      studioTab?.click();
+    });
+    const bannerInStudio = container.querySelector<HTMLElement>(
+      '[data-testid="composer-document-error"]'
+    );
+    expect(bannerInStudio).not.toBeNull();
+    expect(bannerInStudio?.textContent).toContain('Editing and saving are locked');
+
+    const retry = Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find(
+      (button) => button.textContent?.includes('Retry document load')
+    );
+    expect(retry).not.toBeNull();
+    await act(async () => {
+      retry?.click();
+    });
+    expect(onRetryDocumentLoad).toHaveBeenCalledTimes(1);
   });
 });

@@ -64,7 +64,6 @@ export default async function EventsPage() {
         <section aria-labelledby="upcoming-events">
           <div className="civic-section-head">
             <div>
-              <span className="civic-section-index">01 / Calendar</span>
               <h2 id="upcoming-events" className="civic-section-title">
                 Upcoming events
               </h2>

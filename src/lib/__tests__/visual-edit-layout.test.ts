@@ -9,8 +9,8 @@ import {
 
 /**
  * The composer route reserves the sidebar's width. The width has to come from
- * one place: the sidebar's `w-12` / `w-72` classes and the route's
- * `var(--visual-edit-rail-width)` are otherwise two numbers that can drift
+ * one place: the sidebar's `w-12` / `w-72` / `w-[28rem]` classes and the route's
+ * `var(--visual-edit-rail-width)` are otherwise three numbers that can drift
  * without either side failing.
  */
 describe('visual edit rail', () => {
@@ -18,22 +18,26 @@ describe('visual edit rail', () => {
     applyVisualEditRail(null);
   });
 
-  it('maps the expanded and collapsed states to the sidebar widths', () => {
-    expect(visualEditRailWidth(false)).toBe('18rem');
-    expect(visualEditRailWidth(true)).toBe('3rem');
-    expect(visualEditRailWidth(false)).toBe(VISUAL_EDIT_RAIL_WIDTHS.expanded);
+  it('maps every sidebar mode to the width the sidebar renders', () => {
+    expect(visualEditRailWidth('expanded')).toBe('18rem');
+    expect(visualEditRailWidth('wide')).toBe('28rem');
+    expect(visualEditRailWidth('collapsed')).toBe('3rem');
+    expect(visualEditRailWidth('expanded')).toBe(VISUAL_EDIT_RAIL_WIDTHS.expanded);
   });
 
   it('publishes the current width on the document root', () => {
-    applyVisualEditRail(false);
+    applyVisualEditRail('expanded');
     expect(document.documentElement.style.getPropertyValue(VISUAL_EDIT_RAIL_VAR)).toBe('18rem');
 
-    applyVisualEditRail(true);
+    applyVisualEditRail('wide');
+    expect(document.documentElement.style.getPropertyValue(VISUAL_EDIT_RAIL_VAR)).toBe('28rem');
+
+    applyVisualEditRail('collapsed');
     expect(document.documentElement.style.getPropertyValue(VISUAL_EDIT_RAIL_VAR)).toBe('3rem');
   });
 
   it('clears the property so the route fallback applies', () => {
-    applyVisualEditRail(false);
+    applyVisualEditRail('expanded');
     applyVisualEditRail(null);
 
     // Removed, not set to 0px: the composer's `var(..., 0px)` fallback is what

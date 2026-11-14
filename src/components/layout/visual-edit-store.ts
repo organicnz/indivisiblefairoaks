@@ -23,6 +23,13 @@ import {
  */
 
 let enabled = false;
+/**
+ * A surface that owns unsaved work can veto turning visual editing off. The
+ * header, the command palette and the rail all call the same store; without
+ * this, any of them could unmount the editor and discard a draft that only
+ * lives in its React state.
+ */
+let exitGuard: (() => boolean) | null = null;
 const enabledSections = new Set<number>();
 let activeSectionIndex: number | null = null;
 let sectionSnapshot: number[] = [];
@@ -59,18 +66,31 @@ export function syncVisualEditMode(_pathname?: string): void {
   const search = globalThis.location?.search ?? '';
   const fromUrl = visualEditModeFromSearchParams(search);
   const next = fromUrl ?? readVisualEditMode(storage());
-  writeVisualEditMode(storage(), next);
-  if (next !== enabled) {
-    enabled = next;
-    emit();
+  if (next === enabled) {
+    writeVisualEditMode(storage(), next);
+    return;
   }
+  if (!next && exitGuard && !exitGuard()) return;
+  enabled = next;
+  writeVisualEditMode(storage(), next);
+  emit();
 }
 
 export function setVisualEditMode(next: boolean): void {
   if (next === enabled) return;
+  if (!next && exitGuard && !exitGuard()) return;
   enabled = next;
   writeVisualEditMode(storage(), next);
   emit();
+}
+
+/**
+ * Register the current editor's unsaved-work veto. One editor is mounted at a
+ * time; cleanup must clear this so a stale closure cannot block a later mode
+ * change after the editor is gone.
+ */
+export function registerVisualEditExitGuard(guard: (() => boolean) | null): void {
+  exitGuard = guard;
 }
 
 export function toggleVisualEditMode(): void {

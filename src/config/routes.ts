@@ -49,7 +49,7 @@ export const NAV_GROUPS: readonly { id: NavGroup; label: string }[] = [
   { id: 'act', label: 'Take Action' },
   { id: 'community', label: 'Community' },
   { id: 'chapter', label: 'The Chapter' },
-  { id: 'more', label: 'More' },
+  { id: 'more', label: 'Explore' },
 ] as const;
 
 export const ROUTES: readonly NavLink[] = [
@@ -111,8 +111,8 @@ export const ROUTES: readonly NavLink[] = [
     group: 'chapter',
   },
   {
-    label: 'More',
-    short: 'More',
+    label: 'Explore',
+    short: 'Explore',
     href: '/gallery',
     group: 'more',
     matchPrefixes: ['/gallery', '/links', '/archive', '/faqs', '/partners'],

@@ -248,6 +248,10 @@ describe('setContentStatus', () => {
 
     expect(result).toMatchObject({ success: true });
     expect(row.status).toBe('publish');
+    // The trigger moved the row's version. Returning only the publication date
+    // left the editor's next save precondition on the pre-toggle version.
+    expect(result).toMatchObject({ data: { updatedAt: row.updated_at } });
+    expect(result).toMatchObject({ data: { updatedAt: expect.any(String) } });
   });
 
   it('keeps the original publication date when un-publishing', async () => {

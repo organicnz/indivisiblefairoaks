@@ -144,10 +144,36 @@ export default function GalleryPage() {
     copiedTimer.current = setTimeout(() => setCopiedLink(false), 3000);
   };
 
+  const mastheadPhoto = dbPhotos[0];
+
   return (
     <div className="civic-page min-h-screen bg-background pb-20 text-foreground pt-(--header-clearance)">
       <PageMasthead
         icon={Camera}
+        visual={
+          mastheadPhoto ? (
+            <figure className="relative w-52 xl:w-60">
+              <div
+                aria-hidden="true"
+                className="absolute -left-3 -top-3 h-full w-full border border-accent/70"
+              />
+              <div className="relative aspect-[4/5] overflow-hidden border border-foreground/25 bg-surface-muted">
+                <GalleryImage
+                  src={mastheadPhoto.url}
+                  alt={mastheadPhoto.caption}
+                  sizes="(min-width: 1280px) 240px, 208px"
+                  className="object-cover"
+                  priority
+                />
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-secondary/90 via-secondary/45 to-transparent p-3 pt-10">
+                  <figcaption className="text-[9px] font-bold uppercase tracking-[0.14em] text-white">
+                    {mastheadPhoto.category} / Archive
+                  </figcaption>
+                </div>
+              </div>
+            </figure>
+          ) : undefined
+        }
         eyebrow={
           <DataPoint initialData={dataPoints} name="gallery.hero.eyebrow">
             Photojournalism In Action • Moments of Peaceful Resistance
@@ -181,84 +207,24 @@ export default function GalleryPage() {
 
       <section className="border-b border-border bg-surface-muted/60">
         <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-          {/* Quick Metrics Bar */}
-          <div className="grid w-full grid-cols-2 border-y border-foreground/15 sm:grid-cols-4">
-            <div className="min-w-0 border-b border-foreground/15 p-4 text-left odd:border-r sm:border-b-0 sm:border-r sm:text-center sm:last:border-r-0">
-              <DataPoint
-                initialData={dataPoints}
-                as="span"
-                name="gallery.metrics.m1_stat"
-                className="block break-words font-display text-2xl font-semibold text-foreground"
-              >
-                No Kings
-              </DataPoint>
-              <DataPoint
-                initialData={dataPoints}
-                as="span"
-                name="gallery.metrics.m1_label"
-                className="text-[11px] text-muted-foreground dark:text-ink-muted-on-dark uppercase tracking-wider font-semibold"
-              >
-                Sacramento Actions
-              </DataPoint>
-            </div>
-            <div className="min-w-0 border-b border-foreground/15 p-4 text-left odd:border-r sm:border-b-0 sm:border-r sm:text-center sm:last:border-r-0">
-              <DataPoint
-                initialData={dataPoints}
-                as="span"
-                name="gallery.metrics.m2_stat"
-                className="block break-words font-display text-2xl font-semibold text-foreground"
-              >
-                NorCal Resist
-              </DataPoint>
-              <DataPoint
-                initialData={dataPoints}
-                as="span"
-                name="gallery.metrics.m2_label"
-                className="text-[11px] text-muted-foreground dark:text-ink-muted-on-dark uppercase tracking-wider font-semibold"
-              >
-                Direct Solidarity
-              </DataPoint>
-            </div>
-            <div className="min-w-0 border-b border-foreground/15 p-4 text-left odd:border-r sm:border-b-0 sm:border-r sm:text-center sm:last:border-r-0">
-              <DataPoint
-                initialData={dataPoints}
-                as="span"
-                name="gallery.metrics.m3_stat"
-                className="block break-words font-display text-2xl font-semibold text-foreground"
-              >
-                Witty Signs
-              </DataPoint>
-              <DataPoint
-                initialData={dataPoints}
-                as="span"
-                name="gallery.metrics.m3_label"
-                className="text-[11px] text-muted-foreground dark:text-ink-muted-on-dark uppercase tracking-wider font-semibold"
-              >
-                Grassroots Humor
-              </DataPoint>
-            </div>
-            <div className="min-w-0 border-b border-foreground/15 p-4 text-left odd:border-r sm:border-b-0 sm:border-r sm:text-center sm:last:border-r-0">
-              <DataPoint
-                initialData={dataPoints}
-                as="span"
-                name="gallery.metrics.m4_stat"
-                className="block break-words font-display text-2xl font-semibold text-foreground"
-              >
-                0 Politicians
-              </DataPoint>
-              <DataPoint
-                initialData={dataPoints}
-                as="span"
-                name="gallery.metrics.m4_label"
-                className="text-[11px] text-muted-foreground dark:text-ink-muted-on-dark uppercase tracking-wider font-semibold"
-              >
-                100% People Power
-              </DataPoint>
-            </div>
+          <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 border-y border-foreground/15 py-4">
+            <p className="font-display text-2xl font-semibold text-foreground">
+              {allPhotos.length} photograph{allPhotos.length === 1 ? '' : 's'}{' '}
+              <span className="font-sans text-xs font-medium tracking-normal text-muted-foreground">
+                across {categories.length - 1} collection{categories.length - 1 === 1 ? '' : 's'}
+              </span>
+            </p>
+            <p className="civic-meta text-muted-foreground">
+              <span className="text-accent">100% grassroots</span>
+              <span aria-hidden="true" className="px-1.5">
+                /
+              </span>{' '}
+              0 politicians
+            </p>
           </div>
 
           {/* Real-time Search & Filter Controls */}
-          <div className="mt-8 w-full max-w-2xl space-y-4">
+          <div className="mt-6 w-full max-w-2xl space-y-4">
             <div className="relative">
               <Search
                 size={18}

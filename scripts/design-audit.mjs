@@ -25,6 +25,7 @@ const PUBLIC_COMPONENTS = [
   'src/components/layout/NavDropdown.tsx',
   'src/components/layout/PageMasthead.tsx',
   'src/components/ui/Button.tsx',
+  'src/components/ui/ActBlueDonationCalculator.tsx',
   'src/components/ui/InteractiveLinksDirectory.tsx',
   'src/components/ui/InteractiveEventsCalendar.tsx',
   'src/components/ui/SacramentoRepresentativeFinder.tsx',

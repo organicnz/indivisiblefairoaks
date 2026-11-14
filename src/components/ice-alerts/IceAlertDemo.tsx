@@ -457,8 +457,8 @@ export function IceAlertDemo() {
         const icon = L.divIcon({
           className: 'ice-map-marker',
           html: `<span class="${classes.join(' ')}">${pin}</span>`,
-          iconSize: [40, 40],
-          iconAnchor: [20, 20],
+          iconSize: [32, 32],
+          iconAnchor: [16, 16],
         });
 
         const marker = L.marker([report.lat, report.lng], {
@@ -483,8 +483,8 @@ export function IceAlertDemo() {
         const icon = L.divIcon({
           className: 'ice-map-marker',
           html: '<span class="ice-map-pin ice-map-pin--draft">+</span>',
-          iconSize: [40, 40],
-          iconAnchor: [20, 20],
+          iconSize: [32, 32],
+          iconAnchor: [16, 16],
         });
         L.marker([draftPoint.lat, draftPoint.lng], {
           icon,

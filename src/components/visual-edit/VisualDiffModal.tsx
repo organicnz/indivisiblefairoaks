@@ -34,6 +34,8 @@ export interface VisualDiffModalProps {
   onRevertDataPoint?: (key: string) => void;
   onSaveAll?: () => void;
   isSaving?: boolean;
+  /** Why Save & Publish All is unavailable even though changes exist. */
+  saveBlockedReason?: string;
 }
 
 export const VisualDiffModal: React.FC<VisualDiffModalProps> = ({
@@ -44,6 +46,7 @@ export const VisualDiffModal: React.FC<VisualDiffModalProps> = ({
   onRevertDataPoint,
   onSaveAll,
   isSaving = false,
+  saveBlockedReason,
 }) => {
   const titleId = useId();
   const descId = useId();
@@ -277,9 +280,10 @@ export const VisualDiffModal: React.FC<VisualDiffModalProps> = ({
               {onSaveAll && totalCount > 0 && (
                 <button
                   type="button"
-                  disabled={isSaving}
+                  disabled={isSaving || Boolean(saveBlockedReason)}
                   onClick={onSaveAll}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-accent text-ink-strong px-4 py-1.5 text-xs font-black uppercase tracking-wider hover:bg-accent-gold transition-colors disabled:opacity-40 cursor-pointer shadow-raised"
+                  title={saveBlockedReason ?? 'Save every draft change and publish it'}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-accent text-ink-strong px-4 py-1.5 text-xs font-black uppercase tracking-wider hover:bg-accent-gold transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-raised"
                 >
                   <Sparkles size={13} />
                   <span>{isSaving ? 'Saving…' : 'Save & Publish All'}</span>

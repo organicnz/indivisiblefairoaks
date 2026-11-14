@@ -289,7 +289,7 @@ export default function ContactPage() {
                   type="checkbox"
                   name="sendCopy"
                   id="sendCopy"
-                  className="mt-1 h-4 w-4 rounded border-border dark:border-white/20 bg-surface-card accent-amber-500"
+                  className="mt-1 h-4 w-4 rounded border-border dark:border-white/20 bg-surface-card accent-primary"
                 />
                 <label
                   htmlFor="sendCopy"
@@ -306,7 +306,7 @@ export default function ContactPage() {
                   type="checkbox"
                   name="consentToEmail"
                   id="consentToEmail"
-                  className="mt-1 h-4 w-4 rounded border-border dark:border-white/20 bg-surface-card accent-amber-500"
+                  className="mt-1 h-4 w-4 rounded border-border dark:border-white/20 bg-surface-card accent-primary"
                 />
                 <label
                   htmlFor="consentToEmail"

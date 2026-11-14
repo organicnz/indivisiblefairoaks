@@ -46,7 +46,10 @@ import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import { CRMMediaLibraryModal } from '@/components/admin/crm/composer/CRMMediaLibraryModal';
 import { useThemeMode } from '@/components/layout/theme-store';
 import { useEditContext } from '@/components/layout/useEditContext';
-import { useVisualEditMode } from '@/components/layout/visual-edit-store';
+import {
+  registerVisualEditExitGuard,
+  useVisualEditMode,
+} from '@/components/layout/visual-edit-store';
 import {
   Dialog,
   DialogContent,
@@ -82,7 +85,11 @@ import {
   parseHtml,
   serializeBlocks,
 } from '@/lib/blocks';
-import { copyRegionSlug, getPageCopyRegions } from '@/lib/copy-regions';
+import {
+  COPY_REGION_VERSION_ATTR,
+  copyRegionSlug,
+  getPageCopyRegions,
+} from '@/lib/copy-regions';
 import { clearDraft, isWorthRecovering, readDraft, writeDraft } from '@/lib/draft-recovery';
 import { cmsSlugForPath } from '@/lib/edit-target';
 // Aliased: `History` is the DOM's own global type. Importing it unaliased would
@@ -150,7 +157,7 @@ import { PageNavigatorDrawer } from './PageNavigatorDrawer';
 import { SlashCommandMenu } from './SlashCommandMenu';
 import { insertLink, runTextareaFormatCommand } from './textareaFormat';
 import { useBlockDrag } from './useBlockDrag';
-import { useBlockWriter } from './useBlockWriter';
+import { type CopyRegionSaveResult, useBlockWriter } from './useBlockWriter';
 import { useComposerPagePreview } from './useComposerPagePreview';
 import { useBeforeUnloadWarning } from './useBeforeUnloadWarning';
 import { ViewportDeviceBar } from './ViewportDeviceBar';
@@ -186,6 +193,15 @@ export const VISUAL_EDIT_ROOT_ATTR = 'data-visual-edit-root';
 
 /** A quiet period after the last document change before autosave writes. */
 const AUTOSAVE_DELAY_MS = 2500;
+
+/**
+ * How long a saved-document read may take before the editor stops pretending
+ * it is still opening. The read has a DOM fallback for a missing row, but a
+ * network or server-action hang is not a missing row: leaving the canvas
+ * locked forever gives the operator no state and no retry. The sidebar owns
+ * the recovery path once this fires.
+ */
+const DOCUMENT_LOAD_TIMEOUT_MS = 20_000;
 
 /**
  * Elements whose `innerHTML` is a block's own editable content.
@@ -261,6 +277,39 @@ export function resolveBlockContentRoot(
   }
   return isTextContentRoot(blockRoot) ? blockRoot : null;
 }
+
+/**
+ * Read the top-level items of a list block from the live DOM.
+ *
+ * An inline session can start on an `<li>`, whose `innerHTML` is only one item.
+ * The block stores the whole list, so the write must walk to the owning
+ * `<ul>`/`<ol>` rather than persisting the edited item as the list.
+ */
+function readInlineListItems(
+  blockRoot: HTMLElement | null,
+  contentRoot: HTMLElement | null
+): string[] | null {
+  const listRoot = blockRoot?.matches('ul, ol')
+    ? blockRoot
+    : (contentRoot?.closest('ul, ol') ?? blockRoot?.closest('ul, ol') ?? null);
+  if (!listRoot) return null;
+  const items = Array.from(listRoot.children)
+    .filter((child): child is HTMLLIElement => child.tagName === 'LI')
+    .map((item) => item.innerHTML);
+  return items.length > 0 ? items : null;
+}
+
+/** Block types whose text an inline session can represent in the saved model. */
+const INLINE_EDITABLE_BLOCK_TYPES: ReadonlySet<Block['type']> = new Set([
+  'heading',
+  'paragraph',
+  'quote',
+  'callout',
+  'button',
+  'bulletList',
+  'orderedList',
+  'code',
+]);
 
 export type ViewportMode = 'desktop' | 'tablet' | 'mobile';
 
@@ -587,6 +636,16 @@ export function VisualEditOverlay() {
   const allowSameDocumentReloadRef = useRef(false);
   /** Latest dirty state for a callback that must stay stable while typing. */
   const dirtyRef = useRef(false);
+  /** Keep a slow read's timeout from toasting on the next page. */
+  const mountedRef = useRef(true);
+  const editingActiveRef = useRef(enabled && isAdmin);
+  editingActiveRef.current = enabled && isAdmin;
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   /** Apply a region that has already passed validation and the dirty guard. */
   const activateRegion = useCallback((regionId: string | null) => {
@@ -609,6 +668,32 @@ export function VisualEditOverlay() {
    */
   const [sections, setSections] = useState<VisualSection[]>([]);
   const [contentRow, setContentRow] = useState<VisualContentRow | null>(null);
+  /**
+   * Whether the saved CMS document has actually arrived.
+   *
+   * The overlay can render before the read resolves, and the loader has a DOM
+   * fallback for documents with no row yet. Those are different states: a
+   * missing row is editable and can be connected, while a failed read is not —
+   * editing the rendered DOM there would let a later save replace the real body
+   * with whatever the sanitizer happened to render. Start in `loading` so the
+   * canvas is not writable during the gap, and keep `degraded` distinct from
+   * both an empty document and a document with no row.
+   */
+  const [documentLoadState, setDocumentLoadState] = useState<
+    'idle' | 'loading' | 'ready' | 'degraded'
+  >('loading');
+  const documentLoadStateRef = useRef(documentLoadState);
+  documentLoadStateRef.current = documentLoadState;
+  /**
+   * True while a rowless region is waiting for its own container to render.
+   *
+   * A region's document is its `[data-copy-region]` subtree, never the host
+   * page. If the page body streams in after the overlay, extracting the page
+   * root as a fallback would make the region's first save write the whole page
+   * into the region row. The observer below reloads as soon as the real
+   * container appears.
+   */
+  const waitingForRegionRef = useRef(false);
 
   /**
    * Why a page-level edit on this document cannot be saved, if it cannot.
@@ -621,7 +706,19 @@ export function VisualEditOverlay() {
    * rather than "this text is not editable". Say what is wrong before the write,
    * and point at the regions that are.
    */
+  const documentReadRefusal = useCallback((): string | null => {
+    if (documentLoadState === 'idle' || documentLoadState === 'loading') {
+      return 'The saved document is still opening. Wait for the editor to finish loading before editing.';
+    }
+    if (documentLoadState === 'degraded') {
+      return 'The saved document could not be read, so the canvas is showing the rendered page. Reload the document before editing or saving.';
+    }
+    return null;
+  }, [documentLoadState]);
+
   const describeUnsaveableDocument = useCallback((): string | null => {
+    const readRefusal = documentReadRefusal();
+    if (readRefusal) return readRefusal;
     if (contentRow || activeRegionId) return null;
     let slug = documentSlug;
     if (!slug) {
@@ -638,7 +735,37 @@ export function VisualEditOverlay() {
     return labels.length > 0
       ? `This page’s text is written in code, so page-level edits cannot be saved. Edit one of its copy regions instead: ${labels.join(', ')}.`
       : 'This page’s text is written in code, so page-level edits cannot be saved. This page has no editable copy regions.';
-  }, [contentRow, activeRegionId, documentSlug, pathname, pageRegions]);
+  }, [contentRow, activeRegionId, documentReadRefusal, documentSlug, pathname, pageRegions]);
+
+  /**
+   * The one gate for any action that would change the document. The save path
+   * already refuses while a row is opening or unreadable; the composer's style
+   * and structure actions must use the same answer, or they can commit local
+   * state, toast success, and only fail later in autosave.
+   */
+  const refuseDocumentMutation = useCallback((): boolean => {
+    const refusal = describeUnsaveableDocument();
+    if (refusal) {
+      toast.error(refusal);
+      return true;
+    }
+    /*
+     * Page-level structure changes cannot see an inline edit: it lives in the
+     * DOM until committed. Applying one around that text can change the block
+     * it belongs to, or save the pre-edit body, so the open edit has to finish
+     * first. The inline commit does not come through this gate.
+     */
+    if (inlineSessionRef.current) {
+      toast.info('Save or cancel the inline text edit before changing the page.');
+      return true;
+    }
+    if (imageSessionRef.current) {
+      toast.info('Save or cancel the image edit before changing the page.');
+      return true;
+    }
+    return false;
+  }, [describeUnsaveableDocument]);
+
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [backendStatus, setBackendStatus] = useState<BackendStatus | null>(null);
   const [statusLoading, setStatusLoading] = useState(false);
@@ -746,6 +873,17 @@ export function VisualEditOverlay() {
    * scroll listener on every keystroke.
    */
   const blocksRef = useRef<Block[]>([]);
+  /**
+   * The current `commitBlocks`, for callbacks declared before it.
+   *
+   * `handlePasteBlockJson` sits above the commit path in source order because
+   * the small clipboard actions are grouped together. A ref keeps the paste a
+   * committed document change without moving the whole callback or creating a
+   * second history path.
+   */
+  const commitBlocksRef = useRef<
+    (next: Block[], coalesceKey?: string | null) => void
+  >(() => {});
   blocksRef.current = blocks;
 
   /**
@@ -816,6 +954,15 @@ export function VisualEditOverlay() {
 
   // Revisions history modal state
   const [isRevisionsOpen, setIsRevisionsOpen] = useState(false);
+  /**
+   * The row whose revision list is on screen.
+   *
+   * The panel displays a list fetched for one row, but a route or region switch
+   * can leave it mounted while `contentRow` becomes another row. Restoring then
+   * would send the old revision id with the new row id. Remember the owner and
+   * require it to still match before any destructive restore.
+   */
+  const [revisionsContentId, setRevisionsContentId] = useState<number | null>(null);
   const [isCRMPanelOpen, setIsCRMPanelOpen] = useState(false);
   const [crmTab, setCrmTab] = useState<'constituents' | 'events' | 'news' | 'links'>(
     'constituents'
@@ -867,6 +1014,17 @@ export function VisualEditOverlay() {
    */
   const openVisualComposer = useCallback(
     (mode: 'block' | 'section', blockIndex: number) => {
+      // Do not open a style editor against a document that is still loading or
+      // could not be read. The panel's Save would otherwise be the first place
+      // the operator learned the canvas is not the saved row. An inline text
+      // edit is deliberately allowed to stay open beside the composer — the
+      // toolbar's Composer button does exactly that — while the composer's own
+      // save paths refuse until that text is committed.
+      const refusal = describeUnsaveableDocument();
+      if (refusal) {
+        toast.error(refusal);
+        return;
+      }
       const target = blocksRef.current[blockIndex];
       if (!target) return;
 
@@ -891,7 +1049,7 @@ export function VisualEditOverlay() {
       setIsVisualComposerOpen(true);
       setSidebarActiveTab('composer');
     },
-    [selectedBlockIndexes, setVcBlockIndex]
+    [describeUnsaveableDocument, selectedBlockIndexes, setVcBlockIndex]
   );
 
   /** Close the inspector and drop the batch target snapshot with it. */
@@ -1065,6 +1223,13 @@ export function VisualEditOverlay() {
       window.removeEventListener('resize', dismissOnViewportChange);
     };
   }, [contextMenu, closeContextMenu]);
+
+  // A menu of structural edits is not an invitation to make while the document
+  // is loading, failed, or has no savable destination. Its actions are guarded,
+  // but the menu itself should not appear over a read-only canvas.
+  useEffect(() => {
+    if (contextMenu && describeUnsaveableDocument()) closeContextMenu();
+  }, [contextMenu, describeUnsaveableDocument, closeContextMenu]);
 
   // ── Link insertion dialog (replaces browser prompt) ─────────────────────
   // `textareaId` is set when the dialog is opened from the section modal's
@@ -1244,6 +1409,27 @@ export function VisualEditOverlay() {
   isVisualComposerOpenRef.current = isVisualComposerOpen;
 
   /**
+   * A full-document reload or replacement cannot preserve the composer's draft
+   * or an uncommitted inline edit. Refuse before touching the document rather
+   * than replacing the blocks underneath text the operator is still writing.
+   */
+  const refuseOpenDraftReplacement = useCallback((): boolean => {
+    if (inlineSessionRef.current) {
+      toast.info('Save or cancel the inline text edit before reloading the document.');
+      return true;
+    }
+    if (imageSessionRef.current) {
+      toast.info('Save or cancel the image edit before reloading the document.');
+      return true;
+    }
+    if (isVisualComposerOpenRef.current) {
+      toast.info('Close the composer before reloading or replacing the document.');
+      return true;
+    }
+    return false;
+  }, []);
+
+  /**
    * Switch the editable slice, and make every surface agree it happened.
    *
    * Selection used to be React state alone, so the address bar kept claiming a
@@ -1284,6 +1470,16 @@ export function VisualEditOverlay() {
        */
       if (inlineSessionRef.current) {
         toast.info('Save or cancel the inline text edit before switching regions.');
+        return;
+      }
+      /*
+       * An image session owns a provisional preview and an alt draft on the
+       * live element. Switching the active document would leave those controls
+       * pointing at an element from the previous row; the image rail's own
+       * Cancel/Save is the exit.
+       */
+      if (imageSessionRef.current) {
+        toast.info('Save or cancel the image edit before switching regions.');
         return;
       }
       if (isVisualComposerOpenRef.current) {
@@ -1458,14 +1654,31 @@ export function VisualEditOverlay() {
    * change the layout the admin is judging, and the page is already the real
    * thing. Navigating away clears the property so no fallback is needed.
    */
+  const isComposerActiveForRail =
+    isVisualComposerOpen && vcBlockIndex !== null && Boolean(blocks[vcBlockIndex]);
+  const sidebarCollapsedForRail =
+    dockCollapsed && !isComposerActiveForRail && !inlineSession && !imageSession;
+  const sidebarWideForRail =
+    !sidebarCollapsedForRail &&
+    (isComposerActiveForRail || sidebarActiveTab === 'composer' || sidebarActiveTab === 'library');
+  const railMode = sidebarCollapsedForRail
+    ? 'collapsed'
+    : sidebarWideForRail
+      ? 'wide'
+      : 'expanded';
+
   useEffect(() => {
+    // This component returns null unless both gates are on, so only then is
+    // there a sidebar to reserve. Once it is visible, the rail mode has to
+    // follow the width it is actually rendering, including the wide Studio and
+    // Library panels.
     if (!enabled || !isAdmin || !isComposerWorkspace) {
       applyVisualEditRail(null);
       return;
     }
-    applyVisualEditRail(dockCollapsed);
+    applyVisualEditRail(railMode);
     return () => applyVisualEditRail(null);
-  }, [dockCollapsed, enabled, isAdmin, isComposerWorkspace]);
+  }, [enabled, isAdmin, isComposerWorkspace, railMode]);
 
   const handleRotateOrientation = useCallback(() => {
     setDeviceOrientation((prev) => (prev === 'portrait' ? 'landscape' : 'portrait'));
@@ -1478,15 +1691,24 @@ export function VisualEditOverlay() {
 
   /** Copy the currently edited block to the clipboard as structured JSON */
   const handleCopyBlockJson = useCallback(() => {
+    const refusal = documentReadRefusal();
+    if (refusal) {
+      toast.error(refusal);
+      return;
+    }
     const activeBlock = vcBlockIndex !== null ? blocksRef.current[vcBlockIndex] : null;
     if (!activeBlock) return;
     void navigator.clipboard?.writeText(JSON.stringify(activeBlock, null, 2));
     toast.success('Block definition copied to clipboard as JSON');
-  }, [vcBlockIndex]);
+  }, [vcBlockIndex, documentReadRefusal]);
 
   /** Paste block JSON from clipboard to update the currently edited block */
   const handlePasteBlockJson = useCallback(async () => {
     if (vcBlockIndex === null) return;
+    // The same gate as every other document mutation: a coded route with no
+    // savable row must refuse before the local model changes, not after the
+    // operator has pasted a block that autosave will never accept.
+    if (refuseDocumentMutation()) return;
     try {
       const text = await navigator.clipboard?.readText();
       if (!text?.trim()) {
@@ -1502,19 +1724,25 @@ export function VisualEditOverlay() {
         ...parsed,
         id: nextBlockId(),
       };
-      setBlocks((prev) => {
-        const next = [...prev];
-        next[vcBlockIndex] = pastedBlock;
-        return next;
-      });
+      // A replacement is a document change like any other: commit it so undo
+      // can return to the replaced block and the frame pairing follows the
+      // new model rather than the previous one.
+      const nextBlocks = [...blocksRef.current];
+      nextBlocks[vcBlockIndex] = pastedBlock;
+      commitBlocksRef.current(nextBlocks);
       toast.success(`Replaced block with pasted ${pastedBlock.type} definition`);
     } catch {
       toast.error('Failed to read or parse block JSON from clipboard');
     }
-  }, [vcBlockIndex]);
+  }, [vcBlockIndex, refuseDocumentMutation]);
 
   /** Export the current document and all its blocks as a portable JSON snapshot */
   const handleExportPageJson = useCallback(() => {
+    const refusal = documentReadRefusal();
+    if (refusal) {
+      toast.error(refusal);
+      return;
+    }
     const exportPayload = {
       version: 1,
       title: contentRow?.title || pageTitle || pathname,
@@ -1535,16 +1763,21 @@ export function VisualEditOverlay() {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
     toast.success('Page snapshot exported as JSON');
-  }, [contentRow, pageTitle, pathname, pageSlug, blocks]);
+  }, [blocks, contentRow, documentReadRefusal, pageTitle, pathname, pageSlug]);
 
   /**
    * Where the local draft for this document lives.
    *
-   * The content id once there is one, and the pathname until then — a page with
-   * no CMS row still has unsaved work, and keying that draft by nothing would
-   * mean every unconnected page shared one slot and overwrote the others.
+   * The content id once there is one. Until then a rowless page is scoped by
+   * pathname, and a rowless copy region by its region id: several regions can
+   * share one coded route, and a single path key let the draft from one be
+   * offered inside another.
    */
-  const draftScope = contentRow ? String(contentRow.id) : `path:${pathname}`;
+  const draftScope = contentRow
+    ? String(contentRow.id)
+    : activeRegionId
+      ? `region:${activeRegionId}`
+      : `path:${pathname}`;
 
   /** Show or hide one section's frame, and tell the header which changed. */
   const toggleSectionFrame = useCallback((blockIndex: number) => {
@@ -1679,11 +1912,26 @@ export function VisualEditOverlay() {
     if (!isRegion && !slug && (pathname === '/' || pathname === '')) {
       slug = 'home';
     }
-    // The dedicated composer workspace names its row in the DOM. It is the
-    // strongest address available: the URL is `/compose/13`, which names no
-    // slug, and the row can be one the public path shadows. The edit URL is the
-    // next fallback for an ordinary page, and a region is never either row.
-    const declaredRowId = isRegion ? null : readComposerContentId(document);
+    // The dedicated composer workspace names its row in the URL and in the
+    // DOM. The route is authoritative: the overlay lives in the root layout and
+    // can hydrate before a slow page has rendered its ContentSurface, so the
+    // marker may not exist yet. `/compose/13` does name the row even though it
+    // names no slug, and the row can be one the public path shadows. The marker
+    // remains the fallback, the edit URL is next for an ordinary page, and a
+    // region is never either row.
+    const composerPathMatch = /^\/compose\/(\d+)\/?$/.exec(pathname);
+    const composerPathRowId = composerPathMatch
+      ? Number(composerPathMatch[1])
+      : null;
+    const validComposerPathRowId =
+      composerPathRowId !== null &&
+      Number.isSafeInteger(composerPathRowId) &&
+      composerPathRowId > 0
+        ? composerPathRowId
+        : null;
+    const declaredRowId = isRegion
+      ? null
+      : (validComposerPathRowId ?? readComposerContentId(document));
     const rowId = isRegion
       ? null
       : (declaredRowId ??
@@ -1795,6 +2043,12 @@ export function VisualEditOverlay() {
       // previous one must not stay selected, and a batch target snapshot is
       // meaningless once the underlying document changes.
       setSelectedBlockIds(new Set());
+      // Modals seeded from the previous row must not sit over the new document.
+      // The revision list is destructive and is scoped to `revisionsContentId`.
+      setIsSettingsOpen(false);
+      setIsRevisionsOpen(false);
+      setRevisions([]);
+      setRevisionsContentId(null);
       setActiveBlockIndex(null);
       setVcSelectedBlockIds([]);
       /*
@@ -1829,6 +2083,20 @@ export function VisualEditOverlay() {
           })
         : next;
 
+    waitingForRegionRef.current = false;
+    setDocumentLoadState('loading');
+
+    let loadSettled = false;
+    let waitingForRegion = false;
+    const loadTimeout = window.setTimeout(() => {
+      if (loadSettled || !mountedRef.current || !editingActiveRef.current) return;
+      if (generation !== loadGenerationRef.current) return;
+      // A response that landed just before this callback owns the state now.
+      if (documentLoadStateRef.current !== 'loading') return;
+      setDocumentLoadState('degraded');
+      toast.error('The saved document took too long to open. Retry the document load.');
+    }, DOCUMENT_LOAD_TIMEOUT_MS);
+
     try {
       let row = null;
       if (rowId && !Number.isNaN(rowId) && rowId > 0) {
@@ -1843,6 +2111,18 @@ export function VisualEditOverlay() {
         }
         if (!row) {
           row = await getContentForEdit(rowId);
+        }
+        /*
+         * A row id is a declared document, not an optional path hint. The
+         * composer workspace puts it in the markup, and the edit context only
+         * returns an edit URL for a row that exists. If both reads come back
+         * empty, the body on screen is the rendered fallback, not the saved
+         * row — treating that as ready would let a save create a different
+         * document (or overwrite one the operator never read). Fall through to
+         * the failure state with the canvas locked instead.
+         */
+        if (!row) {
+          throw new Error('The declared CMS document could not be read.');
         }
       }
       if (!row && slug) {
@@ -1877,7 +2157,30 @@ export function VisualEditOverlay() {
         // toolbar would report a freshly opened page as unsaved and offer to
         // write a document that is already on the server.
         setSavedBody(serializeBlocks(parsed));
+        loadSettled = true;
+        setDocumentLoadState('ready');
       } else {
+        /*
+         * A region with no row yet is extracted from its own container. If
+         * that container has not rendered, there is no safe fallback: the
+         * marked root or `main` is the host page, and writing its blocks into
+         * the region row would replace the region with the page. Stay loading
+         * until the observer sees the real container and retries; the document
+         * timeout above still covers a region that never appears.
+         *
+         * A region with a saved row does not need this guard: its body is
+         * already known, and a later container repairs the frame pairing. Only
+         * the DOM-extraction fallback can capture the wrong document.
+         */
+        const regionRoot = activeRegionId
+          ? document.querySelector<HTMLElement>(`[data-copy-region="${activeRegionId}"]`)
+          : null;
+        if (isRegion && !regionRoot) {
+          waitingForRegionRef.current = true;
+          waitingForRegion = true;
+          return;
+        }
+
         // Fallback for a page or region with no CMS row yet: extract real blocks
         // from the live DOM, so the operator edits what they can see rather than
         // an empty document.
@@ -1896,11 +2199,23 @@ export function VisualEditOverlay() {
             target?.label ||
             resolvedSlug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
         );
-        const root = rootRef.current || findEffectiveVisualEditRoot();
+        /*
+         * These fields belong to the document that just loaded, not the one the
+         * operator came from. Without resetting them, opening Settings on a
+         * rowless page showed the previous page's status and featured image and
+         * would have saved them into the new row. A copy region defaults to
+         * published because a draft region renders nowhere; a whole page keeps
+         * the safer draft default already used by Connect.
+         */
+        setPageFeaturedImage('');
+        setPageStatus(isRegion ? 'publish' : 'draft');
+        const root = regionRoot ?? rootRef.current ?? findEffectiveVisualEditRoot();
         const extracted = carrySessionIds(root ? extractBlocksFromDOM(root) : []);
         blocksRef.current = extracted;
         setBlocks(extracted);
         setSavedBody(serializeBlocks(extracted));
+        loadSettled = true;
+        setDocumentLoadState('ready');
       }
     } catch {
       // A rejected read for a document the operator already left must not clear
@@ -1912,6 +2227,16 @@ export function VisualEditOverlay() {
       blocksRef.current = extracted;
       setBlocks(extracted);
       setSavedBody(serializeBlocks(extracted));
+      loadSettled = true;
+      setDocumentLoadState('degraded');
+    } finally {
+      // A rowless region waiting for its container keeps the timeout armed: if
+      // the region never renders, the editor must fail recoverably rather than
+      // claim an empty document is ready.
+      if (!waitingForRegion) {
+        loadSettled = true;
+        window.clearTimeout(loadTimeout);
+      }
     }
   }, [
     activeRegion,
@@ -1934,6 +2259,19 @@ export function VisualEditOverlay() {
    */
   const loadContentDataRef = useRef(loadContentData);
   loadContentDataRef.current = loadContentData;
+
+  /** Retry a document read that failed, without discarding a recovered draft. */
+  const retryDocumentLoad = useCallback(() => {
+    if (dirtyRef.current) {
+      toast.error('Save or discard the current changes before reloading the saved document.');
+      return;
+    }
+    if (refuseOpenDraftReplacement()) return;
+    // `loadContentData` marks the document loading only after its own guards
+    // pass. Setting it here would leave the sidebar claiming an opening read
+    // that never started when a guard returns without fetching.
+    void loadContentData();
+  }, [loadContentData, refuseOpenDraftReplacement]);
   useEffect(() => {
     if (!reloadAfterComposerClose || isVisualComposerOpen) return;
     setReloadAfterComposerClose(false);
@@ -1963,14 +2301,6 @@ export function VisualEditOverlay() {
     router.replace(loadedRoute);
   }, [router]);
 
-  // Reload whenever the active document changes — switching regions must clear
-  // the previous document's blocks, or the operator edits one region's copy
-  // while looking at another's.
-  useEffect(() => {
-    if (activeRegionId === null) return;
-    loadContentData();
-  }, [activeRegionId, loadContentData]);
-
   // Connect / Initialize a document into a Supabase CMS row
   const handleInitializeCMSPage = async () => {
     // A region always uses its own slug — writing `copy-home-hero` under the
@@ -1981,6 +2311,7 @@ export function VisualEditOverlay() {
       toast.error(refusal);
       return;
     }
+    if (refuseOpenDraftReplacement()) return;
     const title =
       (activeRegionId ? activeRegion?.label : null) ||
       document.querySelector('h1')?.textContent?.trim() ||
@@ -2142,7 +2473,9 @@ export function VisualEditOverlay() {
    */
   const refreshSections = useCallback(
     (nextBlocks?: Block[]) => {
-      const root = rootRef.current || findEffectiveVisualEditRoot();
+      const cached = rootRef.current;
+      const root = cached?.isConnected ? cached : findEffectiveVisualEditRoot();
+      if (root && root !== cached) rootRef.current = root;
       const source = nextBlocks ?? blocksRef.current;
       if (!root) {
         setSections([]);
@@ -2161,6 +2494,50 @@ export function VisualEditOverlay() {
     },
     [findEffectiveVisualEditRoot, publishSectionsToHeader]
   );
+
+  /**
+   * Re-resolve the page body when the route streams it in after the overlay.
+   *
+   * Both live in the root layout, so on `/compose/[id]` this overlay can mount
+   * while the page is still showing its loading boundary. Resolving the root
+   * once would then pair every frame against the skeleton, and a later row load
+   * would not get a second chance because the cache is already filled. Watch
+   * the main region and refresh the pairing when the actual body replaces the
+   * fallback.
+   */
+  useEffect(() => {
+    if (!enabled || !isAdmin) return;
+    const main = document.querySelector<HTMLElement>('main');
+    if (!main) return;
+
+    let lastRoot = rootRef.current;
+    let frame = 0;
+    const syncRoot = () => {
+      frame = 0;
+      const root = findEffectiveVisualEditRoot();
+      if (root === lastRoot) return;
+      lastRoot = root;
+      rootRef.current = root;
+      // While a row is opening, its own block update will pair against the new
+      // root. Refreshing here too would pair the previous document with the
+      // next page's DOM during a route transition.
+      if (documentLoadStateRef.current === 'ready') {
+        refreshSections();
+      } else if (waitingForRegionRef.current) {
+        void loadContentDataRef.current();
+      }
+    };
+    const observer = new MutationObserver(() => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(syncRoot);
+    });
+    observer.observe(main, { childList: true, subtree: true });
+
+    return () => {
+      observer.disconnect();
+      if (frame) window.cancelAnimationFrame(frame);
+    };
+  }, [enabled, findEffectiveVisualEditRoot, isAdmin, refreshSections]);
 
   // Collect DOM sections and load data when enabled
   useEffect(() => {
@@ -2183,8 +2560,8 @@ export function VisualEditOverlay() {
    * Navigating away without clearing it would address a region that does not
    * exist here — and because region slugs are unique across the site, the
    * overlay would happily load and edit a *different page's* copy while
-   * rendering frames over this one. The effect that keys on `activeRegionId`
-   * then reloads for the new page, so resetting first also keeps that reload
+   * rendering frames over this one. The document loader keys on the same state
+   * and then reloads for the new page, so resetting first also keeps that reload
    * from reading the old page's blocks.
    *
    * `?region=` is how a region is addressed at all: it is a slice of a coded
@@ -2337,14 +2714,56 @@ export function VisualEditOverlay() {
   // ── Undo, redo, and the record of what changed ───────────────────────────
 
   const body = useMemo(() => serializeBlocks(blocks), [blocks]);
-  const dirty = body !== savedBody;
+  /*
+   * No document has been read yet, so there is nothing to be dirty against.
+   * The empty editor serializes to `<p></p>` while the unsaved baseline starts
+   * empty; comparing them would report work that does not exist. That false
+   * dirty state armed the before-unload prompt during a failed load and made
+   * the sidebar's Retry refuse to run, saying to save changes that the locked
+   * canvas could not save in the first place. A load only starts over a clean
+   * body or an explicitly discarded one, so `ready` is the truthful scope.
+   */
+  const dirty = documentLoadState === 'ready' && body !== savedBody;
   dirtyRef.current = dirty;
 
   /*
    * A hard reload or tab close never reaches the router. The browser guard is
    * shared with the composer, which owns a draft the page body cannot see.
    */
-  useBeforeUnloadWarning(enabled && isAdmin && dirty);
+  useBeforeUnloadWarning(
+    enabled && isAdmin && (dirty || Boolean(inlineSession) || Boolean(imageSession))
+  );
+
+  /*
+   * The header toggle, command palette and rail all turn the mode off through
+   * the same store. A direct toggle would unmount this component and discard an
+   * open draft before its own Save/Cancel path could run, so the editor vetoes
+   * that transition while it owns unsaved work.
+   */
+  const canExitVisualEditing = useCallback((): boolean => {
+    if (inlineSessionRef.current) {
+      toast.info('Save or cancel the inline text edit before turning off visual editing.');
+      return false;
+    }
+    if (imageSessionRef.current) {
+      toast.info('Save or cancel the image edit before turning off visual editing.');
+      return false;
+    }
+    if (isVisualComposerOpenRef.current) {
+      toast.info('Close the composer before turning off visual editing.');
+      return false;
+    }
+    if (dirtyRef.current) {
+      toast.info('Save or undo the page changes before turning off visual editing.');
+      return false;
+    }
+    return true;
+  }, []);
+  useEffect(() => {
+    if (!enabled || !isAdmin) return;
+    registerVisualEditExitGuard(canExitVisualEditing);
+    return () => registerVisualEditExitGuard(null);
+  }, [canExitVisualEditing, enabled, isAdmin]);
 
   const autosavePaused =
     autosaveFailure?.scope === draftScope && autosaveFailure.snapshot === body;
@@ -2576,15 +2995,20 @@ export function VisualEditOverlay() {
     },
     [refreshSections]
   );
+  commitBlocksRef.current = commitBlocks;
 
   /** Import a page snapshot JSON file to replace or restore blocks */
   const handleImportPageJson = useCallback(() => {
+    if (refuseDocumentMutation()) return;
+    if (refuseOpenDraftReplacement()) return;
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.json,application/json';
     input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (!file) return;
+      if (refuseDocumentMutation()) return;
+      if (refuseOpenDraftReplacement()) return;
       try {
         const text = await file.text();
         const parsed = JSON.parse(text) as {
@@ -2606,9 +3030,22 @@ export function VisualEditOverlay() {
       }
     };
     input.click();
-  }, [commitBlocks]);
+  }, [commitBlocks, refuseDocumentMutation, refuseOpenDraftReplacement]);
 
   const handleUndo = useCallback(() => {
+    const refusal = documentReadRefusal();
+    if (refusal) {
+      toast.error(refusal);
+      return;
+    }
+    if (inlineSessionRef.current) {
+      toast.info('Save or cancel the inline text edit before undoing a page change.');
+      return;
+    }
+    if (imageSessionRef.current) {
+      toast.info('Save or cancel the image edit before undoing a page change.');
+      return;
+    }
     const step = undoHistory(history, body);
     if (!step) return;
     const restored = parseHtml(step.restore);
@@ -2617,9 +3054,22 @@ export function VisualEditOverlay() {
     historyRef.current = step.history;
     setHistory(step.history);
     refreshSections(restored);
-  }, [body, history, refreshSections]);
+  }, [body, documentReadRefusal, history, refreshSections]);
 
   const handleRedo = useCallback(() => {
+    const refusal = documentReadRefusal();
+    if (refusal) {
+      toast.error(refusal);
+      return;
+    }
+    if (inlineSessionRef.current) {
+      toast.info('Save or cancel the inline text edit before redoing a page change.');
+      return;
+    }
+    if (imageSessionRef.current) {
+      toast.info('Save or cancel the image edit before redoing a page change.');
+      return;
+    }
     const step = redoHistory(history, body);
     if (!step) return;
     const restored = parseHtml(step.restore);
@@ -2628,7 +3078,7 @@ export function VisualEditOverlay() {
     historyRef.current = step.history;
     setHistory(step.history);
     refreshSections(restored);
-  }, [body, history, refreshSections]);
+  }, [body, documentReadRefusal, history, refreshSections]);
 
   // --- CRUD Operations connected to Supabase Backend ---
 
@@ -2636,13 +3086,37 @@ export function VisualEditOverlay() {
     async (
       newBlocks: Block[],
       successMessage = 'Page saved',
-      toastOptions?: { action?: { label: string; onClick: () => void } }
+      toastOptions?: { action?: { label: string; onClick: () => void } },
+      statusOverride?: 'publish' | 'draft'
     ): Promise<{
       success: boolean;
       error?: string;
       updatedAt?: string | null;
       stale?: boolean;
     }> => {
+      /*
+       * This is the one write path every page-level save reaches. Keep the
+       * readiness check here as well as at the UI entry points: a future caller
+       * must not be able to turn a fallback canvas into a server write just by
+       * forgetting to disable a button.
+       */
+      const saveRefusal = describeUnsaveableDocument();
+      if (saveRefusal) {
+        toast.error(saveRefusal);
+        return { success: false, error: saveRefusal };
+      }
+      /*
+       * The block array does not contain an inline edit until that edit is
+       * committed. Reaching this path with one open would write the body from
+       * behind the text on screen; the inline commit clears its ref before it
+       * calls through here, so this only catches the other callers.
+       */
+      if (inlineSessionRef.current) {
+        const message = 'Save or cancel the inline text edit before saving the page.';
+        toast.info(message);
+        return { success: false, error: message };
+      }
+      // An image session must be allowed through: its own save reaches here.
       setSavingBackend(true);
       const newBody = serializeBlocks(newBlocks);
       /*
@@ -2661,14 +3135,6 @@ export function VisualEditOverlay() {
         if (oversized) {
           toast.error(oversized);
           return { success: false, error: oversized };
-        }
-
-        // A page-level document with nowhere to land is refused before the
-        // request, not after the server rejects the route's slug.
-        const refusal = describeUnsaveableDocument();
-        if (refusal) {
-          toast.error(refusal);
-          return { success: false, error: refusal };
         }
 
         // The row already knows its slug; a region with no row yet falls back to
@@ -2692,8 +3158,15 @@ export function VisualEditOverlay() {
           target?.label ||
           slug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
+        /*
+         * A copy region exists to replace visible JSX. A draft row renders
+         * nowhere, so the first composer save of a region must publish it or
+         * the operator gets a success toast over an unchanged page. Whole-page
+         * saves keep the draft/publish state already on the row.
+         */
         const saveStatus: 'publish' | 'draft' =
-          contentRow?.status === 'publish' ? 'publish' : 'draft';
+          statusOverride ??
+          (activeRegionId || contentRow?.status === 'publish' ? 'publish' : 'draft');
         const res = await saveContentWithEdgeApi({
           id: contentRow?.id,
           title,
@@ -2719,32 +3192,40 @@ export function VisualEditOverlay() {
               toast.success(successMessage);
             }
           }
-          setContentRow((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  body: newBody,
-                  updated_at: res.data?.updatedAt,
-                  published_at:
-                    res.data?.publishedAt ??
-                    prev.published_at ??
-                    (saveStatus === 'publish' ? new Date().toISOString() : null),
-                }
-              : {
-                  id: res.data?.id || 1,
-                  title,
-                  slug,
-                  excerpt: null,
-                  type: 'page',
-                  status: saveStatus,
-                  body: newBody,
-                  featured_image: pageFeaturedImage || null,
-                  metadata: {},
-                  updated_at: res.data?.updatedAt,
-                  created_at: new Date().toISOString(),
-                  published_at: saveStatus === 'publish' ? new Date().toISOString() : null,
-                }
-          );
+          const saved = res.data;
+          setContentRow((prev) => {
+            if (prev) {
+              return {
+                ...prev,
+                status: saveStatus,
+                body: newBody,
+                updated_at: saved?.updatedAt ?? prev.updated_at,
+                published_at:
+                  saved?.publishedAt ??
+                  prev.published_at ??
+                  (saveStatus === 'publish' ? new Date().toISOString() : null),
+              };
+            }
+            // Never invent an id for a row the server did not identify: the next
+            // save would then address whichever row happened to own that id.
+            if (!saved) return prev;
+            return {
+              id: saved.id,
+              title,
+              slug,
+              excerpt: null,
+              type: 'page',
+              status: saveStatus,
+              body: newBody,
+              featured_image: pageFeaturedImage || null,
+              metadata: {},
+              updated_at: saved.updatedAt,
+              created_at: new Date().toISOString(),
+              published_at:
+                saved.publishedAt ??
+                (saveStatus === 'publish' ? new Date().toISOString() : null),
+            };
+          });
           /**
            * The saved baseline is what the server acknowledged, not what was
            * asked for.
@@ -2754,6 +3235,7 @@ export function VisualEditOverlay() {
            * local timestamp instead is how the editor ends up conflicting with
            * itself on the next autosave.
            */
+          setPageStatus(saveStatus);
           setSavedBody(newBody);
           setRecoveredDraft(null);
           setAutosaveFailure(null);
@@ -2812,6 +3294,94 @@ export function VisualEditOverlay() {
   );
 
   /**
+   * Adopt a copy-region write into the active document.
+   *
+   * A region save is a write to its own row, not to the host page. The hook
+   * used to call `setSavedBody(regionHtml)` unconditionally, which replaced the
+   * host page's saved baseline with a fragment of one region: a clean page then
+   * reported unsaved changes, and a region document kept the block model from
+   * before the inline edit. Only the region that is actually the active
+   * document may adopt the new body; when the whole page is active, the region
+   * is a separate document and the page's baseline must not move.
+   */
+  const handleCopyRegionSaved = useCallback(
+    (copyRegionId: string, regionBody: string, saved: CopyRegionSaveResult) => {
+      /*
+       * Keep the rendered element's version current even when this is a
+       * whole-page edit: the next inline save in page mode reads it from here,
+       * and `router.refresh()` may not have replaced the DOM yet.
+       */
+      const regionElement = document.querySelector<HTMLElement>(
+        `[data-copy-region="${copyRegionId}"]`
+      );
+      if (regionElement) {
+        regionElement.setAttribute(COPY_REGION_VERSION_ATTR, saved.updatedAt ?? '');
+      }
+      if (copyRegionId !== activeRegionId) return;
+      const parsed = carrySessionBlockIds(parseHtml(regionBody), blocksRef.current, {
+        openIndex: vcBlockIndexRef.current,
+        selectedIds: [...selectedBlockIdsRef.current],
+        batchIds: vcSelectedBlockIdsRef.current,
+      });
+      // Record the saved edit in history and re-pair the frames, then move the
+      // baseline to exactly what the server accepted.
+      const nextBody = serializeBlocks(parsed);
+      commitBlocks(parsed, `copy-region:${copyRegionId}`);
+      setSavedBody(nextBody);
+      /*
+       * Keep the active region's row identity current. The first inline save of
+       * a region creates its row; without adopting the returned id, the sidebar
+       * kept saying "Not connected", and without adopting `updatedAt` the next
+       * composer save would use a stale version precondition. The host page's
+       * row is never replaced by a region's returned row here.
+       */
+      setContentRow((prev) => {
+        if (prev?.slug === copyRegionSlug(copyRegionId)) {
+          return {
+            ...prev,
+            body: nextBody,
+            updated_at: saved.updatedAt,
+            published_at: saved.publishedAt ?? prev.published_at,
+          };
+        }
+        if (prev) return prev;
+        return {
+          id: saved.id,
+          title: activeRegion?.label || copyRegionId,
+          slug: copyRegionSlug(copyRegionId),
+          excerpt: null,
+          type: 'page',
+          status: 'publish',
+          body: nextBody,
+          featured_image: null,
+          metadata: {},
+          updated_at: saved.updatedAt,
+          created_at: new Date().toISOString(),
+          published_at: saved.publishedAt ?? new Date().toISOString(),
+        };
+      });
+      setRecoveredDraft(null);
+      setAutosaveFailure(null);
+      clearDraft(draftScope);
+    },
+    [activeRegion, activeRegionId, clearDraft, commitBlocks, draftScope]
+  );
+
+  /**
+   * The loaded version of the active region row, for a conditional write.
+   * `null` means this write targets a region the editor has not loaded as the
+   * active document; the server still resolves that row by slug.
+   */
+  const getCopyRegionVersion = useCallback(
+    (copyRegionId: string) => {
+      if (copyRegionId !== activeRegionId) return null;
+      if (contentRow?.slug !== copyRegionSlug(copyRegionId)) return null;
+      return { updatedAt: contentRow.updated_at };
+    },
+    [activeRegionId, contentRow]
+  );
+
+  /**
    * Shared write path for direct-edit surfaces (inline text, image alt/src,
    * section mutation). Keeps the copy-region-vs-block branch in one place so
    * the region-slug rule and the commit+persist pair cannot drift between
@@ -2822,9 +3392,11 @@ export function VisualEditOverlay() {
     handlePersistBlocks,
     saveContentWithEdgeApi,
     setSavingBackend,
-    setSavedBody,
+    onCopyRegionSaved: handleCopyRegionSaved,
+    getCopyRegionVersion,
     router,
     getDocumentEpoch,
+    documentReadRefusal,
   });
 
   /**
@@ -2837,10 +3409,10 @@ export function VisualEditOverlay() {
    * rather than applied.
    */
   useEffect(() => {
-    if (!enabled || !isAdmin || !dirty) return;
+    if (!enabled || !isAdmin || !dirty || documentLoadState !== 'ready') return;
     const timer = window.setTimeout(() => writeDraft(draftScope, body), 400);
     return () => window.clearTimeout(timer);
-  }, [body, dirty, draftScope, enabled, isAdmin]);
+  }, [body, dirty, documentLoadState, draftScope, enabled, isAdmin]);
 
   /**
    * Offer a recovered draft on arrival — never apply it.
@@ -2849,7 +3421,20 @@ export function VisualEditOverlay() {
    * never overwrite work the operator has already done in this session.
    */
   useEffect(() => {
-    if (!enabled || !isAdmin || !contentRow || dirty) return;
+    /*
+     * A rowless region can still be saved (the first save creates its row), so
+     * its recovered draft is actionable. A rowless whole page cannot be saved
+     * and has no recovery offer.
+     */
+    if (
+      !enabled ||
+      !isAdmin ||
+      (!contentRow && !activeRegionId) ||
+      dirty ||
+      documentLoadState !== 'ready'
+    ) {
+      return;
+    }
     const draft = readDraft(draftScope);
     if (!draft) return;
     if (!isWorthRecovering(draft, savedBody)) {
@@ -2859,7 +3444,16 @@ export function VisualEditOverlay() {
     const parsed = parseHtml(draft.snapshot);
     if (parsed.length === 0) return;
     setRecoveredDraft(parsed);
-  }, [contentRow, draftScope, dirty, enabled, isAdmin, savedBody]);
+  }, [
+    activeRegionId,
+    contentRow,
+    documentLoadState,
+    draftScope,
+    dirty,
+    enabled,
+    isAdmin,
+    savedBody,
+  ]);
 
   /**
    * Autosave, on the same three rules the CMS editor holds.
@@ -2878,10 +3472,24 @@ export function VisualEditOverlay() {
    * and clears the pause naturally.
    */
   useEffect(() => {
-    if (!enabled || !isAdmin || !contentRow || !dirty || savingBackend) return;
+    if (
+      !enabled ||
+      !isAdmin ||
+      !contentRow ||
+      !dirty ||
+      savingBackend ||
+      inlineSession ||
+      imageSession ||
+      documentLoadState !== 'ready'
+    ) {
+      return;
+    }
     if (autosavePaused) return;
     const snapshot = body;
     const timer = window.setTimeout(() => {
+      // A session that opened after this timer was armed still owns the text on
+      // screen. Stop and let the session commit; the next edit re-arms autosave.
+      if (inlineSessionRef.current || imageSessionRef.current) return;
       void handlePersistBlocks(blocksRef.current, '')
         .then((result) => {
           if (!result.success) {
@@ -2900,15 +3508,48 @@ export function VisualEditOverlay() {
     contentRow,
     dirty,
     draftScope,
+    documentLoadState,
     enabled,
     handlePersistBlocks,
+    imageSession,
+    inlineSession,
     isAdmin,
     savingBackend,
   ]);
 
   const handleTogglePageStatus = async () => {
     if (!contentRow) return;
+    if (refuseDocumentMutation()) return;
+    if (inlineSessionRef.current) {
+      toast.info('Save or cancel the inline text edit before changing publication status.');
+      return;
+    }
+    if (imageSessionRef.current) {
+      toast.info('Save or cancel the image edit before changing publication status.');
+      return;
+    }
+    if (isVisualComposerOpenRef.current) {
+      toast.info('Close the composer before changing publication status.');
+      return;
+    }
     const nextStatus = contentRow.status === 'publish' ? 'draft' : 'publish';
+    /*
+     * A status-only write leaves unsaved body edits out of the row, while the
+     * refresh that follows replaces the rendered body with the server's older
+     * one. Publish the whole document in that case, exactly as the content
+     * editor does, so the status and the copy the operator is looking at land
+     * together. The narrow write is still right for a clean page: it avoids
+     * minting a revision for a status change.
+     */
+    if (dirtyRef.current) {
+      await handlePersistBlocks(
+        blocksRef.current,
+        `Page marked as ${nextStatus}`,
+        undefined,
+        nextStatus as 'publish' | 'draft'
+      );
+      return;
+    }
     setSavingBackend(true);
     try {
       const res = await setContentStatus(contentRow.id, nextStatus as 'publish' | 'draft');
@@ -2919,6 +3560,10 @@ export function VisualEditOverlay() {
             ? {
                 ...prev,
                 status: nextStatus,
+                // The status write moved the row's version. Adopt it here or the
+                // next block save sends the pre-toggle timestamp and is refused
+                // as a conflict with this editor's own write.
+                updated_at: res.data?.updatedAt ?? prev.updated_at,
                 published_at:
                   res.data?.publishedAt ??
                   prev.published_at ??
@@ -2951,6 +3596,7 @@ export function VisualEditOverlay() {
   );
   const handleAddNewSection = useCallback(
     (type: Block['type'], insertAfterBlockIndex?: number) => {
+      if (refuseDocumentMutation()) return;
       const freshId = nextBlockId();
       const freshBlock: Block =
         type === 'row'
@@ -2974,7 +3620,7 @@ export function VisualEditOverlay() {
       commitBlocks(nextBlocks);
       openVisualComposer('block', newIndex);
     },
-    [commitBlocks, openVisualComposer]
+    [commitBlocks, openVisualComposer, refuseDocumentMutation]
   );
 
   const handleSaveVcBlock = useCallback(
@@ -2985,6 +3631,7 @@ export function VisualEditOverlay() {
       customStyle?: string
     ): boolean => {
       if (vcBlockIndex === null) return false;
+      if (refuseDocumentMutation()) return false;
 
       // Refused, not repaired: see `findAnchorOwner`. The inspector keeps the
       // panel open on `false`, so the id the operator typed is still theirs to
@@ -3019,7 +3666,7 @@ export function VisualEditOverlay() {
       toast.success(`Block #${vcBlockIndex + 1} customized`);
       return true;
     },
-    [commitBlocks, commitComposerDraft, vcBlockIndex]
+    [commitBlocks, commitComposerDraft, refuseDocumentMutation, vcBlockIndex]
   );
 
   /**
@@ -3034,6 +3681,7 @@ export function VisualEditOverlay() {
       anchorId?: string,
       customStyle?: string
     ): boolean => {
+      if (refuseDocumentMutation()) return false;
       const nextBlocks = [...blocksRef.current];
       /*
        * The anchor id is deliberately ignored in batch mode. An id identifies
@@ -3060,11 +3708,12 @@ export function VisualEditOverlay() {
       toast.success(`Styled ${blockIndexes.length} blocks`);
       return true;
     },
-    [commitBlocks, commitComposerDraft]
+    [commitBlocks, commitComposerDraft, refuseDocumentMutation]
   );
 
   const handleInsertBlockFromLibrary = useCallback(
     (template: BlockTemplate, targetIndex?: number) => {
+      if (refuseDocumentMutation()) return;
       const newBlock: Block = {
         id: nextBlockId(),
         ...template.createBlock(),
@@ -3084,7 +3733,7 @@ export function VisualEditOverlay() {
       toast.success(`Inserted ${template.title} into layout`);
       openVisualComposer('block', insertionIdx);
     },
-    [commitBlocks, openVisualComposer]
+    [commitBlocks, openVisualComposer, refuseDocumentMutation]
   );
 
   const cancelInlineEdit = useCallback((session: InlineEditSession) => {
@@ -3099,8 +3748,27 @@ export function VisualEditOverlay() {
   const commitInlineEdit = useCallback(
     async (session: InlineEditSession) => {
       const { element, initialHtml, dataPointKey, copyRegionId, blockIndex } = session;
+      /*
+       * Close the session before the refusal check leaves. A blocked commit is
+       * still a finished edit: leaving contentEditable on would let the next
+       * keystroke mutate a canvas the operator has been told is not writable.
+       */
+      const refusal = documentReadRefusal();
+      if (refusal) {
+        element.contentEditable = 'false';
+        element.classList.remove('visual-inline-active');
+        element.innerHTML = initialHtml;
+        inlineSessionRef.current = null;
+        setInlineSession(null);
+        toast.error(refusal);
+        return;
+      }
       element.contentEditable = 'false';
       element.classList.remove('visual-inline-active');
+      // Clear the ref synchronously, not only on the next render: the save path
+      // below reaches `handlePersistBlocks`, whose open-inline guard must not
+      // mistake this commit for a still-open session.
+      inlineSessionRef.current = null;
       setInlineSession(null);
 
       const updatedHtml = element.innerHTML;
@@ -3192,10 +3860,10 @@ export function VisualEditOverlay() {
        * that will disappear on the next load.
        */
       if (blockIndex !== null) {
-        const refusal = describeUnsaveableDocument();
-        if (refusal) {
+        const lateRefusal = describeUnsaveableDocument();
+        if (lateRefusal) {
           element.innerHTML = initialHtml;
-          toast.error(refusal);
+          toast.error(lateRefusal);
           return;
         }
       }
@@ -3220,13 +3888,49 @@ export function VisualEditOverlay() {
           });
           return;
         }
-        if (blockIndex !== null && blocksRef.current[blockIndex]) {
+        const targetBlock =
+          blockIndex !== null ? blocksRef.current[blockIndex] : undefined;
+
+        if (targetBlock?.type === 'bulletList' || targetBlock?.type === 'orderedList') {
+          const items = readInlineListItems(blockRoot, contentRoot);
+          if (!items) {
+            element.innerHTML = initialHtml;
+            toast.error('This list could not be read, so the link edit was not saved.');
+            return;
+          }
           await writeToBlock({
-            blockIndex,
+            blockIndex: blockIndex as number,
+            blocks: blocksRef.current,
+            successMessage: 'List saved to backend',
+            mutate: (target) =>
+              target.type === 'bulletList' || target.type === 'orderedList'
+                ? { ...target, items }
+                : undefined,
+          });
+          return;
+        }
+
+        if (targetBlock?.type === 'code') {
+          await writeToBlock({
+            blockIndex: blockIndex as number,
+            blocks: blocksRef.current,
+            successMessage: 'Code block saved to backend',
+            mutate: (target) =>
+              target.type === 'code'
+                ? { ...target, text: contentRoot?.textContent ?? '' }
+                : undefined,
+          });
+          return;
+        }
+
+        if (targetBlock) {
+          await writeToBlock({
+            blockIndex: blockIndex as number,
             blocks: blocksRef.current,
             successMessage: 'Link saved to backend',
             mutate: (target) => {
               if (
+                target.type === 'heading' ||
                 target.type === 'paragraph' ||
                 target.type === 'quote' ||
                 target.type === 'callout'
@@ -3238,20 +3942,61 @@ export function VisualEditOverlay() {
           });
           return;
         }
-        toast.success('Link updated');
+        /*
+         * A header or footer link can be selected by the click layer, but it
+         * is not part of the saved block document. Do not claim it was saved:
+         * the page will render the old destination again on the next load.
+         */
+        element.innerHTML = initialHtml;
+        if (element.tagName === 'A' && session.href !== null) {
+          (element as HTMLAnchorElement).href = session.href;
+        }
+        toast.error('This link is outside the saved page document, so it cannot be saved.');
         return;
       }
 
-      if (blockIndex !== null && blocksRef.current[blockIndex]) {
+      const targetBlock = blockIndex !== null ? blocksRef.current[blockIndex] : undefined;
+
+      if (targetBlock?.type === 'bulletList' || targetBlock?.type === 'orderedList') {
+        const items = readInlineListItems(blockRoot, contentRoot);
+        if (!items) {
+          element.innerHTML = initialHtml;
+          toast.error('This list could not be read, so the edit was not saved.');
+          return;
+        }
         await writeToBlock({
-          blockIndex,
+          blockIndex: blockIndex as number,
+          blocks: blocksRef.current,
+          successMessage: 'List saved to backend',
+          mutate: (target) =>
+            target.type === 'bulletList' || target.type === 'orderedList'
+              ? { ...target, items }
+              : undefined,
+        });
+        return;
+      }
+
+      if (targetBlock?.type === 'code') {
+        await writeToBlock({
+          blockIndex: blockIndex as number,
+          blocks: blocksRef.current,
+          successMessage: 'Code block saved to backend',
+          mutate: (target) =>
+            target.type === 'code'
+              ? { ...target, text: contentRoot?.textContent ?? '' }
+              : undefined,
+        });
+        return;
+      }
+
+      if (targetBlock) {
+        await writeToBlock({
+          blockIndex: blockIndex as number,
           blocks: blocksRef.current,
           successMessage: 'Section saved to backend',
           mutate: (target) => {
-            if (target.type === 'heading') {
-              return { ...target, html: element.textContent?.trim() || '' };
-            }
             if (
+              target.type === 'heading' ||
               target.type === 'paragraph' ||
               target.type === 'quote' ||
               target.type === 'callout'
@@ -3267,10 +4012,72 @@ export function VisualEditOverlay() {
         return;
       }
 
-      toast.success('Section text updated');
+      /*
+       * The click layer can reach header and footer copy, but those elements
+       * are not represented in the saved block document. Revert the DOM and
+       * say so rather than reporting a success that the next render erases.
+       */
+      element.innerHTML = initialHtml;
+      toast.error('This text is outside the saved page document, so it cannot be saved.');
     },
-    [router, writeToBlock, writeToCopyRegion, locate, describeUnsaveableDocument]
+    [router, writeToBlock, writeToCopyRegion, locate, describeUnsaveableDocument, documentReadRefusal]
   );
+
+  /**
+   * The save every entry point uses.
+   *
+   * An inline edit lives in the DOM and has not been committed to `blocks` yet.
+   * Calling `handlePersistBlocks` beside `commitInlineEdit` therefore writes the
+   * document from *before* the text that is on screen, and the two writes race
+   * on the same row version. Commit the inline edit and let it own the write;
+   * the page's other unsaved changes remain dirty and a second Save can take
+   * them, which is far better than silently replacing the edit just made.
+   */
+  const saveDocument = useCallback(
+    async (successMessage: string) => {
+      const inline = inlineSessionRef.current;
+      if (inline) {
+        await commitInlineEdit(inline);
+        return;
+      }
+      const refusal = describeUnsaveableDocument();
+      if (refusal) {
+        toast.error(refusal);
+        return;
+      }
+      if (imageSessionRef.current) {
+        toast.info('Save or cancel the image edit before saving the page.');
+        return;
+      }
+      await handlePersistBlocks(blocksRef.current, successMessage);
+    },
+    [commitInlineEdit, describeUnsaveableDocument, handlePersistBlocks]
+  );
+
+  /**
+   * The one way the media library opens.
+   *
+   * Selecting an image commits blocks or replaces an image immediately. While
+   * text is uncommitted in the DOM, that write would save the body from before
+   * the visible edit; the image-replace path is the one case allowed to open
+   * while its own image session is active.
+   */
+  const openMediaLibrary = useCallback((nextTarget: MediaTarget) => {
+    if (inlineSessionRef.current) {
+      toast.info('Save or cancel the inline text edit before changing media.');
+      return;
+    }
+    if (imageSessionRef.current && nextTarget !== 'image-replace') {
+      toast.info('Save or cancel the image edit before changing media.');
+      return;
+    }
+    if (isVisualComposerOpenRef.current) {
+      toast.info('Close the composer before changing media.');
+      return;
+    }
+    setMediaTarget(nextTarget);
+    setMediaModalOpen(true);
+  }, []);
 
   /**
    * Persist an image field through the one path that owns the destination.
@@ -3292,6 +4099,16 @@ export function VisualEditOverlay() {
         copyRegionErrorMessage?: string;
       }
     ): Promise<ImageWriteOutcome> => {
+      /*
+       * An image write saves the block model. If text is still uncommitted in
+       * the DOM, that model is missing the visible edit; refuse rather than
+       * replace the page around it. The click layer normally closes the inline
+       * session first, so this is the guard for the gap while it saves.
+       */
+      if (inlineSessionRef.current) {
+        toast.info('Save or cancel the inline text edit before changing this image.');
+        return 'failed';
+      }
       const { element, copyRegionId } = session;
       const blockIndex = resolveImageBlockIndex(blocksRef.current, session);
       if (copyRegionId) {
@@ -3482,6 +4299,11 @@ export function VisualEditOverlay() {
 
   const handleSaveImageAlt = useCallback(
     async (session: ImageEditSession, newAlt: string): Promise<boolean> => {
+      const refusal = documentReadRefusal();
+      if (refusal) {
+        toast.error(refusal);
+        return false;
+      }
       const previousAlt = session.element.alt;
       session.element.alt = newAlt;
       const outcome = await persistImageEdit(
@@ -3505,7 +4327,7 @@ export function VisualEditOverlay() {
       }
       return false;
     },
-    [persistImageEdit]
+    [persistImageEdit, documentReadRefusal]
   );
 
   const saveAltText = useCallback(async () => {
@@ -3535,6 +4357,12 @@ export function VisualEditOverlay() {
     async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (!file || !imageSessionRef.current) return;
+      const refusal = documentReadRefusal();
+      if (refusal) {
+        toast.error(refusal);
+        if (e.target) e.target.value = '';
+        return;
+      }
       setIsUploadingImage(true);
       try {
         const formData = new FormData();
@@ -3580,7 +4408,7 @@ export function VisualEditOverlay() {
         if (e.target) e.target.value = '';
       }
     },
-    [persistImageEdit]
+    [persistImageEdit, documentReadRefusal]
   );
 
   // Responsive Viewport Simulation effect: smoothly constrain <main>
@@ -3690,6 +4518,37 @@ export function VisualEditOverlay() {
         target.closest('iframe')
       ) {
         return;
+      }
+
+      /*
+       * An uncommitted inline edit lives only in the DOM. Following a site link
+       * would replace the page before its Save/Cancel decision and take the text
+       * with it. The editable element's own links are excluded: their click is
+       * handled below as a link edit, not a navigation.
+       */
+      const inlineSession = inlineSessionRef.current;
+      const imageSession = imageSessionRef.current;
+      if (inlineSession || imageSession) {
+        const anchor = target.closest<HTMLAnchorElement>('a[href]');
+        const href = anchor?.getAttribute('href') ?? '';
+        if (
+          anchor &&
+          href &&
+          !href.startsWith('#') &&
+          !/^(mailto:|tel:|sms:)/i.test(href) &&
+          !anchor.hasAttribute('download') &&
+          anchor.target.toLowerCase() !== '_blank' &&
+          !inlineSession?.element.contains(anchor)
+        ) {
+          e.preventDefault();
+          e.stopPropagation();
+          toast.info(
+            inlineSession
+              ? 'Save or cancel the inline text edit before leaving this page.'
+              : 'Save or cancel the image edit before leaving this page.'
+          );
+          return;
+        }
       }
 
       /*
@@ -3803,10 +4662,15 @@ export function VisualEditOverlay() {
       /*
        * A page-level text edit on a coded route has no document to be saved
        * into. Refusing it at click time keeps the operator from typing a change
-       * that would be rolled back, and names the regions that do work.
+       * that would be rolled back, and names the regions that do work. A copy
+       * region still needs the narrower document-read check: its destination
+       * exists on coded routes, but only once the saved row has been read.
        */
-      if (textTarget && !dataPointContainer && !copyRegionId) {
-        const refusal = describeUnsaveableDocument();
+      if (textTarget) {
+        const refusal =
+          copyRegionId || dataPointContainer
+            ? documentReadRefusal()
+            : describeUnsaveableDocument();
         if (refusal) {
           e.preventDefault();
           e.stopPropagation();
@@ -3836,13 +4700,14 @@ export function VisualEditOverlay() {
           imageCopyRegionContainer?.getAttribute('data-copy-region') || null;
 
         // An image outside a region on a coded page has the same missing
-        // destination as its text, so it is refused for the same reason.
-        if (!imageCopyRegionId) {
-          const refusal = describeUnsaveableDocument();
-          if (refusal) {
-            toast.error(refusal);
-            return;
-          }
+        // destination as its text, so it is refused for the same reason. A
+        // region image is only refused when the saved document has not loaded.
+        const imageRefusal = imageCopyRegionId
+          ? documentReadRefusal()
+          : describeUnsaveableDocument();
+        if (imageRefusal) {
+          toast.error(imageRefusal);
+          return;
         }
 
         let matchedBlockIdx: number | null = null;
@@ -3903,6 +4768,40 @@ export function VisualEditOverlay() {
         setActiveBlockIndex(matchedBlockIdx);
       }
 
+      /*
+       * Only start an inline session when the block model has a write shape for
+       * it. Starting on a table, unsupported block, or image caption would
+       * leave a contentEditable surface with no persistence path, and the next
+       * render would silently discard the edit. Those blocks open in the
+       * composer instead, where their own editors live.
+       */
+      const matchedBlock =
+        matchedBlockIdx !== null ? blocksRef.current[matchedBlockIdx] : undefined;
+      if (
+        matchedBlockIdx !== null &&
+        matchedBlock &&
+        !INLINE_EDITABLE_BLOCK_TYPES.has(matchedBlock.type)
+      ) {
+        toast.info('This block is edited in the Visual Composer.');
+        openVisualComposer('block', matchedBlockIdx);
+        return;
+      }
+
+      /*
+       * The text-target check above does not see generic targets such as a
+       * `<pre>` code block. Without this second check, a code block on a coded
+       * route would open contentEditable even though the page has no document
+       * to write to. Data points and copy regions keep their narrower rule:
+       * a region can save on a coded route once its row has loaded.
+       */
+      if (!dataPointContainer && !copyRegionId) {
+        const refusal = describeUnsaveableDocument();
+        if (refusal) {
+          toast.error(refusal);
+          return;
+        }
+      }
+
       const initialHtml = editable.innerHTML;
       editable.contentEditable = 'true';
       editable.classList.add('visual-inline-active');
@@ -3939,6 +4838,7 @@ export function VisualEditOverlay() {
       const target = e.target as HTMLElement | null;
       if (!target) return;
       if (target.closest('[data-visual-edit-ui]')) return;
+      if (describeUnsaveableDocument()) return;
 
       let matchedBlockIdx: number | null = null;
       for (const sec of sectionsRef.current) {
@@ -3986,6 +4886,8 @@ export function VisualEditOverlay() {
     commitInlineEdit,
     activeBlockIndex,
     restoreImageSession,
+    documentReadRefusal,
+    describeUnsaveableDocument,
   ]);
 
   useEffect(() => {
@@ -4042,6 +4944,7 @@ export function VisualEditOverlay() {
     const updatePos = () => {
       if (inlineSession) {
         if (!inlineSession.element.isConnected) {
+          inlineSessionRef.current = null;
           setInlineSession(null);
           return;
         }
@@ -4057,6 +4960,7 @@ export function VisualEditOverlay() {
         );
       }
       if (imageSession && !imageSession.element.isConnected) {
+        imageSessionRef.current = null;
         setImageSession(null);
       }
     };
@@ -4093,6 +4997,7 @@ export function VisualEditOverlay() {
   const handleDeleteSections = useCallback(
     async (blockIndexes: number[]) => {
       if (blockIndexes.length === 0) return;
+      if (refuseDocumentMutation()) return;
       applyComposerDraft(null);
 
       const priorBlocks = [...blocksRef.current];
@@ -4171,6 +5076,7 @@ export function VisualEditOverlay() {
       setVcBlockIndex,
       selectedBlockIds,
       vcSelectedBlockIds,
+      refuseDocumentMutation,
     ]
   );
 
@@ -4182,6 +5088,7 @@ export function VisualEditOverlay() {
 
   const handleMoveSection = useCallback(
     async (blockIndex: number, direction: 'up' | 'down') => {
+      if (refuseDocumentMutation()) return;
       // Translate the section to the block it should swap with. A DOM ordinal is
       // not a block index, and neither is `blockIndex ± 1` — which is what this
       // used to do, so "move up" on a page the sanitizer had trimmed moved the
@@ -4220,7 +5127,15 @@ export function VisualEditOverlay() {
         toast.error('Section move rolled back: could not sync with backend.');
       }
     },
-    [applyComposerDraft, commitBlocks, handlePersistBlocks, handleUndo, sections, activeBlockIndex]
+    [
+      applyComposerDraft,
+      commitBlocks,
+      handlePersistBlocks,
+      handleUndo,
+      sections,
+      activeBlockIndex,
+      refuseDocumentMutation,
+    ]
   );
 
   /**
@@ -4232,6 +5147,7 @@ export function VisualEditOverlay() {
   const moveBlockTo = useCallback(
     async (from: number, to: number) => {
       if (from === to) return;
+      if (refuseDocumentMutation()) return;
       const total = blocksRef.current.length;
       if (from < 0 || to < 0 || from >= total || to >= total) return;
 
@@ -4270,17 +5186,19 @@ export function VisualEditOverlay() {
       handleUndo,
       activeBlockIndex,
       selectedBlockIds,
+      refuseDocumentMutation,
     ]
   );
 
   const handleReorderSectionWithConfirmation = useCallback(
     (fromIndex: number, toIndex: number) => {
       if (fromIndex === toIndex) return;
+      if (refuseDocumentMutation()) return;
       const blk = blocksRef.current[fromIndex];
       const label = blk ? sectionLabelForBlock(blk) : `Block #${fromIndex + 1}`;
       setReorderConfirm({ fromIndex, toIndex, label });
     },
-    []
+    [refuseDocumentMutation]
   );
 
   /**
@@ -4295,7 +5213,11 @@ export function VisualEditOverlay() {
   const { blockDrag, blockFrames, beginBlockDrag } = useBlockDrag({
     sections,
     locate,
-    disabled: isVisualComposerOpen,
+    disabled:
+      isVisualComposerOpen ||
+      Boolean(inlineSession) ||
+      Boolean(imageSession) ||
+      Boolean(describeUnsaveableDocument()),
     onDragStart: selectBlockOnly,
     onMove: (fromIndex, toIndex) => {
       const sec = sections.find((s) => s.blockIndex === fromIndex);
@@ -4338,6 +5260,7 @@ export function VisualEditOverlay() {
 
   const handleDuplicateSection = useCallback(
     async (blockIndex: number) => {
+      if (refuseDocumentMutation()) return;
       const source = blocksRef.current[blockIndex];
       if (!source) return;
       const priorBlocks = [...blocksRef.current];
@@ -4353,7 +5276,7 @@ export function VisualEditOverlay() {
         toast.error('Duplicate rolled back: could not sync with backend.');
       }
     },
-    [commitBlocks, handlePersistBlocks]
+    [commitBlocks, handlePersistBlocks, refuseDocumentMutation]
   );
 
   const handleConvertSection = useCallback(
@@ -4362,6 +5285,7 @@ export function VisualEditOverlay() {
       targetType: LeafBlockType,
       options?: { headingLevel?: HeadingLevel; calloutTone?: CalloutTone }
     ) => {
+      if (refuseDocumentMutation()) return;
       const source = blocksRef.current[blockIndex];
       if (!source || source.type === 'row') return;
       const converted = convertBlock(source, targetType, options);
@@ -4376,7 +5300,7 @@ export function VisualEditOverlay() {
         toast.error('Convert rolled back: could not sync with backend.');
       }
     },
-    [commitBlocks, handlePersistBlocks]
+    [commitBlocks, handlePersistBlocks, refuseDocumentMutation]
   );
 
   // ⌘Z / ⌘⇧Z, ⌘S, and section shortcuts (⌘D, ⌘⇧↑/↓, ⌘⇧⌫)
@@ -4501,11 +5425,7 @@ export function VisualEditOverlay() {
       }
       if (key === 's') {
         event.preventDefault();
-        if (inlineSessionRef.current) {
-          void commitInlineEdit(inlineSessionRef.current);
-        }
-        void handlePersistBlocks(
-          blocksRef.current,
+        void saveDocument(
           contentRow ? 'Page saved to Supabase' : 'Page connected to Supabase CMS'
         );
         return;
@@ -4604,8 +5524,8 @@ export function VisualEditOverlay() {
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [
+    saveDocument,
     enabled,
-    handlePersistBlocks,
     handleRedo,
     handleUndo,
     isAdmin,
@@ -4635,11 +5555,33 @@ export function VisualEditOverlay() {
   // button level via ConfirmAction (JSX component: label/message/danger/onConfirm),
   // not as a promise call (ConfirmActionProps has no .then interface).
   const handleOpenRevisions = useCallback(async () => {
+    const refusal = documentReadRefusal();
+    if (refusal) {
+      toast.error(refusal);
+      return;
+    }
+    /*
+     * A revision restore replaces the document; an inline edit is not in the
+     * revision, so opening the destructive panel over it is a dead end.
+     */
+    if (inlineSessionRef.current) {
+      toast.info('Save or cancel the inline text edit before viewing revisions.');
+      return;
+    }
+    if (imageSessionRef.current) {
+      toast.info('Save or cancel the image edit before viewing revisions.');
+      return;
+    }
+    if (isVisualComposerOpenRef.current) {
+      toast.info('Close the composer before viewing revisions.');
+      return;
+    }
     if (!contentRow) {
       toast.info('Connect this page to Supabase CMS first to access revision history');
       return;
     }
     setIsRevisionsOpen(true);
+    setRevisionsContentId(contentRow.id);
     setRevisionsLoading(true);
     try {
       const res = await getContentRevisions(contentRow.id);
@@ -4653,10 +5595,69 @@ export function VisualEditOverlay() {
     } finally {
       setRevisionsLoading(false);
     }
-  }, [contentRow]);
+  }, [contentRow, documentReadRefusal]);
+
+  /**
+   * Open page settings only for the document that is actually loaded.
+   *
+   * The modal is seeded from `contentRow`, so opening it during a load or after
+   * a failed read would show the previous document's title and slug. Its Save
+   * path refuses in those states, but a form that looks editable and cannot be
+   * saved is not a readiness state. Every entry point — the sidebar button and
+   * the navbar event — goes through this one guard.
+   */
+  const openPageSettings = useCallback(() => {
+    const refusal = documentReadRefusal();
+    if (refusal) {
+      toast.error(refusal);
+      return;
+    }
+    /*
+     * Settings writes the whole row from the block model. Opening it over an
+     * uncommitted inline edit — or the composer's unapplied draft — would let
+     * that form save the body without the text on screen.
+     */
+    if (inlineSessionRef.current) {
+      toast.info('Save or cancel the inline text edit before opening page settings.');
+      return;
+    }
+    if (imageSessionRef.current) {
+      toast.info('Save or cancel the image edit before opening page settings.');
+      return;
+    }
+    if (isVisualComposerOpenRef.current) {
+      toast.info('Close the composer before opening page settings.');
+      return;
+    }
+    setIsSettingsOpen(true);
+  }, [documentReadRefusal]);
 
   const handleRestoreRevision = async (revId: number) => {
-    if (!contentRow) return;
+    const refusal = documentReadRefusal();
+    if (refusal) {
+      toast.error(refusal);
+      return;
+    }
+    /*
+     * Restoring is a server-side replacement followed by a reload. It cannot
+     * preserve unsaved page edits, and unlike a local undo the discarded work
+     * has no history entry to return to. Require the page to be clean so the
+     * operator never loses edits they did not knowingly replace.
+     */
+    if (dirtyRef.current) {
+      toast.error(
+        'Save or discard the current page changes before restoring a revision.'
+      );
+      return;
+    }
+    if (!contentRow || revisionsContentId !== contentRow.id) {
+      toast.error('That revision belongs to a different page. Reopen revisions for this page.');
+      setIsRevisionsOpen(false);
+      setRevisions([]);
+      setRevisionsContentId(null);
+      return;
+    }
+    if (refuseOpenDraftReplacement()) return;
     setSavingBackend(true);
     try {
       const res = await restoreContentRevision(contentRow.id, revId);
@@ -4749,14 +5750,7 @@ export function VisualEditOverlay() {
       });
     };
 
-    const handleOpenMediaLibrary = () => {
-      setMediaTarget('section');
-      setMediaModalOpen(true);
-    };
-
-    const handleOpenSettings = () => {
-      setIsSettingsOpen(true);
-    };
+    const handleOpenMediaLibrary = () => openMediaLibrary('section');
 
     const handleOpenCRM = (e?: Event) => {
       const detail = (e as CustomEvent<{ tab?: 'constituents' | 'events' | 'news' | 'links' }>)
@@ -4786,7 +5780,7 @@ export function VisualEditOverlay() {
     window.addEventListener(VISUAL_EDIT_EVENTS.convertSection, handleConvertSectionEvent);
     window.addEventListener(VISUAL_EDIT_EVENTS.openMediaLibrary, handleOpenMediaLibrary);
     window.addEventListener(VISUAL_EDIT_EVENTS.openRevisions, handleOpenRevisions);
-    window.addEventListener(VISUAL_EDIT_EVENTS.openSettings, handleOpenSettings);
+    window.addEventListener(VISUAL_EDIT_EVENTS.openSettings, openPageSettings);
     window.addEventListener(VISUAL_EDIT_EVENTS.openCRM, handleOpenCRM);
     window.addEventListener(VISUAL_EDIT_EVENTS.openDiagnostics, handleOpenDiagnostics);
     window.addEventListener(VISUAL_EDIT_EVENTS.selectRegion, handleSelectRegion);
@@ -4802,7 +5796,7 @@ export function VisualEditOverlay() {
       window.removeEventListener(VISUAL_EDIT_EVENTS.convertSection, handleConvertSectionEvent);
       window.removeEventListener(VISUAL_EDIT_EVENTS.openMediaLibrary, handleOpenMediaLibrary);
       window.removeEventListener(VISUAL_EDIT_EVENTS.openRevisions, handleOpenRevisions);
-      window.removeEventListener(VISUAL_EDIT_EVENTS.openSettings, handleOpenSettings);
+      window.removeEventListener(VISUAL_EDIT_EVENTS.openSettings, openPageSettings);
       window.removeEventListener(VISUAL_EDIT_EVENTS.openCRM, handleOpenCRM);
       window.removeEventListener(VISUAL_EDIT_EVENTS.openDiagnostics, handleOpenDiagnostics);
       window.removeEventListener(VISUAL_EDIT_EVENTS.selectRegion, handleSelectRegion);
@@ -4818,6 +5812,8 @@ export function VisualEditOverlay() {
     handleMoveSection,
     handleOpenEditSection,
     handleOpenRevisions,
+    openMediaLibrary,
+    openPageSettings,
     jumpTo,
     openCrmWithTab,
     sections,
@@ -4828,6 +5824,19 @@ export function VisualEditOverlay() {
     const refusal = describeUnsaveableDocument();
     if (refusal) {
       toast.error(refusal);
+      return;
+    }
+    // The dialog can outlive the edit session that was open when it mounted.
+    if (inlineSessionRef.current) {
+      toast.info('Save or cancel the inline text edit before saving page settings.');
+      return;
+    }
+    if (imageSessionRef.current) {
+      toast.info('Save or cancel the image edit before saving page settings.');
+      return;
+    }
+    if (isVisualComposerOpenRef.current) {
+      toast.info('Close the composer before saving page settings.');
       return;
     }
     setSavingBackend(true);
@@ -4847,7 +5856,7 @@ export function VisualEditOverlay() {
       // Settings writes the whole row, so it must write the document on screen.
       // `contentRow.body` is the last body loaded or saved; using it here
       // overwrote every unsaved block edit made before the modal was opened.
-      const persistedBody = serializeBlocks(blocks);
+      const persistedBody = serializeBlocks(blocksRef.current);
       const res = await saveContentWithEdgeApi({
         id: contentRow?.id,
         title: pageTitle,
@@ -4864,38 +5873,43 @@ export function VisualEditOverlay() {
 
       if (res.success) {
         toast.success('Page settings saved to Supabase');
-        setContentRow((prev) =>
-          prev
-            ? {
-                ...prev,
-                title: pageTitle,
-                slug,
-                body: persistedBody,
-                featured_image: pageFeaturedImage || null,
-                status: pageStatus,
-                updated_at: res.data?.updatedAt,
-                published_at:
-                  res.data?.publishedAt ??
-                  prev.published_at ??
-                  (pageStatus === 'publish' ? new Date().toISOString() : null),
-              }
-            : {
-                id: res.data?.id || 1,
-                title: pageTitle,
-                slug,
-                excerpt: null,
-                type: 'page',
-                status: pageStatus,
-                body: persistedBody,
-                featured_image: pageFeaturedImage || null,
-                metadata: {},
-                updated_at: res.data?.updatedAt,
-                created_at: new Date().toISOString(),
-                published_at:
-                  res.data?.publishedAt ??
-                  (pageStatus === 'publish' ? new Date().toISOString() : null),
-              }
-        );
+        const saved = res.data;
+        setContentRow((prev) => {
+          if (prev) {
+            return {
+              ...prev,
+              title: pageTitle,
+              slug,
+              body: persistedBody,
+              featured_image: pageFeaturedImage || null,
+              status: pageStatus,
+              updated_at: saved?.updatedAt ?? prev.updated_at,
+              published_at:
+                saved?.publishedAt ??
+                prev.published_at ??
+                (pageStatus === 'publish' ? new Date().toISOString() : null),
+            };
+          }
+          // Do not invent an id for a row the server did not identify; the next
+          // save would address whichever row happened to own it.
+          if (!saved) return prev;
+          return {
+            id: saved.id,
+            title: pageTitle,
+            slug,
+            excerpt: null,
+            type: 'page',
+            status: pageStatus,
+            body: persistedBody,
+            featured_image: pageFeaturedImage || null,
+            metadata: {},
+            updated_at: saved.updatedAt,
+            created_at: new Date().toISOString(),
+            published_at:
+              saved.publishedAt ??
+              (pageStatus === 'publish' ? new Date().toISOString() : null),
+          };
+        });
         setSavedBody(persistedBody);
         setRecoveredDraft(null);
         clearDraft(draftScope);
@@ -4939,6 +5953,7 @@ export function VisualEditOverlay() {
     onDeleteBlocks: handleDeleteSections,
     onCopyBlockJson: handleCopyBlockJson,
     onPasteBlockJson: handlePasteBlockJson,
+    applyBlockedReason: describeUnsaveableDocument() ?? undefined,
   };
 
   const pendingRegionLabel =
@@ -4950,6 +5965,35 @@ export function VisualEditOverlay() {
           'this region');
 
   if (!enabled || !isAdmin) return null;
+
+  const unsaveableReason = describeUnsaveableDocument();
+  /*
+   * Page-level section actions are only offered when there is a savable
+   * document behind them. On a coded route the visible blocks are JSX and have
+   * no row to write; while loading or degraded the blocks are a rendered
+   * fallback. Showing duplicate/delete/move controls there invites a click that
+   * can only be refused. Copy regions keep their own inline entry point.
+   */
+  const sectionActionsAvailable = documentLoadState === 'ready' && !unsaveableReason;
+  /*
+   * An inline edit is saved by its own narrow path (a block, a data point or a
+   * copy region), so page-level unsaveability is not the reason Save is
+   * unavailable while one is open. Only the document-read gate applies.
+   */
+  const paletteSaveBlockedReason = inlineSession
+    ? (documentReadRefusal() ?? undefined)
+    : (unsaveableReason ?? undefined);
+  const paletteCanSave =
+    (Boolean(inlineSession) || dirty) && !paletteSaveBlockedReason;
+  const recoveredDraftBlockedReason =
+    unsaveableReason ??
+    (inlineSession
+      ? 'Save or cancel the inline text edit before restoring the unsaved copy.'
+      : imageSession
+        ? 'Save or cancel the image edit before restoring the unsaved copy.'
+        : isVisualComposerOpen
+          ? 'Close the composer before restoring the unsaved copy.'
+          : null);
 
   return (
     <>
@@ -4972,11 +6016,19 @@ export function VisualEditOverlay() {
           <button
             type="button"
             onClick={() => {
+              if (recoveredDraftBlockedReason) {
+                toast.error(recoveredDraftBlockedReason);
+                return;
+              }
               commitBlocks(recoveredDraft, null);
               setRecoveredDraft(null);
               toast.success('Recovered draft restored');
             }}
-            className="rounded-lg bg-accent px-2.5 py-1 text-xs font-bold text-ink-strong hover:bg-accent-gold"
+            disabled={Boolean(recoveredDraftBlockedReason)}
+            title={
+              recoveredDraftBlockedReason ?? 'Restore the unsaved copy onto the loaded document'
+            }
+            className="rounded-lg bg-accent px-2.5 py-1 text-xs font-bold text-ink-strong hover:bg-accent-gold disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-accent"
           >
             Restore
           </button>
@@ -4994,7 +6046,7 @@ export function VisualEditOverlay() {
       )}
 
       {/* ── In-Page Visual Section Overlays ────────────────────────────── */}
-      {showSectionBadges && sectionOverlays.length > 0 && (
+      {showSectionBadges && sectionOverlays.length > 0 && sectionActionsAvailable && (
         <div aria-hidden="false" className="fixed inset-0 pointer-events-none z-40 overflow-hidden">
           {sectionOverlays.map((item) => (
             <div
@@ -5154,8 +6206,7 @@ export function VisualEditOverlay() {
                       onClick={() => {
                         setActiveBlockIndex(item.blockIndex);
                         handleOpenEditSection(item.blockIndex);
-                        setMediaTarget('section');
-                        setMediaModalOpen(true);
+                        openMediaLibrary('section');
                       }}
                       title="Replace image from Supabase S3 storage"
                       aria-label="Replace image from Supabase S3 storage"
@@ -5218,13 +6269,13 @@ export function VisualEditOverlay() {
                         const blk = blocks[item.blockIndex];
                         if (!cb || !blk) return;
                         const compiled = compileClassNames('block', cb);
-                        handleSaveVcBlock(
+                        const saved = handleSaveVcBlock(
                           blk,
                           compiled,
                           cb.anchorId || undefined,
                           cb.customStyle || undefined
                         );
-                        toast.success(`Pasted styles onto ${item.label}`);
+                        if (saved) toast.success(`Pasted styles onto ${item.label}`);
                       }}
                       title="Paste styles from clipboard"
                       aria-label="Paste styles"
@@ -5435,7 +6486,7 @@ export function VisualEditOverlay() {
         appears the moment a second block is selected, names the count, and
         gives the two actions that matter: style them together, or clear.
       */}
-      {selectedBlockIndexes.size > 1 && !isVisualComposerOpen ? (
+      {selectedBlockIndexes.size > 1 && !isVisualComposerOpen && sectionActionsAvailable ? (
         <div
           role="status"
           aria-live="polite"
@@ -5562,6 +6613,8 @@ export function VisualEditOverlay() {
         isVisualComposerOpen={isVisualComposerOpen}
         documentTitle={contentRow?.title || pageTitle || target?.label || pathname}
         contentRow={contentRow}
+        documentLoadState={documentLoadState}
+        onRetryDocumentLoad={retryDocumentLoad}
         blocks={blocks}
         sections={sections}
         enabledSectionKeys={enabledSectionKeys}
@@ -5570,7 +6623,7 @@ export function VisualEditOverlay() {
         history={history}
         activeBlockIndex={activeBlockIndex}
         pageRegions={pageRegions}
-        unsaveableReason={describeUnsaveableDocument()}
+        unsaveableReason={unsaveableReason}
         activeRegionId={activeRegionId}
         activeRegionLabel={activeRegion?.label || null}
         onSetRegion={selectRegion}
@@ -5629,12 +6682,9 @@ export function VisualEditOverlay() {
           toast.info('Image changes cancelled');
         }}
         onToggle={toggle}
-        onSave={() =>
-          void handlePersistBlocks(
-            blocks,
-            contentRow ? 'Page saved' : 'Page connected to Supabase CMS'
-          )
-        }
+        onSave={() => {
+          void saveDocument(contentRow ? 'Page saved' : 'Page connected to Supabase CMS');
+        }}
         onUndo={handleUndo}
         onRedo={handleRedo}
         onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
@@ -5643,11 +6693,8 @@ export function VisualEditOverlay() {
         onOpenDiffModal={() => setIsDiffModalOpen(true)}
         onOpenVisualComposer={openVisualComposer}
         onOpenPageNavigator={() => setIsPageNavigatorOpen((prev) => !prev)}
-        onOpenMedia={(nextTarget) => {
-          setMediaTarget(nextTarget);
-          setMediaModalOpen(true);
-        }}
-        onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenMedia={(nextTarget) => openMediaLibrary(nextTarget)}
+        onOpenSettings={openPageSettings}
         onOpenRevisions={handleOpenRevisions}
         onOpenShortcuts={() => setIsShortcutsOpen(true)}
         onOpenCRM={(nextTab) => openCrmWithTab(nextTab)}
@@ -5668,7 +6715,9 @@ export function VisualEditOverlay() {
         onReorderSection={handleReorderSectionWithConfirmation}
         onDeleteSection={(idx) => handleDeleteSection(idx)}
         blockTypeOptions={BLOCK_TYPE_OPTIONS}
-        adminEditUrl={target?.editUrl ?? null}
+        adminEditUrl={
+          target?.editUrl ?? (contentRow ? `/admin/content/${contentRow.id}` : null)
+        }
         composerProps={composerProps}
       />
 
@@ -5757,10 +6806,7 @@ export function VisualEditOverlay() {
                   />
                   <button
                     type="button"
-                    onClick={() => {
-                      setMediaTarget('featured');
-                      setMediaModalOpen(true);
-                    }}
+                    onClick={() => openMediaLibrary('featured')}
                     className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-muted px-3 py-2 text-xs font-bold text-foreground hover:bg-border shrink-0"
                   >
                     <FolderOpen size={14} className="text-primary" />
@@ -5907,8 +6953,12 @@ export function VisualEditOverlay() {
                   <button
                     type="button"
                     onClick={handleExportPageJson}
-                    title="Export page document and blocks as JSON"
-                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-border text-foreground hover:bg-surface-muted text-xs font-bold transition-colors"
+                    disabled={Boolean(documentReadRefusal())}
+                    title={
+                      documentReadRefusal() ??
+                      'Export page document and blocks as JSON'
+                    }
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-border text-foreground hover:bg-surface-muted text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
                   >
                     <Download size={14} className="text-muted-foreground" />
                     <span>Export JSON</span>
@@ -5916,8 +6966,22 @@ export function VisualEditOverlay() {
                   <button
                     type="button"
                     onClick={handleImportPageJson}
-                    title="Import page snapshot JSON file"
-                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-border text-foreground hover:bg-surface-muted text-xs font-bold transition-colors"
+                    disabled={
+                      Boolean(unsaveableReason) ||
+                      isVisualComposerOpen ||
+                      Boolean(inlineSession) ||
+                      Boolean(imageSession)
+                    }
+                    title={
+                      inlineSession
+                        ? 'Save or cancel the inline text edit before importing a page snapshot'
+                        : imageSession
+                          ? 'Save or cancel the image edit before importing a page snapshot'
+                          : isVisualComposerOpen
+                            ? 'Close the composer before importing a page snapshot'
+                            : unsaveableReason ?? 'Import page snapshot JSON file'
+                    }
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-border text-foreground hover:bg-surface-muted text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
                   >
                     <Upload size={14} className="text-muted-foreground" />
                     <span>Import JSON</span>
@@ -5933,8 +6997,11 @@ export function VisualEditOverlay() {
                   </button>
                   <button
                     type="submit"
-                    disabled={savingBackend}
-                    className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2 text-xs font-bold text-white shadow-raised hover:bg-primary-dark"
+                    disabled={savingBackend || Boolean(unsaveableReason)}
+                    title={
+                      unsaveableReason ?? 'Save page settings to Supabase'
+                    }
+                    className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2 text-xs font-bold text-white shadow-raised hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-primary"
                   >
                     {savingBackend && <Loader2 size={13} className="animate-spin" />}
                     <span>Save Page Settings</span>
@@ -5952,6 +7019,21 @@ export function VisualEditOverlay() {
           isOpen={mediaModalOpen}
           onClose={() => setMediaModalOpen(false)}
           onSelectMedia={async (item) => {
+            /*
+             * Every media target writes into the page: an image block, the
+             * featured image, or a copy region. None of them may land while the
+             * saved document is unreadable, or a later autosave would publish a
+             * change the operator made over a fallback.
+             */
+            const mediaRefusal =
+              mediaTarget === 'section'
+                ? describeUnsaveableDocument()
+                : documentReadRefusal();
+            if (mediaRefusal) {
+              toast.error(mediaRefusal);
+              setMediaModalOpen(false);
+              return;
+            }
             if (mediaTarget === 'image-replace' && imageSession) {
               const { element: imgEl } = imageSession;
               const previousSrc = imgEl.src;
@@ -5993,17 +7075,17 @@ export function VisualEditOverlay() {
               toast.success('Featured image selected from Supabase storage');
             } else if (vcBlockIndex !== null && blocksRef.current[vcBlockIndex]?.type === 'image') {
               const currentBlock = blocksRef.current[vcBlockIndex];
-              setBlocks((prev) => {
-                const next = [...prev];
-                next[vcBlockIndex] = {
-                  ...currentBlock,
-                  src: item.url,
-                  alt: item.alt || item.name,
-                  width: item.width ?? null,
-                  height: item.height ?? null,
-                };
-                return next;
-              });
+              // Image replacement is a committed document change, not a preview:
+              // it must participate in undo and re-pair the section frames.
+              const nextBlocks = [...blocksRef.current];
+              nextBlocks[vcBlockIndex] = {
+                ...currentBlock,
+                src: item.url,
+                alt: item.alt || item.name,
+                width: item.width ?? null,
+                height: item.height ?? null,
+              };
+              commitBlocks(nextBlocks, `media-replace:${vcBlockIndex}`);
               toast.success('Image selected from Supabase storage');
             } else {
               const newImageBlock: Block = {
@@ -6027,7 +7109,13 @@ export function VisualEditOverlay() {
 
       {/* ── Revisions History Modal ────────────────────────────────────── */}
       {isRevisionsOpen && (
-        <Dialog open={isRevisionsOpen} onOpenChange={setIsRevisionsOpen}>
+        <Dialog
+          open={isRevisionsOpen}
+          onOpenChange={(open) => {
+            setIsRevisionsOpen(open);
+            if (!open) setRevisionsContentId(null);
+          }}
+        >
           <DialogContent className="max-w-xl bg-surface-card text-foreground p-6 rounded-3xl">
             <DialogHeader>
               <DialogTitle className="text-xl font-black uppercase tracking-tight text-foreground flex items-center gap-2">
@@ -6037,6 +7125,16 @@ export function VisualEditOverlay() {
               <DialogDescription className="text-xs text-muted-foreground">
                 Restore any earlier snapshot saved to the Supabase backend.
               </DialogDescription>
+
+              {dirty ? (
+                <p
+                  role="status"
+                  className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] font-medium leading-relaxed text-amber-700 dark:text-amber-300"
+                >
+                  Save or undo the current page changes before restoring a revision.
+                  Restoring replaces the saved row and discards unsaved work.
+                </p>
+              ) : null}
             </DialogHeader>
 
             <div className="space-y-3 my-3 max-h-[50vh] overflow-y-auto pr-1">
@@ -6064,7 +7162,14 @@ export function VisualEditOverlay() {
                       confirmLabel="Confirm Restore"
                       message="This will restore the page content to this snapshot and record a new append-only revision entry in Supabase."
                       onConfirm={() => handleRestoreRevision(rev.id)}
-                      disabled={savingBackend}
+                      disabled={
+                        savingBackend ||
+                        dirty ||
+                        Boolean(unsaveableReason) ||
+                        isVisualComposerOpen ||
+                        Boolean(inlineSession) ||
+                        Boolean(imageSession)
+                      }
                       idleClassName="shrink-0 rounded-lg bg-primary/10 px-3 py-1.5 text-[11px] font-bold text-primary hover:bg-primary/20 transition-colors"
                     >
                       <span>Restore</span>
@@ -6735,8 +7840,8 @@ export function VisualEditOverlay() {
                 id="alt-text-input"
                 type="text"
                 autoFocus
-                disabled={isSavingAlt}
                 value={altTextModal.value}
+                disabled={isSavingAlt || Boolean(documentReadRefusal())}
                 onChange={(e) =>
                   setAltTextModal((prev) => (prev ? { ...prev, value: e.target.value } : null))
                 }
@@ -6747,7 +7852,7 @@ export function VisualEditOverlay() {
                   }
                 }}
                 placeholder="A brief description of the image"
-                className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:ring-2 focus:ring-primary disabled:cursor-wait disabled:opacity-60"
+                className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:ring-2 focus:ring-primary disabled:cursor-not-allowed disabled:opacity-60"
               />
             </div>
             <div className="flex justify-end gap-2 pt-2">
@@ -6762,10 +7867,11 @@ export function VisualEditOverlay() {
               <button
                 type="button"
                 data-confirm
-                disabled={isSavingAlt}
+                disabled={isSavingAlt || Boolean(documentReadRefusal())}
                 aria-busy={isSavingAlt}
                 onClick={() => void saveAltText()}
-                className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-white hover:bg-primary/90 disabled:cursor-wait disabled:opacity-60"
+                title={documentReadRefusal() ?? 'Save the image description'}
+                className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-white hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isSavingAlt ? 'Saving…' : 'Save'}
               </button>
@@ -6817,16 +7923,17 @@ export function VisualEditOverlay() {
 
       {/* ── Live Element Inspector HUD ─────────────────────────────────────── */}
       <ElementInspectorHud
-        enabled={enabled && isAdmin && showInspector}
+        enabled={
+          enabled &&
+          isAdmin &&
+          showInspector &&
+          documentLoadState === 'ready' &&
+          !unsaveableReason
+        }
         inlineActive={Boolean(inlineSession || imageSession)}
         onOpenStudio={() => {
-          if (activeBlockIndex !== null) {
-            setVcBlockIndex(activeBlockIndex);
-            setIsVisualComposerOpen(true);
-          } else if (blocks.length > 0) {
-            setVcBlockIndex(0);
-            setIsVisualComposerOpen(true);
-          }
+          const targetIndex = activeBlockIndex ?? (blocks.length > 0 ? 0 : null);
+          if (targetIndex !== null) openVisualComposer('block', targetIndex);
         }}
       />
 
@@ -6841,19 +7948,18 @@ export function VisualEditOverlay() {
         }}
         onAddNewBlock={handleAddNewSection}
         onSave={() => {
-          if (inlineSessionRef.current) {
-            void commitInlineEdit(inlineSessionRef.current);
-          }
-          void handlePersistBlocks(
-            blocksRef.current,
+          void saveDocument(
             contentRow ? 'Page saved to Supabase' : 'Page connected to Supabase CMS'
           );
         }}
-        canSave={dirty}
+        canSave={paletteCanSave}
+        // A locked document must not be described as saved just because the
+        // local body is clean: loading and degraded are states, not edits.
+        saveBlockedReason={paletteSaveBlockedReason}
         onUndo={handleUndo}
-        canUndo={canUndo(history)}
+        canUndo={canUndo(history) && documentLoadState === 'ready'}
         onRedo={handleRedo}
-        canRedo={canRedo(history)}
+        canRedo={canRedo(history) && documentLoadState === 'ready'}
         viewportMode={viewportMode}
         onSetViewportMode={setViewportMode}
         onRotateOrientation={handleRotateOrientation}
@@ -6866,11 +7972,8 @@ export function VisualEditOverlay() {
         onToggleFrames={() => setShowAllSectionBorders((p) => !p)}
         showInspector={showInspector}
         onToggleInspector={toggleInspector}
-        onOpenMedia={() => {
-          setMediaTarget('section');
-          setMediaModalOpen(true);
-        }}
-        onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenMedia={() => openMediaLibrary('section')}
+        onOpenSettings={openPageSettings}
         onOpenRevisions={handleOpenRevisions}
         onOpenCrm={openCrmWithTab}
         onOpenShortcuts={() => setIsShortcutsOpen(true)}
@@ -6904,16 +8007,13 @@ export function VisualEditOverlay() {
         modifiedBlocks={modifiedBlocks}
         onRevertDataPoint={handleRevertDataPoint}
         onSaveAll={() => {
-          if (inlineSessionRef.current) {
-            void commitInlineEdit(inlineSessionRef.current);
-          }
-          void handlePersistBlocks(
-            blocksRef.current,
+          void saveDocument(
             contentRow ? 'Page saved to Supabase' : 'Page connected to Supabase CMS'
           );
           setIsDiffModalOpen(false);
         }}
         isSaving={savingBackend}
+        saveBlockedReason={unsaveableReason ?? undefined}
       />
       {/* Visual Composer is integrated directly into the sidebar (⌘E) */}
 

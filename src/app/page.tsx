@@ -309,7 +309,7 @@ export default async function HomePage() {
 
       {/* Four Pillars / Mission Section.
           The old version was four identical rounded cards under a centred heading.
-          This is a two-column editorial spread: argument on the left, four numbered
+          This is a two-column editorial spread: argument on the left, four
           commitments separated by rules on the right. Copy region preserved. */}
       <section className="border-t border-border bg-surface-muted py-16 text-foreground md:py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -345,23 +345,22 @@ export default async function HomePage() {
               </div>
 
               <div className="grid gap-x-10 sm:grid-cols-2 lg:col-span-8">
-                <article className="group border-t border-foreground/25 py-7">
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="font-mono text-[10px] font-bold tracking-[0.18em] text-muted-foreground">
-                      01
+                <article className="group border-t border-foreground/25 py-6 sm:py-7">
+                  <div className="flex items-center gap-3">
+                    <span className="flex size-9 items-center justify-center border border-foreground/20 bg-background">
+                      <Shield
+                        size={18}
+                        strokeWidth={1.4}
+                        className="text-primary transition-colors duration-300 group-hover:text-accent"
+                        aria-hidden="true"
+                      />
                     </span>
-                    <Shield
-                      size={22}
-                      strokeWidth={1.4}
-                      className="text-primary transition-colors duration-300 group-hover:text-accent"
-                      aria-hidden="true"
-                    />
                   </div>
                   <DataPoint
                     name="home.pillars.p1_title"
                     as="h3"
                     initialData={dataPoints}
-                    className="mt-8 font-display text-2xl font-semibold tracking-[-0.03em] text-foreground"
+                    className="mt-6 font-display text-2xl font-semibold tracking-[-0.03em] text-foreground"
                   >
                     Stop Authoritarianism
                   </DataPoint>
@@ -376,23 +375,22 @@ export default async function HomePage() {
                   </DataPoint>
                 </article>
 
-                <article className="group border-t border-foreground/25 py-7">
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="font-mono text-[10px] font-bold tracking-[0.18em] text-muted-foreground">
-                      02
+                <article className="group border-t border-foreground/25 py-6 sm:py-7">
+                  <div className="flex items-center gap-3">
+                    <span className="flex size-9 items-center justify-center border border-foreground/20 bg-background">
+                      <Vote
+                        size={18}
+                        strokeWidth={1.4}
+                        className="text-primary transition-colors duration-300 group-hover:text-accent"
+                        aria-hidden="true"
+                      />
                     </span>
-                    <Vote
-                      size={22}
-                      strokeWidth={1.4}
-                      className="text-primary transition-colors duration-300 group-hover:text-accent"
-                      aria-hidden="true"
-                    />
                   </div>
                   <DataPoint
                     name="home.pillars.p2_title"
                     as="h3"
                     initialData={dataPoints}
-                    className="mt-8 font-display text-2xl font-semibold tracking-[-0.03em] text-foreground"
+                    className="mt-6 font-display text-2xl font-semibold tracking-[-0.03em] text-foreground"
                   >
                     Defend Democratic Norms
                   </DataPoint>
@@ -407,23 +405,22 @@ export default async function HomePage() {
                   </DataPoint>
                 </article>
 
-                <article className="group border-t border-foreground/25 py-7">
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="font-mono text-[10px] font-bold tracking-[0.18em] text-muted-foreground">
-                      03
+                <article className="group border-t border-foreground/25 py-6 sm:py-7">
+                  <div className="flex items-center gap-3">
+                    <span className="flex size-9 items-center justify-center border border-foreground/20 bg-background">
+                      <Megaphone
+                        size={18}
+                        strokeWidth={1.4}
+                        className="text-primary transition-colors duration-300 group-hover:text-accent"
+                        aria-hidden="true"
+                      />
                     </span>
-                    <Megaphone
-                      size={22}
-                      strokeWidth={1.4}
-                      className="text-primary transition-colors duration-300 group-hover:text-accent"
-                      aria-hidden="true"
-                    />
                   </div>
                   <DataPoint
                     name="home.pillars.p3_title"
                     as="h3"
                     initialData={dataPoints}
-                    className="mt-8 font-display text-2xl font-semibold tracking-[-0.03em] text-foreground"
+                    className="mt-6 font-display text-2xl font-semibold tracking-[-0.03em] text-foreground"
                   >
                     Elect Bold Leaders
                   </DataPoint>
@@ -438,23 +435,22 @@ export default async function HomePage() {
                   </DataPoint>
                 </article>
 
-                <article className="group border-t border-foreground/25 py-7">
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="font-mono text-[10px] font-bold tracking-[0.18em] text-muted-foreground">
-                      04
+                <article className="group border-t border-foreground/25 py-6 sm:py-7">
+                  <div className="flex items-center gap-3">
+                    <span className="flex size-9 items-center justify-center border border-foreground/20 bg-background">
+                      <Users
+                        size={18}
+                        strokeWidth={1.4}
+                        className="text-primary transition-colors duration-300 group-hover:text-accent"
+                        aria-hidden="true"
+                      />
                     </span>
-                    <Users
-                      size={22}
-                      strokeWidth={1.4}
-                      className="text-primary transition-colors duration-300 group-hover:text-accent"
-                      aria-hidden="true"
-                    />
                   </div>
                   <DataPoint
                     name="home.pillars.p4_title"
                     as="h3"
                     initialData={dataPoints}
-                    className="mt-8 font-display text-2xl font-semibold tracking-[-0.03em] text-foreground"
+                    className="mt-6 font-display text-2xl font-semibold tracking-[-0.03em] text-foreground"
                   >
                     Secure Progressive Policy
                   </DataPoint>

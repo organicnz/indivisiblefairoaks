@@ -528,6 +528,8 @@ export interface VisualComposerInspectorProps {
   onCopyBlockJson?: () => void;
   /** Paste active block definition from clipboard JSON. */
   onPasteBlockJson?: () => void;
+  /** Why the page cannot accept a write right now (loading or unreadable document). */
+  applyBlockedReason?: string;
 }
 
 export function VisualComposerInspector({
@@ -556,6 +558,7 @@ export function VisualComposerInspector({
   onDeleteBlocks,
   onCopyBlockJson,
   onPasteBlockJson,
+  applyBlockedReason,
 }: VisualComposerInspectorProps) {
   const [inspectorMode, setInspectorMode] = useState<VisualComposerMode>(initialMode);
   const [activeTab, setActiveTab] = useState<VisualComposerTab>('content');
@@ -872,7 +875,8 @@ export function VisualComposerInspector({
    * mode is exempt: its baseline describes one block, so applying untouched
    * controls to the others is a real, deliberate act.
    */
-  const applyDisabled = !isBatchMode && !dirty;
+  const writesBlocked = Boolean(applyBlockedReason);
+  const applyDisabled = writesBlocked || (!isBatchMode && !dirty);
 
   /**
    * Blocks the batch was opened for that are no longer on the page.
@@ -1675,8 +1679,8 @@ export function VisualComposerInspector({
         onCopyStyles={handleCopyStyles}
         onPasteStyles={handlePasteStyles}
         onResetStyles={handleResetStyles}
-        onCopyBlockJson={onCopyBlockJson}
-        onPasteBlockJson={onPasteBlockJson}
+        onCopyBlockJson={writesBlocked ? undefined : onCopyBlockJson}
+        onPasteBlockJson={writesBlocked ? undefined : onPasteBlockJson}
         onClose={requestClose}
         firstFocusRef={firstFocusRef}
         isBatchMode={isBatchMode}
@@ -1686,10 +1690,14 @@ export function VisualComposerInspector({
         onNavigate={isBatchMode ? undefined : handleNavigate}
         canNavigatePrevious={canNavigatePrevious}
         canNavigateNext={canNavigateNext}
-        onMoveBlock={onMoveBlock}
+        onMoveBlock={writesBlocked ? undefined : onMoveBlock}
         canMoveUp={canNavigatePrevious}
         canMoveDown={canNavigateNext}
-        onDeleteBlock={onDeleteBlock || onDeleteBlocks ? handleDeleteFromInspector : undefined}
+        onDeleteBlock={
+          !writesBlocked && (onDeleteBlock || onDeleteBlocks)
+            ? handleDeleteFromInspector
+            : undefined
+        }
       />
 
       {/*
@@ -1896,6 +1904,7 @@ export function VisualComposerInspector({
         onClose={requestClose}
         onApply={handleApply}
         applyDisabled={applyDisabled}
+        applyDisabledReason={applyBlockedReason}
         isBatchMode={isBatchMode}
         selectedCount={selectedBlockIndexes.length}
         keepOpenOnApply={keepOpenOnApply}

@@ -2,7 +2,7 @@ import { Scale } from 'lucide-react';
 import type { Metadata } from 'next';
 import {
   MASTHEAD_INTRO,
-  MASTHEAD_TITLE,
+  MASTHEAD_TITLE_DOCUMENT,
   PageMasthead,
 } from '@/components/layout/PageMasthead';
 import { pageMetadata } from '@/lib/metadata';
@@ -19,8 +19,9 @@ export default function TermsPage() {
     <div className="civic-page w-full min-h-screen bg-background pb-20 text-foreground pt-(--header-clearance)">
       <PageMasthead
         icon={Scale}
+        compact
         eyebrow="Site terms"
-        title={<h1 className={MASTHEAD_TITLE}>Terms &amp; Conditions</h1>}
+        title={<h1 className={MASTHEAD_TITLE_DOCUMENT}>Terms &amp; Conditions</h1>}
         intro={
           <p className={MASTHEAD_INTRO}>
             These terms govern use of this website. They are not legal advice, and they do not

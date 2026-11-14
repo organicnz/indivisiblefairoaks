@@ -2,7 +2,7 @@ import { ShieldCheck } from 'lucide-react';
 import type { Metadata } from 'next';
 import {
   MASTHEAD_INTRO,
-  MASTHEAD_TITLE,
+  MASTHEAD_TITLE_DOCUMENT,
   PageMasthead,
 } from '@/components/layout/PageMasthead';
 import { pageMetadata } from '@/lib/metadata';
@@ -19,8 +19,9 @@ export default function PrivacyPage() {
     <div className="civic-page w-full min-h-screen bg-background pb-20 text-foreground pt-(--header-clearance)">
       <PageMasthead
         icon={ShieldCheck}
+        compact
         eyebrow="Privacy & trust"
-        title={<h1 className={MASTHEAD_TITLE}>Privacy Policy</h1>}
+        title={<h1 className={MASTHEAD_TITLE_DOCUMENT}>Privacy Policy</h1>}
         intro={
           <p className={MASTHEAD_INTRO}>
             We collect only what the chapter needs to answer you, run the site, and keep our

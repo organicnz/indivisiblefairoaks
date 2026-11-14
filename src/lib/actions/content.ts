@@ -12,6 +12,7 @@ import {
   MAX_BODY_BYTES,
   unreachableContentSlugs,
 } from '@/lib/content';
+import { isCopyRegionSlug } from '@/lib/copy-regions';
 import { env } from '@/lib/env';
 import { measureImageSize } from '@/lib/image-size';
 import { isOwnImageUrl } from '@/lib/own-media';
@@ -297,6 +298,40 @@ export async function saveContent(
   if (!parsed.success) return fail(parsed.error.issues[0]?.message || 'Invalid input');
   const data = parsed.data;
 
+  /*
+   * A copy region is addressed by slug, not by the id of the page it lives in.
+   *
+   * The visual editor's inline and image writes post the region's own slug and
+   * body. The first write creates the region row, so every later write has no
+   * id to send — and the insert branch rejected it as a duplicate slug. The
+   * operator's second edit failed with "already used by another page" despite
+   * being the only editor of that region. Resolve the row already at a
+   * `copy-` slug and treat the write as an update of that row.
+   *
+   * The body editor owns `body`; it does not own the title, excerpt, featured
+   * image or metadata that the content editor may have set on the same row.
+   * Those columns are preserved rather than reset by a body-only write.
+   */
+  let existingCopyRegion: ContentRow | null = null;
+  if (data.id === undefined && isCopyRegionSlug(data.slug)) {
+    const { data: existing, error } = await adminClient
+      .from('content')
+      .select('*')
+      .eq('slug', data.slug)
+      .maybeSingle();
+    if (error) return fail(error.message);
+    existingCopyRegion = existing;
+    /*
+     * An expected version means the editor read a row. If that row is gone now,
+     * creating a replacement would silently discard the operator's decision to
+     * edit existing copy and would start a new row without their metadata. The
+     * delete is a real outcome the operator has to see and resolve.
+     */
+    if (!existingCopyRegion && data.expectedUpdatedAt !== undefined) {
+      return fail('That page no longer exists');
+    }
+  }
+
   if (data.featuredImage) {
     // Absolute, non-private URLs only, and only from a host this site controls.
     // The page renders this into an OG image tag, so a `data:` URL or a private
@@ -334,36 +369,54 @@ export async function saveContent(
     if (existingError) return fail(existingError.message);
     if (!existing) return fail('That page no longer exists');
     previous = existing;
+  } else if (existingCopyRegion) {
+    previous = { slug: existingCopyRegion.slug };
   }
+
+  // The id the write actually targets: an explicit id, or the copy-region row
+  // the slug resolved to above. Without this the update branch below would run
+  // for a region and then filter on the undefined id instead of the row's own.
+  const targetId = data.id ?? existingCopyRegion?.id;
 
   const slugConflict = await assertSlugAvailable(
     data.slug,
     adminClient,
-    data.id,
+    targetId,
     previous?.slug
   );
   if (slugConflict) return fail(slugConflict);
 
+  /*
+   * Publishing without an explicit date means "now"; a draft keeps whatever
+   * date it had so un-drafting does not backdate it. A body-only region write
+   * that publishes an existing draft gets a date here too, because otherwise
+   * the row would be published but invisible to the public visibility filter.
+   */
+  const publishedAt = existingCopyRegion
+    ? data.status === 'publish'
+      ? (existingCopyRegion.published_at ?? new Date().toISOString())
+      : existingCopyRegion.published_at
+    : data.publishedAt !== undefined
+      ? data.publishedAt
+      : data.status === 'publish'
+        ? new Date().toISOString()
+        : null;
+
   const row = {
-    title: data.title,
+    title: existingCopyRegion ? existingCopyRegion.title : data.title,
     slug: data.slug,
-    excerpt: data.excerpt || null,
-    type: data.type,
+    excerpt: existingCopyRegion ? existingCopyRegion.excerpt : data.excerpt || null,
+    type: existingCopyRegion ? existingCopyRegion.type : data.type,
     status: data.status,
     body: data.body || null,
-    featured_image: data.featuredImage || null,
-    published_at:
-      data.publishedAt !== undefined
-        ? data.publishedAt
-        : // Publishing without an explicit date means "now"; a draft keeps
-          // whatever date it had so un-drafting does not backdate it.
-          data.status === 'publish'
-          ? new Date().toISOString()
-          : null,
-    metadata: data.metadata,
+    featured_image: existingCopyRegion
+      ? existingCopyRegion.featured_image
+      : data.featuredImage || null,
+    published_at: publishedAt,
+    metadata: existingCopyRegion ? existingCopyRegion.metadata : data.metadata,
   };
 
-  if (data.id !== undefined) {
+  if (targetId !== undefined) {
     // The precondition rides on the same UPDATE rather than on a separate
     // SELECT-then-UPDATE. Checking first would leave a window between the two
     // statements in which a colleague's save lands and is then overwritten —
@@ -373,7 +426,7 @@ export async function saveContent(
     // matches no rows returns `error: null` and `data: null`, which is
     // indistinguishable from success. Asking for the row back is the only way
     // to tell "wrote it" from "someone else moved it".
-    let update = adminClient.from('content').update(row).eq('id', data.id);
+    let update = adminClient.from('content').update(row).eq('id', targetId);
     if (data.expectedUpdatedAt === null) {
       update = update.is('updated_at', null);
     } else if (typeof data.expectedUpdatedAt === 'string') {
@@ -431,7 +484,7 @@ export async function saveContent(
 export async function setContentStatus(
   id: number,
   status: 'publish' | 'draft'
-): Promise<ActionResult<{ id: number; publishedAt: string | null }>> {
+): Promise<ActionResult<{ id: number; publishedAt: string | null; updatedAt: string | null }>> {
   const { adminClient } = await requireAdmin();
   const { data: existing, error: existingError } = await adminClient
     .from('content')
@@ -458,12 +511,19 @@ export async function setContentStatus(
     .from('content')
     .update({ status, published_at: publishedAt })
     .eq('id', id)
-    .select('id')
+    // The trigger moves `updated_at` on this write too. Ask for it back: the
+    // editor's next save uses it as its precondition, and reporting only the
+    // publication date left that next save comparing against the version from
+    // before the status change — so the editor conflicted with its own write.
+    .select('id, updated_at')
     .maybeSingle();
   if (error) return fail(error.message);
   if (!written) return fail('That page no longer exists');
   revalidateContent(existing.slug);
-  return { success: true, data: { id, publishedAt } };
+  return {
+    success: true,
+    data: { id, publishedAt, updatedAt: written.updated_at ?? null },
+  };
 }
 
 export async function deleteContent(id: number): Promise<ActionResult> {

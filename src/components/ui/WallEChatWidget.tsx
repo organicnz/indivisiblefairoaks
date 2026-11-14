@@ -10,6 +10,28 @@ import { formatWallEMessage } from '@/lib/walle-format';
 
 type Citation = { title: string; url: string };
 type Message = { id: string; role: 'user' | 'assistant'; content: string; citations?: Citation[] };
+type Availability = 'idle' | 'checking' | 'online' | 'offline';
+
+const STATUS_LABELS: Record<Availability, string> = {
+  idle: 'Site guide',
+  checking: 'Checking…',
+  online: 'Online',
+  offline: 'Unavailable',
+};
+
+const STATUS_TONES: Record<Availability, string> = {
+  idle: 'bg-white/10 text-white/80',
+  checking: 'bg-amber-300/20 text-amber-200',
+  online: 'bg-emerald-400/20 text-emerald-300',
+  offline: 'bg-rose-400/20 text-rose-200',
+};
+
+const STATUS_DOTS: Record<Availability, string> = {
+  idle: '',
+  checking: 'bg-amber-400',
+  online: 'bg-emerald-500',
+  offline: 'bg-rose-500',
+};
 
 const SUGGESTIONS = [
   {
@@ -77,7 +99,10 @@ export function WallEChatWidget() {
     },
   ]);
   const [loading, setLoading] = useState(false);
+  const [availability, setAvailability] = useState<Availability>('idle');
   const endRef = useRef<HTMLDivElement>(null);
+  const requestRef = useRef<{ controller: AbortController; id: number } | null>(null);
+  const requestSeq = useRef(0);
 
   useEffect(() => {
     if (dataPoints['walle.starter_msg']) {
@@ -101,9 +126,23 @@ export function WallEChatWidget() {
     endRef.current?.scrollIntoView?.({ behavior: prefersReducedMotion ? 'auto' : 'smooth' });
   }, [messages.length, loading]);
 
+  useEffect(() => {
+    return () => {
+      requestRef.current?.controller.abort();
+      requestRef.current = null;
+    };
+  }, []);
+
   async function sendQuery(questionText: string) {
     const question = questionText.trim();
-    if (!question || loading) return;
+    // A ref guard, not just `loading`: two chip clicks can arrive before React
+    // renders the disabled state, and a second request would duplicate the
+    // question and spend another rate-limit slot.
+    if (!question || requestRef.current) return;
+
+    const controller = new AbortController();
+    const requestId = ++requestSeq.current;
+    requestRef.current = { controller, id: requestId };
     const next = [
       ...messages,
       { id: crypto.randomUUID(), role: 'user' as const, content: question },
@@ -111,40 +150,60 @@ export function WallEChatWidget() {
     setMessages(next);
     setInput('');
     setLoading(true);
+    setAvailability('checking');
+    let responseStatus = 0;
+    let serverError = '';
     try {
       const response = await fetch('/api/wall-e-chat', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           message: question,
-          history: next.slice(-8).map(({ role, content }) => ({ role, content })),
+          // Exclude the message being sent: the edge function appends it as the
+          // current turn, and sending it in history duplicated it in the prompt.
+          history: next.slice(0, -1).slice(-8).map(({ role, content }) => ({ role, content })),
         }),
+        signal: controller.signal,
       });
+      responseStatus = response.status;
       const data = (await response.json()) as {
         answer?: string;
         citations?: Citation[];
         error?: string;
       };
-      if (!response.ok || !data.answer) throw new Error(data.error || 'Unavailable');
+      if (requestRef.current?.id !== requestId) return;
+      if (!response.ok || !data.answer) {
+        serverError =
+          typeof data.error === 'string' ? data.error.trim().slice(0, 300) : '';
+        throw new Error(serverError || 'Unavailable');
+      }
       const answer = data.answer;
-      if (!answer) throw new Error('Unavailable');
+      setAvailability('online');
       setMessages((current) => [
         ...current,
         { id: crypto.randomUUID(), role: 'assistant', content: answer, citations: data.citations },
       ]);
     } catch {
+      // Reset aborts the request and invalidates its id. Neither the late
+      // response nor its error belongs in the fresh conversation.
+      if (controller.signal.aborted || requestRef.current?.id !== requestId) return;
+      setAvailability(responseStatus > 0 && responseStatus < 500 ? 'online' : 'offline');
       setMessages((current) => [
         ...current,
         {
           id: crypto.randomUUID(),
           role: 'assistant',
           content:
+            serverError ||
             dataPoints['walle.error_msg'] ||
             "I couldn't reach my notes just now. Please try again in a moment.",
         },
       ]);
     } finally {
-      setLoading(false);
+      if (requestRef.current?.id === requestId) {
+        requestRef.current = null;
+        setLoading(false);
+      }
     }
   }
 
@@ -154,6 +213,16 @@ export function WallEChatWidget() {
   }
 
   function resetChat() {
+    const pending = requestRef.current;
+    if (pending) {
+      // Invalidate first: the abort rejection may run before React processes
+      // the reset, and it must not be mistaken for a real failure.
+      requestSeq.current += 1;
+      requestRef.current = null;
+      pending.controller.abort();
+      setLoading(false);
+      setAvailability('idle');
+    }
     setMessages([
       {
         id: 'starter',
@@ -202,10 +271,14 @@ export function WallEChatWidget() {
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="font-outfit text-lg font-black tracking-tight">WALL-E</p>
-                    <span className="rounded-full bg-emerald-400/20 px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-emerald-300">
-                      <DataPoint as="span" name="walle.badge" initialData={dataPoints}>
-                        Online
-                      </DataPoint>
+                    {/* Deliberately not a DataPoint: a stored "Online" label
+                        would re-create the false status this replaced. */}
+                    <span
+                      role="status"
+                      aria-live="polite"
+                      className={`rounded-full px-2 py-0.5 text-xs font-bold uppercase tracking-wider ${STATUS_TONES[availability]}`}
+                    >
+                      {STATUS_LABELS[availability]}
                     </span>
                   </div>
                   <DataPoint
@@ -417,14 +490,17 @@ export function WallEChatWidget() {
             ) : (
               <span className="relative flex size-full items-center justify-center animate-in fade-in zoom-in-75 duration-200">
                 <WallEAvatar inButton />
-                {/* Pulsing online status indicator */}
-                <span
-                  aria-hidden="true"
-                  className="absolute -right-0.5 -top-0.5 flex size-3.5 items-center justify-center"
-                >
-                  <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-75 motion-reduce:hidden" />
-                  <span className="relative inline-flex size-3 rounded-full border-2 border-white dark:border-white/10 bg-emerald-500 shadow-xs" />
-                </span>
+                {/* Status dot reflects the last real check, not page load. */}
+                {availability !== 'idle' && (
+                  <span
+                    aria-hidden="true"
+                    className="absolute -right-0.5 -top-0.5 flex size-3.5 items-center justify-center"
+                  >
+                    <span
+                      className={`relative inline-flex size-3 rounded-full border-2 border-white dark:border-white/10 shadow-xs ${STATUS_DOTS[availability]}`}
+                    />
+                  </span>
+                )}
               </span>
             )}
             {/* Tooltip */}

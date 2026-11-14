@@ -30,6 +30,17 @@
 /** Every copy region lives under this prefix in the `content.slug` column. */
 export const COPY_REGION_SLUG_PREFIX = 'copy-';
 
+/**
+ * The rendered region element's row version.
+ *
+ * The full-page composer can inline-edit a region without selecting it, so it has
+ * no loaded row to read a version from. `CopyRegion` carries the version on the
+ * element it already renders; the writer reads it there. An empty value means the
+ * row's version is known to be null, which is distinct from the attribute being
+ * absent (unknown, so no precondition).
+ */
+export const COPY_REGION_VERSION_ATTR = 'data-copy-region-version';
+
 /** One editable slice of a page. */
 export interface CopyRegionDefinition {
   /** Suffix of the `content.slug` — `home-hero` → `copy-home-hero`. */

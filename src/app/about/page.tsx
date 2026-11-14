@@ -80,7 +80,7 @@ export default async function AboutPage() {
               <ul className="space-y-3 pt-2">
                 <li className="flex items-start gap-3">
                   <CheckCircle2
-                    className="text-emerald-600 dark:text-emerald-400 shrink-0 mt-1"
+                    className="text-primary-ink dark:text-primary-on-dark shrink-0 mt-1"
                     size={18}
                   />
                   <span>
@@ -100,7 +100,7 @@ export default async function AboutPage() {
                 </li>
                 <li className="flex items-start gap-3">
                   <CheckCircle2
-                    className="text-emerald-600 dark:text-emerald-400 shrink-0 mt-1"
+                    className="text-primary-ink dark:text-primary-on-dark shrink-0 mt-1"
                     size={18}
                   />
                   <span>
@@ -120,7 +120,7 @@ export default async function AboutPage() {
                 </li>
                 <li className="flex items-start gap-3">
                   <CheckCircle2
-                    className="text-emerald-600 dark:text-emerald-400 shrink-0 mt-1"
+                    className="text-primary-ink dark:text-primary-on-dark shrink-0 mt-1"
                     size={18}
                   />
                   <span>
@@ -140,7 +140,7 @@ export default async function AboutPage() {
                 </li>
                 <li className="flex items-start gap-3">
                   <CheckCircle2
-                    className="text-emerald-600 dark:text-emerald-400 shrink-0 mt-1"
+                    className="text-primary-ink dark:text-primary-on-dark shrink-0 mt-1"
                     size={18}
                   />
                   <span>
