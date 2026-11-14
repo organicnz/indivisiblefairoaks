@@ -322,6 +322,32 @@
   background: transparent;
 }
 
+.civic-page .ice-map-search-target {
+  border: 0;
+  background: transparent;
+  pointer-events: none;
+}
+
+.civic-page .ice-map-search-pin {
+  display: flex;
+  width: 30px;
+  height: 30px;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed var(--primary);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--background) 84%, transparent);
+}
+
+.civic-page .ice-map-search-pin::after {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--primary);
+}
+
 .civic-page .ice-map-pin {
   display: flex;
   width: 32px;

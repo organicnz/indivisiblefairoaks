@@ -27,6 +27,8 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
+import { Button } from '@/components/ui/Button';
+import { isUsPoint } from '@/lib/geo/us-boundary';
 
 type ReportKind = 'enforcement' | 'checkpoint' | 'detention' | 'community';
 type ReportStatus = 'verified' | 'unconfirmed' | 'cleared';
@@ -51,6 +53,25 @@ type MapPoint = {
   lng: number;
 };
 
+type LocationSearchState =
+  | { kind: 'idle' }
+  | { kind: 'searching' }
+  | { kind: 'found'; label: string }
+  | { kind: 'empty' }
+  | { kind: 'error' };
+
+type SearchTarget = {
+  label: string;
+  lat: number;
+  lng: number;
+};
+
+type NominatimResult = {
+  lat?: string;
+  lon?: string;
+  display_name?: string;
+};
+
 // The default is regional, not street-level: the map opens wide enough to show
 // the Sacramento metro, while zooming out and panning remains unrestricted so a
 // preview pin can be placed anywhere in the U.S.
@@ -60,34 +81,33 @@ const NATIONWIDE_BOUNDS: [[number, number], [number, number]] = [
   [24.4, -125],
   [49.4, -66.9],
 ];
+const MAP_VIEW_COPY: Record<MapView, { heading: string; description: string; status: string }> = {
+  sacramento: {
+    heading: 'Sacramento region',
+    description:
+      'Regional view by default. Pan or zoom anywhere in the U.S. to preview a report.',
+    status: 'Regional overview',
+  },
+  nationwide: {
+    heading: 'Nationwide view',
+    description:
+      'Lower 48 overview. Pan to Alaska, Hawaii, or a territory, or switch back to Sacramento.',
+    status: 'Lower 48 overview',
+  },
+  free: {
+    heading: 'Custom U.S. view',
+    description:
+      'A custom U.S. view. Pan or zoom anywhere, then pick a point to preview a report.',
+    status: 'Custom U.S. view',
+  },
+};
 const MIN_ZOOM = 3;
 const TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 const TILE_ATTRIBUTION =
   '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
-
-// Approximate boxes for the states and territories. These keep a preview pin
-// from landing in Canada or the ocean while still accepting Alaska, Hawaii,
-// Puerto Rico, the U.S. Virgin Islands, Guam, the Northern Mariana Islands,
-// and American Samoa.
-const US_REGIONS = [
-  { minLat: 24.4, maxLat: 49.4, minLng: -125, maxLng: -66.9 },
-  { minLat: 51, maxLat: 71.5, minLng: -170, maxLng: -129 },
-  { minLat: 18.9, maxLat: 22.3, minLng: -160.5, maxLng: -154.8 },
-  { minLat: 17.6, maxLat: 18.6, minLng: -67.3, maxLng: -64.5 },
-  { minLat: 13.2, maxLat: 13.7, minLng: 144.6, maxLng: 145 },
-  { minLat: 14.9, maxLat: 15.3, minLng: 145.6, maxLng: 145.8 },
-  { minLat: -14.4, maxLat: -14.1, minLng: -170.9, maxLng: -170.5 },
-] as const;
-
-function isUsPoint(lat: number, lng: number) {
-  return US_REGIONS.some(
-    (region) =>
-      lat >= region.minLat &&
-      lat <= region.maxLat &&
-      lng >= region.minLng &&
-      lng <= region.maxLng
-  );
-}
+const NOMINATIM_SEARCH_URL = 'https://nominatim.openstreetmap.org/search';
+const LOCATION_SEARCH_ZOOM = 12;
+const LOCATION_CACHE_LIMIT = 24;
 
 const TYPE_META: Record<
   ReportKind,
@@ -284,6 +304,31 @@ function countForFilter(reports: CommunityReport[], filter: ReportFilter) {
   return filter === 'all' ? reports.length : reports.filter((report) => report.kind === filter).length;
 }
 
+/**
+ * Leaflet leaves off-screen markers in the DOM, so without this a keyboard or
+ * screen-reader user would tab through pins that are not in the visible map.
+ * Keep only pins inside the current viewport in the accessibility tree.
+ */
+function syncMarkerVisibility(
+  map: LeafletMap,
+  elements: Record<string, HTMLElement>,
+  positions: Record<string, [number, number]>
+) {
+  const bounds = map.getBounds();
+  for (const [id, element] of Object.entries(elements)) {
+    const position = positions[id];
+    const visible = Boolean(position && bounds.contains(position));
+    element.tabIndex = visible ? 0 : -1;
+    // Never hide a pin that still owns keyboard focus; move focus first or
+    // leave it exposed until the browser moves on.
+    if (visible || element.ownerDocument.activeElement === element) {
+      element.removeAttribute('aria-hidden');
+    } else {
+      element.setAttribute('aria-hidden', 'true');
+    }
+  }
+}
+
 export function IceAlertDemo() {
   const [drafts, setDrafts] = useState<CommunityReport[]>([]);
   const [kindFilter, setKindFilter] = useState<ReportFilter>('all');
@@ -300,11 +345,18 @@ export function IceAlertDemo() {
   const [pickingLocation, setPickingLocation] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [mapView, setMapView] = useState<MapView>('sacramento');
+  const [locationInput, setLocationInput] = useState('');
+  const [locationSearch, setLocationSearch] = useState<LocationSearchState>({ kind: 'idle' });
+  const [searchTarget, setSearchTarget] = useState<SearchTarget | null>(null);
 
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<LeafletMap | null>(null);
   const markerLayerRef = useRef<LayerGroup | null>(null);
+  const searchLayerRef = useRef<LayerGroup | null>(null);
   const markerElementsRef = useRef<Record<string, HTMLElement>>({});
+  const markerPositionsRef = useRef<Record<string, [number, number]>>({});
+  const locationAbortRef = useRef<AbortController | null>(null);
+  const locationCacheRef = useRef<Map<string, SearchTarget | null>>(new Map());
   const selectedIdRef = useRef(selectedId);
   const pickingRef = useRef(pickingLocation);
   const formRef = useRef<HTMLDivElement | null>(null);
@@ -324,15 +376,19 @@ export function IceAlertDemo() {
   }, [allReports, kindFilter, query, statusFilter]);
 
   const selectedReport = allReports.find((report) => report.id === selectedId) ?? SAMPLE_REPORTS[0];
+  const mapCopy = MAP_VIEW_COPY[mapView];
   const selectedMeta = TYPE_META[selectedReport.kind];
   const selectedStatus = statusFor(selectedReport);
   const SelectedStatusIcon = selectedStatus.icon;
   const selectedPin = pinLabelFor(selectedReport, drafts);
   const canPreview = Boolean(draftPoint);
+  const isLocationSearching = locationSearch.kind === 'searching';
 
   useEffect(() => {
     selectedIdRef.current = selectedId;
   }, [selectedId]);
+
+  useEffect(() => () => locationAbortRef.current?.abort(), []);
 
   useEffect(() => {
     pickingRef.current = pickingLocation;
@@ -376,6 +432,7 @@ export function IceAlertDemo() {
       }).addTo(map);
 
       markerLayerRef.current = L.layerGroup().addTo(map);
+      searchLayerRef.current = L.layerGroup().addTo(map);
 
       map.on('click', (event) => {
         if (!pickingRef.current) return;
@@ -394,25 +451,31 @@ export function IceAlertDemo() {
       });
 
       map.on('moveend', () => {
-        const center = map?.getCenter();
-        const zoom = map?.getZoom();
-        if (!center || zoom === undefined) return;
-        if (zoom <= 5) {
-          setMapView('nationwide');
-        } else if (
-          center.lat >= 37.6 &&
-          center.lat <= 39.4 &&
-          center.lng >= -122.4 &&
-          center.lng <= -120.2
-        ) {
-          setMapView('sacramento');
-        } else {
-          setMapView('free');
-        }
+        if (!map) return;
+        const zoom = map.getZoom();
+        setMapView(
+          zoom <= 5
+            ? 'nationwide'
+            : map.getBounds().contains(SACRAMENTO_CENTER)
+              ? 'sacramento'
+              : 'free'
+        );
+        syncMarkerVisibility(
+          map,
+          markerElementsRef.current,
+          markerPositionsRef.current
+        );
       });
 
       resizeObserver = new ResizeObserver(() => {
         map?.invalidateSize();
+        if (map) {
+          syncMarkerVisibility(
+            map,
+            markerElementsRef.current,
+            markerPositionsRef.current
+          );
+        }
       });
       resizeObserver.observe(mapContainerRef.current);
 
@@ -427,7 +490,9 @@ export function IceAlertDemo() {
       map?.remove();
       mapRef.current = null;
       markerLayerRef.current = null;
+      searchLayerRef.current = null;
       markerElementsRef.current = {};
+      markerPositionsRef.current = {};
     };
   }, []);
 
@@ -443,6 +508,7 @@ export function IceAlertDemo() {
 
       layer.clearLayers();
       markerElementsRef.current = {};
+      markerPositionsRef.current = {};
 
       for (const report of visibleReports) {
         const meta = TYPE_META[report.kind];
@@ -476,7 +542,17 @@ export function IceAlertDemo() {
           element.setAttribute('role', 'button');
           element.setAttribute('aria-pressed', String(report.id === selectedIdRef.current));
           markerElementsRef.current[report.id] = element;
+          markerPositionsRef.current[report.id] = [report.lat, report.lng];
         }
+      }
+
+      const map = mapRef.current;
+      if (map) {
+        syncMarkerVisibility(
+          map,
+          markerElementsRef.current,
+          markerPositionsRef.current
+        );
       }
 
       if (draftPoint) {
@@ -507,6 +583,41 @@ export function IceAlertDemo() {
     }
   }, [selectedId]);
 
+  useEffect(() => {
+    if (!searchTarget) {
+      searchLayerRef.current?.clearLayers();
+      return;
+    }
+    if (mapGeneration === 0) return;
+
+    let disposed = false;
+    void (async () => {
+      const L = (await import('leaflet')).default;
+      if (disposed) return;
+      const layer = searchLayerRef.current;
+      if (!layer) return;
+
+      layer.clearLayers();
+      const icon = L.divIcon({
+        className: 'ice-map-search-target',
+        html: '<span class="ice-map-search-pin" aria-hidden="true"></span>',
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
+      });
+
+      const marker = L.marker([searchTarget.lat, searchTarget.lng], {
+        icon,
+        interactive: false,
+        keyboard: false,
+      }).addTo(layer);
+      marker.getElement()?.setAttribute('aria-hidden', 'true');
+    })();
+
+    return () => {
+      disposed = true;
+    };
+  }, [mapGeneration, searchTarget]);
+
   const focusReport = (report: CommunityReport) => {
     setSelectedId(report.id);
     const map = mapRef.current;
@@ -525,9 +636,129 @@ export function IceAlertDemo() {
     else mapRef.current?.zoomOut();
   };
 
+  const abortLocationSearch = () => {
+    locationAbortRef.current?.abort();
+    locationAbortRef.current = null;
+  };
+
+  const clearLocationSearch = () => {
+    abortLocationSearch();
+    searchLayerRef.current?.clearLayers();
+    setSearchTarget(null);
+    setLocationSearch({ kind: 'idle' });
+  };
+
+  const handleLocationInputChange = (value: string) => {
+    setLocationInput(value);
+    if (searchTarget) {
+      searchLayerRef.current?.clearLayers();
+      setSearchTarget(null);
+    }
+    if (locationSearch.kind === 'searching') {
+      abortLocationSearch();
+    }
+    if (locationSearch.kind !== 'idle') {
+      setLocationSearch({ kind: 'idle' });
+    }
+  };
+
+  const handleLocationSearch = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const map = mapRef.current;
+    const query = locationInput.trim();
+
+    if (!map) {
+      setLocationSearch({ kind: 'error' });
+      return;
+    }
+    if (query.length < 3) {
+      setLocationSearch({ kind: 'empty' });
+      return;
+    }
+
+    abortLocationSearch();
+    const controller = new AbortController();
+    locationAbortRef.current = controller;
+    searchLayerRef.current?.clearLayers();
+    setSearchTarget(null);
+    setLocationSearch({ kind: 'searching' });
+
+    const cacheKey = query.toLowerCase();
+    try {
+      let target: SearchTarget | null;
+      if (locationCacheRef.current.has(cacheKey)) {
+        target = locationCacheRef.current.get(cacheKey) ?? null;
+      } else {
+        const params = new URLSearchParams({
+          q: query,
+          format: 'jsonv2',
+          countrycodes: 'us',
+          limit: '1',
+          addressdetails: '0',
+          'accept-language': 'en',
+        });
+        const response = await fetch(`${NOMINATIM_SEARCH_URL}?${params.toString()}`, {
+          signal: controller.signal,
+          headers: { Accept: 'application/json' },
+        });
+        if (!response.ok) throw new Error(`Geocoder returned ${response.status}`);
+
+        const payload: unknown = await response.json();
+        const first =
+          Array.isArray(payload) && payload.length > 0
+            ? (payload[0] as NominatimResult)
+            : undefined;
+        const lat = Number(first?.lat);
+        const lng = Number(first?.lon);
+
+        if (
+          !first ||
+          !Number.isFinite(lat) ||
+          !Number.isFinite(lng) ||
+          !isUsPoint(lat, lng)
+        ) {
+          target = null;
+        } else {
+          target = {
+            lat,
+            lng,
+            label:
+              typeof first.display_name === 'string' && first.display_name.trim()
+                ? first.display_name
+                : query,
+          };
+        }
+
+        // Nominatim's public policy requires caching; keep this small and local.
+        const cache = locationCacheRef.current;
+        cache.set(cacheKey, target);
+        if (cache.size > LOCATION_CACHE_LIMIT) {
+          const oldestKey = cache.keys().next().value;
+          if (oldestKey !== undefined) cache.delete(oldestKey);
+        }
+      }
+
+      if (controller.signal.aborted) return;
+      if (!target) {
+        setLocationSearch({ kind: 'empty' });
+        return;
+      }
+
+      setSearchTarget(target);
+      setLocationSearch({ kind: 'found', label: target.label });
+      map.flyTo([target.lat, target.lng], LOCATION_SEARCH_ZOOM, { duration: 0.6 });
+    } catch {
+      if (controller.signal.aborted) return;
+      setLocationSearch({ kind: 'error' });
+    } finally {
+      if (locationAbortRef.current === controller) locationAbortRef.current = null;
+    }
+  };
+
   const focusMapView = (view: 'sacramento' | 'nationwide') => {
     const map = mapRef.current;
     if (!map) return;
+    clearLocationSearch();
     setMapView(view);
     if (view === 'sacramento') {
       map.flyTo(SACRAMENTO_CENTER, SACRAMENTO_ZOOM, { duration: 0.4 });
@@ -618,7 +849,8 @@ export function IceAlertDemo() {
           <AlertTriangle className="mt-0.5 size-4 shrink-0 text-accent" aria-hidden="true" />
           <p className="text-xs leading-relaxed text-foreground sm:text-[13px]">
             <strong className="font-semibold">This is a demo, not a live alert map.</strong> All
-            reports are fictional sample data; nothing is collected, sent, or published. Immediate
+            reports are fictional sample data; report details are never collected, sent, or
+            published. Location searches are sent to OpenStreetMap to move the map. Immediate
             danger? Call{' '}
             <a href="tel:911" className="font-semibold underline underline-offset-2">
               911
@@ -640,18 +872,10 @@ export function IceAlertDemo() {
                       Sample alert map
                     </p>
                     <h2 className="mt-1.5 font-display text-2xl font-semibold leading-tight tracking-[-0.035em] sm:text-3xl">
-                      {mapView === 'nationwide'
-                        ? 'Nationwide view'
-                        : mapView === 'free'
-                          ? 'Custom U.S. view'
-                          : 'Sacramento region'}
+                      {mapCopy.heading}
                     </h2>
                     <p className="mt-1 max-w-md text-xs leading-relaxed text-muted-foreground">
-                      {mapView === 'nationwide'
-                        ? 'Lower 48 overview. Pan to Alaska, Hawaii, or a territory, or switch back to Sacramento.'
-                        : mapView === 'free'
-                          ? 'A custom U.S. view. Pan or zoom anywhere, then pick a point to preview a report.'
-                          : 'Regional view by default. Pan or zoom anywhere in the U.S. to preview a report.'}
+                      {mapCopy.description}
                     </p>
                   </div>
                   <div className="flex flex-col items-end gap-1.5 text-right">
@@ -664,6 +888,81 @@ export function IceAlertDemo() {
                     </p>
                   </div>
                 </div>
+
+                <form
+                  role="search"
+                  aria-label="Find a U.S. location on the map"
+                  aria-busy={isLocationSearching}
+                  onSubmit={handleLocationSearch}
+                  className="mt-4 border-t border-border pt-3"
+                >
+                  <label
+                    htmlFor="ice-map-location"
+                    className="block text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground"
+                  >
+                    Find a U.S. city or address
+                  </label>
+                  <div className="mt-1.5 flex flex-col gap-2 sm:flex-row">
+                    <input
+                      id="ice-map-location"
+                      name="location"
+                      type="search"
+                      required
+                      minLength={3}
+                      autoComplete="off"
+                      enterKeyHint="search"
+                      value={locationInput}
+                      onChange={(event) => handleLocationInputChange(event.target.value)}
+                      placeholder="City and state, ZIP, or street address"
+                      aria-describedby="ice-map-location-help ice-map-location-status"
+                      className="min-h-11 min-w-0 flex-1 border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                    />
+                    <Button type="submit" disabled={isLocationSearching} className="w-full sm:w-auto">
+                      <Search className="size-4" aria-hidden="true" />
+                      {isLocationSearching ? 'Searching…' : 'Search'}
+                    </Button>
+                  </div>
+                  <p
+                    id="ice-map-location-help"
+                    className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground"
+                  >
+                    Search moves the map only. Your search text is sent to{' '}
+                    <a
+                      href="https://www.openstreetmap.org/copyright"
+                      className="font-semibold underline underline-offset-2 hover:text-foreground"
+                    >
+                      OpenStreetMap
+                    </a>{' '}
+                    to find the location; it never adds a report or joins the sample feed.
+                  </p>
+                  <div
+                    id="ice-map-location-status"
+                    role="status"
+                    aria-live="polite"
+                    className={`mt-2 text-[11px] leading-relaxed ${
+                      locationSearch.kind === 'empty' || locationSearch.kind === 'error'
+                        ? 'text-accent'
+                        : 'text-muted-foreground'
+                    }`}
+                  >
+                    {locationSearch.kind === 'searching' ? 'Searching U.S. locations…' : null}
+                    {locationSearch.kind === 'found' ? (
+                      <>
+                        Moved map to{' '}
+                        <strong className="font-semibold text-foreground">
+                          {locationSearch.label}
+                        </strong>
+                        .
+                      </>
+                    ) : null}
+                    {locationSearch.kind === 'empty'
+                      ? 'No U.S. location found. Try a city and state, a ZIP code, or a full street address.'
+                      : null}
+                    {locationSearch.kind === 'error'
+                      ? 'Location search is temporarily unavailable. Try again or pan the map.'
+                      : null}
+                  </div>
+                </form>
 
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <div
@@ -702,11 +1001,7 @@ export function IceAlertDemo() {
                     className="font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-muted-foreground"
                     aria-live="polite"
                   >
-                    {mapView === 'free'
-                      ? 'Custom U.S. view'
-                      : mapView === 'nationwide'
-                        ? 'Lower 48 overview'
-                        : 'Regional overview'}
+                    {mapCopy.status}
                   </span>
                 </div>
 
@@ -755,7 +1050,8 @@ export function IceAlertDemo() {
                 />
                 <p id="ice-map-help" className="sr-only">
                   Map of fictional sample reports around Sacramento with additional nationwide
-                  examples. Select a numbered pin for details. Use the plus and minus buttons to
+                  examples. Search for a U.S. city or address to move the map without adding a
+                  report. Select a numbered pin for details. Use the plus and minus buttons to
                   zoom, choose Sacramento or Nationwide for a preset view, and use the location
                   reset to return to the Sacramento region.
                 </p>

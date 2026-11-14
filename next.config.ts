@@ -60,8 +60,10 @@ const csp = [
     ' '
   ),
   // Same-origin `/_vercel/*` covers the RUM beacons, so no extra origins needed.
-  // Sentry ingest is dynamically allowed when DSN is configured.
-  `connect-src 'self' ${supabaseHost ? `https://${supabaseHost}` : ''} https://api.stripe.com https://m.stripe.com ${sentryHost ? `https://${sentryHost}` : ''} ${posthogHost}`.replace(
+  // Sentry ingest is dynamically allowed when DSN is configured. Nominatim is
+  // the submit-only geocoder for the ICE map; it receives the location query,
+  // never report contents.
+  `connect-src 'self' ${supabaseHost ? `https://${supabaseHost}` : ''} https://api.stripe.com https://m.stripe.com https://nominatim.openstreetmap.org ${sentryHost ? `https://${sentryHost}` : ''} ${posthogHost}`.replace(
     /\s+/g,
     ' '
   ),
