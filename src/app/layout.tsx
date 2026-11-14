@@ -54,10 +54,16 @@ const outfit = localFont({
 // enough optical range to carry a 7rem headline and a 1rem label without
 // looking like two unrelated families. Bundled locally, like Inter and Outfit,
 // so the design does not depend on a third-party font request at runtime.
+//
+// `optional` avoids a late swap on slow connections. Fraunces' line breaks
+// differ from the metric fallback enough that the choir masthead changes from
+// three lines to two when it arrives, shifting the page below it (CLS 0.166).
+// The font is still preloaded, so normal and cached visits get the display face;
+// a slow first paint keeps the fallback rather than reflowing after it.
 const fraunces = localFont({
   src: './fonts/Fraunces-Variable.woff2',
   variable: '--font-fraunces',
-  display: 'swap',
+  display: 'optional',
   weight: '100 900',
 });
 

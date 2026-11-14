@@ -166,6 +166,30 @@ describe('CommandPalette', () => {
     expect(dialog?.textContent).toContain('Revision History & Restorations');
   });
 
+  it('does not run Save when there are no pending changes', async () => {
+    const { onSave } = await renderPalette({ canSave: false });
+
+    const saveButton = Array.from(document.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Save to Supabase Database')
+    );
+    await act(async () => {
+      saveButton?.click();
+    });
+
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it('explains why Save is unavailable instead of claiming everything is saved', async () => {
+    await renderPalette({
+      canSave: false,
+      saveBlockedReason: 'Reload the saved document before saving',
+    });
+
+    const dialog = document.querySelector('[role="dialog"]');
+    expect(dialog?.textContent).toContain('Reload the saved document before saving');
+    expect(dialog?.textContent).not.toContain('All changes saved');
+  });
+
   it('triggers onSave when clicking Save command', async () => {
     const { onSave, onOpenChange } = await renderPalette();
 

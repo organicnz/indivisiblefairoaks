@@ -22,7 +22,7 @@ export default async function DonatePage() {
   const dataPoints = await getDataPoints('donate');
 
   return (
-    <div className="w-full bg-background text-foreground min-h-screen pt-(--header-clearance) pb-20">
+    <div className="civic-page w-full min-h-screen bg-background pb-20 text-foreground pt-(--header-clearance)">
       <PageMasthead
         icon={Heart}
         eyebrow={
@@ -63,15 +63,15 @@ export default async function DonatePage() {
             name="donate.impact.headline"
             as="h2"
             initialData={dataPoints}
-            className="text-2xl font-black text-foreground dark:text-white tracking-tight"
+            className="font-display text-3xl font-semibold tracking-[-0.03em] sm:text-4xl"
           >
             Where Your Donation Goes
           </DataPoint>
 
           <CopyRegion id="donate-impact">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="p-6 rounded-2xl bg-surface-card border border-border space-y-3">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary-ink dark:bg-primary-bright/20 dark:text-primary-on-dark-muted flex items-center justify-center">
+              <div className="space-y-3 border-t border-foreground/25 pt-6">
+                <div className="flex size-10 items-center justify-center border border-border bg-background text-primary-ink">
                   <Users size={20} />
                 </div>
                 <DataPoint
@@ -93,8 +93,8 @@ export default async function DonatePage() {
                 </DataPoint>
               </div>
 
-              <div className="p-6 rounded-2xl bg-surface-card border border-border space-y-3">
-                <div className="w-10 h-10 rounded-xl bg-accent/10 text-accent dark:bg-accent-gold/20 dark:text-accent-gold flex items-center justify-center">
+              <div className="space-y-3 border-t border-foreground/25 pt-6">
+                <div className="flex size-10 items-center justify-center border border-border bg-background text-accent">
                   <Music size={20} />
                 </div>
                 <DataPoint
@@ -116,8 +116,8 @@ export default async function DonatePage() {
                 </DataPoint>
               </div>
 
-              <div className="p-6 rounded-2xl bg-surface-card border border-border space-y-3">
-                <div className="w-10 h-10 rounded-xl bg-rose-600/20 text-rose-400 flex items-center justify-center">
+              <div className="space-y-3 border-t border-foreground/25 pt-6">
+                <div className="flex size-10 items-center justify-center border border-border bg-background text-accent">
                   <Megaphone size={20} />
                 </div>
                 <DataPoint
@@ -139,8 +139,8 @@ export default async function DonatePage() {
                 </DataPoint>
               </div>
 
-              <div className="p-6 rounded-2xl bg-surface-card border border-border space-y-3">
-                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 flex items-center justify-center">
+              <div className="space-y-3 border-t border-foreground/25 pt-6">
+                <div className="flex size-10 items-center justify-center border border-border bg-background text-primary-ink">
                   <Shield size={20} />
                 </div>
                 <DataPoint
@@ -166,7 +166,7 @@ export default async function DonatePage() {
         </div>
 
         {/* Legal Disclaimer */}
-        <div className="p-6 rounded-2xl bg-surface-muted border border-border dark:bg-secondary/50 dark:border-white/10 text-xs text-muted-foreground dark:text-ink-muted-on-dark space-y-2">
+        <div className="space-y-2 border-y border-border py-6 text-xs text-muted-foreground">
           <DataPoint
             name="donate.disclaimer.title"
             as="p"

@@ -1,11 +1,19 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2'
-import { selectCurrentEvents } from '../_shared/walle-freshness.ts'
+import {
+  currentEventOrFilter,
+  isPublicDataPointKey,
+  isUnreachableContentSlug,
+  selectCurrentEvents,
+} from '../_shared/walle-freshness.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 const REFRESH_TOKEN = Deno.env.get('WALLE_REFRESH_TOKEN') ?? ''
-const MAX_ROWS = 500
+// Match the public API's max_rows. The old 500-row window was applied before
+// the data-point allowlist, so non-public admin rows could fill it and leave
+// current public page copy out of the fallback snapshot.
+const MAX_ROWS = 1_000
 
 type Snapshot = {
   source_key: string
@@ -40,9 +48,33 @@ async function readTable(
   table: string,
   columns: string
 ): Promise<unknown[]> {
-  const { data, error } = await client.from(table).select(columns).limit(MAX_ROWS)
+  const { data, error } = await client
+    .from(table)
+    .select(columns)
+    .order('sort_order', { ascending: true })
+    .limit(MAX_ROWS)
   if (error) throw new Error(`${table}:${error.message}`)
   return data ?? []
+}
+
+async function readPublicDataPoints(client: SupabaseClient<any>): Promise<unknown[]> {
+  const { data, error } = await client
+    .from('data_points')
+    .select('key,value,group_name,label,updated_at')
+    .order('key', { ascending: true })
+    .limit(MAX_ROWS)
+  if (error) throw new Error(`data_points:${error.message}`)
+  return (data ?? []).filter(
+    (row) => isPublicDataPointKey((row as Record<string, unknown>).key)
+  )
+}
+
+async function readFaqs(client: SupabaseClient<any>): Promise<unknown[]> {
+  return readTable(
+    client,
+    'faqs',
+    'slug,category,question,answer,sort_order,updated_at'
+  )
 }
 
 async function readPublishedContent(client: SupabaseClient<any>): Promise<unknown[]> {
@@ -52,8 +84,29 @@ async function readPublishedContent(client: SupabaseClient<any>): Promise<unknow
     .select('title,slug,type,body,excerpt,status,published_at,updated_at')
     .eq('status', 'publish')
     .or(`published_at.is.null,published_at.lte.${now}`)
+    .order('updated_at', { ascending: false, nullsFirst: false })
     .limit(MAX_ROWS)
   if (error) throw new Error(`content:${error.message}`)
+  return (data ?? []).filter(
+    (row) => !isUnreachableContentSlug((row as Record<string, unknown>).slug)
+  )
+}
+
+/**
+ * Newsletter rows carry a scheduling column. The generic table reader does not
+ * apply it, so a snapshot could retain a future or retired bulletin and serve
+ * it as current after a live read failed.
+ */
+async function readVisibleNewsletters(client: SupabaseClient<any>): Promise<unknown[]> {
+  const now = new Date().toISOString()
+  const { data, error } = await client
+    .from('newsletters')
+    .select('slug,title,date_label,description,topics,published_at')
+    .or(`published_at.is.null,published_at.lte.${now}`)
+    .order('published_at', { ascending: false, nullsFirst: false })
+    .order('sort_order', { ascending: true })
+    .limit(MAX_ROWS)
+  if (error) throw new Error(`newsletters:${error.message}`)
   return data ?? []
 }
 
@@ -70,7 +123,10 @@ async function readCurrentEvents(client: SupabaseClient<any>, now: Date): Promis
       'slug,title,category,date_label,time_label,starts_at,ends_at,location_name,address,description,rsvp_url,is_hidden'
     )
     .eq('is_hidden', false)
-    .order('starts_at', { ascending: true, nullsFirst: false })
+    .or(currentEventOrFilter(now))
+    // Newest first: historical recurring rows must not crowd out a real
+    // upcoming one-off event within the row cap.
+    .order('starts_at', { ascending: false, nullsFirst: false })
     .limit(MAX_ROWS)
   if (error) throw new Error(`events:${error.message}`)
   return selectCurrentEvents((data ?? []) as Record<string, unknown>[], now, MAX_ROWS).map(
@@ -90,6 +146,8 @@ Deno.serve(async (request) => {
     const publicData = await Promise.all([
       (async () => ['content', await readPublishedContent(client)] as const)(),
       (async () => ['events', await readCurrentEvents(client, refreshedAt)] as const)(),
+      (async () => ['data_points', await readPublicDataPoints(client)] as const)(),
+      (async () => ['faqs', await readFaqs(client)] as const)(),
       (async () => [
         'partners',
         await readTable(client, 'partners', 'slug,name,category,description,url'),
@@ -98,10 +156,7 @@ Deno.serve(async (request) => {
         'coalition_links',
         await readTable(client, 'coalition_links', 'slug,name,category,description,url,badge'),
       ] as const)(),
-      (async () => [
-        'newsletters',
-        await readTable(client, 'newsletters', 'slug,title,date_label,description,topics,published_at'),
-      ] as const)(),
+      (async () => ['newsletters', await readVisibleNewsletters(client)] as const)(),
       (async () => [
         'gallery_photos',
         await readTable(

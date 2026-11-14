@@ -46,6 +46,8 @@ export interface CommandPaletteProps {
   onAddNewBlock: (type: Block['type']) => void;
   onSave: () => void;
   canSave: boolean;
+  /** Why Save is unavailable even though the document is dirty. */
+  saveBlockedReason?: string;
   onUndo: () => void;
   canUndo: boolean;
   onRedo: () => void;
@@ -96,6 +98,7 @@ export function CommandPalette({
   onAddNewBlock,
   onSave,
   canSave,
+  saveBlockedReason,
   onUndo,
   canUndo,
   onRedo,
@@ -168,10 +171,17 @@ export function CommandPalette({
       id: 'save',
       category: 'Actions',
       title: 'Save to Supabase Database',
-      subtitle: canSave ? 'Commit all pending changes' : 'All changes saved',
+      subtitle: saveBlockedReason ?? (canSave ? 'Commit all pending changes' : 'All changes saved'),
       shortcut: '⌘S',
       icon: <Sparkles size={16} className="text-accent-gold" />,
       run: () => {
+        // A clean document has nothing to commit. Running the save handler here
+        // would create a CMS row for a page that never changed; a blocked dirty
+        // document still calls through so the overlay can explain the refusal.
+        if (!canSave && !saveBlockedReason) {
+          onOpenChange(false);
+          return;
+        }
         onSave();
         onOpenChange(false);
       },
@@ -597,6 +607,7 @@ export function CommandPalette({
     return list;
   }, [
     canSave,
+    saveBlockedReason,
     canUndo,
     canRedo,
     showInspector,

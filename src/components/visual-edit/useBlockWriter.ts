@@ -5,7 +5,11 @@ import { toast } from 'sonner';
 import type { ActionResult, ContentInput } from '@/lib/actions/content';
 import type { Block } from '@/lib/blocks';
 import { describeOversizedBody } from '@/lib/content';
-import { copyRegionSlug } from '@/lib/copy-regions';
+import {
+  COPY_REGION_VERSION_ATTR,
+  copyRegionLocationForSlug,
+  copyRegionSlug,
+} from '@/lib/copy-regions';
 
 /**
  * Shared write path for the visual editor's direct-edit surfaces.
@@ -26,6 +30,12 @@ import { copyRegionSlug } from '@/lib/copy-regions';
  * pair); each call site keeps its own messages and rollback through callbacks.
  */
 
+export interface CopyRegionSaveResult {
+  id: number;
+  updatedAt: string | null;
+  publishedAt: string | null;
+}
+
 export interface UseBlockWriterArgs {
   commitBlocks: (next: Block[], coalesceKey?: string | null) => void;
   handlePersistBlocks: (
@@ -34,12 +44,32 @@ export interface UseBlockWriterArgs {
   ) => Promise<{ success: boolean }>;
   saveContentWithEdgeApi: (
     payload: ContentInput
-  ) => Promise<ActionResult<{ id: number; updatedAt: string | null }>>;
+  ) => Promise<ActionResult<CopyRegionSaveResult>>;
   setSavingBackend: (v: boolean) => void;
-  setSavedBody: (v: string) => void;
+  /**
+   * Called after a copy-region write succeeds. The caller decides whether the
+   * written region is the active document; a region edit must never move the
+   * host page's saved baseline.
+   */
+  onCopyRegionSaved: (
+    copyRegionId: string,
+    body: string,
+    saved: CopyRegionSaveResult
+  ) => void;
+  /**
+   * The loaded version of the region's existing row, when the write is the
+   * active region. The row is still resolved by slug — that is the branch that
+   * preserves the columns the body editor does not own — while the timestamp
+   * makes the second save conditional instead of last-write-wins.
+   */
+  getCopyRegionVersion: (
+    copyRegionId: string
+  ) => { updatedAt: string | null } | null;
   router: { refresh: () => void };
   /** The document generation that owns this write. */
   getDocumentEpoch: () => number;
+  /** Why the saved document cannot accept a write right now, if it cannot. */
+  documentReadRefusal: () => string | null;
 }
 
 export interface WriteToCopyRegionArgs {
@@ -69,9 +99,11 @@ export function useBlockWriter(args: UseBlockWriterArgs) {
     handlePersistBlocks,
     saveContentWithEdgeApi,
     setSavingBackend,
-    setSavedBody,
+    onCopyRegionSaved,
+    getCopyRegionVersion,
     router,
     getDocumentEpoch,
+    documentReadRefusal,
   } = args;
 
   /**
@@ -89,6 +121,12 @@ export function useBlockWriter(args: UseBlockWriterArgs) {
       errorMessage,
       onRollback,
     }: WriteToCopyRegionArgs): Promise<boolean> => {
+      const refusal = documentReadRefusal();
+      if (refusal) {
+        toast.error(refusal);
+        onRollback?.();
+        return false;
+      }
       const regionContainer = document.querySelector<HTMLElement>(
         `[data-copy-region="${copyRegionId}"]`
       );
@@ -108,19 +146,37 @@ export function useBlockWriter(args: UseBlockWriterArgs) {
         return false;
       }
       const writeEpoch = getDocumentEpoch();
+      const slug = copyRegionSlug(copyRegionId);
+      const title =
+        copyRegionLocationForSlug(slug)?.region.label ?? copyRegionId;
+      /*
+       * The active region's loaded row is the best version source. On a
+       * whole-page edit there is no loaded region row, so fall back to the
+       * version the page rendered onto this element. Without it a page-mode
+       * inline edit could overwrite a colleague's region save with no signal.
+       */
+      const domVersion = regionContainer.hasAttribute(COPY_REGION_VERSION_ATTR)
+        ? { updatedAt: regionContainer.getAttribute(COPY_REGION_VERSION_ATTR) || null }
+        : null;
+      const version = getCopyRegionVersion(copyRegionId) ?? domVersion;
       setSavingBackend(true);
       try {
         const res = await saveContentWithEdgeApi({
-          slug: copyRegionSlug(copyRegionId),
-          title: copyRegionId,
+          slug,
+          title,
           body,
           status: 'publish',
           type: 'page',
+          // A known region row is written with the version it was read at, so a
+          // colleague's save cannot be silently overwritten. The row itself is
+          // resolved by slug on the server, which is also what preserves the
+          // title, excerpt, image and metadata this body-only write omits.
+          ...(version ? { expectedUpdatedAt: version.updatedAt } : {}),
         });
         if (res.success) {
           if (getDocumentEpoch() === writeEpoch) {
             toast.success(successMessage ?? 'Region updated and published');
-            setSavedBody(body);
+            onCopyRegionSaved(copyRegionId, body, res.data);
             router.refresh();
           }
           return true;
@@ -140,7 +196,15 @@ export function useBlockWriter(args: UseBlockWriterArgs) {
         setSavingBackend(false);
       }
     },
-    [saveContentWithEdgeApi, setSavingBackend, setSavedBody, router, getDocumentEpoch]
+    [
+      saveContentWithEdgeApi,
+      setSavingBackend,
+      onCopyRegionSaved,
+      getCopyRegionVersion,
+      router,
+      getDocumentEpoch,
+      documentReadRefusal,
+    ]
   );
 
   /** Mutate one block, commit it to history, and persist the document. */
@@ -153,6 +217,11 @@ export function useBlockWriter(args: UseBlockWriterArgs) {
       errorMessage,
       coalesceKey,
     }: WriteToBlockArgs): Promise<boolean> => {
+      const refusal = documentReadRefusal();
+      if (refusal) {
+        toast.error(refusal);
+        return false;
+      }
       const targetBlock = blocks[blockIndex];
       if (!targetBlock) {
         toast.error(errorMessage ?? 'Failed to save changes');
@@ -166,7 +235,7 @@ export function useBlockWriter(args: UseBlockWriterArgs) {
       const result = await handlePersistBlocks(updatedBlocks, successMessage);
       return result.success;
     },
-    [commitBlocks, handlePersistBlocks]
+    [commitBlocks, documentReadRefusal, handlePersistBlocks]
   );
 
   return { writeToCopyRegion, writeToBlock };

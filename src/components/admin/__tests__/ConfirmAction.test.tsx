@@ -119,4 +119,22 @@ describe('ConfirmAction', () => {
     }
     expect(onConfirm).not.toHaveBeenCalled();
   });
+
+  it('blocks Confirm when the action becomes unavailable, while keeping Cancel usable', () => {
+    render();
+    click(button('🗑'));
+    expect((button('Confirm') as HTMLButtonElement).disabled).toBe(false);
+
+    // A page can become unreadable while the confirmation is open. The same
+    // guard that disables the idle control must disable the destructive step,
+    // or the dialog becomes a way around it.
+    render({ disabled: true });
+    const confirm = button('Confirm') as HTMLButtonElement;
+    const cancel = button('Cancel') as HTMLButtonElement;
+    expect(confirm.disabled).toBe(true);
+    expect(cancel.disabled).toBe(false);
+
+    click(confirm);
+    expect(onConfirm).not.toHaveBeenCalled();
+  });
 });

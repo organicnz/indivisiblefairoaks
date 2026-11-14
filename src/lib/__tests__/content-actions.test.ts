@@ -872,6 +872,110 @@ describe('saveContent — body size boundary', () => {
   });
 });
 
+describe('saveContent — copy-region body writes', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('updates the existing region row by slug instead of rejecting it as a duplicate', async () => {
+    /*
+     * The visual editor's inline write posts only `copy-<region>` and a body.
+     * The first write creates the row; the second has no id and used to take the
+     * insert branch, where the slug conflict check rejected it. Every region
+     * after its first save became read-only with an error that looked like a
+     * naming mistake.
+     */
+    const rows = [
+      {
+        id: 23,
+        slug: 'copy-home-hero',
+        title: 'Hero & Headline',
+        excerpt: 'A short excerpt',
+        type: 'page',
+        status: 'publish',
+        body: '<p>old</p>',
+        featured_image: 'https://example.com/hero.jpg',
+        metadata: { seoTitle: 'Hero' },
+        published_at: '2026-01-01T00:00:00.000Z',
+        created_at: '2026-01-01T00:00:00.000Z',
+        updated_at: '2026-01-01T00:00:00.000Z',
+      },
+    ];
+    requireAdmin.mockResolvedValue({
+      adminClient: createMockAdminClient({
+        content: {
+          rows,
+          onUpdate: (row) => {
+            row.updated_at = '2026-01-02T00:00:00.000Z';
+          },
+        },
+      }),
+    });
+
+    const result = await saveContent({
+      title: 'home-hero',
+      slug: 'copy-home-hero',
+      status: 'publish',
+      type: 'page',
+      body: '<p>new</p>',
+      metadata: {},
+    });
+
+    expect(result).toMatchObject({
+      success: true,
+      data: {
+        id: 23,
+        updatedAt: '2026-01-02T00:00:00.000Z',
+        publishedAt: '2026-01-01T00:00:00.000Z',
+      },
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      slug: 'copy-home-hero',
+      title: 'Hero & Headline',
+      excerpt: 'A short excerpt',
+      body: '<p>new</p>',
+      featured_image: 'https://example.com/hero.jpg',
+      metadata: { seoTitle: 'Hero' },
+      published_at: '2026-01-01T00:00:00.000Z',
+      updated_at: '2026-01-02T00:00:00.000Z',
+    });
+  });
+
+  it('refuses a region write based on a stale row version', async () => {
+    const rows = [
+      {
+        id: 23,
+        slug: 'copy-home-hero',
+        title: 'Hero & Headline',
+        type: 'page',
+        status: 'publish',
+        body: '<p>colleague wrote this</p>',
+        metadata: {},
+        published_at: '2026-01-01T00:00:00.000Z',
+        updated_at: '2026-01-02T00:00:00.000Z',
+      },
+    ];
+    requireAdmin.mockResolvedValue({
+      adminClient: createMockAdminClient({ content: { rows } }),
+    });
+
+    const result = await saveContent({
+      title: 'home-hero',
+      slug: 'copy-home-hero',
+      status: 'publish',
+      type: 'page',
+      body: '<p>mine</p>',
+      metadata: {},
+      expectedUpdatedAt: '2026-01-01T00:00:00.000Z',
+    });
+
+    expect(result).toMatchObject({
+      success: false,
+      error: expect.stringContaining('Someone else saved this page'),
+    });
+    expect(rows[0]?.body).toBe('<p>colleague wrote this</p>');
+  });
+});
+
 describe('saveContent — insert publishes with a timestamp', () => {
   it('stamps published_at when creating a page with status publish', async () => {
     const rows: Record<string, unknown>[] = [];

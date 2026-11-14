@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { CopyRegion } from '@/components/cms/CopyRegion';
 
 vi.mock('@/lib/queries/content', () => ({
-  getCopyRegionBody: vi.fn(),
+  getCopyRegion: vi.fn(),
 }));
 
 vi.mock('@/lib/queries/civic', () => ({
@@ -11,17 +11,19 @@ vi.mock('@/lib/queries/civic', () => ({
 }));
 
 import { getDataPoints } from '@/lib/queries/civic';
-import { getCopyRegionBody } from '@/lib/queries/content';
+import { getCopyRegion } from '@/lib/queries/content';
 
 describe('CopyRegion', () => {
   it('hydrates empty or <br> data points in CMS body with live Supabase values', async () => {
-    vi.mocked(getCopyRegionBody).mockResolvedValue(
-      '<div class="metrics">' +
+    vi.mocked(getCopyRegion).mockResolvedValue({
+      body:
+        '<div class="metrics">' +
         '<div data-data-point="home.impact.neighbors" class="stat-box"><br></div>' +
         '<div data-data-point="home.impact.neighbors_label" class="label-box">&nbsp;</div>' +
         '<div data-data-point="home.impact.postcards" class="stat-box">4,200+</div>' +
-        '</div>'
-    );
+        '</div>',
+      updatedAt: '2026-10-01T00:00:00Z',
+    });
 
     vi.mocked(getDataPoints).mockResolvedValue({
       'home.impact.neighbors': '500+',
@@ -36,6 +38,7 @@ describe('CopyRegion', () => {
 
     expect(element.props['data-copy-region']).toBe('home-hero');
     expect(element.props['data-copy-region-source']).toBe('cms');
+    expect(element.props['data-copy-region-version']).toBe('2026-10-01T00:00:00Z');
 
     const htmlPropKey = ['dangerously', 'SetInnerHTML'].join('');
     const innerProp = (element.props as Record<string, unknown>)[htmlPropKey] as
@@ -54,7 +57,7 @@ describe('CopyRegion', () => {
   });
 
   it('renders fallback when no published copy region row exists', async () => {
-    vi.mocked(getCopyRegionBody).mockResolvedValue(null);
+    vi.mocked(getCopyRegion).mockResolvedValue(null);
     vi.mocked(getDataPoints).mockResolvedValue({});
 
     const element = await CopyRegion({
@@ -68,9 +71,10 @@ describe('CopyRegion', () => {
   });
 
   it('replaces stale CMS copy with the authoritative Supabase value', async () => {
-    vi.mocked(getCopyRegionBody).mockResolvedValue(
-      '<div data-data-point="home.impact.districts_label" class="label-box">Sacramento Region</div>'
-    );
+    vi.mocked(getCopyRegion).mockResolvedValue({
+      body: '<div data-data-point="home.impact.districts_label" class="label-box">Sacramento Region</div>',
+      updatedAt: '2026-10-02T00:00:00Z',
+    });
     vi.mocked(getDataPoints).mockResolvedValue({
       'home.impact.districts_label': 'Congressional Districts',
     });

@@ -147,7 +147,7 @@ export function InteractiveLinksDirectory({
   return (
     <div className="space-y-10">
       {/* Search, Filter & Admin Toolbar */}
-      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 p-4 rounded-2xl bg-surface-card border border-border shadow-sm">
+      <div className="flex flex-col items-stretch justify-between gap-4 border-y border-border bg-surface-card p-4 md:flex-row md:items-center">
         <div className="relative flex-1 max-w-md">
           <Search
             className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground dark:text-ink-muted-on-dark"
@@ -158,7 +158,7 @@ export function InteractiveLinksDirectory({
             placeholder="Search resources, partners, or voting guides..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-surface-muted border border-border dark:border-slate-700 text-foreground dark:text-white placeholder:text-muted-foreground text-xs sm:text-sm focus:outline-none focus:border-primary transition-colors"
+            className="w-full border border-border bg-surface-muted py-2.5 pl-10 pr-4 text-xs text-foreground placeholder:text-muted-foreground transition-colors focus:border-primary focus:outline-none sm:text-sm"
           />
         </div>
 
@@ -169,10 +169,10 @@ export function InteractiveLinksDirectory({
               key={cat}
               type="button"
               onClick={() => setActiveCategory(cat)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+              className={`min-h-9 cursor-pointer border px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.08em] transition-colors ${
                 activeCategory === cat
-                  ? 'bg-primary-bright text-white shadow-md'
-                  : 'bg-surface-muted/60 text-muted-foreground dark:text-ink-muted-on-dark hover:text-foreground dark:hover:text-slate-200 hover:bg-surface-card dark:hover:bg-white/5 border border-border dark:border-transparent'
+                  ? 'border-primary bg-primary text-white'
+                  : 'border-border bg-transparent text-muted-foreground hover:border-foreground/40 hover:text-foreground'
               }`}
             >
               {cat}
@@ -185,7 +185,7 @@ export function InteractiveLinksDirectory({
           <button
             type="button"
             onClick={handleOpenCreateModal}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-accent-gold hover:bg-accent-gold text-slate-950 font-black text-xs uppercase tracking-wider shadow-md transition-all shrink-0 cursor-pointer"
+            className="inline-flex min-h-10 shrink-0 items-center gap-1.5 border border-accent-gold bg-accent-gold px-4 py-2 text-[11px] font-bold uppercase tracking-[0.1em] text-ink-strong transition-colors hover:brightness-95"
           >
             <Plus size={15} />
             <span>Add Link</span>
@@ -195,7 +195,7 @@ export function InteractiveLinksDirectory({
 
       {/* Links Grouped by Category */}
       {Object.keys(groupedLinks).length === 0 ? (
-        <div className="p-12 text-center rounded-2xl bg-surface-card border border-border text-muted-foreground dark:text-ink-muted-on-dark">
+        <div className="border-y border-border bg-surface-card p-12 text-center text-muted-foreground">
           <p className="text-sm font-semibold">
             No resources found matching your search. Try adjusting the search query or selecting
             &ldquo;All&rdquo;.
@@ -205,7 +205,7 @@ export function InteractiveLinksDirectory({
         <div className="space-y-12">
           {Object.entries(groupedLinks).map(([category, items]) => (
             <div key={category} className="space-y-4">
-              <h2 className="text-xl sm:text-2xl font-black text-foreground dark:text-white tracking-tight flex items-center gap-2.5">
+              <h2 className="flex items-center gap-2.5 font-display text-2xl font-semibold tracking-[-0.03em]">
                 <Layers className="text-accent-gold" size={20} />
                 <span>{category}</span>
                 <span className="text-xs font-mono font-normal text-muted-foreground dark:text-ink-muted-on-dark">
@@ -213,17 +213,17 @@ export function InteractiveLinksDirectory({
                 </span>
               </h2>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="border-t border-foreground/25">
                 {items.map((item) => {
                   const itemSlug = item.slug || item.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
                   return (
                     <div
                       key={itemSlug}
-                      className="p-5 rounded-2xl bg-surface-card border border-border hover:border-primary-bright/50 transition-all group flex flex-col justify-between shadow-xs relative"
+                      className="group relative flex flex-col justify-between gap-4 border-b border-border py-5 transition-colors hover:text-primary-ink"
                     >
                       <div>
-                        <div className="flex items-start justify-between gap-3 mb-2">
-                          <h3 className="font-bold text-foreground dark:text-white text-base group-hover:text-primary-ink dark:group-hover:text-primary-on-dark transition-colors">
+                        <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+                          <h3 className="font-display text-xl font-semibold tracking-[-0.02em] text-foreground transition-colors group-hover:text-primary-ink">
                             <DataPoint
                               as="span"
                               name={`link.${itemSlug}.name`}
@@ -233,9 +233,9 @@ export function InteractiveLinksDirectory({
                             </DataPoint>
                           </h3>
 
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-wrap items-center gap-2">
                             {item.badge && (
-                              <span className="px-2 py-0.5 rounded-full bg-accent-gold/20 text-primary-ink dark:text-accent-gold text-[10px] font-bold uppercase shrink-0">
+                              <span className="civic-stamp text-[9px]">
                                 <DataPoint
                                   as="span"
                                   name={`link.${itemSlug}.badge`}
@@ -285,14 +285,14 @@ export function InteractiveLinksDirectory({
                         </p>
                       </div>
 
-                      <div className="pt-4 mt-4 border-t border-border dark:border-white/10 flex items-center justify-between text-xs text-muted-foreground dark:text-ink-muted-on-dark">
+                      <div className="flex items-center justify-between gap-3 border-t border-border pt-3 text-xs text-muted-foreground">
                         <a
                           href={item.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-[11px] text-primary-ink dark:text-primary-on-dark-muted/90 font-mono hover:underline truncate max-w-[240px] inline-flex items-center gap-1"
+                          className="flex min-w-0 max-w-full flex-1 items-center gap-1 overflow-hidden font-mono text-[11px] text-primary-ink hover:underline sm:max-w-[240px]"
                         >
-                          <span>{item.url.replace(/^https?:\/\//, '')}</span>
+                          <span className="truncate">{item.url.replace(/^https?:\/\//, '')}</span>
                         </a>
                         <a
                           href={item.url}

@@ -32,7 +32,7 @@ export default async function NewsPage() {
   ]);
   const initialNewsletters = newslettersRows.length > 0 ? newslettersRows : undefined;
   return (
-    <div className="w-full bg-background text-foreground min-h-screen pt-(--header-clearance) pb-20">
+    <div className="civic-page w-full min-h-screen bg-background pb-20 text-foreground pt-(--header-clearance)">
       <PageMasthead
         icon={Newspaper}
         eyebrow={
@@ -76,7 +76,7 @@ export default async function NewsPage() {
 
         {/* Bulletins & News Blast Archive with In-Page Visual CRUD */}
         <div className="space-y-6">
-          <h2 className="text-2xl font-black text-foreground dark:text-white tracking-tight flex items-center gap-2">
+          <h2 className="flex items-center gap-2 font-display text-3xl font-semibold tracking-[-0.03em]">
             <span className="text-primary-ink dark:text-primary-on-dark-muted font-mono text-xl">
               ✦
             </span>
@@ -103,14 +103,14 @@ export default async function NewsPage() {
         ) : null}
 
         {/* National Indivisible Wire */}
-        <div className="p-8 rounded-2xl bg-surface-card border border-border space-y-4">
+        <div className="space-y-4 border-y border-border bg-surface-card p-8">
           <div className="flex items-center gap-3">
             <Megaphone className="text-accent-gold" size={22} />
             <DataPoint
               initialData={dataPoints}
               as="h2"
               name="news.national.title"
-              className="text-xl font-bold text-foreground dark:text-white"
+              className="font-display text-2xl font-semibold tracking-[-0.03em]"
             >
               National Indivisible Resources
             </DataPoint>

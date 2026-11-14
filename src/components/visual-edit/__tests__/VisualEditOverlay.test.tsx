@@ -9,6 +9,7 @@ import {
 import { MAX_BODY_BYTES } from '@/lib/content';
 import {
   openDiagnosticsVisual,
+  openRevisionsVisual,
   openSettingsVisual,
   VISUAL_EDIT_EVENTS,
 } from '@/lib/visual-edit-events';
@@ -107,6 +108,7 @@ vi.mock('next/navigation', () => ({
 // Visual edit mode lives in a module store; drive it directly.
 const visualMode = vi.hoisted(() => ({ enabled: true }));
 vi.mock('@/components/layout/visual-edit-store', () => ({
+  registerVisualEditExitGuard: vi.fn(),
   useVisualEditMode: () => ({
     enabled: visualMode.enabled,
     toggle: () => {
@@ -868,8 +870,45 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     expect(payload?.body).not.toContain('Intro copy.');
   });
 
-  it('keeps the server publication date after a status toggle before the next block save', async () => {
+  it('blocks restoring a revision while the page has unsaved edits', async () => {
+    await withPage();
+    getContentRevisions.mockResolvedValue({
+      success: true,
+      data: {
+        revisions: [
+          {
+            id: 501,
+            title: 'Older snapshot',
+            created_at: '2026-10-01T00:00:00Z',
+            type: 'page',
+            status: 'publish',
+          },
+        ],
+        revisionsTruncated: false,
+      },
+    });
+
+    await dirtyThePage();
+
+    await act(async () => {
+      openRevisionsVisual();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    const dialog = document.querySelector('[role="dialog"]');
+    expect(dialog?.textContent).toContain('Save or undo the current page changes');
+    const restore = dialog?.querySelector<HTMLButtonElement>('button[aria-label="Restore"]');
+    expect(restore?.disabled).toBe(true);
+
+    await act(async () => {
+      restore?.click();
+    });
+    expect(restoreContentRevision).not.toHaveBeenCalled();
+  });
+
+  it('keeps the server publication date and version after a status toggle', async () => {
     const publishedAt = '2026-10-10T18:00:00.000Z';
+    const toggledUpdatedAt = '2026-10-10T18:00:01.000Z';
     renderPage(rendered);
     getContentBySlugForEdit.mockResolvedValue({
       id: 7,
@@ -884,7 +923,10 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
       updated_at: '2026-10-09T00:00:00Z',
       published_at: null,
     });
-    setContentStatus.mockResolvedValue({ success: true, data: { id: 7, publishedAt } });
+    setContentStatus.mockResolvedValue({
+      success: true,
+      data: { id: 7, publishedAt, updatedAt: toggledUpdatedAt },
+    });
     await mount();
 
     const statusButton = container.querySelector<HTMLButtonElement>(
@@ -901,8 +943,38 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
       );
     });
 
-    const payload = saveContent.mock.calls.at(-1)?.[0] as { publishedAt?: string } | undefined;
+    const payload = saveContent.mock.calls.at(-1)?.[0] as
+      | { publishedAt?: string; expectedUpdatedAt?: string | null }
+      | undefined;
     expect(payload?.publishedAt).toBe(publishedAt);
+    expect(payload?.expectedUpdatedAt).toBe(toggledUpdatedAt);
+  });
+
+  it('saves the unsaved body with the new status instead of a status-only write', async () => {
+    /*
+     * A status-only write would change the row while the page still holds
+     * unsaved edits; the refresh that follows would replace the rendered body
+     * with the server's older one. The body and status have to land in the same
+     * write, as they do in the content editor.
+     */
+    await withPage();
+    await dirtyThePage();
+
+    const statusButton = container.querySelector<HTMLButtonElement>(
+      'button[title="Click to toggle between Published and Draft"]'
+    );
+    expect(statusButton).not.toBeNull();
+    await act(async () => {
+      statusButton?.click();
+    });
+
+    expect(setContentStatus).not.toHaveBeenCalled();
+    const payload = saveContent.mock.calls.at(-1)?.[0] as
+      | { status?: string; body?: string; expectedUpdatedAt?: string }
+      | undefined;
+    expect(payload?.status).toBe('draft');
+    expect(payload?.body).toContain('Intro copy.');
+    expect(payload?.expectedUpdatedAt).toBe('2026-10-10T00:00:00Z');
   });
 
   it('displays the live SERP and social card preview in page settings and allows toggling tabs', async () => {
@@ -1088,6 +1160,48 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     expect(
       container.querySelector('[data-inline-toolbar="true"] button[aria-label="Edit link"]')
     ).not.toBeNull();
+
+    // Header links are outside the saved block document. A commit must not
+    // report a success the next render will erase.
+    toast.error.mockClear();
+    await act(async () => {
+      tab.textContent = 'Events edited';
+      window.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Enter', metaKey: true, bubbles: true })
+      );
+    });
+
+    expect(toast.error).toHaveBeenCalledWith(
+      'This text is outside the saved page document, so it cannot be saved.'
+    );
+    expect(tab.textContent).toBe('Events');
+    expect(tab.contentEditable).toBe('false');
+  });
+
+  it('commits an inline edit once when saved with the keyboard shortcut', async () => {
+    /*
+     * Cmd+S used to start `commitInlineEdit` and then immediately persist the
+     * pre-edit `blocks` array. That second write raced the inline commit on the
+     * same row version, so the text on screen could lose to the body behind it.
+     */
+    await withPage();
+
+    const paragraph = document.querySelector<HTMLElement>('[data-visual-edit-root] p');
+    if (!paragraph) throw new Error('expected the rendered paragraph');
+    await act(async () => {
+      paragraph.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+    expect(paragraph.classList.contains('visual-inline-active')).toBe(true);
+    saveContent.mockClear();
+
+    await act(async () => {
+      paragraph.innerHTML = 'Intro copy, shortcut saved.';
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 's', metaKey: true, bubbles: true }));
+      await new Promise<void>((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(saveContent).toHaveBeenCalledTimes(1);
+    expect(saveContent.mock.calls[0]?.[0]?.body).toContain('Intro copy, shortcut saved.');
   });
 
   it('leaves header controls functional so the editorial toggle still works', async () => {
@@ -2499,6 +2613,41 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     expect(sidebarAlt()?.value).toBe('Second description');
   });
 
+  it('keeps an image session when the header asks to switch regions', async () => {
+    await withPage();
+
+    const paragraph = document.querySelector('[data-visual-edit-root] p');
+    if (!paragraph) throw new Error('expected the rendered paragraph');
+    const img = document.createElement('img');
+    img.src = 'https://example.com/photo.jpg';
+    img.alt = 'Protest photo';
+    paragraph.appendChild(img);
+
+    await act(async () => {
+      img.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+    expect(container.querySelector('[aria-label="Image asset controls"]')).not.toBeNull();
+
+    toast.info.mockClear();
+    await act(async () => {
+      window.dispatchEvent(
+        new CustomEvent(VISUAL_EDIT_EVENTS.selectRegion, {
+          detail: { regionId: 'about-mission' },
+        })
+      );
+    });
+
+    // A region switch replaces the block model underneath the selected image;
+    // the image rail owns the provisional preview and alt draft until its own
+    // Save or Cancel runs.
+    expect(toast.info).toHaveBeenCalledWith(
+      'Save or cancel the image edit before switching regions.'
+    );
+    expect(container.querySelector('[aria-label="Image asset controls"]')).not.toBeNull();
+    expect(getContentBySlugForEdit).not.toHaveBeenCalledWith('copy-about-mission');
+    expect(new URLSearchParams(window.location.search).get('region')).toBeNull();
+  });
+
   it('keeps the image session through scroll and resize before a dialog save', async () => {
     await withPage();
 
@@ -2629,10 +2778,57 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
 
     const toolbar = container.querySelector('[data-testid="visual-edit-overlay"]');
     expect(toolbar).not.toBeNull();
+    expect(toolbar?.getAttribute('data-document-state')).toBe('ready');
     // The "saved" text comes from the sidebar's document info line
     expect(toolbar?.textContent).toContain('saved');
     // No unsaved indicator on a fresh load
     expect(toolbar?.textContent).not.toContain('unsaved changes');
+  });
+
+  it('reports a failed document read instead of presenting the DOM fallback as editable', async () => {
+    renderPage(rendered);
+    getContentBySlugForEdit.mockRejectedValue(new Error('database offline'));
+    await mount();
+
+    const toolbar = container.querySelector('[data-testid="visual-edit-overlay"]');
+    expect(toolbar?.getAttribute('data-document-state')).toBe('degraded');
+
+    const banner = container.querySelector<HTMLElement>(
+      '[data-testid="composer-document-error"]'
+    );
+    expect(banner).not.toBeNull();
+    expect(banner?.textContent).toContain('Document not loaded');
+
+    // The canvas is read-only: no section action pills invite edits that can
+    // only be refused.
+    expect(
+      container.querySelector('[role="toolbar"][aria-label^="Actions for"]')
+    ).toBeNull();
+
+    const save = Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find(
+      (button) => button.textContent?.trim().startsWith('Connect')
+    );
+    expect(save?.disabled).toBe(true);
+  });
+
+  it('refuses structural edits while the saved document is unreadable', async () => {
+    renderPage(rendered);
+    getContentBySlugForEdit.mockRejectedValue(new Error('database offline'));
+    await mount();
+    toast.error.mockClear();
+
+    const before = pageChildren().children.length;
+    await act(async () => {
+      window.dispatchEvent(
+        new CustomEvent(VISUAL_EDIT_EVENTS.deleteSection, { detail: { blockIndex: 0 } })
+      );
+    });
+
+    // The guard runs before the local commit, so the canvas cannot show a
+    // deletion that autosave would have to refuse and roll back later.
+    expect(pageChildren().children.length).toBe(before);
+    expect(saveContent).not.toHaveBeenCalled();
+    expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('could not be read'));
   });
 
   it('sidebar context zone switches to inline-edit mode on text click and back to default when dismissed', async () => {
@@ -3988,6 +4184,116 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     expect(getContentBySlugForEdit).not.toHaveBeenCalled();
   });
 
+  it('loads and pairs a composer row when the overlay mounts before the page body', async () => {
+    /*
+     * The overlay is in the root layout; the page body streams in after it.
+     * Resolving the document or the root only once leaves the editor calling a
+     * loading skeleton ready. The route id has to be enough to load the row,
+     * and the later body has to replace the cached root so its blocks get
+     * frames.
+     */
+    const main = document.createElement('main');
+    document.body.appendChild(main);
+    pathname.value = '/compose/42';
+    getContentForEdit.mockResolvedValue({
+      id: 42,
+      title: 'Composed Row',
+      slug: 'composed-row',
+      excerpt: null,
+      type: 'page',
+      status: 'draft',
+      body,
+      featured_image: null,
+      metadata: {},
+      updated_at: '2026-10-09T00:00:00Z',
+    });
+
+    await mount();
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    expect(getContentForEdit).toHaveBeenCalledWith(42);
+    expect(
+      container
+        .querySelector('[data-testid="visual-edit-overlay"]')
+        ?.getAttribute('data-document-state')
+    ).toBe('ready');
+
+    // The page's ContentSurface arrives only now. The row was already read.
+    const page = document.createElement('div');
+    page.setAttribute('data-visual-edit-root', '');
+    page.setAttribute('data-visual-edit-content-id', '42');
+    page.innerHTML = rendered;
+    main.appendChild(page);
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 30));
+    });
+    expect(container.textContent).toContain('3 blocks in the document');
+  });
+
+  it('waits for a rowless region container instead of adopting the host page', async () => {
+    /*
+     * A region's document is its own subtree. If a `?region=` load runs before
+     * the page streams that subtree in, the only apparent root is the host
+     * page; extracting it would make the region's first save replace the
+     * region with the whole page. Stay loading until the real container
+     * appears, then extract that.
+     */
+    const main = document.createElement('main');
+    const host = document.createElement('div');
+    host.setAttribute('data-visual-edit-root', '');
+    host.innerHTML = '<p>Host copy.</p><h2>Host heading</h2>';
+    main.appendChild(host);
+    document.body.appendChild(main);
+    window.history.replaceState({}, '', '/?visual-edit=1&region=home-hero');
+    pathname.value = '/';
+    getContentBySlugForEdit.mockResolvedValue(null);
+
+    await mount();
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 30));
+    });
+
+    const overlay = container.querySelector<HTMLElement>(
+      '[data-testid="visual-edit-overlay"]'
+    );
+    expect(overlay?.getAttribute('data-document-state')).toBe('loading');
+
+    const region = document.createElement('div');
+    region.setAttribute('data-copy-region', 'home-hero');
+    region.innerHTML = '<h2 class="cw cw--h2">Region heading</h2>';
+    main.appendChild(region);
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 80));
+    });
+
+    expect(overlay?.getAttribute('data-document-state')).toBe('ready');
+    expect(container.textContent).toContain('1 block in the document');
+    expect(container.textContent).toContain('Region heading');
+    expect(container.textContent).not.toContain('Host heading');
+  });
+
+  it('reports a declared composer row that reads back empty instead of adopting the DOM', async () => {
+    const page = renderPage(rendered);
+    page.setAttribute('data-visual-edit-content-id', '42');
+    pathname.value = '/compose/42';
+    getContentForEdit.mockResolvedValue(null);
+
+    await mount();
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    const toolbar = container.querySelector<HTMLElement>('[data-testid="visual-edit-overlay"]');
+    expect(toolbar?.getAttribute('data-document-state')).toBe('degraded');
+    expect(
+      container.querySelector('[data-testid="composer-document-error"]')
+    ).not.toBeNull();
+    expect(getContentBySlugForEdit).not.toHaveBeenCalled();
+  });
+
   it('opens the region a ?region= link names', async () => {
     /*
      * A region is not a page, so a link to it cannot be a path. The composer's
@@ -4166,6 +4472,87 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     expect(getContentBySlugForEdit).not.toHaveBeenCalledWith('copy-about-mission');
   });
 
+  it('turns a document read that never settles into a recoverable degraded state', async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn().mockResolvedValue({ ok: false } as Response) as unknown as typeof fetch;
+    getContentBySlugForEdit.mockReturnValue(new Promise(() => {}));
+    renderPage(rendered);
+
+    vi.useFakeTimers();
+    try {
+      await mount();
+      const sidebar = document.querySelector<HTMLElement>('[data-testid="visual-edit-overlay"]');
+      expect(sidebar?.getAttribute('data-document-state')).toBe('loading');
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(20_001);
+      });
+
+      expect(sidebar?.getAttribute('data-document-state')).toBe('degraded');
+      expect(toast.error).toHaveBeenCalledWith(
+        'The saved document took too long to open. Retry the document load.'
+      );
+      // A document that was never read is not unsaved work; reloading the
+      // failed editor must not trigger the browser's leave prompt.
+      expect(attemptHardLeave().defaultPrevented).toBe(false);
+    } finally {
+      vi.useRealTimers();
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it('recovers from a timed-out document read through the sidebar retry', async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn().mockResolvedValue({ ok: false } as Response) as unknown as typeof fetch;
+    getContentBySlugForEdit.mockReturnValueOnce(new Promise(() => {}));
+    renderPage(rendered);
+
+    vi.useFakeTimers();
+    try {
+      await mount();
+      const sidebar = document.querySelector<HTMLElement>('[data-testid="visual-edit-overlay"]');
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(20_001);
+      });
+      expect(sidebar?.getAttribute('data-document-state')).toBe('degraded');
+
+      getContentBySlugForEdit.mockResolvedValue({
+        id: 7,
+        title: 'About Us',
+        slug: 'about',
+        excerpt: null,
+        type: 'page',
+        status: 'publish',
+        body,
+        featured_image: null,
+        metadata: {},
+        updated_at: '2026-10-09T00:00:00Z',
+      });
+      const retry = Array.from(
+        container.querySelectorAll<HTMLButtonElement>('button')
+      ).find((button) => button.textContent?.includes('Retry document load'));
+      expect(retry).not.toBeNull();
+
+      await act(async () => {
+        retry?.click();
+        await vi.advanceTimersByTimeAsync(0);
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      expect(
+        container
+          .querySelector('[data-testid="visual-edit-overlay"]')
+          ?.getAttribute('data-document-state')
+      ).toBe('ready');
+      expect(
+        container.querySelector('[data-testid="composer-document-error"]')
+      ).toBeNull();
+    } finally {
+      vi.useRealTimers();
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   it('reserves the sidebar rail only on the composer route', async () => {
     pathname.value = '/compose/42';
     renderPage(rendered);
@@ -4173,6 +4560,30 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     await mount();
     expect(document.documentElement.style.getPropertyValue('--visual-edit-rail-width')).toBe(
       '18rem'
+    );
+
+    // Studio and Library are 28rem wide. The route must reserve that width,
+    // not the narrower default rail, or the inspector still covers the canvas.
+    const studio = Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find(
+      (button) => button.textContent?.trim() === 'Studio'
+    );
+    expect(studio).toBeDefined();
+    await act(async () => {
+      studio?.click();
+    });
+    expect(document.documentElement.style.getPropertyValue('--visual-edit-rail-width')).toBe(
+      '28rem'
+    );
+
+    const collapse = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Collapse Visual Editor Sidebar"]'
+    );
+    expect(collapse).not.toBeNull();
+    await act(async () => {
+      collapse?.click();
+    });
+    expect(document.documentElement.style.getPropertyValue('--visual-edit-rail-width')).toBe(
+      '3rem'
     );
 
     await act(async () => root.unmount());
@@ -4406,6 +4817,130 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     expect(written).toContain('before you vote.');
   });
 
+  it('writes the whole list when an inline edit changes one item', async () => {
+    const listBody = '<ul class="cw-list cw-list--bullet"><li>One</li><li>Two</li></ul>';
+    renderPage(listBody);
+    getContentBySlugForEdit.mockResolvedValue({
+      id: 7,
+      title: 'About Us',
+      slug: 'about',
+      excerpt: null,
+      type: 'page',
+      status: 'publish',
+      body: listBody,
+      featured_image: null,
+      metadata: {},
+      updated_at: '2026-10-09T00:00:00Z',
+    });
+    await mount();
+
+    const item = document.querySelector<HTMLLIElement>('ul li');
+    expect(item).not.toBeNull();
+
+    await act(async () => {
+      item?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+    expect(item?.classList.contains('visual-inline-active')).toBe(true);
+
+    await act(async () => {
+      if (item) item.innerHTML = 'One edited';
+      item?.dispatchEvent(new Event('input', { bubbles: true }));
+      window.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Enter', metaKey: true, bubbles: true })
+      );
+    });
+
+    const written = saveContent.mock.calls.at(-1)?.[0].body as string;
+    expect(written).toContain('<li>One edited</li>');
+    // The item is not the list: the write must retain its sibling.
+    expect(written).toContain('<li>Two</li>');
+  });
+
+  it('writes code-block text inline instead of leaving an unsaved contentEditable', async () => {
+    const codeBody = '<pre class="cw-code">const x = 1;</pre>';
+    renderPage(codeBody);
+    getContentBySlugForEdit.mockResolvedValue({
+      id: 7,
+      title: 'About Us',
+      slug: 'about',
+      excerpt: null,
+      type: 'page',
+      status: 'publish',
+      body: codeBody,
+      featured_image: null,
+      metadata: {},
+      updated_at: '2026-10-09T00:00:00Z',
+    });
+    await mount();
+
+    const pre = document.querySelector<HTMLPreElement>('pre');
+    expect(pre).not.toBeNull();
+
+    await act(async () => {
+      pre?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+    expect(pre?.classList.contains('visual-inline-active')).toBe(true);
+
+    await act(async () => {
+      if (pre) pre.textContent = 'const x = 2;';
+      pre?.dispatchEvent(new Event('input', { bubbles: true }));
+      window.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Enter', metaKey: true, bubbles: true })
+      );
+    });
+
+    const written = saveContent.mock.calls.at(-1)?.[0].body as string;
+    expect(written).toContain('const x = 2;');
+  });
+
+  it('refuses an inline code edit when the route has no saved document', async () => {
+    pathname.value = '/events';
+    renderPage('<pre class="cw-code">const x = 1;</pre>');
+    getContentBySlugForEdit.mockResolvedValue(null);
+    await mount();
+
+    const pre = document.querySelector<HTMLPreElement>('pre');
+    expect(pre).not.toBeNull();
+
+    await act(async () => {
+      pre?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+
+    expect(pre?.classList.contains('visual-inline-active')).toBe(false);
+    expect(pre?.getAttribute('contenteditable')).toBeNull();
+    expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('written in code'));
+  });
+
+  it('routes table text to the composer instead of an unsavable inline editor', async () => {
+    const tableBody =
+      '<table><thead><tr><th>Head</th></tr></thead><tbody><tr><td>Cell</td></tr></tbody></table>';
+    renderPage(tableBody);
+    getContentBySlugForEdit.mockResolvedValue({
+      id: 7,
+      title: 'About Us',
+      slug: 'about',
+      excerpt: null,
+      type: 'page',
+      status: 'publish',
+      body: tableBody,
+      featured_image: null,
+      metadata: {},
+      updated_at: '2026-10-09T00:00:00Z',
+    });
+    await mount();
+
+    const cell = document.querySelector<HTMLTableCellElement>('td');
+    expect(cell).not.toBeNull();
+
+    await act(async () => {
+      cell?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+
+    expect(cell?.classList.contains('visual-inline-active')).toBe(false);
+    expect(cell?.getAttribute('contenteditable')).toBeNull();
+    expect(toast.info).toHaveBeenCalledWith('This block is edited in the Visual Composer.');
+  });
+
   it('saves under the limit when the container around the edit is over it', async () => {
     /*
      * The deployed /events page has a container of ~72,600 characters — larger
@@ -4487,6 +5022,9 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
       (button) => button.textContent?.trim() === 'Whole page'
     );
     expect(wholePage?.disabled).toBe(true);
+    expect(
+      container.querySelector('[role="toolbar"][aria-label^="Actions for"]')
+    ).toBeNull();
   });
 
   it('refuses page settings on a coded route before posting the route slug', async () => {
@@ -4526,6 +5064,163 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     });
 
     expect(paragraph?.classList.contains('visual-inline-active')).toBe(true);
+  });
+
+  it('keeps a host page clean after saving one of its copy regions', async () => {
+    /*
+     * A region is its own CMS row. Before this, a successful inline edit in a
+     * region called `setSavedBody(regionHtml)`, replacing the host page's
+     * baseline with that fragment. The page then reported "unsaved changes"
+     * with no page-level edit to save, and its save button is disabled on a
+     * coded route — a state the operator could not clear.
+     */
+    pathname.value = '/events';
+    renderPage(
+      '<div data-copy-region="events-trainings" data-copy-region-version="2026-10-03T00:00:00Z"><p>Region copy.</p></div>'
+    );
+    getContentBySlugForEdit.mockResolvedValue(null);
+    await mount();
+
+    const paragraph = document.querySelector<HTMLElement>('[data-visual-edit-root] p');
+    expect(paragraph).not.toBeNull();
+
+    await act(async () => {
+      paragraph?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+    expect(paragraph?.classList.contains('visual-inline-active')).toBe(true);
+
+    await act(async () => {
+      if (paragraph) paragraph.innerHTML = 'Region copy, edited.';
+      paragraph?.dispatchEvent(new Event('input', { bubbles: true }));
+      window.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Enter', metaKey: true, bubbles: true })
+      );
+    });
+
+    expect(saveContent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        slug: 'copy-events-trainings',
+        body: expect.stringContaining('Region copy, edited.'),
+        // Page mode has no loaded region row; the rendered element carried
+        // the version the save must not overwrite.
+        expectedUpdatedAt: '2026-10-03T00:00:00Z',
+      })
+    );
+    // The successful write moves the element's version forward, so a second
+    // inline edit in page mode is conditional on this write, not the old row.
+    expect(
+      document
+        .querySelector('[data-copy-region="events-trainings"]')
+        ?.getAttribute('data-copy-region-version')
+    ).toBe('2026-10-10T00:00:00Z');
+    expect(
+      container.querySelector<HTMLElement>('[data-testid="visual-edit-overlay"]')?.textContent
+    ).not.toContain('unsaved changes');
+  });
+
+  it('creates a region on the first save and conditionally updates it on the next', async () => {
+    /*
+     * A region row is addressed by slug, so the inline writer has no id to send
+     * on its first save. That save creates the row; the second must use the id
+     * and version it received, or it either fails as a duplicate or overwrites a
+     * colleague's later write. The sidebar also has to stop saying "Not
+     * connected" once the first save returned the row.
+     */
+    window.history.replaceState({}, '', '/events?visual-edit=1&region=events-trainings');
+    pathname.value = '/events';
+    renderPage('<div data-copy-region="events-trainings"><p>Region copy.</p></div>');
+    getContentBySlugForEdit.mockResolvedValue(null);
+    saveContent.mockResolvedValue({
+      success: true,
+      data: {
+        id: 41,
+        updatedAt: '2026-10-10T00:00:00Z',
+        publishedAt: '2026-10-10T00:00:00Z',
+      },
+    });
+    await mount();
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(container.textContent).toContain('Not connected');
+    const paragraph = document.querySelector<HTMLElement>(
+      '[data-copy-region="events-trainings"] p'
+    );
+    expect(paragraph).not.toBeNull();
+
+    await act(async () => {
+      paragraph?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+    expect(paragraph?.classList.contains('visual-inline-active')).toBe(true);
+
+    await act(async () => {
+      if (paragraph) paragraph.innerHTML = 'Region copy, saved once.';
+      paragraph?.dispatchEvent(new Event('input', { bubbles: true }));
+      window.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Enter', metaKey: true, bubbles: true })
+      );
+    });
+
+    expect(saveContent).toHaveBeenCalledTimes(1);
+    const first = saveContent.mock.calls[0]?.[0] as {
+      id?: number;
+      expectedUpdatedAt?: string;
+      slug?: string;
+    };
+    expect(first).toMatchObject({ slug: 'copy-events-trainings' });
+    expect(first.id).toBeUndefined();
+    expect(container.textContent).not.toContain('Not connected');
+    expect(container.textContent).toContain('Published');
+
+    await act(async () => {
+      paragraph?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+    expect(paragraph?.classList.contains('visual-inline-active')).toBe(true);
+
+    await act(async () => {
+      if (paragraph) paragraph.innerHTML = 'Region copy, saved twice.';
+      paragraph?.dispatchEvent(new Event('input', { bubbles: true }));
+      window.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Enter', metaKey: true, bubbles: true })
+      );
+    });
+
+    expect(saveContent).toHaveBeenCalledTimes(2);
+    const second = saveContent.mock.calls[1]?.[0] as {
+      id?: number;
+      expectedUpdatedAt?: string;
+      slug?: string;
+    };
+    expect(second).toMatchObject({
+      expectedUpdatedAt: '2026-10-10T00:00:00Z',
+      slug: 'copy-events-trainings',
+    });
+    // The row is resolved by slug on the server; that branch preserves fields
+    // the body-only write does not own. Sending the id would take the ordinary
+    // update branch and reset them.
+    expect(second.id).toBeUndefined();
+  });
+
+  it('refuses copy-region text while the saved document is unreadable', async () => {
+    pathname.value = '/events';
+    renderPage('<div data-copy-region="events-trainings"><p>Region copy.</p></div>');
+    getContentBySlugForEdit.mockRejectedValue(new Error('database offline'));
+    await mount();
+    toast.error.mockClear();
+
+    const paragraph = document.querySelector<HTMLElement>('[data-visual-edit-root] p');
+    expect(paragraph).not.toBeNull();
+
+    await act(async () => {
+      paragraph?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+
+    // A copy region has a destination on a coded route, but not until the row
+    // it belongs to has been read. The editor must not open over a fallback.
+    expect(paragraph?.classList.contains('visual-inline-active')).toBe(false);
+    expect(paragraph?.getAttribute('contenteditable')).toBeNull();
+    expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('could not be read'));
   });
 
   describe('resolveBlockContentRoot', () => {

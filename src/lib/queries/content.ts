@@ -87,6 +87,12 @@ export async function getPublishedContent(slug: string) {
   return data;
 }
 
+export interface CopyRegionSnapshot {
+  body: string;
+  /** The row version the rendered body belongs to, for conditional saves. */
+  updatedAt: string | null;
+}
+
 /**
  * The published body of a copy region, or null when it has none.
  *
@@ -97,8 +103,13 @@ export async function getPublishedContent(slug: string) {
  * uncached made `/about` fail the build with "the unstable value `new Date()`
  * while prerendering", and would also have cost a query per coded route per
  * build, which the Conservation Mode budget in AGENTS.md exists to avoid.
+ *
+ * The version travels with the body. A page-mode inline edit writes the region
+ * by slug, not through a row it loaded, so the rendered element is the only
+ * place the editor can learn the version it must not overwrite. No extra
+ * query: the read already selected the row.
  */
-export async function getCopyRegionBody(slug: string): Promise<string | null> {
+export async function getCopyRegion(slug: string): Promise<CopyRegionSnapshot | null> {
   'use cache';
   cacheLife('hours');
   cacheTag('content', `content-${slug}`);
@@ -106,12 +117,13 @@ export async function getCopyRegionBody(slug: string): Promise<string | null> {
     const supabase = createPublicClient();
     const { data } = await supabase
       .from('content')
-      .select('body')
+      .select('body, updated_at')
       .eq('slug', slug)
       .eq('status', 'publish')
       .or(buildVisibilityFilter(new Date().toISOString()))
       .maybeSingle();
-    return data?.body ?? null;
+    if (!data || !data.body) return null;
+    return { body: data.body, updatedAt: data.updated_at ?? null };
   } catch {
     // An unreadable region renders its fallback rather than blanking the page.
     return null;

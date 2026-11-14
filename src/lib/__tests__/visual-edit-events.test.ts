@@ -80,6 +80,7 @@ describe('VISUAL_EDIT_EVENTS', () => {
     expect(VISUAL_EDIT_EVENTS.openSettings).toBe('indivisible:open-settings');
     expect(VISUAL_EDIT_EVENTS.openCRM).toBe('indivisible:open-crm');
     expect(VISUAL_EDIT_EVENTS.openDiagnostics).toBe('indivisible:open-diagnostics');
+    expect(VISUAL_EDIT_EVENTS.crashed).toBe('indivisible:visual-edit-crashed');
   });
 
   it('is namespaced, so nothing on the window collides', () => {

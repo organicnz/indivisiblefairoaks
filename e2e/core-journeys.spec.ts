@@ -113,6 +113,23 @@ test.describe('gallery journey', () => {
     // Clear search and open lightbox
     await page.getByPlaceholder(/search by quote/i).fill('');
     await expect.poll(() => photos.count(), { timeout: 10_000 }).toBeGreaterThan(0);
+
+    // The page paints the checked-in archive immediately and swaps in the
+    // server's set when `/api/gallery` answers. The two sets use different ids,
+    // so a click during that swap selects a `fallback-*` plate the server set
+    // does not contain, and the lightbox closes itself a moment after opening.
+    // Wait for the archive this journey is actually about before selecting.
+    await expect
+      .poll(
+        () =>
+          photos.evaluateAll((plates) =>
+            plates.every(
+              (plate) => !plate.getAttribute('data-gallery-photo')?.startsWith('fallback-')
+            )
+          ),
+        { timeout: 10_000 }
+      )
+      .toBe(true);
     await photos.first().click();
     await expect(page.getByRole('dialog')).toBeVisible();
     await page.getByRole('button', { name: 'Close image viewer' }).click();

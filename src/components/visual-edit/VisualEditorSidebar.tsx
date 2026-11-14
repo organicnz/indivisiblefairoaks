@@ -3,6 +3,7 @@
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import {
   Activity,
+  AlertTriangle,
   ArrowDown,
   ArrowUp,
   Calendar,
@@ -99,6 +100,8 @@ const INLINE_FORMAT_COMMANDS: readonly InlineFormatCommand[] = [
   'paragraph',
 ];
 
+export type DocumentLoadState = 'idle' | 'loading' | 'ready' | 'degraded';
+
 export interface VisualEditorSidebarProps {
   // ── Layout ──────────────────────────────────────────────────────────────
   collapsed: boolean;
@@ -108,6 +111,13 @@ export interface VisualEditorSidebarProps {
   // ── Document ────────────────────────────────────────────────────────────
   documentTitle: string;
   contentRow: VisualContentRow | null;
+  /**
+   * The saved CMS document's own state. `loading` blocks edits so the operator
+   * cannot type into the DOM fallback and then have the real body replace it;
+   * `degraded` blocks them because the row could not be read at all.
+   */
+  documentLoadState?: DocumentLoadState;
+  onRetryDocumentLoad?: () => void;
   blocks: Block[];
   sections: VisualSection[];
   enabledSectionKeys: Set<string>;
@@ -258,6 +268,41 @@ export function VisualEditorSidebar(props: VisualEditorSidebarProps) {
   const isComposerActive =
     isVisualComposerOpen && Boolean(props.composerProps?.open && props.composerProps?.block);
 
+  const documentLoadState = props.documentLoadState ?? 'idle';
+  const documentReady = documentLoadState === 'ready';
+  const documentOpening = documentLoadState === 'idle' || documentLoadState === 'loading';
+  const documentUnavailable = documentLoadState === 'degraded';
+  /**
+   * One status dot for both the collapsed strip and the expanded header.
+   * Amber means loading, unsaved, uncoupled from a CMS row, or region-only;
+   * rose means the saved row could not be read; sky means a write is in
+   * flight; emerald is the settled saved state. Only transient work pulses: a
+   * steady green dot is the truthful signal that the editor is not waiting on
+   * anything, and a green dot must never sit beside a page with no saved row.
+   */
+  const documentStatusLabel = documentOpening
+    ? 'Opening the saved document'
+    : documentUnavailable
+      ? 'Saved document unavailable — editing is locked'
+      : props.savingBackend
+        ? 'Saving changes'
+        : props.dirty
+          ? 'Unsaved changes'
+          : props.unsaveableReason
+            ? 'Page-level copy is not savable — edit a copy region'
+            : !props.contentRow
+              ? 'Not connected to Supabase'
+              : 'Saved';
+  const documentStatusDotClass = documentUnavailable
+    ? 'bg-rose-400'
+    : documentOpening
+      ? 'bg-amber-400 animate-pulse motion-reduce:animate-none'
+      : props.savingBackend
+        ? 'bg-sky-400 animate-pulse motion-reduce:animate-none'
+        : props.dirty || props.unsaveableReason || !props.contentRow
+          ? 'bg-amber-400'
+          : 'bg-emerald-400';
+
   const sidebarStyle: React.CSSProperties = {
     right: '0',
   };
@@ -268,10 +313,11 @@ export function VisualEditorSidebar(props: VisualEditorSidebarProps) {
       <aside
         aria-label="Visual Editor Toolbar"
         data-testid="visual-edit-overlay"
+        data-document-state={documentLoadState}
         data-editor-focus-fallback
         tabIndex={-1}
         style={sidebarStyle}
-        className="fixed inset-y-0 right-0 z-[9998] flex w-12 flex-col items-center gap-3 border-l border-white/20 bg-secondary/95 py-4 text-ink-on-dark shadow-float backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-inset focus:ring-accent-gold/70"
+        className="fixed inset-y-0 right-0 z-[9998] flex w-12 flex-col items-center gap-3 border-l border-white/20 bg-secondary/95 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-[calc(1rem+env(safe-area-inset-top))] text-ink-on-dark shadow-float backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-inset focus:ring-accent-gold/70"
       >
         <button
           type="button"
@@ -284,15 +330,26 @@ export function VisualEditorSidebar(props: VisualEditorSidebarProps) {
         </button>
 
         <span
-          className={`size-2 rounded-full ${props.dirty ? 'bg-amber-400' : 'bg-emerald-400'}`}
+          role="status"
+          aria-label={documentStatusLabel}
+          title={documentStatusLabel}
+          className={`size-2 rounded-full ${documentStatusDotClass}`}
         />
 
         {props.dirty && (
           <button
             type="button"
             onClick={props.onSave}
-            disabled={props.savingBackend}
-            title="Save changes to Supabase (⌘S)"
+            disabled={
+              props.savingBackend || Boolean(props.unsaveableReason) || !documentReady
+            }
+            title={
+              !documentReady
+                ? documentUnavailable
+                  ? 'Reload the saved document before saving'
+                  : 'Wait for the saved document to open before saving'
+                : props.unsaveableReason ?? 'Save changes to Supabase (⌘S)'
+            }
             aria-label="Save changes to Supabase"
             className="inline-flex items-center justify-center rounded-md bg-accent p-1.5 text-ink-strong hover:bg-accent-gold cursor-pointer disabled:opacity-50"
           >
@@ -370,17 +427,23 @@ export function VisualEditorSidebar(props: VisualEditorSidebarProps) {
     <aside
       aria-label="Visual Editor Toolbar"
       data-testid="visual-edit-overlay"
+      data-document-state={documentLoadState}
       data-editor-focus-fallback
       tabIndex={-1}
       style={sidebarStyle}
-      className={`fixed inset-y-0 right-0 z-[9998] flex flex-col border-l border-white/20 bg-secondary/95 text-ink-on-dark shadow-float backdrop-blur-md transition-[width,background-color,border-color] duration-200 ${
+      className={`fixed inset-y-0 right-0 z-[9998] flex flex-col border-l border-white/20 bg-secondary/95 pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)] text-ink-on-dark shadow-float backdrop-blur-md transition-[width,background-color,border-color] duration-200 ${
         isWide ? 'w-[28rem] max-w-[100vw]' : 'w-72'
       } focus:outline-none focus:ring-2 focus:ring-inset focus:ring-accent-gold/70`}
     >
       {/* ── Header ───────────────────────────────────────────────────────── */}
       <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-3 py-3">
         <div className="flex min-w-0 items-center gap-1.5">
-          <span className="size-2 shrink-0 rounded-full bg-accent-gold animate-pulse" />
+          <span
+            role="status"
+            aria-label={documentStatusLabel}
+            title={documentStatusLabel}
+            className={`size-2 shrink-0 rounded-full ${documentStatusDotClass}`}
+          />
           <PenLine size={14} className="shrink-0 text-accent-gold" aria-hidden="true" />
           <span className="truncate text-xs font-black uppercase tracking-wider text-white">
             {props.documentTitle}
@@ -463,6 +526,10 @@ export function VisualEditorSidebar(props: VisualEditorSidebarProps) {
           </button>
         </div>
       </div>
+      <DocumentReadBanner
+        state={props.documentLoadState ?? 'idle'}
+        onRetry={props.onRetryDocumentLoad}
+      />
       {/* ── Context zone ─────────────────────────────────────────────────── */}
       <div
         id="sidebar-tab-composer"
@@ -572,6 +639,13 @@ export function VisualEditorSidebar(props: VisualEditorSidebarProps) {
 function InlineContextZone(props: VisualEditorSidebarProps & { inlineSession: InlineEditSession }) {
   const { inlineSession } = props;
   const composerIdx = inlineSession.blockIndex ?? props.activeBlockIndex ?? 0;
+  const inlineWriteBlocked = props.documentLoadState !== 'ready';
+  const inlineWriteBlockedReason =
+    props.documentLoadState === 'loading' || props.documentLoadState === 'idle'
+      ? 'Wait for the saved document to open before saving this text'
+      : props.documentLoadState === 'degraded'
+        ? 'Reload the saved document before saving this text'
+        : 'Wait for the visual editor to finish opening before saving this text';
 
   /*
    * "Edit link" is only meaningful when the edited element is, or contains, an
@@ -602,9 +676,10 @@ function InlineContextZone(props: VisualEditorSidebarProps & { inlineSession: In
 
       <button
         type="button"
+        disabled={inlineWriteBlocked}
         onClick={() => void props.onCommitInlineEdit(inlineSession)}
-        className="inline-flex cursor-pointer items-center gap-1 rounded-md bg-accent-gold px-2.5 py-1 text-[11px] font-black uppercase tracking-wider text-ink-strong transition-colors hover:bg-amber-400 shadow-xs"
-        title="Save changes (⌘+Enter)"
+        className="inline-flex cursor-pointer items-center gap-1 rounded-md bg-accent-gold px-2.5 py-1 text-[11px] font-black uppercase tracking-wider text-ink-strong transition-colors hover:bg-amber-400 shadow-xs disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-accent-gold"
+        title={inlineWriteBlocked ? inlineWriteBlockedReason : 'Save changes (⌘+Enter)'}
       >
         <Check size={13} className="stroke-[3]" />
         <span>Save</span>
@@ -786,8 +861,16 @@ function ImageContextZone(props: VisualEditorSidebarProps & { imageSession: Imag
     setAltText(savedAlt);
   }, [savedAlt]);
 
+  const imageWriteBlocked = props.documentLoadState !== 'ready';
+  const imageWriteBlockedReason =
+    props.documentLoadState === 'loading' || props.documentLoadState === 'idle'
+      ? 'Wait for the saved document to open before changing this image'
+      : props.documentLoadState === 'degraded'
+        ? 'Reload the saved document before changing this image'
+        : 'Wait for the visual editor to finish opening before changing this image';
+
   const handleSaveAlt = async () => {
-    if (isSavingAlt) return;
+    if (isSavingAlt || imageWriteBlocked) return;
     setIsSavingAlt(true);
     try {
       if (props.onSaveImageAlt) {
@@ -822,9 +905,14 @@ function ImageContextZone(props: VisualEditorSidebarProps & { imageSession: Imag
 
       <button
         type="button"
+        disabled={imageWriteBlocked}
         onClick={() => props.onOpenMedia('image-replace')}
-        className="inline-flex cursor-pointer items-center gap-1 rounded-md bg-primary-bright px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-white transition-colors hover:bg-primary-light shadow-xs"
-        title="Replace image with Supabase S3 Storage media"
+        className="inline-flex cursor-pointer items-center gap-1 rounded-md bg-primary-bright px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-white transition-colors hover:bg-primary-light shadow-xs disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-primary-bright"
+        title={
+          imageWriteBlocked
+            ? imageWriteBlockedReason
+            : 'Replace image with Supabase S3 Storage media'
+        }
       >
         <ImagePlus size={13} />
         <span>Replace</span>
@@ -832,10 +920,14 @@ function ImageContextZone(props: VisualEditorSidebarProps & { imageSession: Imag
 
       <button
         type="button"
-        disabled={props.isUploadingImage}
+        disabled={props.isUploadingImage || imageWriteBlocked}
         onClick={props.onUploadClick}
-        className="inline-flex cursor-pointer items-center gap-1 rounded-md bg-white/10 px-2 py-1 text-[11px] font-semibold text-white transition-colors hover:bg-white/20 shadow-xs disabled:opacity-50"
-        title="Directly upload replacement image from your device"
+        className="inline-flex cursor-pointer items-center gap-1 rounded-md bg-white/10 px-2 py-1 text-[11px] font-semibold text-white transition-colors hover:bg-white/20 shadow-xs disabled:cursor-not-allowed disabled:opacity-50"
+        title={
+          imageWriteBlocked
+            ? imageWriteBlockedReason
+            : 'Directly upload replacement image from your device'
+        }
       >
         {props.isUploadingImage ? (
           <Loader2 size={12} className="animate-spin text-accent-gold" />
@@ -856,7 +948,7 @@ function ImageContextZone(props: VisualEditorSidebarProps & { imageSession: Imag
           <input
             id="sidebar-image-alt-input"
             type="text"
-            disabled={isSavingAlt}
+            disabled={isSavingAlt || imageWriteBlocked}
             value={altText}
             onChange={(e) => setAltText(e.target.value)}
             onKeyDown={(e) => {
@@ -870,9 +962,12 @@ function ImageContextZone(props: VisualEditorSidebarProps & { imageSession: Imag
           />
           <button
             type="button"
-            disabled={isSavingAlt}
+            disabled={isSavingAlt || imageWriteBlocked}
             onClick={() => void handleSaveAlt()}
-            className="rounded bg-sky-600 hover:bg-sky-500 px-2.5 py-1 text-[11px] font-bold text-white transition-colors disabled:opacity-50 cursor-pointer"
+            title={
+              imageWriteBlocked ? imageWriteBlockedReason : 'Save the image description'
+            }
+            className="rounded bg-sky-600 hover:bg-sky-500 px-2.5 py-1 text-[11px] font-bold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isSavingAlt ? 'Saving…' : 'Save'}
           </button>
@@ -925,9 +1020,64 @@ function ImageContextZone(props: VisualEditorSidebarProps & { imageSession: Imag
 // Default context zone — toolbar, block list, viewport switcher
 // ══════════════════════════════════════════════════════════════════════════
 
+function DocumentReadBanner({
+  state,
+  onRetry,
+}: {
+  state: DocumentLoadState;
+  onRetry?: () => void;
+}) {
+  if (state !== 'idle' && state !== 'loading' && state !== 'degraded') return null;
+
+  const opening = state === 'idle' || state === 'loading';
+
+  return (
+    <div
+      data-testid={opening ? 'composer-document-loading' : 'composer-document-error'}
+      role={opening ? 'status' : 'alert'}
+      className={`mx-3 mt-3 flex shrink-0 items-start gap-2 rounded-xl border p-2.5 ${
+        opening
+          ? 'border-white/15 bg-white/5 text-ink-on-dark'
+          : 'border-rose-500/40 bg-rose-500/10 text-rose-200'
+      }`}
+    >
+      {opening ? (
+        <Loader2
+          size={14}
+          className="mt-0.5 shrink-0 animate-spin text-accent-gold motion-reduce:animate-none"
+          aria-hidden="true"
+        />
+      ) : (
+        <AlertTriangle size={14} className="mt-0.5 shrink-0 text-rose-400" aria-hidden="true" />
+      )}
+      <div className="min-w-0 flex-1">
+        <p className="text-[10px] font-black uppercase tracking-wider">
+          {opening ? 'Opening document' : 'Document not loaded'}
+        </p>
+        <p className="mt-1 text-[10px] leading-snug text-ink-muted-on-dark">
+          {opening
+            ? 'Reading the saved CMS copy before unlocking the canvas.'
+            : 'The canvas is showing the rendered page, not the saved row. Editing and saving are locked until a reload succeeds.'}
+        </p>
+        {state === 'degraded' && onRetry ? (
+          <button
+            type="button"
+            onClick={onRetry}
+            className="mt-2 inline-flex cursor-pointer items-center gap-1 rounded-md border border-rose-400/40 bg-rose-500/10 px-2 py-1 text-[10px] font-bold text-rose-200 transition-colors hover:bg-rose-500/20"
+          >
+            <RefreshCw size={11} aria-hidden="true" />
+            Retry document load
+          </button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 function DefaultContextZone(props: VisualEditorSidebarProps) {
   const {
     contentRow,
+    documentLoadState = 'idle',
     dirty,
     savingBackend,
     sections,
@@ -960,6 +1110,15 @@ function DefaultContextZone(props: VisualEditorSidebarProps) {
   const [dragOverBlockIndex, setDragOverBlockIndex] = useState<number | null>(null);
   const changeCount = modifiedBlocks.length + modifiedDataPoints.length;
   const showChangeCount = dirty || modifiedDataPoints.length > 0;
+  const documentReady = documentLoadState === 'ready';
+  const documentOpening = documentLoadState === 'idle' || documentLoadState === 'loading';
+  const documentUnavailable = documentLoadState === 'degraded';
+  const canMutateDocument = documentReady && !unsaveableReason;
+  const regionSwitchBlockedReason = documentOpening
+    ? 'Wait for the saved document to open before switching regions'
+    : documentLoadState === 'degraded'
+      ? 'Reload the saved document before switching regions'
+      : null;
   const themePreviewLabel = `${themeModeLabel(themeMode)}${themeMode === 'system' ? ` (${effectiveTheme})` : ''}`;
 
   return (
@@ -986,8 +1145,14 @@ function DefaultContextZone(props: VisualEditorSidebarProps) {
           <button
             type="button"
             onClick={props.onTogglePageStatus}
-            disabled={savingBackend}
-            title="Click to toggle between Published and Draft"
+            disabled={savingBackend || !documentReady}
+            title={
+              !documentReady
+                ? documentLoadState === 'degraded'
+                  ? 'Reload the saved document before changing publication status'
+                  : 'Wait for the saved document to open before changing publication status'
+                : 'Click to toggle between Published and Draft'
+            }
             className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wider transition-colors ${
               contentRow.status === 'publish'
                 ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30'
@@ -1000,13 +1165,30 @@ function DefaultContextZone(props: VisualEditorSidebarProps) {
           <button
             type="button"
             onClick={props.onInitializeCMSPage}
-            disabled={savingBackend || Boolean(unsaveableReason)}
-            className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wider bg-accent/20 text-accent-gold hover:bg-accent/30"
+            disabled={
+              savingBackend ||
+              !documentReady ||
+              Boolean(unsaveableReason) ||
+              props.isVisualComposerOpen ||
+              Boolean(props.inlineSession) ||
+              Boolean(props.imageSession)
+            }
+            className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wider bg-accent/20 text-accent-gold hover:bg-accent/30 disabled:cursor-not-allowed disabled:opacity-40"
             title={
-              unsaveableReason ??
-              (activeRegionId
-                ? `Create the CMS row for the ${activeRegionLabel} region`
-                : 'Click to sync page into Supabase content table')
+              !documentReady
+                ? documentLoadState === 'degraded'
+                  ? 'Reload the saved document before connecting this page'
+                  : 'Wait for the saved document to open before connecting this page'
+                : props.inlineSession
+                  ? 'Save or cancel the inline text edit before connecting this page'
+                  : props.imageSession
+                    ? 'Save or cancel the image edit before connecting this page'
+                    : props.isVisualComposerOpen
+                      ? 'Close the composer before connecting this page'
+                      : unsaveableReason ??
+                    (activeRegionId
+                      ? `Create the CMS row for the ${activeRegionLabel} region`
+                      : 'Click to sync page into Supabase content table')
             }
           >
             Connect to Supabase
@@ -1014,25 +1196,59 @@ function DefaultContextZone(props: VisualEditorSidebarProps) {
         )}
         <span
           className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
-            dirty ? 'bg-amber-500/20 text-accent-gold' : 'bg-emerald-500/20 text-emerald-400'
+            documentOpening
+              ? 'bg-white/10 text-ink-muted-on-dark'
+              : documentLoadState === 'degraded'
+                ? 'bg-rose-500/20 text-rose-300'
+                : savingBackend
+                  ? 'bg-sky-500/20 text-sky-300'
+                  : dirty || unsaveableReason || !contentRow
+                    ? 'bg-amber-500/20 text-accent-gold'
+                    : 'bg-emerald-500/20 text-emerald-400'
           }`}
         >
-          {dirty ? 'Unsaved' : 'Saved'}
+          {documentOpening
+            ? 'Opening'
+            : documentLoadState === 'degraded'
+              ? 'Unavailable'
+              : savingBackend
+                ? 'Saving'
+                : dirty
+                  ? 'Unsaved'
+                  : unsaveableReason
+                    ? 'Region only'
+                    : !contentRow
+                      ? 'Not connected'
+                      : 'Saved'}
         </span>
       </div>
 
       <p className="text-[11px] text-ink-muted-on-dark">
-        {sections.length} {sections.length === 1 ? 'block' : 'blocks'} in the document (
-        {dirty ? (
-          <span className="font-bold text-accent-gold">unsaved changes</span>
+        {documentOpening ? (
+          <span>Opening the saved document…</span>
+        ) : documentLoadState === 'degraded' ? (
+          <span className="font-bold text-rose-300">Saved document unavailable</span>
         ) : (
-          <span>saved</span>
+          <>
+            {sections.length} {sections.length === 1 ? 'block' : 'blocks'} in the document (
+            {dirty ? (
+              <span className="font-bold text-accent-gold">unsaved changes</span>
+            ) : unsaveableReason ? (
+              <span className="text-accent-gold">page-level copy is not savable</span>
+            ) : contentRow ? (
+              <span>saved</span>
+            ) : (
+              <span className="text-accent-gold">not connected to Supabase</span>
+            )}
+            ) · {enabledSectionKeys.size} framed
+          </>
         )}
-        ) · {enabledSectionKeys.size} framed
       </p>
 
       {/* ── Copy region selector ───────────────────────────────────────── */}
-      {unsaveableReason && (
+      {unsaveableReason &&
+        documentLoadState !== 'loading' &&
+        documentLoadState !== 'degraded' && (
         <p
           data-testid="page-level-save-blocked"
           className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-2 text-[10px] leading-snug text-accent-gold"
@@ -1047,8 +1263,12 @@ function DefaultContextZone(props: VisualEditorSidebarProps) {
           <button
             type="button"
             onClick={() => props.onSetRegion(null)}
-            disabled={Boolean(unsaveableReason)}
-            title={unsaveableReason ?? 'Edit the whole-page document'}
+            disabled={!documentReady || Boolean(unsaveableReason)}
+            title={
+              !documentReady
+                ? regionSwitchBlockedReason ?? 'Wait for the saved document to open'
+                : unsaveableReason ?? 'Edit the whole-page document'
+            }
             aria-pressed={activeRegionId === null}
             className={`shrink-0 rounded-lg px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider transition-colors ${
               activeRegionId === null
@@ -1063,8 +1283,12 @@ function DefaultContextZone(props: VisualEditorSidebarProps) {
               key={region.id}
               type="button"
               onClick={() => props.onSetRegion(region.id)}
+              disabled={Boolean(regionSwitchBlockedReason)}
+              title={
+                regionSwitchBlockedReason ?? `Edit the ${region.label} copy region`
+              }
               aria-pressed={region.id === activeRegionId}
-              className={`shrink-0 rounded-lg px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider transition-colors ${
+              className={`shrink-0 rounded-lg px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
                 region.id === activeRegionId
                   ? 'bg-accent-gold/20 text-accent-gold'
                   : 'text-ink-muted-on-dark hover:text-white'
@@ -1081,11 +1305,17 @@ function DefaultContextZone(props: VisualEditorSidebarProps) {
         <button
           type="button"
           onClick={props.onUndo}
-          disabled={!canUndo(history)}
-          title="Undo the last change (⌘Z)"
+          disabled={!canUndo(history) || documentLoadState !== 'ready'}
+          title={
+            documentLoadState === 'loading'
+              ? 'Wait for the saved document to open before undoing'
+              : documentLoadState === 'degraded'
+                ? 'Reload the saved document before undoing'
+                : 'Undo the last change (⌘Z)'
+          }
           aria-label="Undo the last change"
           className={`inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-bold transition-colors disabled:opacity-40 ${
-            canUndo(history)
+            canUndo(history) && documentLoadState === 'ready'
               ? 'border-white/15 bg-white/10 text-ink-on-dark hover:bg-white/15'
               : 'border-white/10 bg-white/5 text-ink-muted-on-dark'
           }`}
@@ -1096,11 +1326,17 @@ function DefaultContextZone(props: VisualEditorSidebarProps) {
         <button
           type="button"
           onClick={props.onRedo}
-          disabled={!canRedo(history)}
-          title="Redo (⌘⇧Z)"
+          disabled={!canRedo(history) || documentLoadState !== 'ready'}
+          title={
+            documentLoadState === 'loading'
+              ? 'Wait for the saved document to open before redoing'
+              : documentLoadState === 'degraded'
+                ? 'Reload the saved document before redoing'
+                : 'Redo (⌘⇧Z)'
+          }
           aria-label="Redo the last undone change"
           className={`inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-bold transition-colors disabled:opacity-40 ${
-            canRedo(history)
+            canRedo(history) && documentLoadState === 'ready'
               ? 'border-white/15 bg-white/10 text-ink-on-dark hover:bg-white/15'
               : 'border-white/10 bg-white/5 text-ink-muted-on-dark'
           }`}
@@ -1113,12 +1349,18 @@ function DefaultContextZone(props: VisualEditorSidebarProps) {
       <button
         type="button"
         onClick={props.onSave}
-        disabled={savingBackend || !dirty || Boolean(unsaveableReason)}
+        disabled={
+          savingBackend || !dirty || Boolean(unsaveableReason) || !documentReady
+        }
         title={
-          unsaveableReason ??
-          (contentRow
-            ? 'Write this document to Supabase'
-            : 'Create the Supabase CMS row for this page from what is on screen')
+          !documentReady
+            ? documentLoadState === 'degraded'
+              ? 'Reload the saved document before saving'
+              : 'Wait for the saved document to open before saving'
+            : unsaveableReason ??
+              (contentRow
+                ? 'Write this document to Supabase'
+                : 'Create the Supabase CMS row for this page from what is on screen')
         }
         className={`inline-flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold uppercase tracking-wider shadow-raised transition-colors disabled:opacity-50 ${
           dirty
@@ -1378,7 +1620,15 @@ function DefaultContextZone(props: VisualEditorSidebarProps) {
         <DropdownMenu.Trigger asChild>
           <button
             type="button"
-            className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-primary-bright px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-white shadow-xs transition-colors hover:bg-primary-light focus-visible:ring-2 focus-visible:ring-accent-gold"
+            disabled={!canMutateDocument}
+            title={
+              documentLoadState === 'loading'
+                ? 'Wait for the saved document to open before adding a block'
+                : documentLoadState === 'degraded'
+                  ? 'Reload the saved document before adding a block'
+                  : unsaveableReason ?? 'Add a block to this document'
+            }
+            className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-primary-bright px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-white shadow-xs transition-colors hover:bg-primary-light focus-visible:ring-2 focus-visible:ring-accent-gold disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-primary-bright"
           >
             <Plus size={14} />
             <span>Add Block</span>
@@ -1453,8 +1703,15 @@ function DefaultContextZone(props: VisualEditorSidebarProps) {
           <button
             type="button"
             onClick={props.onOpenSettings}
-            title="Edit page title, slug, and featured image"
-            className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-accent-gold"
+            disabled={!documentReady}
+            title={
+              documentOpening
+                ? 'Wait for the saved document to open before editing page settings'
+                : documentUnavailable
+                  ? 'Reload the saved document before editing page settings'
+                  : 'Edit page title, slug, and featured image'
+            }
+            className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-accent-gold disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-white/10"
           >
             <Settings size={14} />
             <span>Settings</span>
@@ -1465,8 +1722,15 @@ function DefaultContextZone(props: VisualEditorSidebarProps) {
           <button
             type="button"
             onClick={props.onOpenRevisions}
-            title="View page revision history and restore previous snapshots"
-            className="inline-flex w-full items-center gap-1.5 rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-accent-gold"
+            disabled={!documentReady}
+            title={
+              documentOpening
+                ? 'Wait for the saved document to open before viewing revisions'
+                : documentUnavailable
+                  ? 'Reload the saved document before viewing revisions'
+                  : 'View page revision history and restore previous snapshots'
+            }
+            className="inline-flex w-full items-center gap-1.5 rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-accent-gold disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-white/10"
           >
             <History size={14} />
             <span>Revisions</span>
@@ -1736,6 +2000,7 @@ function DefaultContextZone(props: VisualEditorSidebarProps) {
                   data-testid="sidebar-block-item"
                   onDragOver={(e) => {
                     if (
+                      !canMutateDocument ||
                       !props.onReorderSection ||
                       draggingBlockIndex === null ||
                       draggingBlockIndex === idx
@@ -1752,7 +2017,7 @@ function DefaultContextZone(props: VisualEditorSidebarProps) {
                     if (dragOverBlockIndex === idx) setDragOverBlockIndex(null);
                   }}
                   onDrop={(e) => {
-                    if (!props.onReorderSection) return;
+                    if (!canMutateDocument || !props.onReorderSection) return;
                     const dragFrom =
                       draggingBlockIndex ?? Number(e.dataTransfer?.getData('text/plain'));
                     if (Number.isNaN(dragFrom) || dragFrom === idx) return;
@@ -1771,9 +2036,13 @@ function DefaultContextZone(props: VisualEditorSidebarProps) {
                 >
                   {props.onReorderSection && (
                     <span
-                      draggable
+                      draggable={canMutateDocument}
                       aria-hidden="true"
-                      title={`Drag block #${idx + 1} (${label}) to reorder`}
+                      title={
+                        canMutateDocument
+                          ? `Drag block #${idx + 1} (${label}) to reorder`
+                          : 'Editing is locked until the saved document is ready'
+                      }
                       onDragStart={(e) => {
                         setDraggingBlockIndex(idx);
                         if (e.dataTransfer) {
@@ -1785,18 +2054,19 @@ function DefaultContextZone(props: VisualEditorSidebarProps) {
                         setDraggingBlockIndex(null);
                         setDragOverBlockIndex(null);
                       }}
-                      className="cursor-grab select-none p-0.5 text-slate-400 hover:text-white active:cursor-grabbing touch-manipulation"
+                      className={`select-none p-0.5 text-slate-400 hover:text-white touch-manipulation ${canMutateDocument ? 'cursor-grab active:cursor-grabbing' : 'cursor-not-allowed opacity-40'}`}
                     >
                       <GripVertical size={11} />
                     </span>
                   )}
                   <button
                     type="button"
+                    disabled={!canMutateDocument}
                     onClick={() => {
                       props.onJumpToBlock(idx);
                       props.onOpenVisualComposer('block', idx);
                     }}
-                    className="flex-1 truncate font-semibold text-left text-ink-on-dark hover:text-accent-gold transition-colors cursor-pointer"
+                    className="flex-1 truncate font-semibold text-left text-ink-on-dark hover:text-accent-gold transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-ink-on-dark"
                     title={`Edit ${label} in sidebar`}
                   >
                     {label}
@@ -1819,28 +2089,31 @@ function DefaultContextZone(props: VisualEditorSidebarProps) {
                   )}
                   <button
                     type="button"
+                    disabled={!canMutateDocument}
                     onClick={() => props.onOpenVisualComposer('block', idx)}
                     title="Visual Composer: Element Design & Box Model (⌘E)"
                     aria-label={`Visual Composer for ${label}`}
-                    className="p-0.5 text-accent-gold hover:text-white"
+                    className="p-0.5 text-accent-gold hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <SlidersHorizontal size={11} />
                   </button>
                   <button
                     type="button"
+                    disabled={!canMutateDocument}
                     onClick={() => props.onOpenVisualComposer('section', idx)}
                     title="Row / Section Settings (Containers, Dividers & Grid)"
                     aria-label={`Row settings for ${label}`}
-                    className="p-0.5 text-sky-400 hover:text-white"
+                    className="p-0.5 text-sky-400 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <LayoutTemplate size={11} />
                   </button>
                   <button
                     type="button"
+                    disabled={!canMutateDocument}
                     onClick={() => props.onDuplicateSection(idx)}
                     title="Duplicate block"
                     aria-label={`Duplicate block ${label}`}
-                    className="p-0.5 text-slate-400 hover:text-white"
+                    className="p-0.5 text-slate-400 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <Copy size={11} />
                   </button>
@@ -1851,7 +2124,8 @@ function DefaultContextZone(props: VisualEditorSidebarProps) {
                       confirmLabel="Delete"
                       cancelLabel="Cancel"
                       danger
-                      idleClassName="p-0.5 text-slate-400 hover:text-rose-300 transition-colors cursor-pointer"
+                      disabled={!canMutateDocument}
+                      idleClassName="p-0.5 text-slate-400 hover:text-rose-300 transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
                       onConfirm={() => props.onDeleteSection?.(idx)}
                     >
                       <Trash2 size={11} />
@@ -1860,10 +2134,11 @@ function DefaultContextZone(props: VisualEditorSidebarProps) {
                   {idx > 0 && (
                     <button
                       type="button"
+                      disabled={!canMutateDocument}
                       onClick={() => props.onMoveSection(idx, 'up')}
                       title="Move up"
                       aria-label={`Move block ${label} up`}
-                      className="p-0.5 text-slate-400 hover:text-white"
+                      className="p-0.5 text-slate-400 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       <ArrowUp size={11} />
                     </button>
@@ -1871,10 +2146,11 @@ function DefaultContextZone(props: VisualEditorSidebarProps) {
                   {idx < blocks.length - 1 && (
                     <button
                       type="button"
+                      disabled={!canMutateDocument}
                       onClick={() => props.onMoveSection(idx, 'down')}
                       title="Move down"
                       aria-label={`Move block ${label} down`}
-                      className="p-0.5 text-slate-400 hover:text-white"
+                      className="p-0.5 text-slate-400 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       <ArrowDown size={11} />
                     </button>
@@ -1886,29 +2162,71 @@ function DefaultContextZone(props: VisualEditorSidebarProps) {
         </div>
       )}
 
-      {/* ── Coded-route DataPoints (when no blocks) ───────────────────── */}
-      {blocks.length === 0 && (
-        <div className="flex flex-col gap-2 border-t border-white/10 pt-2 text-xs">
-          <div className="flex items-center gap-2">
-            <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-accent-gold">
-              <Database size={11} className="text-sky-400" />
-              <span>Coded Route DataPoints:</span>
-            </span>
-          </div>
-          <p className="text-[11px] text-ink-muted-on-dark">
-            This page renders dynamic database fields. Click any element on page or open the matrix
-            to edit live copy.
-          </p>
-          <button
-            type="button"
-            onClick={props.onOpenDataPointDrawer}
-            className="inline-flex items-center justify-center gap-1.5 rounded-md border border-sky-400/40 bg-sky-500/20 px-2.5 py-1 text-xs font-bold text-sky-300 transition-colors hover:bg-sky-500/30 cursor-pointer"
+      {/* ── Empty document or coded-route DataPoints ───────────────────── */}
+      {blocks.length === 0 &&
+        (props.isComposerWorkspace ? (
+          <div
+            data-testid="composer-empty-document"
+            className="flex flex-col gap-2 border-t border-white/10 pt-2 text-xs"
           >
-            <Database size={12} />
-            <span>Open DataPoints Matrix</span>
-          </button>
-        </div>
-      )}
+            <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-accent-gold">
+              <FilePlus2 size={11} />
+              <span>Empty document</span>
+            </span>
+            <p className="text-[11px] leading-snug text-ink-muted-on-dark">
+              This row has no blocks yet. Add the first block here, or open the content editor to
+              build the page with the full block library.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => props.onOpenBlockLibrary(null)}
+                disabled={!canMutateDocument}
+                title={
+                  documentLoadState === 'loading'
+                    ? 'Wait for the saved document to open before adding a block'
+                    : documentLoadState === 'degraded'
+                      ? 'Reload the saved document before adding a block'
+                      : unsaveableReason ?? 'Add the first block to this document'
+                }
+                className="inline-flex items-center justify-center gap-1.5 rounded-md border border-accent-gold/40 bg-accent-gold/15 px-2.5 py-1 text-xs font-bold text-accent-gold transition-colors hover:bg-accent-gold/25 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-accent-gold/15"
+              >
+                <Plus size={12} />
+                <span>Add first block</span>
+              </button>
+              {props.adminEditUrl ? (
+                <a
+                  href={props.adminEditUrl}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-md border border-white/15 bg-white/5 px-2.5 py-1 text-xs font-bold text-ink-on-dark transition-colors hover:bg-white/10"
+                >
+                  <ExternalLink size={12} />
+                  <span>Content editor</span>
+                </a>
+              ) : null}
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2 border-t border-white/10 pt-2 text-xs">
+            <div className="flex items-center gap-2">
+              <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-accent-gold">
+                <Database size={11} className="text-sky-400" />
+                <span>Coded Route DataPoints:</span>
+              </span>
+            </div>
+            <p className="text-[11px] text-ink-muted-on-dark">
+              This page renders dynamic database fields. Click any element on page or open the
+              matrix to edit live copy.
+            </p>
+            <button
+              type="button"
+              onClick={props.onOpenDataPointDrawer}
+              className="inline-flex items-center justify-center gap-1.5 rounded-md border border-sky-400/40 bg-sky-500/20 px-2.5 py-1 text-xs font-bold text-sky-300 transition-colors hover:bg-sky-500/30 cursor-pointer"
+            >
+              <Database size={12} />
+              <span>Open DataPoints Matrix</span>
+            </button>
+          </div>
+        ))}
     </div>
   );
 }

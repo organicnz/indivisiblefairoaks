@@ -65,7 +65,7 @@ describe('WallEChatWidget', () => {
 
     // Chat dialogue rendered in document.body via Dialog.Portal
     expect(document.body.textContent).toContain('WALL-E');
-    expect(document.body.textContent).toContain('Online');
+    expect(document.body.querySelector('[role="status"]')?.textContent).toBe('Site guide');
     expect(document.body.textContent).toContain("Hi! I'm WALL-E");
 
     // Launcher button morphs to close
@@ -160,6 +160,20 @@ describe('WallEChatWidget', () => {
     // Verify response rendered with rich formatting and citation
     expect(document.body.textContent).toContain('Here are our upcoming events for this month.');
     expect(document.body.textContent).toContain('Events Calendar');
+    expect(document.body.querySelector('[role="status"]')?.textContent).toBe('Online');
+
+    // The current question is sent once, as `message`; it must not also appear
+    // in the history that the edge function receives.
+    const chatCall = mockFetch.mock.calls.find(([url]) => String(url) === '/api/wall-e-chat') as
+      | [string, RequestInit]
+      | undefined;
+    const requestInit = chatCall?.[1];
+    const requestBody = JSON.parse(String(requestInit?.body)) as {
+      message: string;
+      history: Array<{ role: string; content: string }>;
+    };
+    expect(requestBody.message).toBe('What upcoming events does our chapter have scheduled?');
+    expect(requestBody.history.some((item) => item.content === requestBody.message)).toBe(false);
 
     // Check reset conversation button appears and functions
     const resetBtn = document.body.querySelector<HTMLButtonElement>(
@@ -173,5 +187,109 @@ describe('WallEChatWidget', () => {
 
     expect(document.body.textContent).toContain("Hi! I'm WALL-E");
     expect(document.body.textContent).not.toContain('Here are our upcoming events for this month.');
+  });
+
+  it('shows a server error message and keeps an online status for a rate limit', async () => {
+    installFetchMock(
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 429,
+        json: async () => ({ error: 'Too many questions. Please try again later.' }),
+      })
+    );
+
+    await act(async () => {
+      root.render(<WallEChatWidget />);
+    });
+
+    const launcherBtn = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Open WALL-E assistant"]'
+    );
+    await act(async () => {
+      launcherBtn?.click();
+    });
+
+    const eventsChip = Array.from(document.body.querySelectorAll('button')).find((btn) =>
+      btn.textContent?.includes('Upcoming Events')
+    );
+    await act(async () => {
+      eventsChip?.click();
+    });
+
+    expect(document.body.textContent).toContain('Too many questions. Please try again later.');
+    expect(document.body.textContent).not.toContain("I couldn't reach my notes just now.");
+    expect(document.body.querySelector('[role="status"]')?.textContent).toBe('Online');
+  });
+
+  it('ignores an in-flight answer after the conversation is reset', async () => {
+    let resolveFetch: (value: unknown) => void = () => undefined;
+    const pending = new Promise((resolve) => {
+      resolveFetch = resolve;
+    });
+    installFetchMock(vi.fn().mockReturnValue(pending));
+
+    await act(async () => {
+      root.render(<WallEChatWidget />);
+    });
+
+    const launcherBtn = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Open WALL-E assistant"]'
+    );
+    await act(async () => {
+      launcherBtn?.click();
+    });
+
+    const eventsChip = Array.from(document.body.querySelectorAll('button')).find((btn) =>
+      btn.textContent?.includes('Upcoming Events')
+    );
+    await act(async () => {
+      eventsChip?.click();
+    });
+    expect(document.body.querySelector('[role="status"]')?.textContent).toBe('Checking…');
+
+    const resetBtn = document.body.querySelector<HTMLButtonElement>(
+      'button[aria-label="Reset conversation"]'
+    );
+    await act(async () => {
+      resetBtn?.click();
+    });
+    expect(document.body.querySelector('[role="status"]')?.textContent).toBe('Site guide');
+
+    await act(async () => {
+      resolveFetch({
+        ok: true,
+        status: 200,
+        json: async () => ({ answer: 'This answer arrived after the reset.' }),
+      });
+      await pending;
+    });
+
+    expect(document.body.textContent).not.toContain('This answer arrived after the reset.');
+    expect(document.body.querySelector('[role="status"]')?.textContent).toBe('Site guide');
+  });
+
+  it('reports an unavailable check instead of claiming the bot is online', async () => {
+    installFetchMock(vi.fn().mockRejectedValue(new Error('offline')));
+
+    await act(async () => {
+      root.render(<WallEChatWidget />);
+    });
+
+    const launcherBtn = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Open WALL-E assistant"]'
+    );
+    await act(async () => {
+      launcherBtn?.click();
+    });
+
+    const eventsChip = Array.from(document.body.querySelectorAll('button')).find((btn) =>
+      btn.textContent?.includes('Upcoming Events')
+    );
+    await act(async () => {
+      eventsChip?.click();
+    });
+
+    expect(document.body.textContent).toContain("I couldn't reach my notes just now.");
+    expect(document.body.querySelector('[role="status"]')?.textContent).toBe('Unavailable');
   });
 });

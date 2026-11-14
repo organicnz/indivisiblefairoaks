@@ -14,8 +14,14 @@ export async function Footer() {
   const dataPoints = await getDataPoints('footer');
 
   return (
-    <footer className="mt-auto border-t-4 border-accent bg-secondary text-ink-on-dark">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-16">
+    <footer className="relative mt-auto overflow-hidden bg-secondary text-ink-on-dark">
+      <div aria-hidden="true" className="relative z-10 flex h-1 w-full">
+        <span className="h-full w-[52%] bg-accent" />
+        <span className="h-full w-[31%] bg-primary" />
+        <span className="h-full flex-1 bg-accent-gold" />
+      </div>
+      <span aria-hidden="true" className="civic-footer-watermark" />
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-16">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-10 lg:gap-12">
           {/* Brand & Mission Column */}
           <div className="col-span-1 md:col-span-1">
@@ -63,11 +69,11 @@ export async function Footer() {
 
           {/* Site Navigation */}
           <div className="col-span-1">
-            <h3 className="mb-4 font-display text-xl font-semibold tracking-[-0.02em] text-accent-gold">
+            <h2 className="mb-4 font-display text-xl font-semibold tracking-[-0.02em] text-accent-gold">
               <DataPoint name="footer.col_explore" initialData={dataPoints}>
                 Explore
               </DataPoint>
-            </h3>
+            </h2>
             <ul className="space-y-2.5 text-xs sm:text-sm font-medium">
               <li>
                 <Link href="/about" className="hover:text-white transition-colors">
@@ -107,7 +113,7 @@ export async function Footer() {
               <li>
                 <Link href="/links" className="hover:text-white transition-colors">
                   <DataPoint name="footer.nav.links" as="span" initialData={dataPoints}>
-                    Link Tree & Action Links
+                    Coalition Links
                   </DataPoint>
                 </Link>
               </li>
@@ -123,11 +129,11 @@ export async function Footer() {
 
           {/* Action & Engagement */}
           <div className="col-span-1">
-            <h3 className="mb-4 font-display text-xl font-semibold tracking-[-0.02em] text-accent-gold">
+            <h2 className="mb-4 font-display text-xl font-semibold tracking-[-0.02em] text-accent-gold">
               <DataPoint name="footer.col_involved" initialData={dataPoints}>
                 Get Involved
               </DataPoint>
-            </h3>
+            </h2>
             <ul className="space-y-2.5 text-xs sm:text-sm font-medium">
               <li>
                 <a
@@ -179,11 +185,11 @@ export async function Footer() {
 
           {/* Contact & Transparency */}
           <div className="col-span-1">
-            <h3 className="mb-4 font-display text-xl font-semibold tracking-[-0.02em] text-accent-gold">
+            <h2 className="mb-4 font-display text-xl font-semibold tracking-[-0.02em] text-accent-gold">
               <DataPoint name="footer.col_connect" initialData={dataPoints}>
                 Connect With Us
               </DataPoint>
-            </h3>
+            </h2>
             <div className="space-y-3 text-xs sm:text-sm">
               <DataPoint
                 name="footer.inquiry_intro"

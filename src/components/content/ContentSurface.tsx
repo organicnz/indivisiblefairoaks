@@ -32,11 +32,12 @@ export function ContentSurface({
   return (
     <div
       className={`cw prose prose-slate prose-lg max-w-none
-        prose-headings:text-foreground prose-headings:uppercase prose-headings:font-black
+        prose-headings:font-display prose-headings:font-semibold prose-headings:normal-case prose-headings:tracking-[-0.03em] prose-headings:text-foreground
         prose-p:text-muted-foreground prose-p:leading-relaxed
         prose-a:text-primary dark:prose-a:text-primary-on-dark prose-a:font-bold prose-a:no-underline hover:prose-a:underline
-        prose-strong:text-foreground prose-strong:font-black
-        prose-img:rounded-3xl prose-img:shadow-lg ${className}`.trim()}
+        prose-strong:text-foreground prose-strong:font-semibold
+        prose-blockquote:border-l-primary prose-blockquote:font-display prose-blockquote:not-italic
+        prose-hr:border-border prose-img:rounded-[var(--radius-sm)] prose-img:shadow-none ${className}`.trim()}
       data-visual-edit-root=""
       {...(contentId ? { [VISUAL_EDIT_CONTENT_ID_ATTR]: String(contentId) } : {})}
       // biome-ignore lint/security/noDangerouslySetInnerHtml: sanitizeWPContent runs inline on the same expression

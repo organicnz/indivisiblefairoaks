@@ -4,7 +4,6 @@ import { ArrowRight, Eye, EyeOff, Fingerprint, Loader2, Lock, Shield } from 'luc
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { DataPoint } from '@/components/ui/DataPoint';
-import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
 import { useDataPoints } from '@/hooks/useDataPoints';
 import { getSafeNextPath } from '@/lib/safe-redirect';
 import { createClient } from '@/lib/supabase';
@@ -155,14 +154,13 @@ function LoginForm() {
   };
 
   return (
-    <div className="relative overflow-hidden min-h-screen bg-background flex flex-col items-center justify-center px-4 py-32 selection:bg-primary selection:text-white">
-      <VgpuCivicConstellation className="pointer-events-none opacity-20" />
-      <div className="relative z-10 max-w-xl w-full">
+    <div className="civic-page relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-background px-4 py-32 selection:bg-primary selection:text-white">
+      <div className="relative z-10 w-full max-w-xl">
         {/* Header */}
         <div className="text-center mb-12 animate-in fade-in slide-in-from-top-8 duration-300 ease-out">
-          <div className="inline-flex items-center gap-3 px-6 py-2.5 bg-secondary/5 rounded-full mb-8 border border-secondary/5">
-            <Shield className="w-3.5 h-3.5 text-foreground" />
-            <span className="text-foreground font-black uppercase tracking-[0.4em] text-[10px]">
+          <div className="mb-8 inline-flex items-center gap-3 border border-border px-6 py-2.5">
+            <Shield className="h-3.5 w-3.5 text-foreground" />
+            <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-foreground">
               <DataPoint
                 initialData={dataPoints}
                 name={isAdminTarget ? 'login.gateway.admin' : 'login.gateway.secure'}
@@ -171,7 +169,7 @@ function LoginForm() {
               </DataPoint>
             </span>
           </div>
-          <h1 className="text-6xl md:text-8xl font-black text-foreground uppercase tracking-tighter leading-none mb-6">
+          <h1 className="mb-6 font-display text-6xl font-semibold leading-[0.9] tracking-[-0.05em] text-foreground md:text-8xl">
             <DataPoint
               initialData={dataPoints}
               name={isSignUp ? 'login.title.join' : 'login.title.welcome'}
@@ -210,8 +208,8 @@ function LoginForm() {
 
         {/* Admin Gateway Notice Banner */}
         {isAdminTarget && (
-          <div className="mb-8 p-4 rounded-2xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-800/60 text-blue-950 dark:text-blue-200 text-center animate-in fade-in slide-in-from-top-4 duration-300 ease-out shadow-sm">
-            <div className="flex items-center justify-center gap-2 font-black text-xs uppercase tracking-wider text-blue-900 dark:text-blue-200 mb-1">
+          <div className="mb-8 border border-primary/30 bg-primary/5 p-4 text-center text-primary-ink">
+            <div className="mb-1 flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-[0.12em]">
               <Shield className="w-4 h-4 text-blue-600 dark:text-blue-400" />
               <DataPoint initialData={dataPoints} name="login.notice.admin_title">
                 Chapter Administration
@@ -245,9 +243,9 @@ function LoginForm() {
                 setAuthMethod('otp');
                 setIsSignUp(false);
               }}
-              className={`flex-1 min-h-11 py-5 text-xs font-black uppercase tracking-[0.2em] transition-colors duration-300 ease-out rounded-xl flex items-center justify-center gap-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
+              className={`flex min-h-11 flex-1 items-center justify-center gap-3 border py-4 text-[11px] font-bold uppercase tracking-[0.16em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
                 authMethod === 'otp'
-                  ? 'bg-primary text-white dark:bg-primary-bright dark:text-white shadow-xl shadow-primary/20'
+                  ? 'border-primary bg-primary text-white'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
@@ -264,9 +262,9 @@ function LoginForm() {
               aria-controls="auth-panel"
               tabIndex={authMethod === 'password' ? 0 : -1}
               onClick={() => setAuthMethod('password')}
-              className={`flex-1 min-h-11 py-5 text-xs font-black uppercase tracking-[0.2em] transition-colors duration-300 ease-out rounded-xl flex items-center justify-center gap-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
+              className={`flex min-h-11 flex-1 items-center justify-center gap-3 border py-4 text-[11px] font-bold uppercase tracking-[0.16em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
                 authMethod === 'password'
-                  ? 'bg-primary text-white dark:bg-primary-bright dark:text-white shadow-xl shadow-primary/20'
+                  ? 'border-primary bg-primary text-white'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
@@ -288,7 +286,7 @@ function LoginForm() {
                 <div className="group">
                   <label
                     htmlFor="login-email"
-                    className="block text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] ml-1 mb-3 group-focus-within:text-primary dark:group-focus-within:text-primary-on-dark transition-colors"
+                    className="mb-3 ml-1 block text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground transition-colors group-focus-within:text-primary"
                   >
                     <DataPoint initialData={dataPoints} name="login.form.email_label">
                       Credential Email
@@ -301,7 +299,7 @@ function LoginForm() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
-                    className="w-full px-8 py-5 bg-surface-muted border border-border rounded-3xl focus:ring-4 focus:ring-primary/20 focus:bg-surface-card focus:border-primary outline-none transition-all font-black text-foreground uppercase tracking-[0.2em] text-xs placeholder:text-muted-foreground"
+                    className="w-full border border-border bg-surface-muted px-5 py-4 text-sm font-medium text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary focus:bg-surface-card focus:ring-2 focus:ring-primary/20"
                   />
                 </div>
 
@@ -310,7 +308,7 @@ function LoginForm() {
                     <div className="flex justify-between items-center ml-1 mb-3">
                       <label
                         htmlFor="login-password"
-                        className="block text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] group-focus-within:text-primary dark:group-focus-within:text-primary-on-dark transition-colors"
+                        className="block text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground transition-colors group-focus-within:text-primary"
                       >
                         <DataPoint initialData={dataPoints} name="login.form.password_label">
                           Access Key
@@ -320,7 +318,7 @@ function LoginForm() {
                         <button
                           type="button"
                           onClick={handleResetPassword}
-                          className="text-[9px] font-black text-primary dark:text-primary-on-dark uppercase tracking-widest hover:text-foreground transition-colors"
+                          className="text-[10px] font-bold uppercase tracking-[0.14em] text-primary-ink transition-colors hover:text-foreground"
                         >
                           <DataPoint initialData={dataPoints} name="login.form.forgot_btn">
                             Forgot?
@@ -336,7 +334,7 @@ function LoginForm() {
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         required
-                        className="w-full px-8 py-5 bg-surface-muted border border-border rounded-3xl focus:ring-4 focus:ring-primary/20 focus:bg-surface-card focus:border-primary outline-none transition-all font-black text-foreground tracking-[0.3em] text-xs placeholder:text-muted-foreground pr-16"
+                        className="w-full border border-border bg-surface-muted py-4 pl-5 pr-16 text-sm font-medium text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary focus:bg-surface-card focus:ring-2 focus:ring-primary/20"
                       />
                       <button
                         type="button"
@@ -354,7 +352,7 @@ function LoginForm() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-primary hover:bg-primary-dark dark:bg-primary-bright dark:hover:bg-primary-light text-white font-black rounded-full py-6 transition-all uppercase tracking-[0.4em] text-xs shadow-2xl shadow-primary/20 flex items-center justify-center gap-4 group disabled:opacity-50 active:scale-[0.98]"
+                className="group flex min-h-12 w-full items-center justify-center gap-4 border border-primary bg-primary py-4 text-[11px] font-bold uppercase tracking-[0.2em] text-white transition-colors hover:bg-primary-dark disabled:opacity-50"
               >
                 {loading ? (
                   <Loader2 className="animate-spin" size={20} />
@@ -412,7 +410,7 @@ function LoginForm() {
             <button
               type="button"
               onClick={() => setIsSignUp(!isSignUp)}
-              className="group text-[10px] font-black text-muted-foreground uppercase tracking-[0.4em] hover:text-foreground transition-all flex items-center justify-center gap-3 mx-auto"
+              className="group mx-auto flex items-center justify-center gap-3 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground transition-colors hover:text-foreground"
             >
               <DataPoint
                 initialData={dataPoints}
@@ -431,7 +429,7 @@ function LoginForm() {
         <div className="mt-16 flex items-center justify-center gap-8">
           <div className="flex items-center gap-3">
             <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-            <span className="text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground">
+            <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
               <DataPoint initialData={dataPoints} name="login.badge.encryption">
                 Encryption Active
               </DataPoint>
@@ -439,7 +437,7 @@ function LoginForm() {
           </div>
           <div className="flex items-center gap-3">
             <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-            <span className="text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground">
+            <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
               <DataPoint initialData={dataPoints} name="login.badge.vault">
                 Supabase v2 Vault
               </DataPoint>

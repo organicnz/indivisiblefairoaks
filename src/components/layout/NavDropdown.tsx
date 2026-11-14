@@ -38,7 +38,7 @@ export function NavDropdown({ link, isActive }: NavDropdownProps) {
         // amber text and underline bar are decoration — same contract as the
         // plain links in Header.tsx.
         aria-current={isActive ? 'page' : undefined}
-        className={`relative inline-flex h-full cursor-pointer items-center gap-1 whitespace-nowrap rounded-sm px-2 text-[10px] font-bold uppercase tracking-[0.09em] transition-colors duration-300 ease-out xl:px-2.5 xl:text-[10.5px] ${FOCUS_RING} ${
+        className={`relative inline-flex h-full cursor-pointer items-center gap-1 whitespace-nowrap rounded-sm px-2.5 text-[11px] font-bold uppercase tracking-[0.1em] transition-colors duration-300 ease-out xl:px-3 xl:text-[11.5px] ${FOCUS_RING} ${
           isActive ? 'text-primary-ink' : 'text-foreground/65 hover:text-foreground'
         }`}
       >

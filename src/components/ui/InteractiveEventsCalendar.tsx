@@ -315,7 +315,7 @@ export function InteractiveEventsCalendar({
   return (
     <div className="space-y-8">
       {/* Controls: Expandable Search, Single-Line Scrollable Filters, and Admin Actions */}
-      <div className="relative z-20 flex items-center justify-between gap-3 p-2.5 sm:p-3 rounded-2xl bg-surface-card border border-border backdrop-blur-md shadow-xs">
+      <div className="relative z-20 flex items-center justify-between gap-3 border-y border-border bg-surface-card p-2.5 sm:p-3">
         {/* Expandable Search Button & Input */}
         <div
           className={`relative flex items-center transition-all duration-300 ease-out shrink-0 ${
@@ -431,7 +431,7 @@ export function InteractiveEventsCalendar({
                 <button
                   type="button"
                   aria-label="Add or import event"
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-accent-gold hover:brightness-105 text-ink-strong font-black text-xs uppercase tracking-wider shadow-md transition-all cursor-pointer select-none"
+                  className="inline-flex min-h-11 cursor-pointer select-none items-center gap-2 border border-accent-gold bg-accent-gold px-4 py-2 text-[11px] font-bold uppercase tracking-[0.1em] text-ink-strong transition-colors hover:brightness-95"
                 >
                   <Plus size={15} />
                   <span>Add Event</span>
@@ -442,7 +442,7 @@ export function InteractiveEventsCalendar({
                 <DropdownMenuContent
                   align="end"
                   sideOffset={6}
-                  className="z-[9999] min-w-56 rounded-2xl bg-surface-card dark:bg-slate-900 p-2 shadow-2xl border border-border dark:border-white/10 backdrop-blur-xl animate-in fade-in-0 zoom-in-95"
+                  className="z-[9999] min-w-56 rounded-sm border border-border bg-surface-card p-2 shadow-float animate-in fade-in-0 zoom-in-95"
                 >
                   <DropdownMenuItem
                     className="flex items-start gap-3 p-2.5 rounded-xl cursor-pointer outline-none transition-colors hover:bg-surface-muted dark:hover:bg-white/10"
@@ -487,7 +487,7 @@ export function InteractiveEventsCalendar({
       {/* Events Grid */}
       <div className="grid grid-cols-1 gap-6">
         {filteredEvents.length === 0 ? (
-          <div className="p-12 text-center rounded-2xl bg-surface-card border border-border text-muted-foreground dark:text-ink-muted-on-dark">
+          <div className="border-y border-border bg-surface-card p-12 text-center text-muted-foreground">
             <DataPoint as="span" name="events.empty.desc" initialData={dataPoints}>
               No events found matching your criteria. Try selecting &ldquo;All Actions&rdquo; or
               clearing the search query.

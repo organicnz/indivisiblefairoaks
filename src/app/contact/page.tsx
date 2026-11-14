@@ -92,7 +92,7 @@ export default function ContactPage() {
   };
 
   return (
-    <div className="w-full bg-background text-foreground min-h-screen pt-(--header-clearance) pb-20 transition-colors duration-300">
+    <div className="civic-page w-full min-h-screen bg-background pb-20 text-foreground pt-(--header-clearance) transition-colors duration-300">
       <PageMasthead
         icon={Mail}
         eyebrow={
@@ -123,12 +123,18 @@ export default function ContactPage() {
         }
       />
 
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <div className="bg-surface-card/90 p-8 sm:p-12 rounded-3xl border border-border dark:border-white/10 shadow-2xl backdrop-blur-md">
+      <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8">
+        <div className="grid gap-10 border border-border bg-surface-card p-6 sm:p-10 lg:grid-cols-[minmax(0,1.15fr)_minmax(18rem,0.85fr)]">
+          <div>
+            <h2 className="font-display text-3xl font-semibold tracking-[-0.03em]">Send a message</h2>
+            <p className="mt-2 mb-8 max-w-xl text-sm leading-relaxed text-muted-foreground">
+              Messages are read by chapter volunteers. For urgent voter assistance, use the county
+              and election-protection hotlines on the voter information page.
+            </p>
           {status === 'success' && (
             <output
               id="form-success-message"
-              className="block mb-8 p-4 bg-emerald-950/80 border border-emerald-500/50 text-emerald-200 rounded-2xl font-bold text-sm tracking-wide text-center"
+              className="mb-8 block border border-emerald-700/40 bg-emerald-50 p-4 text-center text-sm font-semibold text-emerald-950 dark:bg-emerald-950/50 dark:text-emerald-200"
             >
               <DataPoint name="contact.status.success_msg" as="span" initialData={dataPoints}>
                 Message sent successfully! Our organizing team will be in touch soon.
@@ -151,7 +157,7 @@ export default function ContactPage() {
           {status === 'partial-copy' && (
             <output
               id="form-partial-message"
-              className="block mb-8 p-4 bg-amber-950/80 border border-accent-gold/50 text-amber-200 rounded-2xl font-bold text-sm tracking-wide text-center"
+              className="mb-8 block border border-amber-700/40 bg-amber-50 p-4 text-center text-sm font-semibold text-amber-950 dark:bg-amber-950/50 dark:text-amber-100"
             >
               <DataPoint name="contact.status.partial_copy_msg" as="span" initialData={dataPoints}>
                 ⚠️ Message sent to our organizing team! We will be in touch soon.
@@ -171,7 +177,7 @@ export default function ContactPage() {
           {status === 'partial-notify' && (
             <output
               id="form-partial-message"
-              className="block mb-8 p-4 bg-amber-950/80 border border-accent-gold/50 text-amber-200 rounded-2xl font-bold text-sm tracking-wide text-center"
+              className="mb-8 block border border-amber-700/40 bg-amber-50 p-4 text-center text-sm font-semibold text-amber-950 dark:bg-amber-950/50 dark:text-amber-100"
             >
               <DataPoint
                 name="contact.status.partial_notify_msg"
@@ -195,13 +201,13 @@ export default function ContactPage() {
             <div
               id="form-error-message"
               role="alert"
-              className="mb-8 p-4 bg-rose-950/80 border border-rose-500/50 text-rose-200 rounded-2xl font-bold text-sm tracking-wide text-center"
+              className="mb-8 border border-rose-700/40 bg-rose-50 p-4 text-center text-sm font-semibold text-rose-950 dark:bg-rose-950/50 dark:text-rose-100"
             >
               ❌ {errorMessage}
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-6" aria-describedby={statusMessageId}>
+          <form onSubmit={handleSubmit} className="civic-form space-y-6" aria-describedby={statusMessageId}>
             {/* Honeypot field for anti-spam */}
             <div className="hidden" aria-hidden="true">
               <label htmlFor="website">Leave this field empty</label>
@@ -267,12 +273,12 @@ export default function ContactPage() {
                   dataPoints['contact.form.message_placeholder'] ||
                   'Tell us how you would like to get involved, ask a question about our chapter, or join the Resistance Choir...'
                 }
-                className="w-full px-5 py-3.5 bg-surface-muted border border-border dark:border-white/10 rounded-xl focus:ring-2 focus:ring-primary dark:focus:ring-primary-bright focus:border-transparent outline-none transition-all font-medium text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-ink-muted-on-dark resize-none"
+                className="w-full resize-none border border-border bg-surface-muted px-5 py-3.5 font-medium text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20"
               />
             </div>
 
             <fieldset className="space-y-3 rounded-xl border border-border dark:border-white/10 p-4 bg-surface-muted/50 dark:bg-white/[0.02]">
-              <legend className="px-2 text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground dark:text-ink-muted-on-dark">
+              <legend className="px-2 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
                 <DataPoint name="contact.form.prefs_legend" as="span" initialData={dataPoints}>
                   Email preferences
                 </DataPoint>
@@ -283,7 +289,7 @@ export default function ContactPage() {
                   type="checkbox"
                   name="sendCopy"
                   id="sendCopy"
-                  className="mt-1 h-4 w-4 rounded border-border dark:border-white/20 bg-surface-card accent-amber-500"
+                  className="mt-1 h-4 w-4 rounded border-border dark:border-white/20 bg-surface-card accent-primary"
                 />
                 <label
                   htmlFor="sendCopy"
@@ -300,7 +306,7 @@ export default function ContactPage() {
                   type="checkbox"
                   name="consentToEmail"
                   id="consentToEmail"
-                  className="mt-1 h-4 w-4 rounded border-border dark:border-white/20 bg-surface-card accent-amber-500"
+                  className="mt-1 h-4 w-4 rounded border-border dark:border-white/20 bg-surface-card accent-primary"
                 />
                 <label
                   htmlFor="consentToEmail"
@@ -328,7 +334,7 @@ export default function ContactPage() {
               type="submit"
               disabled={status === 'loading'}
               aria-busy={status === 'loading'}
-              className="w-full bg-primary-bright text-white font-bold rounded-xl py-4 hover:bg-primary transition-all uppercase tracking-wider text-sm shadow-xl hover:shadow-primary/20 disabled:opacity-50"
+              className="min-h-11 w-full border border-primary bg-primary py-4 text-sm font-bold uppercase tracking-[0.14em] text-white transition-colors hover:bg-primary-dark disabled:opacity-50"
             >
               {status === 'loading' ? (
                 <DataPoint name="contact.form.submitting_btn" as="span" initialData={dataPoints}>
@@ -341,15 +347,18 @@ export default function ContactPage() {
               )}
             </button>
           </form>
+          </div>
 
           {/* Chapter Contacts Footer */}
-          <div className="mt-12 pt-8 border-t border-border dark:border-white/10 grid grid-cols-1 md:grid-cols-2 gap-6 text-xs text-muted-foreground dark:text-ink-muted-on-dark">
+          <aside aria-label="Direct contact and meeting details" className="border-t border-border pt-8 lg:border-l lg:border-t-0 lg:pl-8">
+          <h2 className="font-display text-3xl font-semibold tracking-[-0.03em]">Direct channels</h2>
+          <div className="mt-8 grid grid-cols-1 gap-6 text-xs text-muted-foreground sm:grid-cols-2 lg:grid-cols-1">
             <div className="space-y-2">
               <DataPoint
                 name="contact.footer.channels_title"
-                as="span"
+                as="h3"
                 initialData={dataPoints}
-                className="text-primary-ink dark:text-primary-on-dark font-bold uppercase tracking-wider block"
+                className="civic-meta block"
               >
                 Direct Email Channels
               </DataPoint>
@@ -392,9 +401,9 @@ export default function ContactPage() {
             <div className="space-y-2">
               <DataPoint
                 name="contact.footer.gatherings_title"
-                as="span"
+                as="h3"
                 initialData={dataPoints}
-                className="text-primary-ink dark:text-primary-on-dark font-bold uppercase tracking-wider block"
+                className="civic-meta block"
               >
                 Monthly Gatherings
               </DataPoint>
@@ -411,6 +420,7 @@ export default function ContactPage() {
               </DataPoint>
             </div>
           </div>
+          </aside>
         </div>
       </div>
     </div>

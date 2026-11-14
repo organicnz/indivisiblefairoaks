@@ -79,6 +79,7 @@ vi.mock('@/components/layout/useEditContext', () => ({
 }));
 
 vi.mock('@/components/layout/visual-edit-store', () => ({
+  registerVisualEditExitGuard: vi.fn(),
   useVisualEditMode: () => visualMode,
 }));
 
@@ -383,6 +384,20 @@ describe('VisualEditOverlay 10x Pro Features', () => {
 
   it('opens the composer on a canvas click on the composer route, never the inline editor', async () => {
     pathname.value = '/compose/42';
+    // The workspace route names its row in the path. The overlay loads through
+    // the same address even before the page's ContentSurface marker arrives.
+    getContentForEdit.mockResolvedValue({
+      id: 42,
+      title: 'Composer route copy',
+      slug: 'composed-row',
+      excerpt: null,
+      type: 'page',
+      status: 'draft',
+      body: '<p>Composer route copy</p>',
+      featured_image: null,
+      metadata: {},
+      updated_at: '2026-10-25T00:00:00Z',
+    });
 
     const main = document.createElement('main');
     const p = document.createElement('p');

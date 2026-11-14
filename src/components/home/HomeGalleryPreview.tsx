@@ -4,9 +4,10 @@ import { ArrowRight, Camera, Filter, MapPin } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
+import { FALLBACK_GALLERY_PHOTOS } from '@/config/gallery-fallback';
 import { GalleryImage } from '@/components/gallery/GalleryImage';
 import { DataPoint } from '@/components/ui/DataPoint';
-import { getGalleryPhotos } from '@/lib/queries/content-client';
+import { getGalleryPhotos, type GalleryPhoto } from '@/lib/queries/content-client';
 import type { GalleryPhotoView } from '@/types/gallery';
 
 interface PreviewPhoto {
@@ -25,6 +26,18 @@ interface PreviewPhoto {
   date: string;
 }
 
+const toPreviewPhoto = (photo: GalleryPhotoView | GalleryPhoto): PreviewPhoto => ({
+  id: photo.id,
+  title: photo.caption || photo.alt || '',
+  location: photo.location || '',
+  category: (photo.category as PreviewPhoto['category']) || 'No Kings Sacramento',
+  image: photo.url || '',
+  signQuote: photo.signQuote ?? undefined,
+  date: photo.date || '',
+});
+
+const FALLBACK_PREVIEW_PHOTOS = FALLBACK_GALLERY_PHOTOS.map(toPreviewPhoto);
+
 export function HomeGalleryPreview({
   photos: initialPhotos,
   dataPoints,
@@ -35,33 +48,23 @@ export function HomeGalleryPreview({
   const [selectedFilter, setSelectedFilter] = useState<string>('All');
   const [previewPhotos, setPreviewPhotos] = useState<PreviewPhoto[]>(() => {
     if (initialPhotos && initialPhotos.length > 0) {
-      return initialPhotos.map((p) => ({
-        id: p.id,
-        title: p.caption || p.alt || '',
-        location: p.location || '',
-        category: (p.category as PreviewPhoto['category']) || 'No Kings Sacramento',
-        image: p.url || '',
-        signQuote: p.signQuote ?? undefined,
-        date: p.date || '',
-      }));
+      return initialPhotos.map(toPreviewPhoto);
     }
-    return [];
+    return FALLBACK_PREVIEW_PHOTOS;
   });
 
   useEffect(() => {
-    if (initialPhotos && initialPhotos.length > 0) return;
+    // The home server component always supplies this prop (possibly empty).
+    // Treat a supplied array as authoritative; only a standalone mount with no
+    // prop should pay for a second gallery request.
+    if (initialPhotos) return;
     getGalleryPhotos().then((photos) => {
-      // Map gallery_photos rows to PreviewPhoto format
-      const mapped = photos.map((p) => ({
-        id: p.id,
-        title: p.caption || p.alt || '',
-        location: p.location || '',
-        category: (p.category as PreviewPhoto['category']) || 'No Kings Sacramento',
-        image: p.url || '',
-        signQuote: p.signQuote ?? undefined,
-        date: p.date || '',
-      }));
-      setPreviewPhotos(mapped);
+      // Map gallery_photos rows to PreviewPhoto format.
+      const mapped = photos.map(toPreviewPhoto);
+
+      // A successful but empty read must not blank the homepage section; the
+      // checked-in fallback stays visible until the archive has real rows.
+      if (mapped.length > 0) setPreviewPhotos(mapped);
     });
   }, [initialPhotos]);
 
@@ -82,6 +85,22 @@ export function HomeGalleryPreview({
     { id: 'Resistance Choir', key: 'home.gallery.filter.choir', defaultLabel: 'Resistance Choir' },
     { id: 'Legacy Archives', key: 'home.gallery.filter.legacy', defaultLabel: 'Legacy Archives' },
   ];
+
+  const availableFilterOptions = filterOptions.filter(
+    (option) => option.id === 'All' || previewPhotos.some((photo) => photo.category === option.id)
+  );
+
+  // A filter that disappears when the archive changes must not leave the
+  // reader on an empty grid with no way back. This is a state correction, not
+  // a render-time guess.
+  useEffect(() => {
+    if (
+      selectedFilter !== 'All' &&
+      !previewPhotos.some((photo) => photo.category === selectedFilter)
+    ) {
+      setSelectedFilter('All');
+    }
+  }, [previewPhotos, selectedFilter]);
 
   const displayedPhotos =
     selectedFilter === 'All'
@@ -132,12 +151,17 @@ export function HomeGalleryPreview({
         </div>
 
         {/* Filters stay compact so they read as a toolbar, not another card row. */}
-        <div className="mb-8 flex items-center gap-2 overflow-x-auto border-t border-foreground/15 pb-2 pt-4 sm:flex-wrap sm:overflow-visible sm:pb-0">
+        <div
+          role="group"
+          aria-label="Filter photographs by collection"
+          className="mb-8 flex items-center gap-2 overflow-x-auto border-t border-foreground/15 pb-2 pt-4 sm:flex-wrap sm:overflow-visible sm:pb-0"
+        >
           <Filter size={14} className="mr-1 hidden text-muted-foreground sm:inline-block" />
-          {filterOptions.map((option) => (
+          {availableFilterOptions.map((option) => (
             <button
               key={option.id}
               type="button"
+              aria-pressed={selectedFilter === option.id}
               onClick={() => setSelectedFilter(option.id)}
               className={`shrink-0 cursor-pointer border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.08em] transition-colors ${
                 selectedFilter === option.id

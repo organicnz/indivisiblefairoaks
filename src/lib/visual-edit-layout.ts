@@ -12,21 +12,26 @@
  * mounted by the root layout, the route is a Server Component), and the width
  * is one number, not state either side needs to subscribe to.
  *
- * These strings mirror the sidebar's own `w-12` / `w-72` classes. Keeping the
- * pair beside each other is what makes a change to one notice the other; a
- * class cannot be read from CSS at runtime.
+ * These strings mirror the sidebar's own `w-12` / `w-72` / `w-[28rem]` classes.
+ * The wide mode is not cosmetic: the Studio and Library tabs need 28rem, so a
+ * fixed 18rem reservation would still leave 10rem of the canvas underneath the
+ * panel. Keeping the widths beside each other is what makes a change to one
+ * notice the other; a class cannot be read from CSS at runtime.
  */
 
 export const VISUAL_EDIT_RAIL_VAR = '--visual-edit-rail-width';
 
-/** Collapsed icon strip / expanded inspector, matching `VisualEditorSidebar`. */
+export type VisualEditRailMode = 'collapsed' | 'expanded' | 'wide';
+
+/** Collapsed icon strip / default inspector / Studio & Library panels. */
 export const VISUAL_EDIT_RAIL_WIDTHS = {
   collapsed: '3rem',
   expanded: '18rem',
-} as const;
+  wide: '28rem',
+} as const satisfies Record<VisualEditRailMode, string>;
 
-export function visualEditRailWidth(collapsed: boolean): string {
-  return collapsed ? VISUAL_EDIT_RAIL_WIDTHS.collapsed : VISUAL_EDIT_RAIL_WIDTHS.expanded;
+export function visualEditRailWidth(mode: VisualEditRailMode): string {
+  return VISUAL_EDIT_RAIL_WIDTHS[mode];
 }
 
 /**
@@ -36,12 +41,12 @@ export function visualEditRailWidth(collapsed: boolean): string {
  * fallback then applies on the server and on any route the editor is not
  * mounted on, without leaving a zero-valued property behind for the next page.
  */
-export function applyVisualEditRail(collapsed: boolean | null): void {
+export function applyVisualEditRail(mode: VisualEditRailMode | null): void {
   if (typeof document === 'undefined') return;
   const root = document.documentElement;
-  if (collapsed === null) {
+  if (mode === null) {
     root.style.removeProperty(VISUAL_EDIT_RAIL_VAR);
     return;
   }
-  root.style.setProperty(VISUAL_EDIT_RAIL_VAR, visualEditRailWidth(collapsed));
+  root.style.setProperty(VISUAL_EDIT_RAIL_VAR, visualEditRailWidth(mode));
 }

@@ -29,7 +29,7 @@ export default async function EventsPage() {
   ]);
   const initialEvents = initialEventsRows.length > 0 ? initialEventsRows : undefined;
   return (
-    <div className="w-full bg-background text-foreground min-h-screen pt-(--header-clearance) pb-20">
+    <div className="civic-page w-full min-h-screen bg-background pb-20 text-foreground pt-(--header-clearance)">
       <PageMasthead
         icon={Calendar}
         eyebrow={
@@ -60,17 +60,30 @@ export default async function EventsPage() {
         }
       />
 
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-12">
-        <InteractiveEventsCalendar initialEvents={initialEvents} initialData={dataPoints} />
+      <div className="mx-auto max-w-5xl space-y-12 px-4 py-16 sm:px-6 lg:px-8">
+        <section aria-labelledby="upcoming-events">
+          <div className="civic-section-head">
+            <div>
+              <h2 id="upcoming-events" className="civic-section-title">
+                Upcoming events
+              </h2>
+            </div>
+            <p className="civic-lede">
+              Meetings, street actions, choir rehearsals and trainings. Filter by the kind of work
+              you want to do, then RSVP with the organizer.
+            </p>
+          </div>
+          <InteractiveEventsCalendar initialEvents={initialEvents} initialData={dataPoints} />
+        </section>
 
         {/* Ongoing Street Corner Singing Protest Spotlight (Issue #87) */}
-        <div className="p-6 sm:p-8 rounded-2xl bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/80 border border-border dark:from-blue-950/40 dark:via-slate-900 dark:to-indigo-950/40 dark:border-white/10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-xl">
+        <div className="flex flex-col items-start justify-between gap-6 border-y border-border bg-surface-card p-6 sm:p-8 md:flex-row md:items-center">
           <div className="flex items-start gap-4">
             <div className="w-12 h-12 rounded-xl bg-surface-card flex items-center justify-center text-accent dark:text-accent-gold shrink-0 mt-1 border border-border dark:border-white/10 shadow-xs">
               <Music size={24} />
             </div>
             <div>
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-accent-gold/15 border border-accent-gold/40 text-accent dark:text-accent-gold text-[11px] font-bold uppercase tracking-wide mb-1.5">
+              <div className="civic-stamp mb-2">
                 <DataPoint initialData={dataPoints} as="span" name="events.spotlight.eyebrow">
                   Ongoing Community Action
                 </DataPoint>
@@ -79,7 +92,7 @@ export default async function EventsPage() {
                 initialData={dataPoints}
                 as="h2"
                 name="events.spotlight.title"
-                className="text-xl sm:text-2xl font-black text-foreground dark:text-white tracking-tight"
+                className="font-display text-2xl font-semibold tracking-[-0.03em] sm:text-3xl"
               >
                 Carmichael Resistance Choir: Street Corner Singing Protest
               </DataPoint>
@@ -107,7 +120,7 @@ export default async function EventsPage() {
           <div className="flex flex-col sm:flex-row items-center gap-3 shrink-0 w-full md:w-auto">
             <Link
               href="/choir"
-              className="w-full sm:w-auto text-center px-4 py-2.5 rounded-xl border border-border dark:border-white/10 bg-surface-card hover:bg-surface-muted text-foreground dark:bg-transparent dark:hover:bg-white/10 dark:text-ink-on-dark text-xs font-semibold uppercase tracking-wider transition-all"
+              className="inline-flex min-h-11 w-full items-center justify-center border border-foreground/30 px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.12em] text-foreground transition-colors hover:border-primary hover:text-primary-ink sm:w-auto"
             >
               <DataPoint initialData={dataPoints} as="span" name="events.spotlight.btn_songbook">
                 Explore Songbook
@@ -117,7 +130,7 @@ export default async function EventsPage() {
               href="https://www.mobilize.us/indivisible/event/1011420/"
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full sm:w-auto text-center px-5 py-2.5 rounded-xl bg-primary-bright hover:bg-primary-light text-white font-bold text-xs uppercase tracking-wider transition-all shadow-md"
+              className="inline-flex min-h-11 w-full items-center justify-center border border-primary bg-primary px-5 py-2.5 text-[11px] font-bold uppercase tracking-[0.12em] text-white transition-colors hover:bg-primary-dark sm:w-auto"
             >
               <DataPoint initialData={dataPoints} as="span" name="events.spotlight.btn_protest">
                 Join Next Protest
@@ -128,7 +141,7 @@ export default async function EventsPage() {
 
         {/* Trainings & Campaign Initiatives — copy region */}
         <div className="space-y-6 pt-6 border-t border-border dark:border-white/10">
-          <h2 className="text-2xl font-black text-foreground dark:text-white tracking-tight flex items-center gap-2">
+          <h2 className="flex items-center gap-2 font-display text-3xl font-semibold tracking-[-0.03em]">
             <Users className="text-primary-ink dark:text-primary-on-dark-muted" />
             <DataPoint initialData={dataPoints} as="span" name="events.trainings.title">
               Trainings &amp; Action Labs
@@ -137,7 +150,7 @@ export default async function EventsPage() {
 
           <CopyRegion id="events-trainings">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="p-6 rounded-2xl bg-surface-card border border-border space-y-3">
+              <div className="space-y-3 border-t border-foreground/25 pt-6">
                 <DataPoint
                   initialData={dataPoints}
                   as="h3"
@@ -165,7 +178,7 @@ export default async function EventsPage() {
                 </DataPoint>
               </div>
 
-              <div className="p-6 rounded-2xl bg-surface-card border border-border space-y-3">
+              <div className="space-y-3 border-t border-foreground/25 pt-6">
                 <DataPoint
                   initialData={dataPoints}
                   as="h3"
@@ -201,13 +214,13 @@ export default async function EventsPage() {
         </div>
 
         {/* Past events and legacy materials */}
-        <div className="rounded-2xl border border-border bg-surface-card p-6 sm:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
+        <div className="flex flex-col items-start justify-between gap-5 border-y border-border bg-surface-card p-6 sm:p-8 md:flex-row md:items-center">
           <div>
-            <div className="inline-flex items-center gap-1.5 rounded-full border border-accent-gold/30 bg-accent-gold/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-ink-strong dark:text-accent-gold-on-dark">
+            <div className="civic-stamp">
               <Archive size={12} />
               Past events
             </div>
-            <h2 className="mt-3 text-xl sm:text-2xl font-black tracking-tight text-foreground dark:text-white">
+            <h2 className="mt-3 font-display text-2xl font-semibold tracking-[-0.03em]">
               Looking for an event that has already happened?
             </h2>
             <p className="mt-1 max-w-2xl text-xs sm:text-sm leading-relaxed text-muted-foreground dark:text-ink-on-dark">
@@ -217,7 +230,7 @@ export default async function EventsPage() {
           </div>
           <Link
             href="/archive"
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-primary px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white hover:bg-primary-dark transition-colors"
+            className="inline-flex min-h-11 shrink-0 items-center gap-1.5 border border-primary bg-primary px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.12em] text-white transition-colors hover:bg-primary-dark"
           >
             Browse the archive
             <ArrowUpRight size={14} />
@@ -236,7 +249,7 @@ export default async function EventsPage() {
         ) : null}
 
         {/* Nonviolence Banner */}
-        <div className="p-6 rounded-2xl bg-surface-card border border-border flex items-start gap-4">
+        <div className="flex items-start gap-4 border-y border-border bg-surface-card p-6">
           <AlertCircle className="text-accent dark:text-accent-gold shrink-0 mt-1" size={24} />
           <div className="text-xs sm:text-sm text-muted-foreground dark:text-ink-on-dark leading-relaxed">
             <DataPoint

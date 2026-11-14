@@ -200,6 +200,38 @@ describe('VisualComposerInspector', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  it('disables Apply and explains why when the saved document is not readable', async () => {
+    const onSaveBlock = vi.fn();
+    const reason =
+      'The saved document could not be read, so the canvas is showing the rendered page. Reload the document before editing or saving.';
+
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={sampleHeadingBlock}
+          blockIndex={0}
+          onSaveBlock={onSaveBlock}
+          applyBlockedReason={reason}
+        />
+      );
+    });
+
+    await typeIntoContent('Changed while the document was unreadable');
+
+    const saveButton = Array.from(document.querySelectorAll('button')).find(
+      (button) => button.textContent?.trim() === 'Save Block'
+    );
+    expect(saveButton?.disabled).toBe(true);
+    expect(saveButton?.title).toBe(reason);
+
+    await act(async () => {
+      saveButton?.click();
+    });
+    expect(onSaveBlock).not.toHaveBeenCalled();
+  });
+
   it('switches to Box Model and Advanced tabs cleanly', async () => {
     await act(async () => {
       root.render(

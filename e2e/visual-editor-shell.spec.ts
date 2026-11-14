@@ -8,10 +8,13 @@ const ADMIN_PASSWORD = Bun.env.E2E_ADMIN_PASSWORD;
  * Browser coverage for the visual editor shell's keyboard model.
  *
  * The seeded account is a real session but is not granted admin on the shared
- * project, and granting it is a database change this suite must not make. This
- * test therefore mocks only the admin-context response in the browser. It
- * exercises native key delivery, focus movement, and the tab/panel wiring; it
- * does not replace the server-side authorization tests.
+ * project, and granting it is a database change this suite must not make. The
+ * shell consults two admin responses before it will edit, so both are mocked
+ * in the browser: the edit-context probe, and the saved-document read that
+ * `documentReadRefusal()` gates inline editing on. The read answers with an
+ * empty document, which is enough to open the canvas. This test exercises
+ * native key delivery, focus movement, and the tab/panel wiring; it does not
+ * replace the server-side authorization tests.
  */
 test.describe('visual editor shell', () => {
   test.beforeEach(() => {
@@ -36,6 +39,31 @@ test.describe('visual editor shell', () => {
         contentType: 'application/json',
         body: JSON.stringify({ isAdmin: true, target: null }),
       })
+    );
+
+    // The saved-document read is the second server-side gate. It was added
+    // after this spec was written, and without an answer here the shell stays
+    // in its loading state and refuses every inline edit with a toast. A real
+    // admin gets the `home` row; an empty one opens the same canvas, which is
+    // all the keyboard assertions need.
+    await page.route('**/api/visual-edit/content**', (route) =>
+      route.request().method() === 'GET'
+        ? route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({
+              content: {
+                id: 1,
+                slug: 'home',
+                title: 'Home',
+                body: '',
+                status: 'publish',
+                featured_image: null,
+                updated_at: new Date().toISOString(),
+              },
+            }),
+          })
+        : route.fallback()
     );
 
     await page.goto('/?visual-edit=1');

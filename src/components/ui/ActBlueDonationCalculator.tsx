@@ -1,9 +1,16 @@
 'use client';
 
-import { Check, CreditCard, ExternalLink, Heart, ShieldCheck, Sparkles } from 'lucide-react';
+import { Check, CreditCard, ExternalLink, Heart, ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { useDataPoints } from '@/hooks/useDataPoints';
+import {
+  ACTBLUE_MAX_DONATION,
+  ACTBLUE_MIN_DONATION,
+  ACTBLUE_PRESET_DONATION_AMOUNTS,
+  buildActBlueDonationUrl,
+  normalizeDonationAmount,
+} from '@/lib/actblue';
 
 interface ImpactTier {
   amount: number;
@@ -15,6 +22,15 @@ interface ImpactTier {
 }
 
 const TIERS: Record<number, ImpactTier> = {
+  5: {
+    amount: 5,
+    label: '$5',
+    badge: 'Neighborhood Supporter',
+    impactTitle: 'Voter Postcards',
+    impactDescription:
+      'Funds 10 pre-addressed voter turnout postcards and postage for neighbors in Sacramento County.',
+    tangibleMetrics: ['10 Voter Postcards', '5 Action Handouts', '1 Rally Songsheet'],
+  },
   10: {
     amount: 10,
     label: '$10',
@@ -80,21 +96,12 @@ export function ActBlueDonationCalculator({
   const [isMonthly, setIsMonthly] = useState<boolean>(false);
   const [customAmount, setCustomAmount] = useState<string>('');
 
-  const currentAmount = customAmount ? Math.max(5, Number(customAmount) || 5) : selectedAmount;
+  const currentAmount = customAmount ? normalizeDonationAmount(customAmount) : selectedAmount;
 
-  // Derive closest impact tier or construct dynamic
+  // Show the closest lower impact tier for custom amounts between presets.
   const getImpact = () => {
-    const rawTier =
-      TIERS[currentAmount] ||
-      (currentAmount < 25
-        ? TIERS[10]
-        : currentAmount < 50
-          ? TIERS[25]
-          : currentAmount < 100
-            ? TIERS[50]
-            : currentAmount < 250
-              ? TIERS[100]
-              : TIERS[250]);
+    const fallbackTier = [250, 100, 50, 25, 10, 5].find((amount) => currentAmount >= amount) ?? 5;
+    const rawTier = TIERS[currentAmount] || TIERS[fallbackTier];
 
     const amt = rawTier.amount;
     const badge = dataPoints[`donate.calc.tier.${amt}.badge`] || rawTier.badge;
@@ -115,25 +122,14 @@ export function ActBlueDonationCalculator({
 
   const impact = getImpact();
 
-  const getActBlueUrl = () => {
-    const base = 'https://secure.actblue.com/donate/indivisiblefoc1432155925';
-    const params = new URLSearchParams();
-    params.set('amount', currentAmount.toString());
-    if (isMonthly) {
-      params.set('recurring', '1');
-    }
-    return `${base}?${params.toString()}`;
-  };
+  const getActBlueUrl = () => buildActBlueDonationUrl(currentAmount, isMonthly);
 
   return (
-    <div className="rounded-3xl bg-surface-card border border-border dark:bg-secondary dark:border-accent-gold/30 p-6 sm:p-8 md:p-10 shadow-card dark:shadow-2xl backdrop-blur-xl space-y-8">
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-6 border-b border-border dark:border-white/10">
-        <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-100 text-amber-800 dark:bg-accent-gold/20 dark:text-accent-gold text-xs font-bold uppercase tracking-wider mb-2">
-            <Heart
-              size={14}
-              className="fill-accent-gold text-amber-600 dark:fill-amber-300 dark:text-accent-gold"
-            />
+    <div className="border-y border-foreground/20 py-8 sm:py-10">
+      <div className="flex flex-col items-start justify-between gap-6 border-b border-foreground/20 pb-6 md:flex-row md:items-end">
+        <div className="max-w-2xl">
+          <div className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-accent">
+            <Heart aria-hidden="true" size={13} className="fill-accent" />
             <DataPoint as="span" name="donate.calc.eyebrow" initialData={dataPoints}>
               Interactive Grassroots Calculator
             </DataPoint>
@@ -142,7 +138,7 @@ export function ActBlueDonationCalculator({
             as="h2"
             name="donate.calc.title"
             initialData={dataPoints}
-            className="text-2xl sm:text-3xl font-black text-foreground dark:text-white"
+            className="mt-3 max-w-xl font-display text-4xl font-semibold leading-[0.98] tracking-[-0.04em] text-foreground sm:text-5xl"
           >
             Choose Your Contribution
           </DataPoint>
@@ -150,197 +146,275 @@ export function ActBlueDonationCalculator({
             as="p"
             name="donate.calc.subhead"
             initialData={dataPoints}
-            className="text-xs sm:text-sm text-muted-foreground dark:text-ink-on-dark mt-1"
+            className="mt-4 max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base"
           >
             See the concrete civic impact of your grassroots investment before you give.
           </DataPoint>
         </div>
 
         {/* Recurring / One-time Frequency Toggle */}
-        <div className="flex items-center p-1 bg-surface-muted rounded-2xl border border-border dark:bg-secondary dark:border-white/10 text-xs font-semibold">
-          <button
-            type="button"
-            onClick={() => setIsMonthly(false)}
-            className={`px-4 py-2 rounded-xl transition-all cursor-pointer ${
-              !isMonthly
-                ? 'bg-accent-gold text-slate-950 font-bold shadow-md'
-                : 'text-muted-foreground hover:text-foreground dark:text-ink-muted-on-dark dark:hover:text-white'
-            }`}
+        <div className="shrink-0">
+          <div
+            role="group"
+            aria-label="Contribution frequency"
+            className="inline-flex border border-foreground/25"
           >
-            <DataPoint as="span" name="donate.calc.frequency.one_time" initialData={dataPoints}>
-              One-Time
-            </DataPoint>
-          </button>
-          <button
-            type="button"
-            onClick={() => setIsMonthly(true)}
-            className={`px-4 py-2 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${
-              isMonthly
-                ? 'bg-accent-gold text-slate-950 font-bold shadow-md'
-                : 'text-muted-foreground hover:text-foreground dark:text-ink-muted-on-dark dark:hover:text-white'
-            }`}
-          >
-            <Sparkles size={13} />
-            <DataPoint as="span" name="donate.calc.frequency.monthly" initialData={dataPoints}>
-              Monthly Sustainer
-            </DataPoint>
-          </button>
-        </div>
-      </div>
-
-      <fieldset>
-        <legend className="sr-only">Choose a donation amount</legend>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-          {[10, 25, 50, 100, 250].map((amt) => {
-            const isSelected = !customAmount && selectedAmount === amt;
-            return (
-              <button
-                key={amt}
-                type="button"
-                aria-pressed={isSelected}
-                onClick={() => {
-                  setSelectedAmount(amt);
-                  setCustomAmount('');
-                }}
-                className={`min-h-11 p-4 rounded-2xl border text-center transition-colors duration-300 ease-out relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:focus-visible:ring-offset-secondary ${
-                  isSelected
-                    ? 'bg-accent-gold/10 border-accent-gold shadow-[0_0_20px_rgba(245,158,11,0.2)]'
-                    : 'bg-surface-muted border-border hover:border-primary/40 dark:bg-secondary/60 dark:border-white/10 dark:hover:border-slate-700'
-                }`}
-              >
-                <span
-                  className={`text-2xl sm:text-3xl font-black block transition-colors ${
-                    isSelected ? 'text-accent-gold' : 'text-foreground dark:text-white'
-                  }`}
-                >
-                  ${amt}
-                </span>
-                <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground dark:text-ink-muted-on-dark mt-1 block">
-                  {isMonthly ? (
-                    <DataPoint as="span" name="donate.calc.per_month" initialData={dataPoints}>
-                      Per Month
-                    </DataPoint>
-                  ) : (
-                    <DataPoint
-                      as="span"
-                      name="donate.calc.one_time_suffix"
-                      initialData={dataPoints}
-                    >
-                      One-Time
-                    </DataPoint>
-                  )}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </fieldset>
-
-      {/* Custom Amount Input */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 p-4 rounded-2xl bg-surface-muted border border-border">
-        <label
-          htmlFor="custom-amount"
-          className="text-xs font-mono text-foreground dark:text-ink-on-dark whitespace-nowrap"
-        >
-          <DataPoint as="span" name="donate.calc.custom_amount_label" initialData={dataPoints}>
-            Or Enter Custom Amount:
-          </DataPoint>
-        </label>
-        <div className="relative flex-1">
-          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground dark:text-ink-muted-on-dark font-bold">
-            $
-          </span>
-          <input
-            id="custom-amount"
-            type="number"
-            min={5}
-            step={1}
-            placeholder={dataPoints['donate.calc.custom_amount_placeholder'] || 'e.g. 75'}
-            value={customAmount}
-            onChange={(e) => setCustomAmount(e.target.value)}
-            className="w-full pl-8 pr-4 py-2.5 rounded-xl bg-surface-card border border-border text-foreground placeholder:text-muted-foreground dark:bg-secondary dark:border-slate-700 dark:text-white dark:placeholder-slate-500 text-sm font-bold focus:outline-none focus:border-amber-400 transition-colors"
-          />
-        </div>
-      </div>
-
-      {/* Dynamic Impact Display Box */}
-      <div className="rounded-2xl bg-gradient-to-r from-blue-50/80 via-indigo-50/50 to-slate-50 border border-border dark:from-blue-950/50 dark:via-slate-900 dark:to-indigo-950/50 dark:border-primary-bright/30 p-6 sm:p-8 space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="inline-flex items-center gap-2 text-xs font-mono text-primary-ink dark:text-accent-gold uppercase tracking-wide">
-            <Sparkles size={14} />
-            <DataPoint as="span" name="donate.calc.impact_badge" initialData={dataPoints}>
-              Grassroots Impact Breakdown
-            </DataPoint>
+            <button
+              type="button"
+              aria-pressed={!isMonthly}
+              onClick={() => setIsMonthly(false)}
+              className={`min-h-10 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.12em] transition-colors ${
+                !isMonthly
+                  ? 'bg-foreground text-background'
+                  : 'bg-transparent text-foreground hover:bg-surface-muted'
+              }`}
+            >
+              <DataPoint as="span" name="donate.calc.frequency.one_time" initialData={dataPoints}>
+                One-Time
+              </DataPoint>
+            </button>
+            <button
+              type="button"
+              aria-pressed={isMonthly}
+              onClick={() => setIsMonthly(true)}
+              className={`min-h-10 border-l border-foreground/25 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.12em] transition-colors ${
+                isMonthly
+                  ? 'bg-foreground text-background'
+                  : 'bg-transparent text-foreground hover:bg-surface-muted'
+              }`}
+            >
+              <DataPoint as="span" name="donate.calc.frequency.monthly" initialData={dataPoints}>
+                Monthly Sustainer
+              </DataPoint>
+            </button>
           </div>
-          <span className="px-3 py-1 rounded-full bg-primary/10 text-primary-ink dark:bg-primary-bright/20 dark:text-primary-on-dark text-xs font-semibold">
-            {impact.badge}
-          </span>
+          <p className="mt-2 text-[10px] uppercase tracking-[0.1em] text-muted-foreground md:text-right">
+            Cancel or change anytime via ActBlue
+          </p>
         </div>
+      </div>
 
-        <div>
-          <h3 className="text-xl sm:text-2xl font-black text-foreground dark:text-white mb-2">
-            Your ${currentAmount} {isMonthly ? '/ month' : ''} enables: {impact.impactTitle}
-          </h3>
-          <p className="text-xs sm:text-sm text-muted-foreground dark:text-ink-on-dark leading-relaxed">
-            {impact.impactDescription}
+      <div className="mt-8 grid gap-8 lg:grid-cols-12 lg:gap-10">
+        <div className="lg:col-span-7">
+          <fieldset>
+            <legend className="mb-3 block text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+              Select an amount
+            </legend>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+              {ACTBLUE_PRESET_DONATION_AMOUNTS.map((amt) => {
+                const isSelected = !customAmount && selectedAmount === amt;
+                return (
+                  <button
+                    key={amt}
+                    type="button"
+                    aria-pressed={isSelected}
+                    onClick={() => {
+                      setSelectedAmount(amt);
+                      setCustomAmount('');
+                    }}
+                    className={`flex min-h-24 flex-col justify-between border p-3.5 text-left transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+                      amt === 250 ? 'col-span-2 sm:col-span-1' : ''
+                    } ${
+                      isSelected
+                        ? 'border-primary bg-primary text-white'
+                        : 'border-foreground/20 bg-transparent text-foreground hover:border-primary/60 hover:bg-surface-muted'
+                    }`}
+                  >
+                    <span className="font-display text-2xl font-semibold tracking-[-0.03em] sm:text-3xl">
+                      ${amt}
+                    </span>
+                    <span
+                      className={`mt-2 text-[9px] font-bold uppercase tracking-[0.12em] ${
+                        isSelected ? 'text-white' : 'text-muted-foreground'
+                      }`}
+                    >
+                      {isMonthly ? (
+                        <DataPoint
+                          as="span"
+                          name="donate.calc.per_month"
+                          initialData={dataPoints}
+                        >
+                          Per Month
+                        </DataPoint>
+                      ) : (
+                        <DataPoint
+                          as="span"
+                          name="donate.calc.one_time_suffix"
+                          initialData={dataPoints}
+                        >
+                          One-Time
+                        </DataPoint>
+                      )}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </fieldset>
+
+          {/* Custom Amount Input */}
+          <div className="mt-6 border-b border-foreground/20 pb-4">
+            <label
+              htmlFor="custom-amount"
+              className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground"
+            >
+              <DataPoint as="span" name="donate.calc.custom_amount_label" initialData={dataPoints}>
+                Or Enter Custom Amount:
+              </DataPoint>
+            </label>
+            <div className="relative mt-1">
+              <span
+                aria-hidden="true"
+                className="absolute left-0 top-1/2 -translate-y-1/2 font-display text-2xl text-muted-foreground"
+              >
+                $
+              </span>
+              <input
+                id="custom-amount"
+                type="number"
+                min={ACTBLUE_MIN_DONATION}
+                max={ACTBLUE_MAX_DONATION}
+                step={1}
+                inputMode="numeric"
+                placeholder={dataPoints['donate.calc.custom_amount_placeholder'] || 'e.g. 75'}
+                value={customAmount}
+                onChange={(e) => setCustomAmount(e.target.value)}
+                onBlur={() => {
+                  if (customAmount) setCustomAmount(String(normalizeDonationAmount(customAmount)));
+                }}
+                className="w-full border-0 bg-transparent py-2 pl-6 pr-2 font-display text-2xl font-semibold text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-4 focus-visible:ring-offset-background"
+              />
+            </div>
+            <p className="mt-1 text-[10px] uppercase tracking-[0.1em] text-muted-foreground">
+              ${ACTBLUE_MIN_DONATION} minimum · ${ACTBLUE_MAX_DONATION.toLocaleString('en-US')}{' '}
+              maximum · every dollar stays local
+            </p>
+          </div>
+
+          <p className="mt-5 max-w-md text-xs leading-relaxed text-muted-foreground">
+            Continue to ActBlue to complete your secure contribution in a new tab. ActBlue will
+            email your receipt and manage any recurring gift. Recurring gifts can be changed or
+            canceled at any time.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
-          {impact.tangibleMetrics.map((metric) => (
-            <div
-              key={metric}
-              className="p-3 rounded-xl bg-surface-card border border-border text-foreground dark:bg-secondary dark:border-white/10 dark:text-slate-200 text-xs font-medium flex items-center gap-2"
-            >
-              <Check size={14} className="text-emerald-500 dark:text-emerald-400 shrink-0" />
-              <span>{metric}</span>
-            </div>
-          ))}
-        </div>
+        {/* Dynamic Impact Display Box */}
+        <aside className="flex flex-col border border-foreground/25 bg-secondary p-6 text-ink-on-dark sm:p-8 lg:col-span-5">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/15 pb-4">
+            <span className="text-[9px] font-bold uppercase tracking-[0.16em] text-accent-gold">
+              <DataPoint as="span" name="donate.calc.impact_badge" initialData={dataPoints}>
+                Grassroots Impact Breakdown
+              </DataPoint>
+            </span>
+            <span className="text-[9px] font-semibold uppercase tracking-[0.12em] text-ink-muted-on-dark">
+              {impact.badge}
+            </span>
+          </div>
+
+          <p className="mt-5 text-[9px] font-bold uppercase tracking-[0.16em] text-ink-muted-on-dark">
+            Your ${currentAmount}
+            {isMonthly ? ' / month' : ''} enables
+          </p>
+          <h3 className="mt-2 font-display text-3xl font-semibold leading-[1.04] tracking-[-0.03em] text-accent-gold">
+            {impact.impactTitle}
+          </h3>
+          <p className="mt-3 text-sm leading-relaxed text-ink-on-dark/80">
+            {impact.impactDescription}
+          </p>
+
+          <ul className="mt-6 divide-y divide-white/15 border-y border-white/15">
+            {impact.tangibleMetrics.map((metric) => (
+              <li
+                key={metric}
+                className="flex items-start gap-3 py-3 text-sm leading-snug text-ink-on-dark"
+              >
+                <Check aria-hidden="true" size={14} className="mt-0.5 shrink-0 text-accent-gold" />
+                <span>{metric}</span>
+              </li>
+            ))}
+          </ul>
+
+        </aside>
       </div>
 
-      {/* Final ActBlue CTA Button */}
-      <div className="space-y-4 pt-2">
-        <a
-          href={getActBlueUrl()}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:from-accent-gold hover:to-amber-300 text-slate-950 font-black text-base uppercase tracking-wider shadow-xl hover:shadow-amber-500/25 transition-all flex items-center justify-center gap-3 group hover:scale-[1.01]"
-        >
-          <CreditCard size={20} className="group-hover:rotate-6 transition-transform" />
-          <span className="flex items-center gap-1.5">
-            <DataPoint as="span" name="donate.calc.give_btn_prefix" initialData={dataPoints}>
-              Give
-            </DataPoint>{' '}
-            <span>${currentAmount}</span>{' '}
-            {isMonthly ? (
-              <DataPoint as="span" name="donate.calc.give_btn_monthly" initialData={dataPoints}>
-                Monthly
-              </DataPoint>
-            ) : (
-              <DataPoint as="span" name="donate.calc.give_btn_now" initialData={dataPoints}>
-                Now
-              </DataPoint>
-            )}{' '}
-            <DataPoint as="span" name="donate.calc.give_btn_suffix" initialData={dataPoints}>
-              via ActBlue
-            </DataPoint>
-          </span>
-          <ExternalLink size={18} />
-        </a>
+      <div className="mt-8 border-t border-foreground/20 pt-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
+              Your contribution
+            </p>
+            <p className="mt-1 font-display text-2xl font-semibold leading-none tracking-[-0.03em] text-foreground">
+              ${currentAmount.toLocaleString('en-US')}
+              <span className="ml-2 font-sans text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                {isMonthly ? 'Per Month' : 'One-Time'}
+              </span>
+            </p>
+          </div>
 
-        <div className="flex flex-wrap items-center justify-center gap-4 text-[11px] text-muted-foreground dark:text-ink-muted-on-dark text-center">
-          <span className="flex items-center gap-1">
-            <ShieldCheck size={14} className="text-emerald-500 dark:text-emerald-400" />
+          <div className="w-full sm:max-w-md">
+            <p
+              id="donation-ask"
+              className="mb-3 text-sm font-semibold leading-relaxed text-foreground"
+            >
+              {isMonthly
+                ? `Will you make a $${currentAmount.toLocaleString('en-US')} monthly contribution to sustain this local work?`
+                : `Make a one-time $${currentAmount.toLocaleString('en-US')} contribution to sustain this local work.`}
+            </p>
+            <a
+              href={getActBlueUrl()}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-describedby="donation-ask"
+              className="group flex min-h-12 w-full items-center justify-center gap-2 bg-accent-gold px-5 py-3.5 text-center text-[10px] font-bold uppercase tracking-[0.13em] text-ink-strong transition-colors hover:brightness-95 sm:w-auto sm:min-w-[19rem]"
+            >
+              <CreditCard aria-hidden="true" size={16} className="shrink-0" />
+              <span className="flex flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5">
+                <DataPoint as="span" name="donate.calc.give_btn_prefix" initialData={dataPoints}>
+                  Give
+                </DataPoint>{' '}
+                <span>${currentAmount.toLocaleString('en-US')}</span>{' '}
+                {isMonthly ? (
+                  <DataPoint
+                    as="span"
+                    name="donate.calc.give_btn_monthly"
+                    initialData={dataPoints}
+                  >
+                    Monthly
+                  </DataPoint>
+                ) : (
+                  <DataPoint as="span" name="donate.calc.give_btn_now" initialData={dataPoints}>
+                    Now
+                  </DataPoint>
+                )}{' '}
+                <DataPoint
+                  as="span"
+                  name="donate.calc.give_btn_suffix"
+                  initialData={dataPoints}
+                >
+                  via ActBlue
+                </DataPoint>
+              </span>
+              <ExternalLink
+                aria-hidden="true"
+                size={15}
+                className="shrink-0 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+              />
+            </a>
+          </div>
+        </div>
+
+        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] uppercase tracking-[0.08em] text-muted-foreground sm:justify-end">
+          <span className="inline-flex items-center gap-1">
+            <ShieldCheck aria-hidden="true" size={12} className="text-primary-ink" />
             <DataPoint as="span" name="donate.calc.security.encrypted" initialData={dataPoints}>
               Encrypted 256-bit Secure ActBlue Processing
             </DataPoint>
           </span>
-          <span>•</span>
+          <span aria-hidden="true">·</span>
           <DataPoint as="span" name="donate.calc.security.no_pac" initialData={dataPoints}>
             No Corporate PAC Money Accepted
           </DataPoint>
-          <span>•</span>
+          <span aria-hidden="true">·</span>
           <DataPoint as="span" name="donate.calc.security.volunteer" initialData={dataPoints}>
             All Grassroots Volunteer Managed
           </DataPoint>

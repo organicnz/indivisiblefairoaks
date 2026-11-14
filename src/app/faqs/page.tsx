@@ -120,7 +120,7 @@ export default async function FAQPage() {
   };
 
   return (
-    <div className="w-full bg-background text-foreground pt-(--header-clearance) pb-20 min-h-screen">
+    <div className="civic-page w-full min-h-screen bg-background pb-20 text-foreground pt-(--header-clearance)">
       {/* JSON-LD. biome's noDangerouslySetInnerHtml is suppressed for this file
           (see biome.json); the value is escaped by serializeJsonLd, which handles
           <, >, & and the JS line separators so it cannot break out of the tag. */}
@@ -169,7 +169,7 @@ export default async function FAQPage() {
               <section key={group.category} aria-labelledby={categoryId}>
                 <h2
                   id={categoryId}
-                  className="text-xl font-bold text-primary-ink dark:text-accent-gold uppercase tracking-wider mb-6 flex items-center gap-3"
+                  className="mb-6 flex items-center gap-3 font-display text-2xl font-semibold tracking-[-0.03em]"
                 >
                   <span>{group.category}</span>
                   <div className="h-px bg-border dark:bg-white/5 flex-1" />
@@ -178,7 +178,7 @@ export default async function FAQPage() {
                   {group.questions.map((faq) => (
                     <div
                       key={faq.q}
-                      className="p-6 rounded-2xl bg-surface-card border border-border hover:border-border dark:hover:border-white/20 transition-all space-y-2"
+                      className="space-y-2 border-t border-border py-4"
                     >
                       <DataPoint
                         initialData={dataPoints}
@@ -204,12 +204,12 @@ export default async function FAQPage() {
           })}
         </div>
 
-        <div className="mt-16 text-center p-8 rounded-3xl bg-surface-card border border-border dark:bg-gradient-to-r dark:from-blue-950/60 dark:via-slate-900 dark:to-indigo-950/60 dark:border-primary-bright/30 space-y-4 shadow-card">
+        <div className="mt-16 space-y-4 border-y border-border bg-surface-card p-8 text-center">
           <DataPoint
             initialData={dataPoints}
             name="faqs.still_have_questions"
             as="h3"
-            className="text-xl font-black text-foreground dark:text-white"
+            className="font-display text-2xl font-semibold tracking-[-0.03em]"
           >
             Still have a question?
           </DataPoint>
@@ -223,7 +223,7 @@ export default async function FAQPage() {
           </DataPoint>
           <Link
             href="/contact"
-            className="inline-block px-6 py-3 rounded-xl bg-primary hover:bg-primary-dark dark:bg-primary-bright dark:hover:bg-primary-light text-white font-bold text-xs uppercase tracking-wider transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold focus-visible:ring-offset-2"
+            className="inline-flex min-h-11 items-center border border-primary bg-primary px-6 py-3 text-[11px] font-bold uppercase tracking-[0.12em] text-white transition-colors hover:bg-primary-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold focus-visible:ring-offset-2"
           >
             <DataPoint initialData={dataPoints} as="span" name="faqs.contact_button">
               Contact Us Directly

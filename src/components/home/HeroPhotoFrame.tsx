@@ -1,8 +1,10 @@
 'use client';
 
+import { Pause, Play } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { FALLBACK_GALLERY_PHOTOS } from '@/config/gallery-fallback';
 import { GalleryImage } from '@/components/gallery/GalleryImage';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { useDataPoints } from '@/hooks/useDataPoints';
@@ -21,29 +23,53 @@ interface Photo {
   url?: string;
 }
 
+const toFallbackPhoto = (photo: (typeof FALLBACK_GALLERY_PHOTOS)[number]): Photo => ({
+  id: photo.id,
+  src: photo.url,
+  alt: photo.alt || photo.caption,
+  label: photo.label || photo.caption,
+});
+
+// The hero is the most visible plate on the homepage. When the gallery table
+// is empty or unreachable, keep the printed spread intact with the chapter's
+// checked-in archive images instead of a large blank media well.
+const FALLBACK_HERO_PHOTOS = FALLBACK_GALLERY_PHOTOS.filter((photo) => photo.is_hero)
+  .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+  .slice(0, 4)
+  .map(toFallbackPhoto);
+
+const FALLBACK_PAIR_PHOTOS = FALLBACK_GALLERY_PHOTOS.filter((photo) => photo.is_pair).map(
+  toFallbackPhoto
+);
+
 // Hero crossfade photos (top 4 by sort_order, is_hero=true)
 const useHeroPhotos = (initialPhotos?: GalleryPhotoView[]): Photo[] => {
   const [heroPhotos, setHeroPhotos] = useState<Photo[]>(() => {
-    if (initialPhotos?.some((p) => p.is_hero === true)) {
-      return initialPhotos
-        .filter((p) => p.is_hero === true)
-        .slice(0, 4)
-        .map((p) => ({
-          id: p.id,
-          src: p.url,
-          alt: p.alt || p.caption || '',
-          label: (p as { label?: string }).label || p.caption || '',
-        }));
-    }
-    return [];
+    const initialHeroes = (initialPhotos ?? [])
+      .filter((p) => p.is_hero === true)
+      .slice(0, 4)
+      .map((p) => ({
+        id: p.id,
+        src: p.url,
+        alt: p.alt || p.caption || '',
+        label: (p as { label?: string }).label || p.caption || '',
+      }));
+
+    return initialHeroes.length > 0 ? initialHeroes : FALLBACK_HERO_PHOTOS;
   });
 
   useEffect(() => {
-    if (initialPhotos?.some((p) => p.is_hero === true)) return;
+    // A supplied array is authoritative for this server-rendered surface. Only
+    // a standalone mount that passed no prop needs to fetch.
+    if (initialPhotos) return;
     getGalleryPhotos().then((photos) => {
       const heroes = photos
         .filter((p): p is typeof p & { is_hero: true } => p.is_hero === true)
         .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+
+      // An empty successful response is not a reason to erase the fallback.
+      if (heroes.length === 0) return;
+
       setHeroPhotos(
         heroes.slice(0, 4).map((p) => ({
           id: p.id,
@@ -61,23 +87,24 @@ const useHeroPhotos = (initialPhotos?: GalleryPhotoView[]): Photo[] => {
 // Pair photos (is_pair=true)
 const usePairPhotos = (initialPhotos?: GalleryPhotoView[]): Photo[] => {
   const [pairPhotos, setPairPhotos] = useState<Photo[]>(() => {
-    if (initialPhotos && initialPhotos.length > 0) {
-      return initialPhotos
-        .filter((p) => p.is_pair === true)
-        .map((p) => ({
-          id: p.id,
-          src: p.url,
-          alt: p.alt || p.caption || '',
-          label: (p as { label?: string }).label || p.caption || '',
-        }));
-    }
-    return [];
+    const initialPairs = (initialPhotos ?? [])
+      .filter((p) => p.is_pair === true)
+      .map((p) => ({
+        id: p.id,
+        src: p.url,
+        alt: p.alt || p.caption || '',
+        label: (p as { label?: string }).label || p.caption || '',
+      }));
+
+    return initialPairs.length > 0 ? initialPairs : FALLBACK_PAIR_PHOTOS;
   });
 
   useEffect(() => {
-    if (initialPhotos?.some((p) => p.is_pair === true)) return;
+    if (initialPhotos) return;
     getGalleryPhotos().then((photos) => {
       const pairs = photos.filter((p) => p.is_pair === true);
+      if (pairs.length === 0) return;
+
       setPairPhotos(
         pairs.map((p) => ({
           id: p.id,
@@ -108,20 +135,33 @@ export function HeroPhotoFrame({
   const heroPhotos = useHeroPhotos(initialPhotos);
   const pairPhotos = usePairPhotos(initialPhotos);
   const [heroIndex, setHeroIndex] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
 
   useEffect(() => {
-    if (reduced !== false || heroPhotos.length === 0) return;
+    if (reduced !== false || isPaused || heroPhotos.length < 2) return;
     const t = setInterval(() => setHeroIndex((p) => (p + 1) % heroPhotos.length), HERO_INTERVAL);
     return () => clearInterval(t);
-  }, [reduced, heroPhotos.length]);
+  }, [heroPhotos.length, isPaused, reduced]);
+
+  const selectHero = (index: number) => {
+    setHeroIndex(index);
+    // Choosing a frame should keep it on screen rather than letting the timer
+    // immediately move on. The explicit pause control is still available.
+    setIsPaused(true);
+  };
 
   const dur = reduced !== false ? 0 : undefined;
 
   return (
     <div className="mx-auto flex w-full max-w-full select-none flex-col gap-4 md:max-w-2xl lg:max-w-3xl">
-      <div aria-hidden="true" className="flex flex-col gap-4">
+      <div className="flex flex-col gap-4">
         {/* ── Row 1: crossfading large photo ── */}
-        <div className="relative aspect-[4/3] overflow-hidden rounded-sm border border-foreground/25 bg-surface-deep shadow-[8px_8px_0_var(--surface-deep)]">
+        <div
+          role="group"
+          aria-roledescription="carousel"
+          aria-label="Community photo highlights"
+          className="relative aspect-[4/3] overflow-hidden rounded-sm border border-foreground/25 bg-surface-deep shadow-[8px_8px_0_var(--surface-deep)]"
+        >
           {heroPhotos.length > 0 && (
             <AnimatePresence mode="sync" initial={false}>
               <motion.div
@@ -170,15 +210,40 @@ export function HeroPhotoFrame({
                 </motion.span>
               </AnimatePresence>
 
-              <div className="flex items-center gap-1.5">
-                {heroPhotos.map((p, i) => (
-                  <span
-                    key={p.id}
-                    className={`block rounded-full transition-all duration-300 ${
-                      i === heroIndex ? 'w-4 h-1.5 bg-accent-gold' : 'w-1.5 h-1.5 bg-white/40'
-                    }`}
-                  />
-                ))}
+              <div className="flex items-center gap-2">
+                <div role="group" aria-label="Choose a community photo" className="flex items-center gap-1">
+                  {heroPhotos.map((p, i) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => selectHero(i)}
+                      aria-label={`Show photo ${i + 1} of ${heroPhotos.length}: ${p.label}`}
+                      aria-pressed={i === heroIndex}
+                      className="inline-flex size-7 items-center justify-center rounded-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold focus-visible:ring-offset-2 focus-visible:ring-offset-secondary"
+                    >
+                      <span
+                        className={`block h-1.5 rounded-full transition-all duration-300 ${
+                          i === heroIndex ? 'w-4 bg-accent-gold' : 'w-1.5 bg-white/50'
+                        }`}
+                      />
+                    </button>
+                  ))}
+                </div>
+                {heroPhotos.length > 1 ? (
+                  <button
+                    type="button"
+                    onClick={() => setIsPaused((paused) => !paused)}
+                    aria-label={isPaused ? 'Resume photo rotation' : 'Pause photo rotation'}
+                    aria-pressed={isPaused}
+                    className="inline-flex size-7 items-center justify-center rounded-sm border border-white/30 bg-secondary/60 text-white transition-colors hover:bg-secondary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold motion-reduce:hidden"
+                  >
+                    {isPaused ? (
+                      <Play size={12} aria-hidden="true" />
+                    ) : (
+                      <Pause size={12} aria-hidden="true" />
+                    )}
+                  </button>
+                ) : null}
               </div>
             </div>
           )}

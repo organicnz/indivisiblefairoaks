@@ -9,11 +9,12 @@ describe('isActiveRoute', () => {
     expect(isActiveRoute('/about-us', { label: 'About', href: '/about' })).toBe(false);
   });
 
-  it('matches Home only on the root, not on every path', () => {
-    // The trap: every path starts with "/", so a naive startsWith marks Home
-    // active on the entire site.
-    const home = ROUTES.find((route) => route.href === '/');
-    if (!home) throw new Error('ROUTES must contain a Home entry');
+  it('matches the logo Home link only on the root, not on every path', () => {
+    // Home moved out of the primary row and onto the logo. The trap is
+    // unchanged: every path starts with "/", so a naive startsWith would mark
+    // the logo current on the entire site.
+    expect(ROUTES.some((route) => route.href === '/')).toBe(false);
+    const home = { label: 'Home', href: '/' };
     expect(isActiveRoute('/', home)).toBe(true);
     expect(isActiveRoute('/about', home)).toBe(false);
     expect(isActiveRoute('/events/rally', home)).toBe(false);
@@ -58,9 +59,9 @@ describe('ROUTES', () => {
   });
 
   it('gives every route a concise short label for the desktop row', () => {
-    // The short labels are what make the nine-item row fit at 2xl. A route
-    // without one silently falls back to its full label and re-introduces the
-    // ~1700px row that overflowed the viewport.
+    // The short labels are what make the primary nav row fit as the header
+    // tightens. A route without one silently falls back to its full label and
+    // re-introduces the wide row that overflowed the viewport.
     for (const route of ROUTES) {
       expect(route.short, `${route.href} is missing a short label`).toBeTruthy();
     }

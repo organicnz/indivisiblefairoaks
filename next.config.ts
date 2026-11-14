@@ -50,7 +50,7 @@ const csp = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline' https://js.stripe.com https://m.stripe.com ${posthogHost}`.trim(),
   "style-src 'self' 'unsafe-inline'",
-  `img-src 'self' data: blob: ${supabaseHost ? `https://${supabaseHost}` : ''} https://images.unsplash.com https://sites.google.com https://*.googleusercontent.com https://i.ytimg.com ${firstPartyHosts.map((h) => `https://${h}`).join(' ')} https://i0.wp.com https://i1.wp.com https://i2.wp.com`.replace(
+  `img-src 'self' data: blob: ${supabaseHost ? `https://${supabaseHost}` : ''} https://*.tile.openstreetmap.org https://images.unsplash.com https://sites.google.com https://*.googleusercontent.com https://i.ytimg.com ${firstPartyHosts.map((h) => `https://${h}`).join(' ')} https://i0.wp.com https://i1.wp.com https://i2.wp.com`.replace(
     /\s+/g,
     ' '
   ),
@@ -60,8 +60,10 @@ const csp = [
     ' '
   ),
   // Same-origin `/_vercel/*` covers the RUM beacons, so no extra origins needed.
-  // Sentry ingest is dynamically allowed when DSN is configured.
-  `connect-src 'self' ${supabaseHost ? `https://${supabaseHost}` : ''} https://api.stripe.com https://m.stripe.com ${sentryHost ? `https://${sentryHost}` : ''} ${posthogHost}`.replace(
+  // Sentry ingest is dynamically allowed when DSN is configured. Nominatim is
+  // the submit-only geocoder for the ICE map; it receives the location query,
+  // never report contents.
+  `connect-src 'self' ${supabaseHost ? `https://${supabaseHost}` : ''} https://api.stripe.com https://m.stripe.com https://nominatim.openstreetmap.org ${sentryHost ? `https://${sentryHost}` : ''} ${posthogHost}`.replace(
     /\s+/g,
     ' '
   ),

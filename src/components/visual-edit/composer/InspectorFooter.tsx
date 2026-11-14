@@ -34,6 +34,8 @@ export interface InspectorFooterProps {
    * is a real change.
    */
   applyDisabled?: boolean;
+  /** Why Apply is inert even when the draft has changes. */
+  applyDisabledReason?: string;
   /** The named groups that differ from the last applied state. */
   changedGroups?: readonly { label: string; fields: string[] }[];
   /** Put one named group back where the page last agreed it was. */
@@ -61,6 +63,7 @@ export function InspectorFooter({
   canRedo = false,
   dirty = false,
   applyDisabled = false,
+  applyDisabledReason,
   changedGroups = [],
   onRevertGroup,
   confirmDiscard = false,
@@ -234,7 +237,10 @@ export function InspectorFooter({
               onClick={onApply}
               disabled={applyDisabled}
               aria-keyshortcuts="Meta+Enter Control+Enter Meta+S Control+S"
-              title={applyDisabled ? 'No changes to save yet' : 'Apply these changes (⌘↵)'}
+              title={
+                applyDisabledReason ??
+                (applyDisabled ? 'No changes to save yet' : 'Apply these changes (⌘↵)')
+              }
               className={`rounded-xl px-4 py-1.5 text-xs font-black transition-colors ${
                 applyDisabled
                   ? 'cursor-not-allowed bg-accent-gold/25 text-ink-strong/60'

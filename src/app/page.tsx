@@ -75,7 +75,7 @@ export default async function HomePage() {
   const card = gatheringCard(selectMeetingEvent(events));
 
   return (
-    <div className="flex flex-col w-full">
+    <div className="civic-page flex w-full flex-col">
       {/* Hero. Editorial broadsheet rather than a gradient landing page: rule,
           serif display, one clear action hierarchy, and a photographed chapter. */}
       <section className="relative w-full overflow-hidden bg-background pt-(--header-clearance) text-foreground">
@@ -213,7 +213,7 @@ export default async function HomePage() {
                       name="home.impact.districts"
                       as="div"
                       initialData={dataPoints}
-                      className="font-display text-3xl font-semibold leading-none tracking-[-0.03em] text-foreground"
+                      className="whitespace-nowrap font-display text-[clamp(1.1rem,1.9vw,1.55rem)] font-semibold leading-none tracking-[-0.03em] text-foreground"
                     >
                       CA-03 / 06
                     </DataPoint>
@@ -309,7 +309,7 @@ export default async function HomePage() {
 
       {/* Four Pillars / Mission Section.
           The old version was four identical rounded cards under a centred heading.
-          This is a two-column editorial spread: argument on the left, four numbered
+          This is a two-column editorial spread: argument on the left, four
           commitments separated by rules on the right. Copy region preserved. */}
       <section className="border-t border-border bg-surface-muted py-16 text-foreground md:py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -345,23 +345,22 @@ export default async function HomePage() {
               </div>
 
               <div className="grid gap-x-10 sm:grid-cols-2 lg:col-span-8">
-                <article className="group border-t border-foreground/25 py-7">
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="font-mono text-[10px] font-bold tracking-[0.18em] text-muted-foreground">
-                      01
+                <article className="group border-t border-foreground/25 py-6 sm:py-7">
+                  <div className="flex items-center gap-3">
+                    <span className="flex size-9 items-center justify-center border border-foreground/20 bg-background">
+                      <Shield
+                        size={18}
+                        strokeWidth={1.4}
+                        className="text-primary transition-colors duration-300 group-hover:text-accent"
+                        aria-hidden="true"
+                      />
                     </span>
-                    <Shield
-                      size={22}
-                      strokeWidth={1.4}
-                      className="text-primary transition-colors duration-300 group-hover:text-accent"
-                      aria-hidden="true"
-                    />
                   </div>
                   <DataPoint
                     name="home.pillars.p1_title"
                     as="h3"
                     initialData={dataPoints}
-                    className="mt-8 font-display text-2xl font-semibold tracking-[-0.03em] text-foreground"
+                    className="mt-6 font-display text-2xl font-semibold tracking-[-0.03em] text-foreground"
                   >
                     Stop Authoritarianism
                   </DataPoint>
@@ -376,23 +375,22 @@ export default async function HomePage() {
                   </DataPoint>
                 </article>
 
-                <article className="group border-t border-foreground/25 py-7">
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="font-mono text-[10px] font-bold tracking-[0.18em] text-muted-foreground">
-                      02
+                <article className="group border-t border-foreground/25 py-6 sm:py-7">
+                  <div className="flex items-center gap-3">
+                    <span className="flex size-9 items-center justify-center border border-foreground/20 bg-background">
+                      <Vote
+                        size={18}
+                        strokeWidth={1.4}
+                        className="text-primary transition-colors duration-300 group-hover:text-accent"
+                        aria-hidden="true"
+                      />
                     </span>
-                    <Vote
-                      size={22}
-                      strokeWidth={1.4}
-                      className="text-primary transition-colors duration-300 group-hover:text-accent"
-                      aria-hidden="true"
-                    />
                   </div>
                   <DataPoint
                     name="home.pillars.p2_title"
                     as="h3"
                     initialData={dataPoints}
-                    className="mt-8 font-display text-2xl font-semibold tracking-[-0.03em] text-foreground"
+                    className="mt-6 font-display text-2xl font-semibold tracking-[-0.03em] text-foreground"
                   >
                     Defend Democratic Norms
                   </DataPoint>
@@ -407,23 +405,22 @@ export default async function HomePage() {
                   </DataPoint>
                 </article>
 
-                <article className="group border-t border-foreground/25 py-7">
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="font-mono text-[10px] font-bold tracking-[0.18em] text-muted-foreground">
-                      03
+                <article className="group border-t border-foreground/25 py-6 sm:py-7">
+                  <div className="flex items-center gap-3">
+                    <span className="flex size-9 items-center justify-center border border-foreground/20 bg-background">
+                      <Megaphone
+                        size={18}
+                        strokeWidth={1.4}
+                        className="text-primary transition-colors duration-300 group-hover:text-accent"
+                        aria-hidden="true"
+                      />
                     </span>
-                    <Megaphone
-                      size={22}
-                      strokeWidth={1.4}
-                      className="text-primary transition-colors duration-300 group-hover:text-accent"
-                      aria-hidden="true"
-                    />
                   </div>
                   <DataPoint
                     name="home.pillars.p3_title"
                     as="h3"
                     initialData={dataPoints}
-                    className="mt-8 font-display text-2xl font-semibold tracking-[-0.03em] text-foreground"
+                    className="mt-6 font-display text-2xl font-semibold tracking-[-0.03em] text-foreground"
                   >
                     Elect Bold Leaders
                   </DataPoint>
@@ -438,23 +435,22 @@ export default async function HomePage() {
                   </DataPoint>
                 </article>
 
-                <article className="group border-t border-foreground/25 py-7">
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="font-mono text-[10px] font-bold tracking-[0.18em] text-muted-foreground">
-                      04
+                <article className="group border-t border-foreground/25 py-6 sm:py-7">
+                  <div className="flex items-center gap-3">
+                    <span className="flex size-9 items-center justify-center border border-foreground/20 bg-background">
+                      <Users
+                        size={18}
+                        strokeWidth={1.4}
+                        className="text-primary transition-colors duration-300 group-hover:text-accent"
+                        aria-hidden="true"
+                      />
                     </span>
-                    <Users
-                      size={22}
-                      strokeWidth={1.4}
-                      className="text-primary transition-colors duration-300 group-hover:text-accent"
-                      aria-hidden="true"
-                    />
                   </div>
                   <DataPoint
                     name="home.pillars.p4_title"
                     as="h3"
                     initialData={dataPoints}
-                    className="mt-8 font-display text-2xl font-semibold tracking-[-0.03em] text-foreground"
+                    className="mt-6 font-display text-2xl font-semibold tracking-[-0.03em] text-foreground"
                   >
                     Secure Progressive Policy
                   </DataPoint>
@@ -475,7 +471,7 @@ export default async function HomePage() {
       </section>
 
       {/* Carmichael Resistance Choir Spotlight */}
-      <section className="py-16 md:py-24 bg-surface-muted text-foreground border-t border-border dark:bg-gradient-to-b dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 dark:text-white dark:border-white/10">
+      <section className="civic-section bg-surface-muted text-foreground">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
             <div className="lg:col-span-7 space-y-6">
@@ -489,7 +485,7 @@ export default async function HomePage() {
                 name="home.choir.headline"
                 as="h2"
                 initialData={dataPoints}
-                className="text-3xl sm:text-4xl font-black tracking-tight text-foreground dark:text-white"
+                className="font-display text-4xl font-semibold leading-[0.98] tracking-[-0.04em] text-foreground sm:text-5xl"
               >
                 Every good protest movement needs music.
               </DataPoint>
@@ -504,11 +500,8 @@ export default async function HomePage() {
                 community while marching forward.
               </DataPoint>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-2">
-                <div className="flex items-start gap-3 p-4 rounded-xl bg-surface-card border border-border dark:bg-white/5 dark:border-white/10">
-                  <CheckCircle2
-                    className="text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5"
-                    size={18}
-                  />
+                <div className="flex items-start gap-3 border-t border-foreground/25 pt-4">
+                  <CheckCircle2 className="mt-0.5 shrink-0 text-primary-ink" size={18} />
                   <div>
                     <DataPoint
                       name="home.choir.all_voices"
@@ -528,11 +521,8 @@ export default async function HomePage() {
                     </DataPoint>
                   </div>
                 </div>
-                <div className="flex items-start gap-3 p-4 rounded-xl bg-surface-card border border-border dark:bg-white/5 dark:border-white/10">
-                  <CheckCircle2
-                    className="text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5"
-                    size={18}
-                  />
+                <div className="flex items-start gap-3 border-t border-foreground/25 pt-4">
+                  <CheckCircle2 className="mt-0.5 shrink-0 text-primary-ink" size={18} />
                   <div>
                     <DataPoint
                       name="home.choir.rehearsal"
@@ -556,7 +546,7 @@ export default async function HomePage() {
               <div className="flex items-center gap-4 pt-2">
                 <Link
                   href="/choir"
-                  className="px-6 py-3 rounded-xl bg-primary hover:bg-primary-dark dark:bg-primary-bright dark:hover:bg-primary-light text-white font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-2 shadow-lg"
+                  className="inline-flex min-h-11 items-center gap-2 border border-primary bg-primary px-5 py-3 text-[11px] font-bold uppercase tracking-[0.12em] text-white transition-colors hover:border-primary-dark hover:bg-primary-dark"
                 >
                   <span>Choir Details & Video</span>
                   <ArrowRight size={14} />
@@ -565,7 +555,7 @@ export default async function HomePage() {
                   href="https://www.mobilize.us/indivisible/"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="px-6 py-3 rounded-xl bg-surface-card hover:bg-surface-muted text-foreground border border-border dark:bg-white/5 dark:hover:bg-white/10 dark:text-ink-on-dark dark:border-white/15 font-bold text-xs uppercase tracking-wider transition-all"
+                  className="inline-flex min-h-11 items-center gap-2 border border-foreground/30 px-5 py-3 text-[11px] font-bold uppercase tracking-[0.12em] text-foreground transition-colors hover:border-primary hover:text-primary-ink"
                 >
                   Register via Mobilize
                 </a>
@@ -573,9 +563,9 @@ export default async function HomePage() {
             </div>
 
             <div className="lg:col-span-5">
-              <div className="rounded-2xl overflow-hidden border border-border bg-surface-card shadow-2xl dark:border-white/10 dark:bg-secondary p-6">
+              <div className="border border-foreground/25 bg-surface-card p-4 sm:p-6">
                 <div className="flex items-center justify-between mb-4">
-                  <span className="text-xs font-black uppercase tracking-wider text-primary-ink dark:text-accent-gold">
+                  <span className="civic-meta text-primary-ink">
                     Protest In Song
                   </span>
                   <span className="text-[11px] text-muted-foreground dark:text-ink-muted-on-dark">
@@ -617,7 +607,7 @@ export default async function HomePage() {
                 name="home.voter.eyebrow"
                 as="span"
                 initialData={dataPoints}
-                className="text-primary-ink dark:text-accent-gold text-xs font-black uppercase tracking-widest block mb-2"
+                className="civic-kicker"
               >
                 Empowering Every Voter
               </DataPoint>
@@ -625,7 +615,7 @@ export default async function HomePage() {
                 name="home.voter.headline"
                 as="h2"
                 initialData={dataPoints}
-                className="text-3xl sm:text-4xl font-black tracking-tight"
+                className="mt-4 font-display text-4xl font-semibold leading-[0.98] tracking-[-0.04em] sm:text-5xl"
               >
                 Voter Education & Rights Hub
               </DataPoint>
@@ -643,9 +633,9 @@ export default async function HomePage() {
 
           <CopyRegion id="home-voter-hub">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="p-6 rounded-2xl bg-surface-card border border-border shadow-card hover:border-primary/40 dark:hover:border-primary-bright/50 transition-all flex flex-col justify-between">
+              <div className="flex flex-col justify-between border-t border-foreground/25 pt-6 transition-colors hover:border-primary/60">
                 <div>
-                  <div className="w-10 h-10 rounded-lg bg-primary/10 dark:bg-white/5 text-primary dark:text-primary-on-dark-muted flex items-center justify-center mb-4">
+                  <div className="mb-4 flex size-10 items-center justify-center border border-border bg-background text-primary-ink">
                     <FileText size={20} />
                   </div>
                   <DataPoint
@@ -677,9 +667,9 @@ export default async function HomePage() {
                 </Link>
               </div>
 
-              <div className="p-6 rounded-2xl bg-surface-card border border-border shadow-card hover:border-primary/40 dark:hover:border-primary-bright/50 transition-all flex flex-col justify-between">
+              <div className="flex flex-col justify-between border-t border-foreground/25 pt-6 transition-colors hover:border-primary/60">
                 <div>
-                  <div className="w-10 h-10 rounded-lg bg-amber-100 dark:bg-white/5 text-amber-600 dark:text-accent-gold flex items-center justify-center mb-4">
+                  <div className="mb-4 flex size-10 items-center justify-center border border-border bg-background text-accent">
                     <Vote size={20} />
                   </div>
                   <DataPoint
@@ -711,9 +701,9 @@ export default async function HomePage() {
                 </Link>
               </div>
 
-              <div className="p-6 rounded-2xl bg-surface-card border border-border shadow-card hover:border-primary/40 dark:hover:border-primary-bright/50 transition-all flex flex-col justify-between">
+              <div className="flex flex-col justify-between border-t border-foreground/25 pt-6 transition-colors hover:border-primary/60">
                 <div>
-                  <div className="w-10 h-10 rounded-lg bg-emerald-100 dark:bg-white/5 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-4">
+                  <div className="mb-4 flex size-10 items-center justify-center border border-border bg-background text-primary-ink">
                     <Shield size={20} />
                   </div>
                   <DataPoint
@@ -754,16 +744,16 @@ export default async function HomePage() {
 
       {/* Non-violent Action Commitment Banner */}
       {/* Light section: the dark tile keeps the emerald icon at full contrast. */}
-      <section className="bg-surface-muted py-12 border-t border-b border-border">
+      <section className="civic-section border-y border-border bg-secondary text-ink-on-dark">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-4">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-emerald-100 dark:bg-white/5 text-emerald-600 dark:text-emerald-400 mb-1">
+          <div className="mb-1 inline-flex size-12 items-center justify-center border border-white/25 text-accent-gold-on-dark">
             <Shield size={24} />
           </div>
           <DataPoint
             name="home.nonviolence.headline"
             as="h2"
             initialData={dataPoints}
-            className="text-2xl font-black text-foreground tracking-tight"
+            className="font-display text-3xl font-semibold leading-tight tracking-[-0.03em] text-white sm:text-4xl"
           >
             Our Core Commitment: Disciplined Non-Violent Action
           </DataPoint>
@@ -771,7 +761,7 @@ export default async function HomePage() {
             name="home.nonviolence.desc"
             as="p"
             initialData={dataPoints}
-            className="text-sm text-muted-foreground leading-relaxed"
+            className="mx-auto max-w-2xl text-sm leading-relaxed text-ink-on-dark/80"
           >
             A core principle behind all Indivisible events is an unwavering commitment to nonviolent
             action. We expect all participants to act lawfully, avoid civil disobedience unless
@@ -783,8 +773,9 @@ export default async function HomePage() {
 
       {/* Support & Donation CTA. A solid civic-blue field closes the page; the
           previous pastel gradient was the most generic surface on the site. */}
-      <section className="border-y border-primary-dark bg-primary py-16 text-white md:py-20">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <section className="relative overflow-hidden border-y border-primary-dark bg-primary py-16 text-white md:py-20">
+        <span aria-hidden="true" className="civic-cta-halftone pointer-events-none absolute inset-0" />
+        <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="grid gap-10 lg:grid-cols-12 lg:items-end lg:gap-12">
             <div className="lg:col-span-8">
               <DataPoint

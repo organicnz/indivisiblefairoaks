@@ -100,7 +100,7 @@ export function ActionAlertsSubscription({ initialData, className = '' }: Action
           <div
             role="status"
             aria-live="polite"
-            className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-6 sm:p-7 backdrop-blur-sm transition-all duration-300"
+            className="border border-emerald-700/30 bg-emerald-500/10 p-6 sm:p-7 transition-colors"
           >
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div className="flex items-start gap-3">
@@ -195,7 +195,7 @@ export function ActionAlertsSubscription({ initialData, className = '' }: Action
                 <button
                   type="submit"
                   disabled={isPending || !email.trim()}
-                  className="w-full h-full min-h-[44px] inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-accent-gold hover:brightness-105 active:scale-[0.98] text-ink-strong font-bold text-xs uppercase tracking-wider shadow-md hover:shadow-lg transition-all touch-manipulation disabled:opacity-60 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-accent-gold"
+                  className="inline-flex h-full min-h-11 w-full touch-manipulation items-center justify-center gap-2 border border-accent-gold bg-accent-gold px-5 py-3 text-[11px] font-bold uppercase tracking-[0.12em] text-ink-strong transition-colors hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold focus-visible:ring-offset-2"
                 >
                   {isPending ? (
                     <>

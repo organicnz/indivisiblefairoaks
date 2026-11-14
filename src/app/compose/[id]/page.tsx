@@ -49,9 +49,11 @@ function rowIdFromParam(value: string): number | null {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const id = rowIdFromParam((await params).id);
-  const content = id === null ? null : await getContentForEdit(id, `/compose/${id}`);
+  if (id === null) notFound();
+  const content = await getContentForEdit(id, `/compose/${id}`);
+  if (!content) notFound();
   return {
-    title: content ? `${content.title} — Visual composer` : 'Visual composer',
+    title: `${content.title} — Visual composer`,
     description: 'Compose a CMS page visually.',
     robots: { index: false, follow: false },
   };
@@ -83,42 +85,54 @@ export default async function ComposerWorkspacePage({ params }: PageProps) {
    * is published by the overlay and absent on every other route.
    */
   return (
-    <div className="min-h-screen bg-background pt-(--header-h) pb-24 text-foreground transition-[padding-right] duration-300 motion-reduce:transition-none lg:pr-[var(--visual-edit-rail-width,0px)]">
-      <ComposerWorkspaceBoot />
+    <div
+      data-composer-workspace
+      className="min-h-screen bg-background pt-(--header-clearance) pb-[calc(6rem+env(safe-area-inset-bottom))] text-foreground transition-[padding-right] duration-300 motion-reduce:transition-none lg:pr-[var(--visual-edit-rail-width,0px)]"
+    >
       {/* Same column width as the public page: a canvas one size wider would
           preview line breaks the saved page will not have. */}
       <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-wrap items-end justify-between gap-4 border-b border-border py-8">
+        <div className="flex flex-wrap items-end justify-between gap-5 border-b-2 border-foreground/15 py-8">
           <div className="min-w-0">
-            <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.25em] text-primary dark:text-primary-on-dark">
+            <p className="civic-kicker">
               <Paintbrush size={12} aria-hidden="true" />
-              Visual composer
+              Composer workspace
             </p>
-            <h1 className="mt-2 truncate text-3xl font-black uppercase tracking-tight sm:text-4xl">
+            <h1 className="mt-3 max-w-3xl text-4xl font-semibold leading-[0.95] tracking-[-0.045em] text-foreground sm:text-5xl">
               {content.title}
             </h1>
-            <p className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-              <span>Row #{content.id}</span>
+            <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+              <span className="font-mono font-medium normal-case tracking-normal">
+                Row #{content.id}
+              </span>
               <span aria-hidden="true">·</span>
-              <span className="font-mono">/{content.slug}</span>
+              <span className="font-mono font-medium normal-case tracking-normal">
+                /{content.slug}
+              </span>
               <span aria-hidden="true">·</span>
               <span
                 className={
                   content.status === 'publish'
-                    ? 'font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400'
-                    : 'font-bold uppercase tracking-wider text-accent-gold'
+                    ? 'text-primary-ink'
+                    : 'text-accent-gold'
                 }
               >
                 {content.status === 'publish' ? 'Published' : 'Draft'}
               </span>
-            </p>
+              {!publicHref && !conflict ? (
+                <>
+                  <span aria-hidden="true">·</span>
+                  <span className="text-accent-gold">No public route</span>
+                </>
+              ) : null}
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Link
               href={`/admin/content/${content.id}`}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-surface-muted focus-visible:ring-2 focus-visible:ring-primary"
+              className="inline-flex items-center gap-1.5 border border-border bg-surface-card px-3 py-2 text-[11px] font-bold uppercase tracking-[0.12em] text-foreground transition-colors hover:bg-surface-muted focus-visible:ring-2 focus-visible:ring-primary"
             >
-              <ArrowLeft size={15} aria-hidden="true" />
+              <ArrowLeft size={14} aria-hidden="true" />
               Back to editor
             </Link>
             {publicHref ? (
@@ -126,19 +140,21 @@ export default async function ComposerWorkspacePage({ params }: PageProps) {
                 href={publicHref}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3 py-2 text-sm font-bold text-white transition-colors hover:bg-primary-dark focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                className="inline-flex items-center gap-1.5 bg-primary px-3 py-2 text-[11px] font-bold uppercase tracking-[0.12em] text-white transition-colors hover:bg-primary-dark focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
               >
                 View page
-                <ExternalLink size={13} aria-hidden="true" />
+                <ExternalLink size={12} aria-hidden="true" />
               </Link>
             ) : null}
           </div>
         </div>
 
+        <ComposerWorkspaceBoot />
+
         {conflict ? (
           <p
             role="status"
-            className="mt-4 flex items-start gap-2 rounded-xl border border-accent-gold/40 bg-accent-gold/10 px-4 py-3 text-xs font-medium text-foreground"
+            className="mt-4 flex items-start gap-2 border-l-2 border-accent-gold bg-accent-gold/10 px-4 py-3 text-xs font-medium text-foreground"
           >
             <AlertTriangle
               size={15}
@@ -146,26 +162,37 @@ export default async function ComposerWorkspacePage({ params }: PageProps) {
               aria-hidden="true"
             />
             <span>
-              <strong className="font-black">This row is not what /{content.slug} serves.</strong>{' '}
+              <strong className="font-semibold">
+                This row is not what /{content.slug} serves.
+              </strong>{' '}
               {conflict} Edits still save to the CMS row; change the slug in the editor to publish
               it at a reachable path.
             </span>
           </p>
         ) : null}
 
-        <p className="mt-6 text-xs text-muted-foreground">
-          Click any block to edit its content and design in the composer — the only block editor on
-          this route. The page saves to row #{content.id}.
+        <p className="mt-5 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+          Select any block on the canvas to edit it in the composer rail. Saves write to row #
+          {content.id}.
         </p>
 
         {/* Sanitized inside ContentSurface; `html` above is only the emptiness probe. */}
-        <ContentSurface html={content.body || ''} contentId={content.id} className="mt-6" />
+        <ContentSurface html={content.body || ''} contentId={content.id} className="mt-8" />
 
         {html.trim().length === 0 ? (
-          <p className="mt-6 rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
-            This row has no copy yet. Use <strong className="font-bold">Add Block</strong> in the
-            visual editor to start the page.
-          </p>
+          <div className="mt-8 border border-dashed border-border bg-surface-muted/40 px-6 py-8 text-center">
+            <p className="text-xl font-semibold text-foreground">This row has no copy yet.</p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Add the first block in the visual editor, or build the page in the content editor.
+            </p>
+            <Link
+              href={`/admin/content/${content.id}`}
+              className="mt-4 inline-flex items-center gap-1.5 border border-border bg-surface-card px-3 py-2 text-[11px] font-bold uppercase tracking-[0.12em] text-foreground transition-colors hover:bg-surface-muted focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              Open content editor
+              <ExternalLink size={12} aria-hidden="true" />
+            </Link>
+          </div>
         ) : null}
       </div>
     </div>

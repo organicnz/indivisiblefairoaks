@@ -58,6 +58,12 @@ export const VISUAL_EDIT_EVENTS = {
   openCRM: 'indivisible:open-crm',
   /** Open the system and edge diagnostics modal. */
   openDiagnostics: 'indivisible:open-diagnostics',
+  /**
+   * The overlay boundary caught a render error. The composer workspace listens
+   * so its own readiness strip can say the editor failed instead of leaving the
+   * operator with instructions for a toolbar that is no longer there.
+   */
+  crashed: 'indivisible:visual-edit-crashed',
 } as const;
 
 /**

@@ -1,11 +1,10 @@
 import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
+import NotFoundPage from '@/app/not-found';
 import { ContentSurface } from '@/components/content/ContentSurface';
 import { DataPoint } from '@/components/ui/DataPoint';
-import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
 import { ROBOTS, siteUrl } from '@/config/site';
 import { isCopyRegionSlug } from '@/lib/copy-regions';
 import { pageMetadata } from '@/lib/metadata';
@@ -63,9 +62,11 @@ export async function generateMetadata({
  *
  * This route uses `generateStaticParams`, and with `cacheComponents` on it is
  * Partial Prerendered: the static shell is flushed with a 200 before the
- * streaming part that calls `notFound()` runs, and a status already sent cannot
- * be rewritten. `instant = false` and hoisting the lookup above the Suspense
- * boundary were both tried and neither changes it.
+ * streamed body resolves the slug, and a status already sent cannot be
+ * rewritten. `instant = false` and hoisting the lookup above the Suspense
+ * boundary were both tried and neither changes it. The body renders the 404
+ * view inline because the special not-found file does not get a body through
+ * this streaming path.
  *
  * The consequence is bounded: `generateMetadata` emits `noindex, nofollow` for a
  * missing row, so search engines will not index it. What is affected is
@@ -110,7 +111,11 @@ async function ContentBody({ params }: { params: Promise<{ slug: string }> }) {
   // duplicate of content that already lives on `/`, reachable by anyone who can
   // guess the prefix. `getAllPublishedSlugs` keeps the prefix out of the static
   // set; this closes the on-demand render of the same path.
-  if (isCopyRegionSlug(slug)) return notFound();
+  //
+  // PPR flushes this segment's shell before the streamed body runs, and the
+  // special not-found file does not get a body in that path. Rendering the
+  // same 404 view inline keeps a broken link from becoming a blank page.
+  if (isCopyRegionSlug(slug)) return <NotFoundPage />;
 
   const [content, dataPoints] = await Promise.all([
     getPublishedContent(slug),
@@ -118,7 +123,7 @@ async function ContentBody({ params }: { params: Promise<{ slug: string }> }) {
   ]);
 
   if (!content) {
-    return notFound();
+    return <NotFoundPage />;
   }
 
   const canonical = siteUrl(`/${slug}`);
@@ -165,8 +170,7 @@ async function ContentBody({ params }: { params: Promise<{ slug: string }> }) {
   const jsonLd = [breadcrumbJsonLd, articleJsonLd].filter(Boolean);
 
   return (
-    <div className="relative overflow-hidden bg-background min-h-screen pt-(--header-h) pb-16 px-4 sm:px-6 lg:px-8 text-foreground transition-colors duration-300">
-      <VgpuCivicConstellation className="pointer-events-none opacity-20" />
+    <div className="civic-page relative min-h-screen bg-background px-4 pb-16 pt-(--header-h) text-foreground transition-colors duration-300 sm:px-6 lg:px-8">
       {jsonLd.length > 0 && (
         <script
           type="application/ld+json"
@@ -176,14 +180,14 @@ async function ContentBody({ params }: { params: Promise<{ slug: string }> }) {
       )}
       <div className="relative z-10 max-w-4xl mx-auto">
         <div className="flex flex-col mb-12">
-          <h1 className="text-4xl md:text-5xl font-black tracking-tight text-foreground uppercase mb-4 leading-tight">
+          <h1 className="mb-4 font-display text-4xl font-semibold leading-[1.02] tracking-[-0.04em] text-foreground md:text-5xl">
             {content.title}
           </h1>
           <div className="h-2 w-24 bg-primary dark:bg-primary-bright" />
           {content.type === 'post' && content.created_at && (
             <time
               dateTime={content.created_at}
-              className="mt-6 text-xs font-black text-muted-foreground uppercase tracking-[0.2em]"
+              className="civic-meta mt-6"
             >
               <DataPoint as="span" name="content.published_prefix" initialData={dataPoints}>
                 Published
@@ -210,7 +214,7 @@ async function ContentBody({ params }: { params: Promise<{ slug: string }> }) {
           which is what keeps this from introducing layout shift.
         */}
         {heroSrc && (
-          <div className="relative mb-12 aspect-[16/9] w-full overflow-hidden rounded-3xl bg-surface-muted shadow-lg">
+          <div className="relative mb-12 aspect-[16/9] w-full overflow-hidden border border-border bg-surface-muted">
             <Image
               src={heroSrc}
               alt=""
@@ -230,7 +234,7 @@ async function ContentBody({ params }: { params: Promise<{ slug: string }> }) {
           <div className="mt-20 pt-10 border-t border-border flex justify-between items-center">
             <Link
               href="/"
-              className="text-sm font-black text-foreground uppercase tracking-widest hover:text-primary dark:hover:text-primary-on-dark transition-colors flex items-center gap-2"
+              className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.12em] text-foreground transition-colors hover:text-primary-ink"
             >
               <span>&larr;</span>{' '}
               <DataPoint as="span" name="content.back_home" initialData={dataPoints}>

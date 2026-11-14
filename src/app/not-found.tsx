@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { DataPoint } from '@/components/ui/DataPoint';
-import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
 import { NOT_FOUND_ROUTES } from '@/config/routes';
 import { useDataPoints } from '@/hooks/useDataPoints';
 
@@ -10,14 +9,13 @@ export default function NotFound() {
   const { dataPoints } = useDataPoints('notfound');
 
   return (
-    <div className="relative overflow-hidden min-h-[70vh] flex flex-col items-center justify-center px-4 pt-(--header-h) pb-24 text-center bg-background text-foreground">
-      <VgpuCivicConstellation className="opacity-25" />
-      <div className="max-w-xl relative z-10">
+    <div className="civic-page relative flex min-h-[70vh] flex-col items-center justify-center overflow-hidden bg-background px-4 pb-24 pt-(--header-h) text-center text-foreground">
+      <div className="relative z-10 max-w-xl">
         <DataPoint
           as="p"
           name="notfound.badge"
           initialData={dataPoints}
-          className="text-xs font-black text-primary-ink dark:text-primary-on-dark-muted uppercase tracking-[0.2em] mb-4"
+          className="civic-kicker mb-4"
         >
           Error 404
         </DataPoint>
@@ -26,7 +24,7 @@ export default function NotFound() {
           as="h1"
           name="notfound.title"
           initialData={dataPoints}
-          className="text-4xl md:text-5xl font-black text-foreground uppercase tracking-tighter leading-tight mb-6"
+          className="mb-6 font-display text-4xl font-semibold leading-[0.98] tracking-[-0.04em] md:text-6xl"
         >
           This page isn&apos;t here
         </DataPoint>
@@ -43,7 +41,7 @@ export default function NotFound() {
         <div className="flex flex-col sm:flex-row gap-3 justify-center mb-12">
           <Link
             href="/"
-            className="inline-flex items-center justify-center px-6 py-3 rounded-full bg-primary hover:bg-primary-dark dark:bg-primary-bright dark:hover:bg-primary-light text-white font-black uppercase tracking-[0.2em] text-xs shadow-raised hover:shadow-float focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 transition-colors duration-300 ease-out"
+            className="inline-flex min-h-11 items-center justify-center border border-primary bg-primary px-6 py-3 text-[11px] font-bold uppercase tracking-[0.14em] text-white transition-colors hover:bg-primary-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           >
             <DataPoint as="span" name="notfound.btn.home" initialData={dataPoints}>
               Go to homepage
@@ -51,7 +49,7 @@ export default function NotFound() {
           </Link>
           <Link
             href="/contact"
-            className="inline-flex items-center justify-center px-6 py-3 rounded-full bg-surface-card border border-border text-foreground font-black uppercase tracking-[0.2em] text-xs hover:border-primary dark:hover:border-white/20 hover:text-primary dark:hover:text-primary-on-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 transition-colors duration-300 ease-out"
+            className="inline-flex min-h-11 items-center justify-center border border-foreground/30 bg-surface-card px-6 py-3 text-[11px] font-bold uppercase tracking-[0.14em] text-foreground transition-colors hover:border-primary hover:text-primary-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           >
             <DataPoint as="span" name="notfound.btn.contact" initialData={dataPoints}>
               Contact us
@@ -64,7 +62,7 @@ export default function NotFound() {
             as="h2"
             name="notfound.popular.title"
             initialData={dataPoints}
-            className="text-xs font-black text-foreground uppercase tracking-[0.2em] mb-4"
+            className="civic-kicker mb-4"
           >
             Popular pages
           </DataPoint>

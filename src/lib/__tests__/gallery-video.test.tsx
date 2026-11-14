@@ -39,6 +39,19 @@ describe('GalleryPage Video Archive (Issue #88)', () => {
     expect(container.textContent).toContain('No Kings in America: The Movement in Motion');
     expect(container.textContent).toContain('No Kings 3 Nationwide Action');
 
+    // The archive now uses the shared click-to-load player. Assert the local
+    // poster surface first, then the player after intent — a raw iframe on
+    // every page view is the regression this test now guards against.
+    const playButton = container.querySelector<HTMLButtonElement>(
+      'button[aria-label*="Play film"][aria-label*="No Kings 3"]'
+    );
+    expect(playButton).not.toBeNull();
+    expect(container.querySelector('iframe')).toBeNull();
+
+    await act(async () => {
+      playButton?.click();
+    });
+
     const iframe = container.querySelector<HTMLIFrameElement>('iframe[src*="aO2BEp8PCcY"]');
     expect(iframe).not.toBeNull();
     expect(iframe?.title).toContain('No Kings 3');

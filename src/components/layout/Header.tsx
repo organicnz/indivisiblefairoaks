@@ -5,14 +5,14 @@ import { ArrowUpRight, Heart, Menu, Search, X } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Suspense, useEffect, useRef, useState } from 'react';
+import { Fragment, Suspense, useEffect, useRef, useState } from 'react';
 import { AccountButton } from '@/components/layout/AccountButton';
 import { EditorialButton, EditorialDrawerRow } from '@/components/layout/EditorialButton';
 import { NavDropdown } from '@/components/layout/NavDropdown';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
 import { CivicCommandPalette } from '@/components/ui/CivicCommandPalette';
 import { DataPoint } from '@/components/ui/DataPoint';
-import { isActiveRoute, ROUTES } from '@/config/routes';
+import { isActiveRoute, NAV_GROUPS, ROUTES } from '@/config/routes';
 import { SITE_CONTACT } from '@/config/site';
 import { useDataPoints } from '@/hooks/useDataPoints';
 
@@ -87,6 +87,8 @@ function HeaderFallback() {
 
 function HeaderInner() {
   const { dataPoints } = useDataPoints('header');
+  const alertRoute = ROUTES.find((link) => link.href === '/ice-alerts');
+  const primaryRoutes = ROUTES.filter((link) => link.href !== '/ice-alerts');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
@@ -158,7 +160,17 @@ function HeaderInner() {
             </Link>
 
             <div className="flex items-center gap-1 sm:gap-1.5">
-              <CivicCommandPalette isOpen={isSearchOpen} setIsOpen={setIsSearchOpen} />
+              <div className="hidden sm:block">
+                <CivicCommandPalette isOpen={isSearchOpen} setIsOpen={setIsSearchOpen} />
+              </div>
+
+              <Link
+                href="/donate"
+                aria-label="Donate to Indivisible Fair Oaks-Carmichael"
+                className={`inline-flex size-11 items-center justify-center rounded-sm bg-foreground text-background transition-colors duration-300 ease-out hover:bg-primary sm:hidden ${FOCUS_RING}`}
+              >
+                <Heart size={17} className="fill-accent-gold text-accent-gold" aria-hidden="true" />
+              </Link>
 
               <div className="hidden sm:block">
                 <ThemeToggle />
@@ -166,7 +178,7 @@ function HeaderInner() {
               <EditorialButton />
               <Link
                 href="/donate"
-                className={`hidden h-9 items-center gap-1.5 rounded-sm border border-foreground bg-foreground px-3.5 text-[10px] font-bold uppercase tracking-[0.13em] text-background transition-colors duration-300 ease-out hover:border-primary hover:bg-primary md:inline-flex ${FOCUS_RING}`}
+                className={`hidden h-9 items-center gap-1.5 rounded-sm border border-foreground bg-foreground px-3.5 text-[10px] font-bold uppercase tracking-[0.13em] text-background transition-colors duration-300 ease-out hover:border-primary hover:bg-primary sm:inline-flex ${FOCUS_RING}`}
               >
                 <Heart size={13} className="fill-accent-gold text-accent-gold" aria-hidden="true" />
                 <DataPoint as="span" name="header.donate_btn" initialData={dataPoints}>
@@ -197,7 +209,7 @@ function HeaderInner() {
               navigation behind a menu at desktop sizes. */}
           <div className="hidden h-10 items-center justify-between border-t border-border md:flex">
             <nav aria-label="Primary" className="flex h-full min-w-0 items-center gap-0.5 xl:gap-1">
-              {ROUTES.map((link) => {
+              {primaryRoutes.map((link) => {
                 const isActive = isActiveRoute(pathname, link);
                 if (link.children) {
                   return <NavDropdown key={link.href} link={link} isActive={isActive} />;
@@ -207,7 +219,7 @@ function HeaderInner() {
                     key={link.href}
                     href={link.href}
                     aria-current={isActive ? 'page' : undefined}
-                    className={`relative inline-flex h-full items-center whitespace-nowrap rounded-sm px-2 text-[10px] font-bold uppercase tracking-[0.09em] transition-colors duration-300 ease-out xl:px-2.5 xl:text-[10.5px] ${FOCUS_RING} ${
+                    className={`relative inline-flex h-full items-center whitespace-nowrap rounded-sm px-2.5 text-[11px] font-bold uppercase tracking-[0.1em] transition-colors duration-300 ease-out xl:px-3 xl:text-[11.5px] ${FOCUS_RING} ${
                       isActive
                         ? 'text-primary-ink'
                         : 'text-foreground/65 hover:text-foreground'
@@ -225,9 +237,26 @@ function HeaderInner() {
               })}
             </nav>
 
-            <span className="hidden shrink-0 border-l border-border pl-4 text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground xl:inline-block">
-              Fair Oaks · Carmichael, CA
-            </span>
+            <div className="flex h-full shrink-0 items-center gap-3">
+              <span className="hidden border-l border-border pl-4 text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground xl:inline-block">
+                Fair Oaks · Carmichael, CA
+              </span>
+              {alertRoute ? (
+                <Link
+                  href={alertRoute.href}
+                  aria-current={isActiveRoute(pathname, alertRoute) ? 'page' : undefined}
+                  className={`relative inline-flex h-full items-center whitespace-nowrap rounded-sm px-1 text-[11px] font-bold uppercase tracking-[0.1em] text-accent transition-colors duration-300 ease-out hover:text-foreground ${FOCUS_RING}`}
+                >
+                  {alertRoute.short ?? alertRoute.label}
+                  {isActiveRoute(pathname, alertRoute) ? (
+                    <span
+                      aria-hidden="true"
+                      className="absolute inset-x-1 bottom-0 h-0.5 bg-accent"
+                    />
+                  ) : null}
+                </Link>
+              ) : null}
+            </div>
           </div>
         </div>
       </header>
@@ -303,7 +332,7 @@ function HeaderInner() {
                 </div>
               </Link>
               <Dialog.Close
-                className={`inline-flex items-center justify-center size-11 -mr-2 rounded-lg text-ink-muted-on-dark hover:text-white transition-colors duration-300 ease-out ${FOCUS_RING}`}
+                className={`inline-flex items-center justify-center size-11 -mr-2 rounded-sm text-ink-muted-on-dark hover:text-white transition-colors duration-300 ease-out ${FOCUS_RING}`}
                 aria-label="Close menu"
               >
                 <X size={28} aria-hidden="true" />
@@ -311,14 +340,35 @@ function HeaderInner() {
             </div>
 
             <nav aria-label="Mobile" className="flex flex-col gap-1 py-6 overflow-y-auto">
+              <Link
+                href="/"
+                onClick={() => setIsMenuOpen(false)}
+                className={`rounded-sm py-2 font-display text-2xl font-semibold tracking-[-0.02em] transition-colors duration-300 ease-out ${FOCUS_RING} ${
+                  pathname === '/' ? 'text-accent-gold' : 'text-ink-on-dark hover:text-white'
+                }`}
+              >
+                Home
+              </Link>
               {/* Primary Route Navigation Links First */}
-              {ROUTES.map((link) => {
+              {ROUTES.map((link, index) => {
                 const isActive = isActiveRoute(pathname, link);
+                const groupLabel =
+                  link.group !== 'more' &&
+                  link.group &&
+                  !ROUTES.slice(0, index).some((previous) => previous.group === link.group)
+                    ? NAV_GROUPS.find((group) => group.id === link.group)?.label
+                    : null;
                 // Dropdown parents expand inline: drawer users must reach every
                 // child, and an always-visible group needs no accordion state.
                 if (link.children) {
                   return (
-                    <div key={link.href} className="py-2">
+                    <Fragment key={link.href}>
+                      {groupLabel ? (
+                        <p className="pt-4 pb-1 text-[10px] font-bold uppercase tracking-[0.2em] text-ink-muted-on-dark">
+                          {groupLabel}
+                        </p>
+                      ) : null}
+                    <div className="py-2">
                       <Link
                         href={link.href}
                         onClick={() => setIsMenuOpen(false)}
@@ -347,7 +397,16 @@ function HeaderInner() {
                               <Link
                                 href={child.href}
                                 onClick={() => setIsMenuOpen(false)}
-                                className={`block text-base font-medium transition-colors duration-300 ease-out py-1.5 rounded-sm ${FOCUS_RING} text-ink-muted-on-dark hover:text-white`}
+                                aria-current={
+                                  !child.href.includes('#') && child.href === pathname
+                                    ? 'page'
+                                    : undefined
+                                }
+                                className={`block text-base font-medium transition-colors duration-300 ease-out py-1.5 rounded-sm ${FOCUS_RING} ${
+                                  !child.href.includes('#') && child.href === pathname
+                                    ? 'text-accent-gold'
+                                    : 'text-ink-muted-on-dark hover:text-white'
+                                }`}
                               >
                                 {child.label}
                               </Link>
@@ -356,20 +415,27 @@ function HeaderInner() {
                         ))}
                       </ul>
                     </div>
+                    </Fragment>
                   );
                 }
                 return (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    onClick={() => setIsMenuOpen(false)}
-                    aria-current={isActive ? 'page' : undefined}
-                    className={`rounded-sm py-2 font-display text-2xl font-semibold tracking-[-0.02em] transition-colors duration-300 ease-out ${FOCUS_RING} ${
-                      isActive ? 'text-accent-gold' : 'text-ink-on-dark hover:text-white'
-                    }`}
-                  >
-                    {link.label}
-                  </Link>
+                  <Fragment key={link.href}>
+                    {groupLabel ? (
+                      <p className="pt-4 pb-1 text-[10px] font-bold uppercase tracking-[0.2em] text-ink-muted-on-dark">
+                        {groupLabel}
+                      </p>
+                    ) : null}
+                    <Link
+                      href={link.href}
+                      onClick={() => setIsMenuOpen(false)}
+                      aria-current={isActive ? 'page' : undefined}
+                      className={`rounded-sm py-2 font-display text-2xl font-semibold tracking-[-0.02em] transition-colors duration-300 ease-out ${FOCUS_RING} ${
+                        isActive ? 'text-accent-gold' : 'text-ink-on-dark hover:text-white'
+                      }`}
+                    >
+                      {link.label}
+                    </Link>
+                  </Fragment>
                 );
               })}
 
@@ -382,13 +448,13 @@ function HeaderInner() {
                   setIsMenuOpen(false);
                   setIsSearchOpen(true);
                 }}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-ink-on-dark hover:text-white transition-colors duration-300 ease-out text-sm font-medium ${FOCUS_RING}`}
+                className={`flex items-center gap-3 rounded-sm border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-ink-on-dark transition-colors duration-300 ease-out hover:bg-white/10 hover:text-white ${FOCUS_RING}`}
               >
                 <Search size={18} className="text-ink-on-dark" aria-hidden="true" />
                 <DataPoint as="span" name="header.drawer.search" initialData={dataPoints}>
                   Quick Search…
                 </DataPoint>
-                <kbd className="ml-auto inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-secondary border border-white/20 text-[10px] font-mono text-ink-muted-on-dark">
+                <kbd className="ml-auto inline-flex items-center gap-0.5 rounded-sm border border-white/20 bg-secondary px-1.5 py-0.5 font-mono text-[10px] text-ink-muted-on-dark">
                   ⌘K
                 </kbd>
               </button>

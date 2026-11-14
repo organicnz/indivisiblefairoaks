@@ -83,7 +83,7 @@ export default async function PartnersPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background pt-(--header-clearance) pb-20 text-foreground">
+    <div className="civic-page min-h-screen bg-background pb-20 text-foreground pt-(--header-clearance)">
       <PageMasthead
         icon={Handshake}
         eyebrow={
@@ -120,7 +120,7 @@ export default async function PartnersPage() {
           {partners.map((partner) => (
             <div
               key={partner.slug}
-              className="p-6 rounded-2xl bg-surface-card border border-border hover:border-primary-bright/40 transition-all flex flex-col justify-between group"
+              className="group flex flex-col justify-between border-t border-foreground/25 pt-6 transition-colors hover:border-primary/60"
             >
               <div className="space-y-3">
                 <DataPoint
@@ -135,7 +135,7 @@ export default async function PartnersPage() {
                   initialData={dataPoints}
                   as="h2"
                   name={`partner.${partner.slug}.name`}
-                  className="text-xl font-bold text-foreground dark:text-white group-hover:text-primary-ink dark:group-hover:text-primary-on-dark transition-colors"
+                  className="font-display text-xl font-semibold tracking-[-0.02em] text-foreground transition-colors group-hover:text-primary-ink"
                 >
                   {partner.name}
                 </DataPoint>
@@ -166,12 +166,12 @@ export default async function PartnersPage() {
           ))}
         </div>
 
-        <div className="p-8 rounded-3xl bg-surface-card border border-border text-center space-y-4">
+        <div className="space-y-4 border-y border-border bg-surface-card p-8 text-center">
           <DataPoint
             initialData={dataPoints}
             name="partners.cta.headline"
             as="h3"
-            className="text-xl font-bold text-foreground dark:text-white"
+            className="font-display text-2xl font-semibold tracking-[-0.03em]"
           >
             Looking to Partner with Our Chapter?
           </DataPoint>
@@ -186,7 +186,7 @@ export default async function PartnersPage() {
           </DataPoint>
           <Link
             href="/contact"
-            className="inline-block px-6 py-3 rounded-xl bg-primary hover:bg-primary-dark dark:bg-primary-bright dark:hover:bg-primary-light text-white font-bold text-xs uppercase tracking-wider transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            className="inline-flex min-h-11 items-center border border-primary bg-primary px-6 py-3 text-[11px] font-bold uppercase tracking-[0.12em] text-white transition-colors hover:bg-primary-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           >
             <DataPoint initialData={dataPoints} as="span" name="partners.cta.button">
               Connect With Our Coalition Team
