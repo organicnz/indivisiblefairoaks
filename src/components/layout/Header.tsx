@@ -5,14 +5,14 @@ import { ArrowUpRight, Heart, Menu, Search, X } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Suspense, useEffect, useRef, useState } from 'react';
+import { Fragment, Suspense, useEffect, useRef, useState } from 'react';
 import { AccountButton } from '@/components/layout/AccountButton';
 import { EditorialButton, EditorialDrawerRow } from '@/components/layout/EditorialButton';
 import { NavDropdown } from '@/components/layout/NavDropdown';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
 import { CivicCommandPalette } from '@/components/ui/CivicCommandPalette';
 import { DataPoint } from '@/components/ui/DataPoint';
-import { isActiveRoute, ROUTES } from '@/config/routes';
+import { isActiveRoute, NAV_GROUPS, ROUTES } from '@/config/routes';
 import { SITE_CONTACT } from '@/config/site';
 import { useDataPoints } from '@/hooks/useDataPoints';
 
@@ -22,7 +22,7 @@ const DRAWER_ID = 'primary-navigation-drawer';
 // focus styling at all: keyboard focus on primary navigation was completely
 // invisible, which fails WCAG 2.4.7.
 const FOCUS_RING =
-  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold focus-visible:ring-offset-2 focus-visible:ring-offset-secondary';
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background';
 
 export function Header() {
   return (
@@ -43,40 +43,44 @@ export function Header() {
  */
 function HeaderFallback() {
   return (
-    <div className="bg-secondary py-4 border-b border-white/10">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
+    <div
+      aria-hidden="true"
+      className="fixed inset-x-0 top-0 z-50 border-b border-foreground/20 bg-background"
+    >
+      <div className="mx-auto flex h-16 max-w-[88rem] items-center justify-between px-4 sm:px-6 md:h-[4.25rem] lg:px-8">
         <div className="flex items-center gap-3">
-          <div className="relative w-10 h-10 shrink-0">
+          <div className="relative size-10 shrink-0">
             <Image
               src="/images/logo/indivisible-emblem.png"
               alt=""
               width={40}
               height={40}
-              className="w-full h-full object-contain"
+              className="h-full w-full object-contain"
               priority
               unoptimized
             />
           </div>
           <div>
-            <span className="text-white font-black text-lg tracking-tight uppercase block">
+            <span className="block font-display text-xl font-semibold leading-none tracking-[-0.03em] text-foreground">
               Indivisible
             </span>
-            <span className="text-ink-muted-on-dark text-xs font-semibold tracking-wider uppercase block">
+            <span className="mt-1 block text-[9px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
               Fair Oaks &amp; Carmichael
             </span>
           </div>
         </div>
-        <div className="hidden xl:flex items-center gap-3.5 2xl:gap-5">
+        <div className="hidden items-center gap-4 md:flex">
           {ROUTES.map((link) => (
             <span
               key={link.href}
-              className="whitespace-nowrap text-[11px] 2xl:text-xs font-bold uppercase tracking-[0.12em] 2xl:tracking-[0.2em] text-white/70"
+              className="whitespace-nowrap text-[10px] font-bold uppercase tracking-[0.1em] text-foreground/45"
             >
               {link.short ?? link.label}
             </span>
           ))}
         </div>
       </div>
+      <div className="hidden h-10 border-t border-border md:block" />
     </div>
   );
 }
@@ -117,33 +121,35 @@ function HeaderInner() {
           header's backdrop-blur creates a containing block that would trap the
           drawer's `fixed inset-0` at header height. */}
       <header
-        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ease-out ${
-          isScrolled
-            ? 'site-header-padding-compact bg-secondary/95 backdrop-blur-md shadow-header border-b border-white/10'
-            : 'site-header-padding bg-secondary/90 backdrop-blur-sm border-b border-white/10'
+        className={`fixed inset-x-0 top-0 z-50 border-b border-foreground/20 bg-background/95 backdrop-blur-md transition-shadow duration-300 ease-out ${
+          isScrolled ? 'shadow-header' : ''
         }`}
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center">
-            <Link href="/" className={`flex items-center gap-3 group rounded-sm ${FOCUS_RING}`}>
-              <div className="relative w-10 h-10 shrink-0 group-hover:scale-105 transition-transform duration-300 ease-out motion-reduce:group-hover:scale-100">
+        <div className="mx-auto max-w-[88rem] px-4 sm:px-6 lg:px-8">
+          {/* Tier one: identity and actions. */}
+          <div className="flex h-16 items-center justify-between gap-4 md:h-[4.25rem]">
+            <Link
+              href="/"
+              className={`group flex items-center gap-3 rounded-sm ${FOCUS_RING}`}
+            >
+              <div className="relative size-10 shrink-0 transition-transform duration-300 ease-out group-hover:-rotate-2 motion-reduce:group-hover:rotate-0">
                 <Image
                   src="/images/logo/indivisible-emblem.png"
                   alt="Indivisible Fair Oaks &amp; Carmichael"
                   width={40}
                   height={40}
-                  className="w-full h-full object-contain"
+                  className="h-full w-full object-contain"
                   priority
                   unoptimized
                 />
               </div>
               <div>
-                <span className="text-white font-black text-base sm:text-lg tracking-tight uppercase group-hover:text-white transition-colors duration-300 ease-out block leading-tight">
+                <span className="block font-display text-[1.35rem] font-semibold leading-none tracking-[-0.035em] text-foreground sm:text-[1.55rem]">
                   <DataPoint name="header.logo.title" initialData={dataPoints}>
                     Indivisible
                   </DataPoint>
                 </span>
-                <span className="text-ink-muted-on-dark text-[11px] sm:text-xs font-semibold tracking-wider uppercase block leading-tight">
+                <span className="mt-1 block text-[8.5px] font-bold uppercase tracking-[0.17em] text-muted-foreground sm:text-[9px]">
                   <DataPoint name="header.logo.subtitle" initialData={dataPoints}>
                     Fair Oaks &amp; Carmichael
                   </DataPoint>
@@ -151,58 +157,18 @@ function HeaderInner() {
               </div>
             </Link>
 
-            {/*
-              Desktop navigation.
-
-              The full nine-link row only fits at 2xl. At 1280px the labels at
-              `tracking-[0.2em]` (the AGENTS.md nav rule) need ~1365px once the
-              logo and action cluster are laid out, so showing the row at xl pushed
-              the account control off-screen. Between sm and 2xl the drawer serves
-              the links and the account control stays inline from xl up.
-            */}
-            <nav aria-label="Primary" className="hidden xl:flex items-center gap-3.5 2xl:gap-5">
-              {ROUTES.map((link) => {
-                const isActive = isActiveRoute(pathname, link);
-                // Links with children render as a dropdown trigger; the row keeps
-                // one item per route so the width budget is unchanged.
-                if (link.children) {
-                  return <NavDropdown key={link.href} link={link} isActive={isActive} />;
-                }
-                return (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    // `aria-current` is what conveys the active page to assistive
-                    // tech; the amber text and underline bar are decoration.
-                    aria-current={isActive ? 'page' : undefined}
-                    className={`whitespace-nowrap text-[11px] 2xl:text-xs font-bold uppercase tracking-[0.12em] 2xl:tracking-[0.2em] transition-colors duration-300 ease-out relative py-1 rounded-sm ${FOCUS_RING} ${
-                      isActive
-                        ? 'text-accent-gold font-extrabold'
-                        : 'text-ink-on-dark hover:text-white'
-                    }`}
-                  >
-                    {link.short ?? link.label}
-                    {isActive && (
-                      <span
-                        aria-hidden="true"
-                        className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent-gold rounded-full"
-                      />
-                    )}
-                  </Link>
-                );
-              })}
-            </nav>
-
-            <div className="flex items-center gap-2.5 sm:gap-3">
+            <div className="flex items-center gap-1 sm:gap-1.5">
               <CivicCommandPalette isOpen={isSearchOpen} setIsOpen={setIsSearchOpen} />
 
-              <ThemeToggle />
+              <div className="hidden sm:block">
+                <ThemeToggle />
+              </div>
               <EditorialButton />
               <Link
                 href="/donate"
-                className={`hidden sm:inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-accent hover:bg-accent-gold text-ink-strong font-bold text-xs uppercase tracking-wider shadow-raised hover:shadow-float active:scale-95 transition-all duration-300 ease-out motion-reduce:hover:scale-100 ${FOCUS_RING}`}
+                className={`hidden h-9 items-center gap-1.5 rounded-sm border border-foreground bg-foreground px-3.5 text-[10px] font-bold uppercase tracking-[0.13em] text-background transition-colors duration-300 ease-out hover:border-primary hover:bg-primary md:inline-flex ${FOCUS_RING}`}
               >
-                <Heart size={14} className="fill-current" aria-hidden="true" />
+                <Heart size={13} className="fill-accent-gold text-accent-gold" aria-hidden="true" />
                 <DataPoint as="span" name="header.donate_btn" initialData={dataPoints}>
                   Donate
                 </DataPoint>
@@ -215,16 +181,53 @@ function HeaderInner() {
               <button
                 type="button"
                 ref={menuButtonRef}
-                // 44px minimum target: p-2 + a 24px glyph is only 40px.
-                className={`xl:hidden inline-flex items-center justify-center size-11 rounded-lg text-ink-on-dark hover:text-white hover:bg-white/10 transition-colors duration-300 ease-out ${FOCUS_RING}`}
+                className={`inline-flex size-11 items-center justify-center rounded-sm text-foreground transition-colors duration-300 ease-out hover:bg-surface-muted md:hidden ${FOCUS_RING}`}
                 onClick={() => setIsMenuOpen(true)}
                 aria-label="Open navigation menu"
                 aria-expanded={isMenuOpen}
                 aria-controls={DRAWER_ID}
               >
-                <Menu size={24} aria-hidden="true" />
+                <Menu size={23} aria-hidden="true" />
               </button>
             </div>
+          </div>
+
+          {/* Tier two: the whole chapter, on one line. The old single-row header
+              could not fit nine links beside the action cluster without hiding
+              navigation behind a menu at desktop sizes. */}
+          <div className="hidden h-10 items-center justify-between border-t border-border md:flex">
+            <nav aria-label="Primary" className="flex h-full min-w-0 items-center gap-0.5 xl:gap-1">
+              {ROUTES.map((link) => {
+                const isActive = isActiveRoute(pathname, link);
+                if (link.children) {
+                  return <NavDropdown key={link.href} link={link} isActive={isActive} />;
+                }
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    aria-current={isActive ? 'page' : undefined}
+                    className={`relative inline-flex h-full items-center whitespace-nowrap rounded-sm px-2.5 text-[11px] font-bold uppercase tracking-[0.1em] transition-colors duration-300 ease-out xl:px-3 xl:text-[11.5px] ${FOCUS_RING} ${
+                      isActive
+                        ? 'text-primary-ink'
+                        : 'text-foreground/65 hover:text-foreground'
+                    }`}
+                  >
+                    {link.short ?? link.label}
+                    {isActive ? (
+                      <span
+                        aria-hidden="true"
+                        className="absolute inset-x-2 bottom-0 h-0.5 bg-accent xl:inset-x-2.5"
+                      />
+                    ) : null}
+                  </Link>
+                );
+              })}
+            </nav>
+
+            <span className="hidden shrink-0 border-l border-border pl-4 text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground xl:inline-block">
+              Fair Oaks · Carmichael, CA
+            </span>
           </div>
         </div>
       </header>
@@ -250,7 +253,7 @@ function HeaderInner() {
       */}
       <Dialog.Root open={isMenuOpen} onOpenChange={setIsMenuOpen}>
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 z-[100] bg-secondary/60 backdrop-blur-sm data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 xl:hidden" />
+          <Dialog.Overlay className="fixed inset-0 z-[100] bg-secondary/60 backdrop-blur-sm data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 md:hidden" />
           <Dialog.Content
             id={DRAWER_ID}
             // Radix restores focus to whatever was focused when the dialog opened,
@@ -263,7 +266,7 @@ function HeaderInner() {
               event.preventDefault();
               menuButtonRef.current?.focus();
             }}
-            className="fixed inset-0 z-[110] bg-secondary flex flex-col drawer-safe-padding xl:hidden focus:outline-none data-[state=open]:animate-in data-[state=open]:slide-in-from-right-full data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right-full data-[state=open]:duration-300 data-[state=closed]:duration-200"
+            className="fixed inset-0 z-[110] flex flex-col bg-secondary text-ink-on-dark drawer-safe-padding md:hidden focus:outline-none data-[state=open]:animate-in data-[state=open]:slide-in-from-right-full data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right-full data-[state=open]:duration-300 data-[state=closed]:duration-200"
           >
             <Dialog.Title className="sr-only">Navigation menu</Dialog.Title>
             <Dialog.Description className="sr-only">
@@ -287,12 +290,12 @@ function HeaderInner() {
                   />
                 </div>
                 <div>
-                  <span className="text-white font-black text-base uppercase block leading-tight">
+                  <span className="block font-display text-xl font-semibold leading-none tracking-[-0.03em] text-white">
                     <DataPoint name="header.logo.title" initialData={dataPoints}>
                       Indivisible
                     </DataPoint>
                   </span>
-                  <span className="text-ink-muted-on-dark text-xs font-semibold uppercase block leading-tight">
+                  <span className="mt-1 block text-[9px] font-bold uppercase tracking-[0.16em] text-ink-muted-on-dark">
                     <DataPoint name="header.logo.subtitle" initialData={dataPoints}>
                       Fair Oaks &amp; Carmichael
                     </DataPoint>
@@ -300,7 +303,7 @@ function HeaderInner() {
                 </div>
               </Link>
               <Dialog.Close
-                className={`inline-flex items-center justify-center size-11 -mr-2 rounded-lg text-ink-muted-on-dark hover:text-white transition-colors duration-300 ease-out ${FOCUS_RING}`}
+                className={`inline-flex items-center justify-center size-11 -mr-2 rounded-sm text-ink-muted-on-dark hover:text-white transition-colors duration-300 ease-out ${FOCUS_RING}`}
                 aria-label="Close menu"
               >
                 <X size={28} aria-hidden="true" />
@@ -308,19 +311,39 @@ function HeaderInner() {
             </div>
 
             <nav aria-label="Mobile" className="flex flex-col gap-1 py-6 overflow-y-auto">
+              <Link
+                href="/"
+                onClick={() => setIsMenuOpen(false)}
+                className={`rounded-sm py-2 font-display text-2xl font-semibold tracking-[-0.02em] transition-colors duration-300 ease-out ${FOCUS_RING} ${
+                  pathname === '/' ? 'text-accent-gold' : 'text-ink-on-dark hover:text-white'
+                }`}
+              >
+                Home
+              </Link>
               {/* Primary Route Navigation Links First */}
-              {ROUTES.map((link) => {
+              {ROUTES.map((link, index) => {
                 const isActive = isActiveRoute(pathname, link);
+                const groupLabel =
+                  link.group &&
+                  !ROUTES.slice(0, index).some((previous) => previous.group === link.group)
+                    ? NAV_GROUPS.find((group) => group.id === link.group)?.label
+                    : null;
                 // Dropdown parents expand inline: drawer users must reach every
                 // child, and an always-visible group needs no accordion state.
                 if (link.children) {
                   return (
-                    <div key={link.href} className="py-2">
+                    <Fragment key={link.href}>
+                      {groupLabel ? (
+                        <p className="pt-4 pb-1 text-[10px] font-bold uppercase tracking-[0.2em] text-ink-muted-on-dark">
+                          {groupLabel}
+                        </p>
+                      ) : null}
+                    <div className="py-2">
                       <Link
                         href={link.href}
                         onClick={() => setIsMenuOpen(false)}
                         aria-current={isActive ? 'page' : undefined}
-                        className={`text-xl font-bold uppercase tracking-wide transition-colors duration-300 ease-out py-2 rounded-sm ${FOCUS_RING} ${
+                        className={`rounded-sm py-2 font-display text-2xl font-semibold tracking-[-0.02em] transition-colors duration-300 ease-out ${FOCUS_RING} ${
                           isActive ? 'text-accent-gold' : 'text-ink-on-dark hover:text-white'
                         }`}
                       >
@@ -353,20 +376,27 @@ function HeaderInner() {
                         ))}
                       </ul>
                     </div>
+                    </Fragment>
                   );
                 }
                 return (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    onClick={() => setIsMenuOpen(false)}
-                    aria-current={isActive ? 'page' : undefined}
-                    className={`text-xl font-bold uppercase tracking-wide transition-colors duration-300 ease-out py-2 rounded-sm ${FOCUS_RING} ${
-                      isActive ? 'text-accent-gold' : 'text-ink-on-dark hover:text-white'
-                    }`}
-                  >
-                    {link.label}
-                  </Link>
+                  <Fragment key={link.href}>
+                    {groupLabel ? (
+                      <p className="pt-4 pb-1 text-[10px] font-bold uppercase tracking-[0.2em] text-ink-muted-on-dark">
+                        {groupLabel}
+                      </p>
+                    ) : null}
+                    <Link
+                      href={link.href}
+                      onClick={() => setIsMenuOpen(false)}
+                      aria-current={isActive ? 'page' : undefined}
+                      className={`rounded-sm py-2 font-display text-2xl font-semibold tracking-[-0.02em] transition-colors duration-300 ease-out ${FOCUS_RING} ${
+                        isActive ? 'text-accent-gold' : 'text-ink-on-dark hover:text-white'
+                      }`}
+                    >
+                      {link.label}
+                    </Link>
+                  </Fragment>
                 );
               })}
 
@@ -379,13 +409,13 @@ function HeaderInner() {
                   setIsMenuOpen(false);
                   setIsSearchOpen(true);
                 }}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-ink-on-dark hover:text-white transition-colors duration-300 ease-out text-sm font-medium ${FOCUS_RING}`}
+                className={`flex items-center gap-3 rounded-sm border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-ink-on-dark transition-colors duration-300 ease-out hover:bg-white/10 hover:text-white ${FOCUS_RING}`}
               >
                 <Search size={18} className="text-ink-on-dark" aria-hidden="true" />
                 <DataPoint as="span" name="header.drawer.search" initialData={dataPoints}>
                   Quick Search…
                 </DataPoint>
-                <kbd className="ml-auto inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-secondary border border-white/20 text-[10px] font-mono text-ink-muted-on-dark">
+                <kbd className="ml-auto inline-flex items-center gap-0.5 rounded-sm border border-white/20 bg-secondary px-1.5 py-0.5 font-mono text-[10px] text-ink-muted-on-dark">
                   ⌘K
                 </kbd>
               </button>
@@ -401,7 +431,7 @@ function HeaderInner() {
               <Link
                 href="/donate"
                 onClick={() => setIsMenuOpen(false)}
-                className={`w-full py-3 rounded-xl bg-accent hover:bg-accent-gold text-ink-strong font-bold text-center text-sm uppercase tracking-[0.2em] flex items-center justify-center gap-2 shadow-float transition-colors duration-300 ease-out ${FOCUS_RING}`}
+                className={`flex w-full items-center justify-center gap-2 rounded-sm border border-accent bg-accent py-3 text-center text-sm font-bold uppercase tracking-[0.16em] text-white transition-colors duration-300 ease-out hover:bg-accent-red ${FOCUS_RING}`}
               >
                 <Heart size={16} className="fill-current" aria-hidden="true" />
                 <DataPoint as="span" name="header.drawer.donate_cta" initialData={dataPoints}>

@@ -14,9 +14,15 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  MASTHEAD_INTRO,
+  MASTHEAD_TITLE,
+  PageMasthead,
+} from '@/components/layout/PageMasthead';
 import { DataPoint } from '@/components/ui/DataPoint';
+import { FALLBACK_GALLERY_PHOTOS } from '@/config/gallery-fallback';
 import { GalleryImage } from '@/components/gallery/GalleryImage';
-import { VgpuCosmicRayCascade } from '@/components/ui/VgpuCosmicRayCascade';
+import { LiteYouTube } from '@/components/ui/LiteYouTube';
 import { useDataPoints } from '@/hooks/useDataPoints';
 import { type GalleryPhoto, getGalleryPhotos } from '@/lib/queries/content-client';
 
@@ -27,26 +33,22 @@ export default function GalleryPage() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [copiedLink, setCopiedLink] = useState(false);
 
-  // Fetch gallery photos from Supabase on mount
-  const [dbPhotos, setDbPhotos] = useState<GalleryPhoto[]>([]);
+  // The checked-in archive renders immediately. A real database response
+  // replaces it; an empty or unreachable response does not blank the page.
+  const [dbPhotos, setDbPhotos] = useState<GalleryPhoto[]>(FALLBACK_GALLERY_PHOTOS);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     async function loadGallery() {
       try {
-        const res = await fetch('/api/gallery');
-        if (res.ok) {
-          const data = await res.json();
-          if (!cancelled && Array.isArray(data.photos) && data.photos.length > 0) {
-            setDbPhotos(data.photos);
-            return;
-          }
-        }
+        // One resolved request through the API mapper. The previous duplicate
+        // raw fetch made an empty archive cost two failing round trips.
         const photos = await getGalleryPhotos();
-        if (!cancelled) setDbPhotos(photos);
+        if (!cancelled && photos.length > 0) setDbPhotos(photos);
       } catch {
-        // Keep the empty state honest if both reads fail.
+        // Keep the checked-in archive visible rather than turning a network
+        // problem into a blank public page.
       } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -57,8 +59,7 @@ export default function GalleryPage() {
     };
   }, []);
 
-  // Use dynamic photos if available, otherwise fall back to static gallery
-  const allPhotos = dbPhotos.length > 0 ? dbPhotos : [];
+  const allPhotos = dbPhotos;
 
   const categories = useMemo(() => {
     const categoriesSet = new Set<string>(['All']);
@@ -144,35 +145,30 @@ export default function GalleryPage() {
   };
 
   return (
-    <div className="bg-background text-foreground min-h-screen pt-(--header-clearance) pb-20">
-      {/* Hero Header with VGPU Cosmic Ray Cherenkov Filament Cascades */}
-      <div className="relative overflow-hidden bg-surface-muted border-b border-border dark:bg-gradient-to-b dark:from-slate-900 dark:to-slate-950 dark:border-white/10 py-16 px-4 sm:px-6 lg:px-8">
-        <VgpuCosmicRayCascade />
-        <div className="relative z-10 max-w-7xl mx-auto flex flex-col items-center text-center space-y-4 pointer-events-auto">
-          {/* Eyebrow Pill */}
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary dark:bg-primary-bright/15 dark:border-primary-on-dark-muted/30 dark:text-primary-on-dark text-xs font-bold uppercase tracking-wider backdrop-blur-md">
-            <Camera size={14} className="text-accent-gold" />
-            <DataPoint initialData={dataPoints} name="gallery.hero.eyebrow">
-              Photojournalism In Action • Moments of Peaceful Resistance
-            </DataPoint>
-          </div>
-
+    <div className="civic-page min-h-screen bg-background pb-20 text-foreground pt-(--header-clearance)">
+      <PageMasthead
+        icon={Camera}
+        eyebrow={
+          <DataPoint initialData={dataPoints} name="gallery.hero.eyebrow">
+            Photojournalism In Action • Moments of Peaceful Resistance
+          </DataPoint>
+        }
+        title={
           <DataPoint
             initialData={dataPoints}
             name="gallery.hero.headline"
             as="h1"
-            className="text-4xl sm:text-5xl md:text-6xl font-black uppercase text-foreground dark:text-white tracking-tighter leading-[1.08]"
+            className={MASTHEAD_TITLE}
           >
             Democracy In Full View
           </DataPoint>
-
-          <div className="h-1.5 w-24 bg-primary dark:bg-accent-gold rounded-full" />
-
+        }
+        intro={
           <DataPoint
             initialData={dataPoints}
             name="gallery.hero.intro"
             as="p"
-            className="text-base sm:text-lg text-muted-foreground dark:text-ink-on-dark leading-relaxed max-w-3xl"
+            className={MASTHEAD_INTRO}
           >
             Snapshots of our neighbors gathering, singing, holding signs, and speaking truth to
             power across Sacramento County. Curated from our legacy site archives, Sacramento No
@@ -180,15 +176,19 @@ export default function GalleryPage() {
             witty grassroots cardboard art. Strictly 100% grassroots — zero politicians, zero
             corporate branding.
           </DataPoint>
+        }
+      />
 
+      <section className="border-b border-border bg-surface-muted/60">
+        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
           {/* Quick Metrics Bar */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full max-w-4xl pt-4">
-            <div className="min-w-0 p-4 rounded-2xl bg-surface-card border border-border text-center">
+          <div className="grid w-full grid-cols-2 border-y border-foreground/15 sm:grid-cols-4">
+            <div className="min-w-0 border-b border-foreground/15 p-4 text-left odd:border-r sm:border-b-0 sm:border-r sm:text-center sm:last:border-r-0">
               <DataPoint
                 initialData={dataPoints}
                 as="span"
                 name="gallery.metrics.m1_stat"
-                className="text-xl sm:text-2xl font-black text-amber-600 dark:text-accent-gold block font-mono break-words"
+                className="block break-words font-display text-2xl font-semibold text-foreground"
               >
                 No Kings
               </DataPoint>
@@ -201,12 +201,12 @@ export default function GalleryPage() {
                 Sacramento Actions
               </DataPoint>
             </div>
-            <div className="min-w-0 p-4 rounded-2xl bg-surface-card border border-border text-center">
+            <div className="min-w-0 border-b border-foreground/15 p-4 text-left odd:border-r sm:border-b-0 sm:border-r sm:text-center sm:last:border-r-0">
               <DataPoint
                 initialData={dataPoints}
                 as="span"
                 name="gallery.metrics.m2_stat"
-                className="text-xl sm:text-2xl font-black text-emerald-600 dark:text-emerald-400 block font-mono break-words"
+                className="block break-words font-display text-2xl font-semibold text-foreground"
               >
                 NorCal Resist
               </DataPoint>
@@ -219,12 +219,12 @@ export default function GalleryPage() {
                 Direct Solidarity
               </DataPoint>
             </div>
-            <div className="min-w-0 p-4 rounded-2xl bg-surface-card border border-border text-center">
+            <div className="min-w-0 border-b border-foreground/15 p-4 text-left odd:border-r sm:border-b-0 sm:border-r sm:text-center sm:last:border-r-0">
               <DataPoint
                 initialData={dataPoints}
                 as="span"
                 name="gallery.metrics.m3_stat"
-                className="text-xl sm:text-2xl font-black text-primary dark:text-primary-on-dark-muted block font-mono break-words"
+                className="block break-words font-display text-2xl font-semibold text-foreground"
               >
                 Witty Signs
               </DataPoint>
@@ -237,12 +237,12 @@ export default function GalleryPage() {
                 Grassroots Humor
               </DataPoint>
             </div>
-            <div className="min-w-0 p-4 rounded-2xl bg-surface-card border border-border text-center">
+            <div className="min-w-0 border-b border-foreground/15 p-4 text-left odd:border-r sm:border-b-0 sm:border-r sm:text-center sm:last:border-r-0">
               <DataPoint
                 initialData={dataPoints}
                 as="span"
                 name="gallery.metrics.m4_stat"
-                className="text-xl sm:text-2xl font-black text-violet-600 dark:text-purple-400 block font-mono break-words"
+                className="block break-words font-display text-2xl font-semibold text-foreground"
               >
                 0 Politicians
               </DataPoint>
@@ -258,12 +258,12 @@ export default function GalleryPage() {
           </div>
 
           {/* Real-time Search & Filter Controls */}
-          <div className="w-full max-w-2xl pt-6 space-y-4">
+          <div className="mt-8 w-full max-w-2xl space-y-4">
             <div className="relative">
               <Search
                 size={18}
                 aria-hidden="true"
-                className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground dark:text-ink-muted-on-dark"
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground"
               />
               <input
                 type="text"
@@ -271,13 +271,13 @@ export default function GalleryPage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search by quote, slogan, location (e.g. 'IKEA', 'Tower Bridge', 'Brake Light')..."
-                className="w-full pl-12 pr-10 py-3 rounded-2xl bg-surface-card border border-border dark:border-slate-700 text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-ink-muted-on-dark text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all backdrop-blur-md shadow-lg"
+                className="w-full rounded-sm border border-border bg-surface-card py-3 pl-12 pr-10 text-sm text-foreground placeholder:text-muted-foreground transition-all focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/25"
               />
               {searchQuery && (
                 <button
                   type="button"
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground dark:text-ink-muted-on-dark hover:text-foreground dark:text-white"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                   aria-label="Clear search"
                 >
                   <X size={16} />
@@ -286,10 +286,14 @@ export default function GalleryPage() {
             </div>
 
             {/* Category Filter Chips */}
-            <div className="flex items-center justify-center gap-2 flex-wrap">
+            <div
+              role="group"
+              aria-label="Filter photographs by collection"
+              className="flex flex-wrap items-center justify-start gap-2"
+            >
               <Filter
                 size={15}
-                className="text-muted-foreground dark:text-ink-muted-on-dark mr-1 hidden sm:inline-block"
+                className="mr-1 hidden text-muted-foreground sm:inline-block"
               />
               {categories.map((category) => {
                 const count =
@@ -303,21 +307,21 @@ export default function GalleryPage() {
                     type="button"
                     aria-pressed={isSelected}
                     onClick={() => setSelectedCategory(category)}
-                    className={`px-3.5 min-h-11 rounded-xl text-xs sm:text-sm font-semibold transition-colors duration-300 ease-out cursor-pointer flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold ${
+                    className={`flex min-h-11 cursor-pointer items-center gap-1.5 rounded-sm px-3.5 text-xs font-semibold transition-colors duration-300 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:text-sm ${
                       isSelected
-                        ? 'bg-primary text-white shadow-raised'
-                        : 'bg-surface-card/90 text-muted-foreground dark:text-ink-on-dark hover:text-foreground dark:text-white hover:bg-surface-muted dark:hover:bg-white/5 border border-border dark:border-white/10'
+                        ? 'bg-primary text-white'
+                        : 'border border-border bg-surface-card/90 text-muted-foreground hover:bg-surface-muted hover:text-foreground'
                     }`}
                   >
                     <span>{category}</span>
                     <span
-                      className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full ${
+                      className={`rounded-sm px-1.5 py-0.5 font-mono text-[10px] ${
                         isSelected
-                          ? 'bg-blue-800 text-white'
-                          : 'bg-surface-muted dark:bg-white/5 text-muted-foreground dark:text-ink-muted-on-dark'
+                          ? 'bg-primary-dark text-white'
+                          : 'bg-surface-muted text-muted-foreground'
                       }`}
                     >
-                      {isLoading ? '…' : count}
+                      {count}
                     </span>
                   </button>
                 );
@@ -325,7 +329,7 @@ export default function GalleryPage() {
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
       {/* Filtering and searching produced a silently-changing grid. */}
       <p role="status" aria-live="polite" className="sr-only">
@@ -336,27 +340,32 @@ export default function GalleryPage() {
 
       {/* Gallery Grid */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12" aria-busy={isLoading}>
-        {isLoading ? (
+        {filteredPhotos.length === 0 ? (
           <div className="py-20 text-center space-y-4">
-            <p className="text-muted-foreground dark:text-ink-muted-on-dark text-base">
-              Loading gallery…
+            <p className="text-muted-foreground text-base">
+              {allPhotos.length === 0
+                ? 'The photo archive is being prepared. Check back soon.'
+                : 'No photos match your current search or category filter.'}
             </p>
-          </div>
-        ) : filteredPhotos.length === 0 ? (
-          <div className="py-20 text-center space-y-4">
-            <p className="text-muted-foreground dark:text-ink-muted-on-dark text-base">
-              No photos match your current search or category filter.
-            </p>
-            <button
-              type="button"
-              onClick={() => {
-                setSelectedCategory('All');
-                setSearchQuery('');
-              }}
-              className="px-5 py-2 rounded-xl bg-primary-bright text-white text-xs font-bold uppercase tracking-wider"
-            >
-              Reset Filters
-            </button>
+            {allPhotos.length > 0 ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedCategory('All');
+                  setSearchQuery('');
+                }}
+                className="min-h-11 rounded-sm bg-primary px-5 text-xs font-bold uppercase tracking-wider text-white transition-colors hover:bg-primary-dark"
+              >
+                Reset Filters
+              </button>
+            ) : (
+              <a
+                href="mailto:contact@indivisiblefairoaks.org?subject=Community%20Photo%20Submission"
+                className="inline-flex min-h-11 items-center rounded-sm bg-primary px-5 text-xs font-bold uppercase tracking-wider text-white transition-colors hover:bg-primary-dark"
+              >
+                Submit a Photo
+              </a>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -366,7 +375,7 @@ export default function GalleryPage() {
                 type="button"
                 data-gallery-photo={photo.id}
                 onClick={() => setSelectedPhotoId(photo.id)}
-                className="group relative h-88 rounded-3xl overflow-hidden border border-border dark:border-white/10 bg-surface-card cursor-pointer text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:focus-visible:ring-primary-bright hover:border-primary dark:hover:border-slate-700 transition-all shadow-xl"
+                className="group relative h-88 cursor-pointer overflow-hidden border border-border bg-surface-card text-left transition-colors hover:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               >
                 <GalleryImage
                   src={photo.url}
@@ -376,15 +385,15 @@ export default function GalleryPage() {
                 />
 
                 {/* Gradient Scrim */}
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent opacity-90 group-hover:opacity-80 transition-opacity pointer-events-none" />
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-secondary via-secondary/45 to-transparent opacity-90 transition-opacity group-hover:opacity-80" />
 
                 {/* Top Tag & Witty Sign Badge */}
                 <div className="absolute top-4 left-4 z-10 flex flex-col items-start gap-1.5 max-w-[85%]">
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-secondary/85 backdrop-blur-md border border-slate-700 text-accent-gold">
+                  <span className="border border-white/20 bg-secondary/85 px-2.5 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wider text-accent-gold backdrop-blur-md">
                     {photo.category}
                   </span>
                   {photo.signQuote && (
-                    <span className="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-accent-gold text-slate-950 shadow-md truncate max-w-full">
+                    <span className="max-w-full truncate bg-accent-gold px-2.5 py-0.5 text-[11px] font-bold text-ink-strong">
                       “{photo.signQuote}”
                     </span>
                   )}
@@ -392,15 +401,18 @@ export default function GalleryPage() {
 
                 {/* Bottom Caption */}
                 <div className="absolute bottom-0 inset-x-0 p-5 z-10 space-y-1.5">
-                  <h2 className="font-bold text-foreground dark:text-white text-base sm:text-lg leading-snug group-hover:text-primary-dark dark:group-hover:text-primary-light transition-colors duration-300 ease-out line-clamp-2">
+                  {/* A photo card is a button, whose content model is phrasing
+                      content; a heading inside it was invalid HTML. The
+                      catalogue heading is the section h2 outside the grid. */}
+                  <span className="line-clamp-2 block font-display text-xl font-semibold leading-snug text-white transition-colors group-hover:text-accent-gold">
                     {photo.caption}
-                  </h2>
-                  <div className="flex items-center justify-between text-xs text-muted-foreground dark:text-ink-muted-on-dark">
-                    <span className="flex items-center gap-1 truncate max-w-[70%]">
-                      <MapPin size={12} className="text-accent dark:text-accent-gold shrink-0" />
+                  </span>
+                  <div className="flex items-center justify-between text-xs text-ink-muted-on-dark">
+                    <span className="flex max-w-[70%] items-center gap-1 truncate">
+                      <MapPin size={12} className="shrink-0 text-accent-gold" aria-hidden="true" />
                       <span className="truncate">{photo.location}</span>
                     </span>
-                    <span className="font-mono text-[10px] shrink-0">
+                    <span className="shrink-0 font-mono text-[10px]">
                       {photo.date}
                     </span>
                   </div>
@@ -411,10 +423,10 @@ export default function GalleryPage() {
         )}
 
         {/* Featured Video Archive: No Kings 3 (Issue #88) */}
-        <div className="mt-16 rounded-3xl bg-surface-card border border-border p-6 sm:p-8 md:p-10 shadow-2xl relative overflow-hidden">
+        <div className="relative mt-16 overflow-hidden border-y border-border bg-surface-card p-6 sm:p-8 md:p-10">
           <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 mb-8 border-b border-border dark:border-white/10 pb-6">
             <div>
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent-gold/15 dark:bg-accent-gold/20 border border-accent-gold/40 dark:border-accent-gold/30 text-ink-strong dark:text-accent-gold-on-dark text-xs font-bold uppercase tracking-wider mb-2">
+              <div className="mb-2 inline-flex items-center gap-2 rounded-sm border border-accent-gold/40 bg-accent-gold/15 px-3 py-1 text-xs font-bold uppercase tracking-wider text-ink-strong dark:text-accent-gold-on-dark">
                 <Video size={14} />
                 <DataPoint initialData={dataPoints} as="span" name="gallery.video.badge_top">
                   Featured Video Archive
@@ -424,7 +436,7 @@ export default function GalleryPage() {
                 initialData={dataPoints}
                 as="h2"
                 name="gallery.video.title"
-                className="text-2xl sm:text-3xl font-black text-foreground dark:text-white tracking-tight"
+                className="font-display text-3xl font-semibold tracking-[-0.03em] sm:text-4xl"
               >
                 No Kings in America: The Movement in Motion
               </DataPoint>
@@ -432,7 +444,7 @@ export default function GalleryPage() {
                 initialData={dataPoints}
                 as="p"
                 name="gallery.video.desc"
-                className="text-xs sm:text-sm text-muted-foreground dark:text-ink-on-dark mt-1 max-w-2xl"
+                className="mt-1 max-w-2xl text-xs text-muted-foreground sm:text-sm dark:text-ink-on-dark"
               >
                 Watch official grassroots mobilization footage and documentary highlights from our
                 Sacramento County actions defending constitutional democracy.
@@ -443,7 +455,7 @@ export default function GalleryPage() {
                 initialData={dataPoints}
                 as="span"
                 name="gallery.video.platform_tag"
-                className="text-xs font-mono text-slate-700 dark:text-ink-muted-on-dark bg-slate-100 dark:bg-secondary/40 px-3 py-1.5 rounded-lg border border-border dark:border-white/5"
+                className="rounded-sm border border-border bg-surface-muted px-3 py-1.5 font-mono text-xs text-muted-foreground"
               >
                 Archived from Original Platform
               </DataPoint>
@@ -452,22 +464,19 @@ export default function GalleryPage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
             <div className="lg:col-span-7">
-              <div className="aspect-video w-full rounded-2xl overflow-hidden bg-black border border-border dark:border-white/10 shadow-float relative">
-                <iframe
-                  className="w-full h-full"
-                  src="https://www.youtube.com/embed/aO2BEp8PCcY"
-                  title="No Kings 3 Grassroots Mobilization Video"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
-              </div>
+              <LiteYouTube
+                videoId="aO2BEp8PCcY"
+                title="No Kings 3 Grassroots Mobilization Video"
+                poster="/images/gallery/sacramento-capitol-no-kings.jpg"
+                className="border border-border"
+              />
             </div>
             <div className="lg:col-span-5 space-y-4">
               <DataPoint
                 initialData={dataPoints}
                 as="div"
                 name="gallery.video.coalition_badge"
-                className="inline-block px-3 py-1 rounded-lg bg-primary-bright/20 border border-primary-on-dark-muted/30 text-primary-ink dark:text-primary-on-dark text-xs font-mono font-bold"
+                className="inline-block rounded-sm border border-primary/25 bg-primary/10 px-3 py-1 font-mono text-xs font-bold text-primary-ink dark:border-primary-on-dark-muted/30 dark:bg-primary-bright/20 dark:text-primary-on-dark"
               >
                 Indivisible National &amp; Local Coalition
               </DataPoint>
@@ -492,7 +501,7 @@ export default function GalleryPage() {
               <div className="pt-2 flex flex-wrap gap-3">
                 <Link
                   href="/events"
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary-bright hover:bg-primary-light text-white font-bold text-xs uppercase tracking-wider transition-all shadow-md"
+                  className="inline-flex min-h-11 items-center gap-2 rounded-sm bg-primary px-5 text-xs font-bold uppercase tracking-wider text-white transition-colors hover:bg-primary-dark"
                 >
                   <DataPoint initialData={dataPoints} as="span" name="gallery.video.btn_rallies">
                     Upcoming Rallies
@@ -500,7 +509,7 @@ export default function GalleryPage() {
                 </Link>
                 <Link
                   href="/choir"
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-border dark:border-slate-700 hover:bg-white/5 text-foreground dark:text-slate-200 font-semibold text-xs uppercase tracking-wider transition-all"
+                  className="inline-flex min-h-11 items-center gap-2 rounded-sm border border-border px-5 text-xs font-semibold uppercase tracking-wider text-foreground transition-colors hover:border-primary hover:text-primary-ink"
                 >
                   <DataPoint initialData={dataPoints} as="span" name="gallery.video.btn_choir">
                     Choir Anthems
@@ -512,12 +521,12 @@ export default function GalleryPage() {
         </div>
 
         {/* Submit Photo CTA */}
-        <div className="mt-16 p-8 sm:p-10 rounded-3xl bg-surface-card border border-border dark:bg-gradient-to-r dark:from-blue-950/40 dark:via-slate-900 dark:to-indigo-950/40 dark:border-white/10 text-center space-y-4 max-w-3xl mx-auto shadow-card">
+        <div className="mx-auto mt-16 max-w-3xl space-y-4 border-y border-border bg-surface-card p-8 text-center sm:p-10">
           <DataPoint
             initialData={dataPoints}
             as="h2"
             name="gallery.cta.title"
-            className="text-2xl font-black text-foreground dark:text-white uppercase tracking-tighter"
+            className="font-display text-3xl font-semibold tracking-[-0.03em]"
           >
             Have Sacramento Resistance Pics, Unity Shots, or Funny Signs?
           </DataPoint>
@@ -534,7 +543,7 @@ export default function GalleryPage() {
           <div className="pt-2">
             <a
               href="mailto:contact@indivisiblefairoaks.org?subject=Community%20Photo%20Submission"
-              className="inline-block px-8 py-3.5 rounded-2xl bg-primary hover:bg-primary-dark dark:bg-primary-bright dark:hover:bg-primary-light text-white font-bold text-xs uppercase tracking-wider transition-all shadow-lg shadow-blue-500/25"
+              className="inline-flex min-h-11 items-center border border-primary bg-primary px-8 py-3.5 text-[11px] font-bold uppercase tracking-[0.12em] text-white transition-colors hover:bg-primary-dark"
             >
               <DataPoint initialData={dataPoints} as="span" name="gallery.cta.button">
                 Submit Grassroots Photos
@@ -568,7 +577,7 @@ export default function GalleryPage() {
             >
               <Dialog.Title className="sr-only">Photo viewer</Dialog.Title>
 
-              <Dialog.Close className="absolute top-6 right-6 z-50 inline-flex size-11 items-center justify-center rounded-full bg-secondary/80 border border-slate-700 text-ink-on-dark hover:text-white hover:bg-white/5 transition-colors duration-300 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold">
+              <Dialog.Close className="absolute top-6 right-6 z-50 inline-flex size-11 items-center justify-center rounded-sm border border-white/20 bg-secondary/80 text-ink-on-dark transition-colors duration-300 ease-out hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold">
                 <X size={20} aria-hidden="true" />
                 <span className="sr-only">Close image viewer</span>
               </Dialog.Close>
@@ -576,7 +585,7 @@ export default function GalleryPage() {
               <button
                 type="button"
                 onClick={() => handlePrev()}
-                className="absolute left-4 sm:left-6 z-50 inline-flex size-11 items-center justify-center rounded-full bg-secondary/80 border border-slate-700 text-ink-on-dark hover:text-white hover:bg-white/5 transition-colors duration-300 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold"
+                className="absolute left-4 z-50 inline-flex size-11 items-center justify-center rounded-sm border border-white/20 bg-secondary/80 text-ink-on-dark transition-colors duration-300 ease-out hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold sm:left-6"
               >
                 <ChevronLeft size={24} aria-hidden="true" />
                 <span className="sr-only">Previous image</span>
@@ -585,13 +594,13 @@ export default function GalleryPage() {
               <button
                 type="button"
                 onClick={() => handleNext()}
-                className="absolute right-4 sm:right-6 z-50 inline-flex size-11 items-center justify-center rounded-full bg-secondary/80 border border-slate-700 text-ink-on-dark hover:text-white hover:bg-white/5 transition-colors duration-300 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold"
+                className="absolute right-4 z-50 inline-flex size-11 items-center justify-center rounded-sm border border-white/20 bg-secondary/80 text-ink-on-dark transition-colors duration-300 ease-out hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold sm:right-6"
               >
                 <ChevronRight size={24} aria-hidden="true" />
                 <span className="sr-only">Next image</span>
               </button>
 
-              <div className="relative max-w-5xl w-full max-h-[90vh] bg-secondary border border-white/10 rounded-3xl overflow-hidden shadow-float flex flex-col">
+              <div className="relative flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden border border-white/10 bg-secondary shadow-float">
                 {/* Image Container */}
                 <div className="relative w-full h-[55vh] sm:h-[65vh] bg-black">
                   <GalleryImage
@@ -606,7 +615,7 @@ export default function GalleryPage() {
                 <div className="p-6 bg-secondary border-t border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <span className="px-2.5 py-0.5 rounded-full text-primary-light/40 text-[10px] font-mono uppercase font-bold">
+                      <span className="rounded-sm border border-primary-on-dark-muted/40 px-2 py-0.5 font-mono text-[10px] font-bold uppercase text-primary-on-dark-muted">
                         {selectedPhoto.category}
                       </span>
                       <span className="text-xs text-ink-muted-on-dark font-mono">
@@ -617,7 +626,7 @@ export default function GalleryPage() {
                       {selectedPhoto.caption}
                     </h2>
                     {selectedPhoto.signQuote && (
-                      <div className="inline-block my-1 px-3 py-1 rounded-lg bg-accent-gold text-slate-950 text-xs font-black tracking-tight">
+                      <div className="my-1 inline-block bg-accent-gold px-3 py-1 text-xs font-bold tracking-tight text-ink-strong">
                         Featured Sign: “{selectedPhoto.signQuote}”
                       </div>
                     )}
@@ -635,14 +644,14 @@ export default function GalleryPage() {
                     <button
                       type="button"
                       onClick={handleShare}
-                      className="px-4 py-2 rounded-xl bg-secondary hover:bg-white/5 border border-slate-700 text-xs font-semibold text-slate-200 transition-all flex items-center gap-1.5 cursor-pointer"
+                      className="flex min-h-11 cursor-pointer items-center gap-1.5 rounded-sm border border-white/20 bg-white/5 px-4 text-xs font-semibold text-ink-on-dark transition-colors hover:bg-white/10"
                     >
                       <Share2 size={14} />
                       <span>{copiedLink ? 'Link Copied!' : 'Share'}</span>
                     </button>
                     <Link
                       href="/events"
-                      className="px-4 py-2 rounded-xl bg-primary hover:bg-primary-dark dark:bg-primary-bright dark:hover:bg-primary-light text-white text-xs font-bold uppercase tracking-wider transition-all"
+                      className="inline-flex min-h-11 items-center rounded-sm bg-primary px-4 text-xs font-bold uppercase tracking-wider text-white transition-colors hover:bg-primary-dark"
                     >
                       Attend Next Action
                     </Link>

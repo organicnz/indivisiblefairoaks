@@ -1,0 +1,408 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   Public editorial surface
+
+   The public pages are a printed civic broadsheet: paper, ink, cobalt, signal
+   red and brass; Fraunces for display, Inter for reading; hairline rules and
+   sharp plates. The older SaaS vocabulary (soft cards, drop shadows, all-caps
+   black headings) still exists in a handful of components. This layer is the
+   guardrail for public page roots: it normalises those leftovers in one place
+   instead of letting every page invent a fifth card style.
+
+   It is deliberately scoped to `.civic-page`. Admin, account and editor
+   surfaces keep their denser operational styling.
+───────────────────────────────────────────────────────────────────────────── */
+
+.civic-page {
+  --civic-measure: 68ch;
+  --civic-section-space: clamp(3.5rem, 8vw, 6.5rem);
+  color: var(--foreground);
+}
+
+.civic-page :is(h1, h2, h3, h4) {
+  font-family: var(--font-fraunces), Georgia, serif;
+  font-weight: 600 !important;
+  letter-spacing: -0.03em;
+  text-transform: none !important;
+}
+
+.civic-page :is(.font-black) {
+  font-weight: 600;
+}
+
+.civic-page :is(.rounded-lg, .rounded-xl, .rounded-2xl, .rounded-3xl) {
+  border-radius: var(--radius-sm);
+}
+
+.civic-page :is(.shadow-lg, .shadow-xl, .shadow-2xl) {
+  box-shadow: none;
+}
+
+.civic-page :is(button, a).rounded-full {
+  border-radius: var(--radius-sm);
+}
+
+.civic-page :is(input:not([type='checkbox']):not([type='radio']), textarea, select) {
+  border-radius: var(--radius-sm);
+}
+
+.civic-page :is(input, textarea, select):focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.civic-page .civic-measure {
+  max-width: var(--civic-measure);
+}
+
+.civic-page .civic-section {
+  padding-block: var(--civic-section-space);
+  border-top: 1px solid var(--border);
+}
+
+.civic-page .civic-section:first-of-type {
+  border-top: 0;
+}
+
+.civic-page .civic-section-head {
+  display: grid;
+  gap: 1.25rem;
+  padding-block-end: 1.5rem;
+  margin-block-end: 2rem;
+  border-bottom: 1px solid var(--border);
+}
+
+@media (min-width: 48rem) {
+  .civic-page .civic-section-head {
+    grid-template-columns: minmax(0, 8fr) minmax(12rem, 4fr);
+    align-items: end;
+    gap: 2rem;
+  }
+}
+
+.civic-page .civic-section-index {
+  display: block;
+  color: var(--muted-foreground);
+  font-family: var(--font-inter), sans-serif;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.civic-page .civic-section-title {
+  max-width: 18ch;
+  margin-block-start: 0.5rem;
+  font-family: var(--font-fraunces), Georgia, serif;
+  font-size: clamp(2rem, 4.4vw, 3.5rem);
+  font-weight: 600;
+  line-height: 0.99;
+  letter-spacing: -0.045em;
+  color: var(--foreground);
+  text-wrap: balance;
+}
+
+.civic-page .civic-lede {
+  max-width: var(--civic-measure);
+  color: var(--muted-foreground);
+  font-size: 1rem;
+  line-height: 1.7;
+  text-wrap: pretty;
+}
+
+.civic-page .civic-panel {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-card);
+  box-shadow: none;
+}
+
+.civic-page .civic-panel--muted {
+  background: var(--surface-muted);
+}
+
+.civic-page .civic-panel--ink {
+  border-color: color-mix(in srgb, var(--ink-on-dark) 25%, transparent);
+  background: var(--secondary);
+  color: var(--ink-on-dark);
+}
+
+.civic-page .civic-rule {
+  border: 0;
+  border-block-start: 1px solid var(--border);
+}
+
+.civic-page .civic-data-row {
+  display: grid;
+  gap: 0.75rem;
+  padding-block: 1.25rem;
+  border-block-start: 1px solid var(--border);
+}
+
+@media (min-width: 40rem) {
+  .civic-page .civic-data-row {
+    grid-template-columns: minmax(10rem, 0.35fr) minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 1.5rem;
+  }
+}
+
+.civic-page .civic-meta {
+  color: var(--muted-foreground);
+  font-family: var(--font-inter), sans-serif;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+.civic-page .civic-link-arrow {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  gap: 0.5rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--foreground) 35%, transparent);
+  color: var(--foreground);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  transition:
+    color var(--duration-fast) var(--ease-sensory),
+    border-color var(--duration-fast) var(--ease-sensory);
+}
+
+.civic-page .civic-link-arrow:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.civic-page .civic-index-link {
+  display: flex;
+  min-height: 2.75rem;
+  align-items: baseline;
+  gap: 0.75rem;
+  border-block-start: 1px solid var(--border);
+  padding-block: 0.75rem;
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  font-weight: 600;
+  transition: color var(--duration-fast) var(--ease-sensory);
+}
+
+.civic-page .civic-index-link:hover {
+  color: var(--primary-ink);
+}
+
+.civic-page .civic-index-link span:first-child {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.625rem;
+  letter-spacing: 0.08em;
+}
+
+.civic-page .civic-prose {
+  max-width: var(--civic-measure);
+  color: var(--muted-foreground);
+  font-size: 1rem;
+  line-height: 1.75;
+}
+
+.civic-page .civic-prose :is(h2, h3) {
+  margin-block-start: 2.5rem;
+  margin-block-end: 0.75rem;
+  color: var(--foreground);
+}
+
+.civic-page .civic-prose :is(p, ul, ol) + :is(p, ul, ol) {
+  margin-block-start: 1rem;
+}
+
+.civic-page .civic-prose :is(ul, ol) {
+  padding-inline-start: 1.25rem;
+  list-style: disc;
+}
+
+.civic-page .civic-prose a {
+  color: var(--primary-ink);
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+
+.civic-page .civic-form label {
+  color: var(--foreground);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.civic-page .civic-form :is(input, textarea, select) {
+  min-height: 3rem;
+  border: 1px solid var(--border);
+  background: var(--surface-muted);
+  color: var(--foreground);
+  font-size: 0.9375rem;
+  box-shadow: none;
+}
+
+.civic-page .civic-form textarea {
+  min-height: 9rem;
+  padding-block: 0.9rem;
+}
+
+.civic-page .civic-form :is(input, textarea, select)::placeholder {
+  color: var(--muted-foreground);
+}
+
+.civic-page .civic-form :is(input, textarea, select):user-invalid {
+  border-color: var(--accent);
+}
+
+.civic-page .civic-form :is(input, textarea, select):focus {
+  border-color: var(--primary);
+  outline: 2px solid color-mix(in srgb, var(--primary) 35%, transparent);
+  outline-offset: 1px;
+}
+
+.civic-page .civic-form button[type='submit'] {
+  min-height: 3rem;
+  border-radius: var(--radius-sm);
+  background: var(--primary);
+  color: white;
+  box-shadow: none;
+}
+
+.civic-page .civic-form button[type='submit']:hover {
+  background: var(--primary-dark);
+}
+
+.civic-page .civic-form fieldset {
+  border-color: var(--border);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--surface-muted) 55%, transparent);
+}
+
+/* Leaflet is scoped to the ICE concept console. The tiles keep real streets
+   legible while the paper palette and square pins match the broadsheet system. */
+.civic-page .leaflet-container {
+  background: var(--surface-muted);
+  color: var(--foreground);
+  font-family: var(--font-inter), sans-serif;
+}
+
+.civic-page .leaflet-tile-pane {
+  filter: grayscale(0.88) sepia(0.06) contrast(0.95) brightness(1.04);
+}
+
+[data-theme='dark'] .civic-page .leaflet-tile-pane {
+  filter: grayscale(1) invert(1) contrast(0.92) brightness(0.78);
+}
+
+.civic-page .leaflet-control-attribution {
+  background: color-mix(in srgb, var(--background) 88%, transparent);
+  color: var(--muted-foreground);
+  font-size: 9px;
+  line-height: 1.35;
+  padding: 2px 5px;
+}
+
+.civic-page .leaflet-control-attribution a {
+  color: var(--foreground);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.civic-page .leaflet-container:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+
+.civic-page .ice-map-marker {
+  border: 0;
+  background: transparent;
+}
+
+.civic-page .ice-map-pin {
+  display: flex;
+  width: 40px;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid currentColor;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--background) 84%, transparent);
+  transition: opacity 150ms ease, transform 150ms ease;
+}
+
+.civic-page .ice-map-pin--enforcement {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+
+[data-theme='dark'] .civic-page .ice-map-pin--enforcement {
+  color: var(--ink-strong);
+}
+
+.civic-page .ice-map-pin--checkpoint {
+  border-color: var(--accent-gold);
+  background: var(--accent-gold);
+  color: var(--ink-strong);
+}
+
+.civic-page .ice-map-pin--detention {
+  border-color: var(--secondary);
+  background: var(--secondary);
+  color: var(--ink-on-dark);
+}
+
+.civic-page .ice-map-pin--community {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: #fff;
+}
+
+.civic-page .ice-map-pin--draft {
+  border-style: dashed;
+  border-color: var(--accent);
+  background: var(--background);
+  color: var(--accent);
+}
+
+.civic-page .ice-map-pin.is-selected {
+  outline: 2px solid var(--foreground);
+  outline-offset: 2px;
+  transform: scale(1.04);
+}
+
+.civic-page .ice-map-pin.is-cleared {
+  opacity: 0.64;
+}
+
+.civic-page .ice-map-pin.is-cleared:hover,
+.civic-page .ice-map-pin.is-cleared.is-selected {
+  opacity: 1;
+}
+
+.civic-page .ice-map-marker:focus-visible {
+  outline: none;
+}
+
+.civic-page .ice-map-marker:focus-visible .ice-map-pin {
+  outline: 3px solid var(--primary);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .civic-page *,
+  .civic-page *::before,
+  .civic-page *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

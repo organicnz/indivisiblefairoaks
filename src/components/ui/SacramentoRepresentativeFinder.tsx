@@ -245,9 +245,9 @@ export function SacramentoRepresentativeFinder({
   };
 
   return (
-    <div className="rounded-3xl bg-surface-card border border-border p-6 sm:p-8 md:p-10 shadow-2xl backdrop-blur-xl transition-colors">
+    <div className="border border-border bg-surface-card p-6 transition-colors sm:p-8 md:p-10">
       <div className="max-w-3xl">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 dark:bg-white/10 text-primary-ink dark:text-white text-xs font-bold uppercase tracking-wider mb-4">
+        <div className="civic-kicker mb-4 inline-flex items-center gap-2">
           <MapPin size={14} className="text-accent dark:text-accent-gold" />
           <DataPoint as="span" name="voter.repfinder.eyebrow" initialData={dataPoints}>
             Instant District & Representative Finder
@@ -257,7 +257,7 @@ export function SacramentoRepresentativeFinder({
           as="h2"
           name="voter.repfinder.headline"
           initialData={dataPoints}
-          className="text-2xl sm:text-3xl font-black text-foreground dark:text-white tracking-tight mb-3"
+          className="mb-3 font-display text-3xl font-semibold leading-tight tracking-[-0.03em] sm:text-4xl"
         >
           Know Your Representatives & Hold Them Accountable
         </DataPoint>
@@ -297,12 +297,12 @@ export function SacramentoRepresentativeFinder({
                 dataPoints['voter.repfinder.input_placeholder'] ||
                 'Enter ZIP (e.g. 95628, 95608, 95662)'
               }
-              className="w-full pl-11 pr-4 py-3.5 rounded-xl bg-surface-muted border border-border dark:bg-secondary dark:border-slate-700 text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder-slate-500 text-sm font-mono focus:outline-none focus:border-primary transition-colors"
+              className="w-full border border-border bg-surface-muted py-3.5 pl-11 pr-4 font-mono text-sm text-foreground transition-colors placeholder:text-muted-foreground focus:border-primary focus:outline-none"
             />
           </div>
           <button
             type="submit"
-            className="px-6 py-3.5 rounded-xl bg-primary-bright hover:bg-primary text-white font-bold text-xs uppercase tracking-wider shadow-md transition-all shrink-0 hover:scale-[1.02] cursor-pointer"
+            className="min-h-11 shrink-0 cursor-pointer border border-primary bg-primary px-6 py-3.5 text-[11px] font-bold uppercase tracking-[0.12em] text-white transition-colors hover:bg-primary-dark"
           >
             <DataPoint as="span" name="voter.repfinder.btn_lookup" initialData={dataPoints}>
               Find Officials
@@ -311,7 +311,7 @@ export function SacramentoRepresentativeFinder({
         </form>
 
         {/* Current District Header */}
-        <div className="p-4 rounded-2xl bg-surface-muted border border-border mb-8 flex flex-wrap items-center justify-between gap-4">
+        <div className="mb-8 flex flex-wrap items-center justify-between gap-4 border-y border-border bg-surface-muted p-4">
           <div>
             <DataPoint
               name="voter.repfinder.selected_community"
@@ -335,7 +335,7 @@ export function SacramentoRepresentativeFinder({
           {activeDistrict.officials.map((official) => (
             <div
               key={official.name}
-              className="p-5 rounded-2xl bg-surface-card border border-border hover:border-primary/50 dark:hover:border-slate-700 transition-all flex flex-col justify-between shadow-xs"
+              className="flex flex-col justify-between border-t border-border p-5 transition-colors hover:border-primary"
             >
               <div>
                 <div className="flex items-center justify-between text-xs mb-2">
@@ -343,7 +343,7 @@ export function SacramentoRepresentativeFinder({
                     {official.title}
                   </span>
                   <span
-                    className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                    className={`border px-2 py-0.5 text-[10px] font-bold ${
                       official.party === 'Democrat'
                         ? 'bg-primary-bright/20 text-primary-dark dark:text-primary-on-dark'
                         : official.party === 'Republican'
@@ -354,7 +354,7 @@ export function SacramentoRepresentativeFinder({
                     {partyLabel(official.party)}
                   </span>
                 </div>
-                <h3 className="text-base font-bold text-foreground dark:text-white mb-1">
+                <h3 className="mb-1 font-display text-lg font-semibold tracking-[-0.02em]">
                   {official.name}
                 </h3>
                 {official.notes && (
@@ -368,7 +368,7 @@ export function SacramentoRepresentativeFinder({
                 <a
                   href={`tel:${official.phone.replace(/[^0-9]/g, '')}`}
                   aria-label={`${dataPoints['voter.repfinder.call_action_label'] || 'Call Official'}: ${official.name} — ${official.phone.split('•')[0].trim()}`}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600/10 text-emerald-700 hover:bg-emerald-600/20 dark:bg-emerald-600/20 dark:text-emerald-300 dark:hover:bg-emerald-600/30 border border-emerald-500/30 text-xs font-mono font-semibold transition-colors"
+                  className="inline-flex items-center gap-1.5 border border-emerald-700/40 px-3 py-1.5 font-mono text-xs font-semibold text-emerald-800 transition-colors hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-950/40"
                 >
                   <Phone size={12} />
                   <span>{official.phone.split('•')[0].trim()}</span>
@@ -388,7 +388,7 @@ export function SacramentoRepresentativeFinder({
         </div>
 
         {/* 5 Calls Constituent Phone Script Generator */}
-        <div className="p-6 rounded-2xl bg-gradient-to-r from-blue-50/70 via-slate-50 to-indigo-50/70 dark:from-blue-950/40 dark:via-slate-900 dark:to-indigo-950/40 border border-primary/20 dark:border-primary-bright/30">
+        <div className="border-y border-border bg-surface-card p-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
             <div>
               <div className="text-xs font-mono text-primary-ink dark:text-primary-on-dark-muted font-bold uppercase tracking-wider mb-1">

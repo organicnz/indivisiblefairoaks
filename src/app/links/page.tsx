@@ -1,16 +1,20 @@
 import { Archive, ArrowUpRight, Compass } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import {
+  MASTHEAD_INTRO,
+  MASTHEAD_TITLE,
+  PageMasthead,
+} from '@/components/layout/PageMasthead';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { InteractiveLinksDirectory } from '@/components/ui/InteractiveLinksDirectory';
-import { VgpuBirkelandCurrents } from '@/components/ui/VgpuBirkelandCurrents';
 import { pageMetadata } from '@/lib/metadata';
 import { getCoalitionLinks, getDataPoints } from '@/lib/queries/civic';
 
 export const metadata: Metadata = pageMetadata({
-  title: 'Link Tree & Civic Directory',
+  title: 'Coalition & Action Directory',
   description:
-    'Official chapter Link Tree, recommended civic resources, grassroots coalition partners, voter registration links, and democracy defense organizations in California.',
+    'Recommended civic resources, grassroots coalition partners, voter registration links, and democracy defense organizations in California.',
   path: '/links',
 });
 
@@ -165,47 +169,47 @@ export default async function LinksPage() {
   }
 
   return (
-    <div className="w-full bg-background text-foreground min-h-screen pt-(--header-clearance) pb-20">
-      {/* Header Banner with VGPU Birkeland Helical Plasma Currents */}
-      <section className="relative overflow-hidden bg-surface-muted border-b border-border text-foreground dark:bg-secondary dark:text-white py-16">
-        <VgpuBirkelandCurrents />
-        <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center pointer-events-auto">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary dark:bg-primary-bright/10 dark:border-primary-on-dark-muted/30 dark:text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
-            <Compass size={14} className="text-accent-gold" />
-            <DataPoint name="links.hero.eyebrow" initialData={dataPoints}>
-              Link Tree &amp; Civic Directory
-            </DataPoint>
-          </div>
+    <div className="civic-page w-full min-h-screen bg-background pb-20 text-foreground pt-(--header-clearance)">
+      <PageMasthead
+        icon={Compass}
+        eyebrow={
+          <DataPoint name="links.hero.eyebrow" initialData={dataPoints}>
+            Coalition &amp; Action Directory
+          </DataPoint>
+        }
+        title={
           <DataPoint
             name="links.hero.headline"
             as="h1"
             initialData={dataPoints}
-            className="text-4xl sm:text-5xl font-black text-foreground dark:text-white tracking-tight mb-4"
+            className={MASTHEAD_TITLE}
           >
-            Link Tree &amp; Coalition Directory
+            Coalition &amp; Action Directory
           </DataPoint>
+        }
+        intro={
           <DataPoint
             name="links.hero.intro"
             as="p"
             initialData={dataPoints}
-            className="text-lg text-muted-foreground dark:text-ink-on-dark max-w-2xl mx-auto leading-relaxed"
+            className={MASTHEAD_INTRO}
           >
             Essential chapter quick-access links, nonpartisan voter tools, grassroots allies, and democracy defense
             resources vetted by our chapter.
           </DataPoint>
-        </div>
-      </section>
+        }
+      />
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-8">
         <InteractiveLinksDirectory initialLinks={items} initialData={dataPoints} />
 
-        <div className="rounded-2xl border border-border bg-surface-card p-6 sm:p-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
+        <div className="flex flex-col items-start justify-between gap-5 border-y border-border bg-surface-card p-6 sm:flex-row sm:items-center sm:p-8">
           <div className="flex items-start gap-3">
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent-gold/15 text-accent dark:text-accent-gold">
+            <span className="flex size-10 shrink-0 items-center justify-center border border-border bg-background text-accent">
               <Archive size={20} />
             </span>
             <div>
-              <h2 className="text-lg font-black tracking-tight text-foreground dark:text-white">
+              <h2 className="font-display text-2xl font-semibold tracking-[-0.03em]">
                 Looking for an older link?
               </h2>
               <p className="mt-1 max-w-xl text-xs sm:text-sm leading-relaxed text-muted-foreground dark:text-ink-on-dark">
@@ -217,7 +221,7 @@ export default async function LinksPage() {
           </div>
           <Link
             href="/archive"
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-primary px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white hover:bg-primary-dark transition-colors"
+            className="inline-flex min-h-11 shrink-0 items-center gap-1.5 border border-primary bg-primary px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.12em] text-white transition-colors hover:bg-primary-dark"
           >
             Open archive
             <ArrowUpRight size={14} />

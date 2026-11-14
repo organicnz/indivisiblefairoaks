@@ -50,7 +50,7 @@ const csp = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline' https://js.stripe.com https://m.stripe.com ${posthogHost}`.trim(),
   "style-src 'self' 'unsafe-inline'",
-  `img-src 'self' data: blob: ${supabaseHost ? `https://${supabaseHost}` : ''} https://images.unsplash.com https://sites.google.com https://*.googleusercontent.com https://i.ytimg.com ${firstPartyHosts.map((h) => `https://${h}`).join(' ')} https://i0.wp.com https://i1.wp.com https://i2.wp.com`.replace(
+  `img-src 'self' data: blob: ${supabaseHost ? `https://${supabaseHost}` : ''} https://*.tile.openstreetmap.org https://images.unsplash.com https://sites.google.com https://*.googleusercontent.com https://i.ytimg.com ${firstPartyHosts.map((h) => `https://${h}`).join(' ')} https://i0.wp.com https://i1.wp.com https://i2.wp.com`.replace(
     /\s+/g,
     ' '
   ),

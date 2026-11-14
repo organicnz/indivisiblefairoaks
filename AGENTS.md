@@ -1123,147 +1123,72 @@ Slicing raw text is how shipped SERP snippets came to begin "IndivisibleFairOaks
 
 ---
 
-## Design System — "Sensory Luxury"
+## Design System — "Civic Broadsheet"
 
-Tokens are defined in `src/app/globals.css` via `@theme`. No `tailwind.config.*` file exists.
+The public site is a printed civic broadsheet: warm paper, ink, cobalt, signal
+red and brass. Fraunces carries display type; Inter carries reading and UI.
+The palette is defined in `src/app/globals.css`; sharp-corner, rule-first
+patterns and public-page primitives live in `src/app/editorial.css`.
 
-### Active color tokens
-| Token | Hex | Usage |
-|---|---|---|
-| `--primary` | `#1e3a8a` / `#155dfc` | Primary blue — buttons, links, active states |
-| `--primary-light` | `#2563eb` | Hover/focus variants. **Light surfaces only** — 3.5:1 on the dark header |
-| `--primary-dark` | `#172554` | Pressed/deep variants |
-| `--primary-ink` | `#1e3a8a` | Text on light surfaces (replaces raw lime) |
-| `--secondary` | `#16305c` | Page backgrounds, dark surfaces, header/footer anchor |
-| `--ink-strong` | `#0f172a` | High-contrast text on amber CTAs (7.2:1 contrast) |
-| `--ink-on-dark` | `#cbd5e1` | Body copy on dark surfaces |
-| `--ink-muted-on-dark` | `#a3b4c9` | Secondary copy on dark surfaces (>=5.3:1 on raised cards) |
-| `--primary-bright` | `#155dfc` | Brand blue as a **surface on dark pages** (CTAs) |
-| `--primary-on-dark` | `#8ec5ff` | Brand blue as **display text on dark** (hero highlights) |
-| `--primary-on-dark-muted` | `#7cbaff` | Brand blue as **eyebrow/label text on dark** (>=4.8:1 on raised cards) |
-| `--accent` | `#d97706` | Amber — donate CTA, warnings. **Surface, not text** |
-| `--accent-gold` | `#f59e0b` | Active nav indicators, dark-surface accents. **Surface/border, not text** |
-| `--accent-gold-on-dark` | `#fcd34d` | Gold as **text on a dark surface** (5.30:1 on the gold-tinted chip, 10.93:1 on `--surface-deep`) |
-| `--accent-red` | `#dc2626` | Destructive actions, errors |
-| `--accent-lime` | `#d1ff00` | Dark-surface non-text accent only |
-| `--surface-muted` | `#f4f8ff` / `#1a3768` | Secondary panels, trays, inputs |
-| `--surface-card` | `#ffffff` / `#1e427e` | Raised content cards (1.33:1 luminance lift above dark canvas) |
-| `--surface-deep` | `#e2ecfc` / `#0f2244` | Sunken containers, code blocks |
-| `--border` | `#c3d3f0` / `#3a6699` | Hairline card borders, subtle dividers |
+### Public page primitives
 
-Use `text-primary-ink` for any text placed on light/white surfaces. Raw lime
-(`#D1FF00`) is reserved for dark-surface non-text accents only — do not use it for
-body or heading text.
+- Wrap every public page root in `civic-page`. It is the guardrail that keeps
+  legacy soft cards, drop shadows, and all-caps black headings from returning.
+- Use `.civic-section`, `.civic-section-head`, `.civic-section-index`,
+  `.civic-section-title`, `.civic-lede`, `.civic-panel`, `.civic-data-row`,
+  `.civic-meta`, `.civic-link-arrow`, and `.civic-prose` before inventing
+  another one-off recipe.
+- `PageMasthead` is the shared opening for every public route. Do not add a
+  second hero grammar or a per-page atmospheric shader.
+- The shared action primitive is `src/components/ui/Button.tsx`. Use
+  `primary`, `signal`, `outline`, or `ghost`, and keep the minimum touch target
+  at 44px. Brass (`signal`) is for action, not body text.
 
-**`--accent` and `--accent-gold` are text-unsafe on white** (3.19:1 and 2.15:1)
-and `--primary-light` is text-unsafe on the dark header (3.51:1). These are
-surfaces. On an amber background use `text-ink-strong` (7.2:1); on a dark
-background use the `--ink-*-on-dark` pair. The axe gate in `e2e/a11y.spec.ts`
-enforces this — do not "fix" a failing contrast check by swapping to a token
-without re-measuring.
+### Palette and contrast
 
-**`--accent-gold` is text-unsafe on dark too, and that one is subtler.**
-`#f59e0b` measures 7.34:1 on `--surface-deep`, so it looks safe on a dark
-page — but only 3.56:1 on a gold-tinted chip, because the tint lifts the
-background to `#495467` and the amber has nowhere left to go. The three civic
-badges that tinted their own background were failing axe for exactly that,
-at 3.56:1 and 4.03:1 against a 4.5:1 bar for 11px bold uppercase text. Use
-`--accent-gold-on-dark` (`#fcd34d`) for gold text on dark: 5.30:1 on the
-tinted chip, 6.00:1 on the lighter variant, 10.93:1 on `--surface-deep`. It
-is the same shape as the `--primary-on-dark` fix below — a colour that works
-as *text* on dark had no token, so the pages reached for the surface one.
+Light: `--background #f4efe4`, `--foreground #142033`, `--primary #1d4ed8`,
+`--accent #b42318`, `--accent-gold #e0a82e`, `--surface-card #fbf8f0`,
+`--surface-muted #ebe4d5`, `--border #cfc4b1`.
 
-### Radius, elevation and motion tokens
-`@theme` also defines `--radius-*` (`xs`…`3xl`), `--shadow-*` (`card`, `raised`,
-`float`, `hero`, `header`), `--ease-sensory`, and `--duration-fast` (300ms) /
-`--duration-slow` (500ms). Prefer these over ad-hoc `rounded-[2.5rem]` and
-`shadow-[0_40px_100px_-20px_rgba(...)]` values.
+Dark: `--background #101522`, `--foreground #f2ecdf`, `--primary #335ce8`,
+`--accent #ff8a73`, `--accent-gold #f3c15b`, `--surface-card #1b2435`,
+`--surface-muted #171e2d`, `--border #3a4559`.
 
-`--primary-bright` / `--primary-on-dark` / `--primary-on-dark-muted` exist because
-`--primary` is only 1.5:1 against `--secondary` — correct as a surface on white,
-but a CTA built from it disappears on a dark page. The token set had no
-"brand blue on dark" entry, which is why the civic pages reached for raw
-`blue-600`. Adding a token was the fix; re-measuring first was the discipline.
+`--accent` and `--accent-gold` are surfaces and borders on light pages, never
+body or heading text. On dark surfaces use `--accent-gold-on-dark` for gold
+text, `--primary-on-dark` for blue display text, and the `--ink-*-on-dark`
+pair for body and secondary copy. The axe gate enforces the result; re-measure
+rather than swapping a token blindly.
 
-### Changing colours: measure, then sweep
-Never find-and-replace palette classes blind. The tooling exists:
+### Type, radius, elevation, motion
 
-```bash
-bun run palette /about        # colours actually painted, by area, vs the tokens
-bun run token-sweep -- --check  # dry run of the class mapping
-bun run snap before           # capture every route to .snapshots/before/
-# …make the change…
-bun run snap after            # …then diff the two
-```
+- Display: Fraunces Variable, weight 600 for public headings. Reading/UI:
+  Inter Variable. Do not introduce a third public family. Retire Outfit from
+  public components and CMS block styles.
+- Uppercase is for kickers, labels, buttons, and stamps only. Long headings are
+  sentence case, never `font-black uppercase`.
+- Radius: `--radius-sm` (2px) for plates and controls; circular avatars and
+  status dots are the only everyday exceptions.
+- Elevation: rules and borders carry hierarchy. Use `shadow-float` only for a
+  floating overlay. Public cards use `shadow-none`.
+- Motion: 300–500ms, `--ease-sensory`, and the existing reduced-motion guard.
+  Do not add decorative animation or new WebGL to reading surfaces.
 
-Every mapping in `scripts/token-sweep.mjs` was chosen so the replacement resolves
-to the colour the page was already painting (within ~1.03:1). The pixel diff is
-what proves it, and the light pages act as the control: `/products`, `/login` and
-`/contact` must read 0.00% changed. Gradient stops (`from-`/`via-`/`to-`) are
-deliberately excluded — the atmospheric gradients are a design decision, not a
-consistency problem.
+### Layout
 
-### Enter/exit animation layer
-`@utility animate-in` / `animate-out` and the `fade-*`, `zoom-*`, `slide-*`
-composition classes are implemented **in `globals.css`**, not by
-`tailwindcss-animate` (which is not a dependency and never was). Every
-`data-[state=open]:animate-in fade-in-0 zoom-in-95` on a Radix primitive depends
-on this layer existing. Adding a new variant means adding a `@utility` that sets
-the matching `--tw-enter-*` / `--tw-exit-*` variable.
+Use the 12-column page grid and asymmetric spreads (8/4, 7/5, 5/7). One
+primary action per band. Body copy stays between 60 and 70 characters. At
+mobile widths, stacks are vertical and tap targets are at least 44px.
 
-### Typography
-- **Headings**: Outfit font, `font-black uppercase tracking-tighter`
-- **Navigation**: `font-bold uppercase tracking-[0.2em]`
-- **Body**: Inter font, `font-medium text-slate-600 leading-relaxed` on light
-  surfaces; `text-ink-on-dark` on dark ones (`text-slate-600` is 1.86:1 on
-  `bg-slate-950` and unreadable)
+### Quality gates
 
-### Motion
-- Use `motion` (the `motion` npm package, not `framer-motion`) for complex transitions.
-- Tailwind utilities for micro-animations (hover scale, opacity, color transitions).
-- All transitions must be `ease-out`, duration `300ms`–`500ms`. Avoid durations over 500ms for interactive feedback.
-- The global `prefers-reduced-motion` guard covers CSS only. JS motion
-  (`motion`'s `whileHover`, `scrollIntoView`, `scrollBy`) bypasses it — check
-  `useReducedMotion()` / `matchMedia` at those call sites.
-
-### Stacking order is one scale, not ad-hoc numbers
-Five surfaces stack, and they were on five unrelated arbitrary `z-[…]` values.
-The Wall-E launcher (`z-120`) sat **above** the open nav drawer (`z-110`), so on
-mobile the chat bubble floated on top of the drawer and a click there opened a
-second dialog over a surface that still held the focus trap. The command palette
-overlay also tied with the Wall-E panel, so DOM order decided the winner.
-
-| Layer | Class | Surface |
-|---|---|---|
-| 1 | `z-50` | `<header>` |
-| 2 | `z-[60]` / `z-[70]` | WALL-E launcher / panel |
-| 3 | `z-[100]` / `z-[110]` | Nav drawer overlay / content |
-| 4 | `z-[120]` / `z-[130]` | Command palette overlay / content |
-
-Overlay and content always differ by 10, and a modal layer sits above every
-non-modal one. If you add a surface, put it on this scale.
-
-### Scrollable regions must be focusable
-An `overflow-x-auto` container is no longer focusable by default in Chrome and
-Firefox, so a carousel without `tabIndex={0}` cannot be scrolled by a keyboard
-user at all. `ProductSlider` follows the WAI-ARIA Scrollable Region pattern
-(`<section aria-label>` + `tabIndex={0}`); Biome's `noNoninteractiveTabindex`
-does not model it and is suppressed for that one file.
-
-### No fake controls
-A control must do what it says. `ChoirAudioPlayer` shipped a range input labelled
-"Seek harmonic broadcast" over a Web Audio oscillator stack with no media
-element — nothing to seek, and the `onChange` moved local state only. It is now a
-read-only `role="progressbar"`. Check whether a control has an effect before
-styling it.
-
-### Reveal-on-hover must be hover-gated
-`group-hover:opacity-100` alone hides a control on every touch device and leaves
-it in the tab order while invisible on desktop. Gate the reveal with the
-`hover-capable` custom variant (`@media (hover: hover)`) and add
-`focus-within:opacity-100`. `ProductCard`'s wishlist button is the reference.
-
----
+- `bun run typecheck` — TS7 via `tsrs`.
+- `bun run test` — Vitest.
+- `bun run design:audit` — static check for banned public patterns.
+- Playwright: a11y in light and dark on every public route, heading outline,
+  no horizontal overflow at 320/390/768/1280, header fit, mobile navigation,
+  contact form, and core journeys.
+- Visual review at 390/768/1280 in both themes before calling a page finished.
 
 ## Coding Rules
 
@@ -1545,7 +1470,7 @@ pre-commit gate, so drift fails at commit time rather than at 3am.
      against Next.js (`next start`) and the mock server for memory.
 - **The local lefthook gates are therefore the real gates**, and they do run on
   every push: 33 pre-commit guards, then lint → unit → coverage → types → build →
-  peer-deps → 85 Playwright specs (85 + no running tests). Migrations and Edge Functions are **not**
+  peer-deps → 83 Playwright specs (83 + no running tests). Migrations and Edge Functions are **not**
   deployed by hand: `supabase.yml` is the only delivery path and a push touching
   `supabase/**` is its trigger, so the fix and the deploy are one action. It pushed
   migrations to the hosted project at 20:56 on 2026-10-04 while its sibling

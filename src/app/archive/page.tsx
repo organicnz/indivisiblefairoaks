@@ -13,6 +13,12 @@ import {
 import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
+import {
+  MASTHEAD_INTRO,
+  MASTHEAD_TITLE,
+  PageMasthead,
+} from '@/components/layout/PageMasthead';
+import { LiteYouTube } from '@/components/ui/LiteYouTube';
 import { pageMetadata } from '@/lib/metadata';
 import { getLegacyArchive, legacyAssetUrl, legacyDocumentUrl } from '@/lib/queries/legacy';
 
@@ -79,49 +85,46 @@ export default async function ArchivePage() {
     .at(-1);
 
   return (
-    <div className="w-full bg-background text-foreground min-h-screen pt-(--header-clearance) pb-20">
-      <section className="relative overflow-hidden bg-surface-muted border-b border-border text-foreground dark:bg-secondary dark:text-white py-16">
-        <div className="absolute inset-0 opacity-30 [background-image:radial-gradient(circle_at_20%_20%,var(--color-primary)_0,transparent_35%),radial-gradient(circle_at_80%_0%,var(--color-accent-gold)_0,transparent_30%)]" />
-        <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary dark:bg-primary-bright/10 dark:border-primary-on-dark-muted/30 dark:text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
-            <Archive size={14} className="text-accent-gold" />
-            Legacy Google Sites Archive
-          </div>
-          <h1 className="text-4xl sm:text-5xl font-black tracking-tight mb-4">Chapter Archive</h1>
-          <p className="text-lg text-muted-foreground dark:text-ink-on-dark max-w-3xl mx-auto leading-relaxed">
+    <div className="civic-page w-full min-h-screen bg-background pb-20 text-foreground pt-(--header-clearance)">
+      <PageMasthead
+        icon={Archive}
+        eyebrow="Legacy Google Sites Archive"
+        title={<h1 className={MASTHEAD_TITLE}>Chapter Archive</h1>}
+        intro={
+          <p className={MASTHEAD_INTRO}>
             The public record of our earlier Google Sites — voter guides, newsletters, event flyers,
             choir films, and the links we used to organize. Raw site captures and uncleared files stay
             in a private preservation archive.
           </p>
-          {pages.length > 0 ? (
-            <div className="mt-8 flex flex-wrap justify-center gap-3 text-xs font-bold uppercase tracking-wider">
-              <span className="rounded-full border border-border dark:border-white/15 bg-surface-card/80 dark:bg-white/5 px-4 py-2">
-                {pages.length} pages
-              </span>
-              <span className="rounded-full border border-border dark:border-white/15 bg-surface-card/80 dark:bg-white/5 px-4 py-2">
-                {documents.length} documents
-              </span>
-              <span className="rounded-full border border-border dark:border-white/15 bg-surface-card/80 dark:bg-white/5 px-4 py-2">
-                {imageCount} images
-              </span>
-              <span className="rounded-full border border-border dark:border-white/15 bg-surface-card/80 dark:bg-white/5 px-4 py-2">
-                {videoCount} videos
-              </span>
+        }
+        meta={
+          pages.length > 0 ? (
+            <div className="flex flex-wrap items-center gap-2">
+              {[
+                `${pages.length} pages`,
+                `${documents.length} documents`,
+                `${imageCount} images`,
+                `${videoCount} videos`,
+              ].map((label) => (
+                <span key={label} className="civic-stamp">
+                  {label}
+                </span>
+              ))}
+              {lastCaptured ? (
+                <span className="text-[11px] text-muted-foreground">
+                  Captured {dateLabel(lastCaptured)}
+                </span>
+              ) : null}
             </div>
-          ) : null}
-          {lastCaptured ? (
-            <p className="mt-4 text-[11px] text-muted-foreground dark:text-ink-muted-on-dark">
-              Captured {dateLabel(lastCaptured)}. Source links open the original public page.
-            </p>
-          ) : null}
-        </div>
-      </section>
+          ) : undefined
+        }
+      />
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {pages.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-border bg-surface-card p-8 sm:p-12 text-center">
+          <div className="border-y border-border bg-surface-card p-8 text-center sm:p-12">
             <Archive className="mx-auto text-accent-gold" size={32} />
-            <h2 className="mt-4 text-2xl font-black text-foreground dark:text-white">
+            <h2 className="mt-4 font-display text-3xl font-semibold tracking-[-0.03em]">
               The archive is being prepared
             </h2>
             <p className="mt-2 max-w-xl mx-auto text-sm text-muted-foreground dark:text-ink-on-dark leading-relaxed">
@@ -142,9 +145,9 @@ export default async function ArchivePage() {
           <div className="grid grid-cols-1 lg:grid-cols-[15rem_1fr] gap-10 items-start">
             <nav
               aria-label="Archive pages"
-              className="lg:sticky lg:top-28 rounded-2xl border border-border bg-surface-card p-4"
+              className="border-y border-border bg-surface-card p-4 lg:sticky lg:top-28"
             >
-              <p className="px-2 text-[11px] font-black uppercase tracking-widest text-muted-foreground dark:text-ink-muted-on-dark">
+              <p className="civic-meta px-2">
                 On this page
               </p>
               <ol className="mt-3 space-y-1">
@@ -181,7 +184,7 @@ export default async function ArchivePage() {
                   <article
                     key={page.id}
                     id={pageAnchor(page.source_path)}
-                    className="scroll-mt-28 rounded-3xl border border-border bg-surface-card p-6 sm:p-8 shadow-xs"
+                    className="scroll-mt-28 border-y border-border bg-surface-card p-6 sm:p-8"
                   >
                     <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 border-b border-border pb-5">
                       <div>
@@ -190,7 +193,7 @@ export default async function ArchivePage() {
                           <span>•</span>
                           <span>{page.page_kind.replace(/-/g, ' ')}</span>
                         </div>
-                        <h2 className="mt-2 text-2xl sm:text-3xl font-black tracking-tight text-foreground dark:text-white">
+                        <h2 className="mt-2 font-display text-3xl font-semibold tracking-[-0.03em] sm:text-4xl">
                           {page.title}
                         </h2>
                         <p className="mt-1 text-xs text-muted-foreground dark:text-ink-muted-on-dark">
@@ -216,14 +219,14 @@ export default async function ArchivePage() {
                     ) : null}
 
                     {page.body_text ? (
-                      <div className="mt-5 rounded-2xl bg-surface-muted/60 border border-border p-4 sm:p-5 text-sm text-foreground/85 dark:text-ink-on-dark leading-relaxed whitespace-pre-line break-words">
+                      <div className="mt-5 border-l-2 border-accent bg-surface-muted/60 p-4 text-sm leading-relaxed text-foreground/85 whitespace-pre-line break-words sm:p-5">
                         {page.body_text}
                       </div>
                     ) : null}
 
                     {images.length > 0 ? (
                       <div className="mt-6">
-                        <h3 className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-muted-foreground dark:text-ink-muted-on-dark">
+                        <h3 className="civic-meta flex items-center gap-2">
                           <ImageIcon size={14} className="text-accent-gold" />
                           Images from this page
                         </h3>
@@ -259,28 +262,23 @@ export default async function ArchivePage() {
 
                     {videos.length > 0 ? (
                       <div className="mt-6">
-                        <h3 className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-muted-foreground dark:text-ink-muted-on-dark">
+                        <h3 className="civic-meta flex items-center gap-2">
                           <Play size={14} className="text-accent-gold" />
                           Video
                         </h3>
                         <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
                           {videos.map((asset) =>
                             asset.youtube_id ? (
-                              <div key={asset.id} className="overflow-hidden rounded-xl border border-border bg-surface-deep">
-                                <div className="aspect-video">
-                                  <iframe
-                                    className="h-full w-full"
-                                    src={`https://www.youtube.com/embed/${asset.youtube_id}`}
-                                    title={
-                                      asset.caption && asset.caption.trim() !== 'YouTube Video'
-                                        ? asset.caption
-                                        : `${page.title} archive video`
-                                    }
-                                    loading="lazy"
-                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                    allowFullScreen
-                                  />
-                                </div>
+                              <div key={asset.id} className="overflow-hidden border border-border bg-surface-deep">
+                                <LiteYouTube
+                                  videoId={asset.youtube_id}
+                                  title={
+                                    asset.caption && asset.caption.trim() !== 'YouTube Video'
+                                      ? asset.caption
+                                      : `${page.title} archive video`
+                                  }
+                                  poster="/images/gallery/sacramento-capitol-no-kings.jpg"
+                                />
                                 {asset.caption ? (
                                   <p className="p-2 text-[11px] text-muted-foreground dark:text-ink-muted-on-dark">
                                     {asset.caption}
@@ -295,7 +293,7 @@ export default async function ArchivePage() {
 
                     {pageDocuments.length > 0 ? (
                       <div className="mt-6">
-                        <h3 className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-muted-foreground dark:text-ink-muted-on-dark">
+                        <h3 className="civic-meta flex items-center gap-2">
                           <FileText size={14} className="text-accent-gold" />
                           Documents &amp; downloads
                         </h3>
@@ -341,7 +339,7 @@ export default async function ArchivePage() {
 
                     {pageLinks.length > 0 ? (
                       <div className="mt-6 border-t border-border pt-5">
-                        <h3 className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-muted-foreground dark:text-ink-muted-on-dark">
+                        <h3 className="civic-meta flex items-center gap-2">
                           <Newspaper size={14} className="text-accent-gold" />
                           Links preserved from this page
                         </h3>
@@ -371,7 +369,7 @@ export default async function ArchivePage() {
         )}
 
         {pages.length > 0 ? (
-          <div className="mt-12 rounded-2xl border border-border bg-surface-muted/50 p-5 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="mt-12 flex flex-col items-start justify-between gap-4 border-y border-border bg-surface-muted/50 p-5 sm:flex-row sm:items-center sm:p-6">
             <div>
               <p className="text-sm font-bold text-foreground dark:text-white">Looking for a specific old page?</p>
               <p className="mt-1 text-xs text-muted-foreground dark:text-ink-on-dark">
@@ -381,7 +379,7 @@ export default async function ArchivePage() {
             </div>
             <Link
               href="/contact"
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-primary px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white hover:bg-primary-dark transition-colors"
+              className="inline-flex min-h-11 shrink-0 items-center gap-1.5 border border-primary bg-primary px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.12em] text-white transition-colors hover:bg-primary-dark"
             >
               Ask the chapter
               <ArrowUpRight size={14} />

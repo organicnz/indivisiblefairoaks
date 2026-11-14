@@ -95,7 +95,7 @@ describe('VoterInfoPage & 2026 Voter Guides', () => {
     expect(whoCanVoteLink).toBeDefined();
   });
 
-  it('renders the SAVE America Act educational video spotlight with valid iframe attributes', async () => {
+  it('renders the SAVE America Act spotlight as a click-to-load video', async () => {
     const page = await VoterInfoPage();
     await act(async () => {
       root.render(page);
@@ -103,6 +103,19 @@ describe('VoterInfoPage & 2026 Voter Guides', () => {
 
     expect(container.textContent).toContain('Understanding the SAVE America Act');
     expect(container.textContent).toContain('Analysis by Lawyer Oyer');
+
+    // The raw iframe loaded YouTube before the reader asked for it and left a
+    // black box whenever the player was blocked. Assert the local poster and
+    // intent gate instead.
+    const playButton = container.querySelector<HTMLButtonElement>(
+      'button[aria-label*="Play film"][aria-label*="SAVE America Act"]'
+    );
+    expect(playButton).not.toBeNull();
+    expect(container.querySelector('iframe')).toBeNull();
+
+    await act(async () => {
+      playButton?.click();
+    });
 
     const iframe = container.querySelector<HTMLIFrameElement>('iframe[src*="0a9zLvWVqgQ"]');
     expect(iframe).not.toBeNull();

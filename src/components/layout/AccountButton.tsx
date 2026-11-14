@@ -25,7 +25,7 @@ interface AccountButtonProps {
 /**
  * Account entry point for the header.
  *
- * Signed-out users get a “Sign In” CTA with a circular profile-icon placeholder.
+ * Signed-out users get a “Sign In” CTA with a compact square profile mark.
  * Signed-in users get an avatar (image from user_metadata, else initials) with a
  * Radix dropdown: My Account, Settings (if org email), Sign Out.
  *
@@ -38,33 +38,69 @@ export function AccountButton({ variant = 'pill', onNavigate }: AccountButtonPro
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const supabase = createClient();
     let mounted = true;
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (mounted) {
-        setUser(session?.user ?? null);
-        setLoading(false);
-      }
-    });
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (mounted) {
-        setUser(session?.user ?? null);
-        setLoading(false);
-      }
-    });
+    let subscription: { unsubscribe: () => void } | undefined;
+
+    // The auth client can be slow or unreachable in local/preview setups. A
+    // permanent loading pill used to occupy the masthead when `getSession()`
+    // never settled. Resolve to the signed-out entry point after a short beat;
+    // a real session arriving later still replaces it through the listener.
+    const timeout = setTimeout(() => {
+      if (mounted) setLoading(false);
+    }, 2500);
+
+    try {
+      const supabase = createClient();
+      supabase.auth
+        .getSession()
+        .then(({ data: { session } }) => {
+          if (mounted) {
+            setUser(session?.user ?? null);
+            setLoading(false);
+          }
+        })
+        .catch(() => {
+          // Auth being unreachable must not leave a permanent loading pill in
+          // the masthead. Fall back to the signed-out entry point.
+          if (mounted) setLoading(false);
+        });
+
+      subscription = supabase.auth.onAuthStateChange((_event, session) => {
+        if (mounted) {
+          setUser(session?.user ?? null);
+          setLoading(false);
+        }
+      }).data.subscription;
+    } catch {
+      if (mounted) setLoading(false);
+    }
+
     return () => {
       mounted = false;
-      subscription.unsubscribe();
+      clearTimeout(timeout);
+      subscription?.unsubscribe();
     };
   }, []);
 
   if (loading) {
     return variant === 'block' ? (
-      <span aria-hidden="true" className="block w-full h-[60px] rounded-2xl bg-white/10" />
+      <span
+        aria-hidden="true"
+        className="flex w-full items-center gap-3 rounded-sm border border-white/15 bg-white/5 p-3"
+      >
+        <span className="size-9 shrink-0 rounded-sm bg-white/10" />
+        <span className="h-2.5 w-24 animate-pulse rounded-sm bg-white/15 motion-reduce:animate-none" />
+      </span>
     ) : (
-      <span aria-hidden="true" className="inline-block h-10 w-28 rounded-full bg-white/10" />
+      <span
+        aria-hidden="true"
+        className="inline-flex h-9 w-[7.25rem] items-center gap-2 rounded-sm border border-foreground/20 px-2.5"
+      >
+        <span className="size-5 shrink-0 rounded-sm bg-surface-muted" />
+        <span className="whitespace-nowrap text-[10px] font-bold uppercase tracking-[0.13em] text-muted-foreground">
+          Sign In
+        </span>
+      </span>
     );
   }
 
@@ -72,14 +108,9 @@ export function AccountButton({ variant = 'pill', onNavigate }: AccountButtonPro
     const placeholder = (
       <span
         aria-hidden="true"
-        className="relative flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-primary-light via-primary to-primary-dark p-px shadow-md shadow-primary/20 ring-1 ring-white/25"
+        className="flex size-6 shrink-0 items-center justify-center rounded-sm border border-foreground/25 bg-surface-muted text-foreground transition-colors duration-300 ease-out group-hover:border-primary group-hover:text-primary"
       >
-        <span className="absolute inset-0 rounded-full bg-white/10" />
-        <UserRound
-          size={17}
-          strokeWidth={1.8}
-          className="relative text-white transition-transform duration-300 ease-out group-hover:scale-110"
-        />
+        <UserRound size={14} strokeWidth={1.8} />
       </span>
     );
 
@@ -88,7 +119,7 @@ export function AccountButton({ variant = 'pill', onNavigate }: AccountButtonPro
         <Link
           href="/login"
           onClick={onNavigate}
-          className="group flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/5 p-3 text-left text-slate-200 shadow-lg shadow-slate-950/20 transition-all duration-300 ease-out hover:border-primary-light/50 hover:bg-slate-700/70 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold/70"
+          className="group flex w-full items-center gap-3 rounded-sm border border-white/15 bg-white/5 p-3 text-left text-ink-on-dark transition-colors duration-300 ease-out hover:border-primary-on-dark/50 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold/70"
           aria-label="Sign in to your account"
         >
           {placeholder}
@@ -109,7 +140,7 @@ export function AccountButton({ variant = 'pill', onNavigate }: AccountButtonPro
           </span>
           <ArrowUpRight
             size={16}
-            className="shrink-0 text-slate-500 transition-transform duration-300 ease-out group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-accent-gold"
+            className="shrink-0 text-ink-muted-on-dark transition-transform duration-300 ease-out group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-accent-gold"
           />
         </Link>
       );
@@ -118,11 +149,11 @@ export function AccountButton({ variant = 'pill', onNavigate }: AccountButtonPro
     return (
       <Link
         href="/login"
-        className="group inline-flex h-10 shrink-0 items-center gap-2 rounded-full border border-white/15 bg-white/5 py-1 pl-1.5 pr-4 shadow-md shadow-slate-950/10 transition-all duration-300 ease-out hover:border-accent-gold/50 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold/70"
+        className="group inline-flex h-9 shrink-0 items-center gap-2 rounded-sm border border-foreground/25 px-2.5 transition-colors duration-300 ease-out hover:border-primary hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         aria-label="Sign in to your account"
       >
         {placeholder}
-        <span className="whitespace-nowrap text-xs font-bold uppercase tracking-wider text-white">
+        <span className="whitespace-nowrap text-[10px] font-bold uppercase tracking-[0.13em] text-foreground">
           <DataPoint as="span" name="account.btn.sign_in" initialData={dataPoints}>
             Sign In
           </DataPoint>
@@ -152,7 +183,7 @@ export function AccountButton({ variant = 'pill', onNavigate }: AccountButtonPro
     ) : (
       <span
         aria-hidden="true"
-        className={`rounded-full bg-gradient-to-br from-primary-light to-primary-dark text-white flex items-center justify-center font-bold ring-2 ring-white/15 ${dims} ${text}`}
+        className={`flex items-center justify-center rounded-full bg-primary font-bold text-white ring-2 ring-white/15 ${dims} ${text}`}
       >
         {initials}
       </span>
@@ -162,10 +193,10 @@ export function AccountButton({ variant = 'pill', onNavigate }: AccountButtonPro
     <DropdownMenuContent
       align="end"
       sideOffset={4}
-      className="z-[110] w-48 rounded-lg bg-secondary p-1 shadow-float border border-white/10"
+      className="z-[110] w-48 rounded-sm border border-white/10 bg-secondary p-1 shadow-float"
     >
       <DropdownMenuItem
-        className="flex min-h-11 items-center gap-3 px-3 py-2 text-sm rounded-lg text-ink-on-dark transition-colors duration-150 ease-out cursor-pointer outline-none data-[highlighted]:bg-white/10 data-[highlighted]:text-white"
+        className="flex min-h-11 cursor-pointer items-center gap-3 rounded-sm px-3 py-2 text-sm text-ink-on-dark outline-none transition-colors duration-150 ease-out data-[highlighted]:bg-white/10 data-[highlighted]:text-white"
         onClick={() => {
           onNavigate?.();
           window.location.href = '/account';
@@ -181,7 +212,7 @@ export function AccountButton({ variant = 'pill', onNavigate }: AccountButtonPro
 
       {user.email?.endsWith('@indivisiblefairoaks.org') ? (
         <DropdownMenuItem
-          className="flex min-h-11 items-center gap-3 px-3 py-2 text-sm rounded-lg text-ink-on-dark transition-colors duration-150 ease-out cursor-pointer outline-none data-[highlighted]:bg-white/10 data-[highlighted]:text-white"
+          className="flex min-h-11 cursor-pointer items-center gap-3 rounded-sm px-3 py-2 text-sm text-ink-on-dark outline-none transition-colors duration-150 ease-out data-[highlighted]:bg-white/10 data-[highlighted]:text-white"
           onClick={() => {
             onNavigate?.();
             window.location.href = '/account?tab=settings';
@@ -197,7 +228,7 @@ export function AccountButton({ variant = 'pill', onNavigate }: AccountButtonPro
       ) : null}
 
       <DropdownMenuItem
-        className="flex min-h-11 items-center gap-3 px-3 py-2 text-sm rounded-lg text-ink-on-dark transition-colors duration-150 ease-out cursor-pointer outline-none data-[highlighted]:bg-white/10 data-[highlighted]:text-white"
+        className="flex min-h-11 cursor-pointer items-center gap-3 rounded-sm px-3 py-2 text-sm text-ink-on-dark outline-none transition-colors duration-150 ease-out data-[highlighted]:bg-white/10 data-[highlighted]:text-white"
         onClick={() => {
           onNavigate?.();
           const supabase = createClient();
@@ -220,7 +251,7 @@ export function AccountButton({ variant = 'pill', onNavigate }: AccountButtonPro
     return (
       <DropdownMenu>
         <DropdownMenuTrigger
-          className="flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/5 p-3 text-left text-slate-200 shadow-lg shadow-slate-950/20 transition-all duration-300 ease-out hover:border-primary-light/50 hover:bg-slate-700/70 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold/70"
+          className="flex w-full items-center gap-3 rounded-sm border border-white/15 bg-white/5 p-3 text-left text-ink-on-dark transition-colors duration-300 ease-out hover:border-primary-on-dark/50 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold/70"
           aria-label="User menu"
         >
           {renderAvatar('h-9 w-9 shrink-0', 'text-[11px]')}

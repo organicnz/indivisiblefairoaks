@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./editorial.css";
 
 /* Reveal-on-hover is only usable where hover actually exists. Gating it behind
    `(hover: hover)` is what makes "visible on touch, revealed on pointer" a
@@ -18,32 +19,35 @@
 [data-theme='light'],
 [data-theme-mode='light'] {
   color-scheme: light;
-  --background: #eef4ff;
-  --foreground: #0f1f3d;
-  --primary: #1e3a8a;
+  /* Civic-poster palette: warm paper, ink, cobalt, signal red and brass.
+     The old palette was a blue SaaS gradient; these values are chosen to read
+     like a printed broadsheet and to hold their contrast ratios on paper. */
+  --background: #f4efe4;
+  --foreground: #142033;
+  --primary: #1d4ed8;
   --primary-light: #2563eb;
-  --primary-dark: #172554;
-  --primary-ink: #1e3a8a;
-  --secondary: #16305c;
-  --accent: #d97706;
-  --accent-red: #dc2626;
-  --accent-gold: #f59e0b;
-  --surface-muted: #f4f8ff;
-  --surface-card: #ffffff;
-  --surface-deep: #e2ecfc;
+  --primary-dark: #1639a6;
+  --primary-ink: #1d4ed8;
+  --secondary: #101827;
+  --accent: #b42318;
+  --accent-red: #b42318;
+  --accent-gold: #e0a82e;
+  --surface-muted: #ebe4d5;
+  --surface-card: #fbf8f0;
+  --surface-deep: #ddd3c0;
 
   /* Hairline borders and secondary copy.
      Promoting them to tokens lets the CMS content stylesheet obey the same
      "tokens always" rule as the components. */
-  --border: #c3d3f0;
-  --muted-foreground: #475f85;
+  --border: #cfc4b1;
+  --muted-foreground: #4f5766;
 
   /* Body copy on dark surfaces. `--ink-on-dark` exists because `text-slate-600`
      measures 1.86:1 on the dark civic pages and is unreadable there.
      `--ink-muted-on-dark` is retuned to #a3b4c9 to guarantee >= 5.3:1 on cards. */
-  --ink-on-dark: #cbd5e1;
-  --ink-muted-on-dark: #a3b4c9;
-  --ink-strong: #0f172a;
+  --ink-on-dark: #ede8de;
+  --ink-muted-on-dark: #b8c0cd;
+  --ink-strong: #0a101c;
 
   /* Reserved dark-surface accent. Named here so the rule in AGENTS.md ("raw lime
      is never body or heading text, never on light surfaces") is enforceable by a
@@ -51,9 +55,9 @@
   --accent-lime: #d1ff00;
 
   /* Brand blue, on a dark surface. */
-  --primary-bright: #155dfc; /* CTA surface on dark — replaces bg-blue-600 */
-  --primary-on-dark: #8ec5ff; /* display / hero highlight — replaces text-blue-300 */
-  --primary-on-dark-muted: #7cbaff; /* eyebrow + label — retuned for >= 4.8:1 on cards */
+  --primary-bright: #1d4ed8; /* CTA surface on dark — replaces bg-blue-600 */
+  --primary-on-dark: #a8c0ff; /* display / hero highlight — replaces text-blue-300 */
+  --primary-on-dark-muted: #8fa9ee; /* eyebrow + label — retuned for >= 4.8:1 on cards */
 
   /* Gold, as *text*, on a dark surface.
      `--accent-gold` (#f59e0b) is a surface and a border, never a text colour:
@@ -68,14 +72,14 @@
      token. Measured on the tinted chip backgrounds: 5.30:1 on #495467 and
      6.00:1 on #464c55, and 10.93:1 on `--surface-deep` — the 4.5:1 body-text
      bar with margin, at every surface the badge can land on. */
-  --accent-gold-on-dark: #fcd34d;
+  --accent-gold-on-dark: #f3c15b;
 
   /* Fixed-header clearance and iOS safe-area contracts. */
   --safe-area-top: env(safe-area-inset-top, 0px);
   --safe-area-right: env(safe-area-inset-right, 0px);
   --safe-area-bottom: env(safe-area-inset-bottom, 0px);
   --safe-area-left: env(safe-area-inset-left, 0px);
-  --header-h: 5.5rem; /* 88px, excluding the notch inset */
+  --header-h: 4.5rem; /* 72px, excluding the notch inset */
   --header-clearance: calc(var(--header-h) + var(--safe-area-top));
 }
 
@@ -90,22 +94,28 @@
 [data-theme-mode='dark'],
 .dark {
   color-scheme: dark;
-  --background: #16305c;
-  --foreground: #f1f5f9;
-  --surface-muted: #1a3768;
-  --surface-card: #1e427e;
-  --surface-deep: #0f2244;
-  --border: #3a6699;
-  --muted-foreground: #a3b4c9;
-  --primary: #155dfc;
-  --primary-dark: #2563eb;
+  --background: #101522;
+  --foreground: #f2ecdf;
+  --surface-muted: #171e2d;
+  --surface-card: #1b2435;
+  --surface-deep: #0a0f19;
+  --border: #3a4559;
+  --muted-foreground: #b0b9c8;
+  --primary: #335ce8;
+  --primary-dark: #2646c0;
 
-  --primary-ink: #8ec5ff;
-  --primary-light: #60a5fa;
-  --ink-on-dark: #cbd5e1;
-  --ink-muted-on-dark: #a3b4c9;
-  --ink-strong: #0f172a;
-  --primary-on-dark-muted: #7cbaff;
+  --primary-ink: #a8c0ff;
+  --primary-light: #5f80ff;
+  --primary-bright: #335ce8;
+  --primary-on-dark: #a8c0ff;
+  --primary-on-dark-muted: #8fa9ee;
+  --secondary: #080d15;
+  --accent: #ff8a73;
+  --accent-red: #ff8a73;
+  --accent-gold: #f3c15b;
+  --ink-on-dark: #ede8de;
+  --ink-muted-on-dark: #aeb8c8;
+  --ink-strong: #0a101c;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -118,21 +128,27 @@
   [data-theme-mode='system'],
   :where([data-theme-mode='system']) {
     color-scheme: dark;
-    --background: #16305c;
-    --foreground: #f1f5f9;
-    --surface-muted: #1a3768;
-    --surface-card: #1e427e;
-    --surface-deep: #0f2244;
-    --border: #3a6699;
-    --muted-foreground: #a3b4c9;
-    --primary: #155dfc;
-    --primary-dark: #2563eb;
-    --primary-ink: #8ec5ff;
-    --primary-light: #60a5fa;
-    --ink-on-dark: #cbd5e1;
-    --ink-muted-on-dark: #a3b4c9;
-    --ink-strong: #0f172a;
-    --primary-on-dark-muted: #7cbaff;
+    --background: #101522;
+    --foreground: #f2ecdf;
+    --surface-muted: #171e2d;
+    --surface-card: #1b2435;
+    --surface-deep: #0a0f19;
+    --border: #3a4559;
+    --muted-foreground: #b0b9c8;
+    --primary: #335ce8;
+    --primary-dark: #2646c0;
+    --primary-ink: #a8c0ff;
+    --primary-light: #5f80ff;
+    --primary-bright: #335ce8;
+    --primary-on-dark: #a8c0ff;
+    --primary-on-dark-muted: #8fa9ee;
+    --secondary: #080d15;
+    --accent: #ff8a73;
+    --accent-red: #ff8a73;
+    --accent-gold: #f3c15b;
+    --ink-on-dark: #ede8de;
+    --ink-muted-on-dark: #aeb8c8;
+    --ink-strong: #0a101c;
   }
 }
 
@@ -140,30 +156,34 @@
   [data-theme-mode='system'],
   :where([data-theme-mode='system']) {
     color-scheme: light;
-    --background: #eef4ff;
-    --foreground: #0f1f3d;
-    --primary: #1e3a8a;
+    --background: #f4efe4;
+    --foreground: #142033;
+    --primary: #1d4ed8;
     --primary-light: #2563eb;
-    --primary-dark: #172554;
-    --primary-ink: #1e3a8a;
-    --secondary: #16305c;
-    --accent: #d97706;
-    --accent-red: #dc2626;
-    --accent-gold: #f59e0b;
-    --surface-muted: #f4f8ff;
-    --surface-card: #ffffff;
-    --surface-deep: #e2ecfc;
-    --border: #c3d3f0;
-    --muted-foreground: #475f85;
-    --ink-on-dark: #cbd5e1;
-    --ink-muted-on-dark: #a3b4c9;
-    --ink-strong: #0f172a;
+    --primary-dark: #1639a6;
+    --primary-ink: #1d4ed8;
+    --secondary: #101827;
+    --accent: #b42318;
+    --accent-red: #b42318;
+    --accent-gold: #e0a82e;
+    --surface-muted: #ebe4d5;
+    --surface-card: #fbf8f0;
+    --surface-deep: #ddd3c0;
+    --border: #cfc4b1;
+    --muted-foreground: #4f5766;
+    --ink-on-dark: #ede8de;
+    --ink-muted-on-dark: #b8c0cd;
+    --ink-strong: #0a101c;
+    --primary-bright: #1d4ed8;
+    --primary-on-dark: #a8c0ff;
+    --primary-on-dark-muted: #8fa9ee;
+    --accent-gold-on-dark: #f3c15b;
   }
 }
 
 @media (min-width: 48rem) {
   :root {
-    --header-h: 6.5rem; /* 104px, excluding the notch inset */
+    --header-h: 7rem; /* 112px: masthead row + navigation row */
   }
 }
 
@@ -192,25 +212,29 @@
   --color-ink-muted-on-dark: var(--ink-muted-on-dark);
   --color-ink-strong: var(--ink-strong);
   --font-sans: var(--font-inter);
+  --font-display: var(--font-fraunces), Georgia, 'Times New Roman', serif;
   --font-outfit: var(--font-outfit);
 
   /* Radius scale. Every radius in the codebase was an ad-hoc arbitrary value
      (`rounded-[2.5rem]`, `rounded-[1.75rem]`, `rounded-[0.5rem]`, …) with no
      scale behind them, so nothing constrained the set. */
-  --radius-xs: 0.375rem;
-  --radius-sm: 0.5rem;
-  --radius-md: 0.75rem;
-  --radius-lg: 1rem;
-  --radius-xl: 1.75rem;
-  --radius-2xl: 2.5rem;
-  --radius-3xl: 3.5rem;
+  /* Print-sharp corners. The previous scale topped out at 3.5rem, which made
+     every panel read as the same soft SaaS card. */
+  --radius-xs: 0.0625rem;
+  --radius-sm: 0.125rem;
+  --radius-md: 0.25rem;
+  --radius-lg: 0.375rem;
+  --radius-xl: 0.5rem;
+  --radius-2xl: 0.75rem;
+  --radius-3xl: 1rem;
 
-  /* Elevation scale, replacing one-off arbitrary shadows. */
-  --shadow-card: 0 1px 2px rgb(15 23 42 / 0.04), 0 1px 3px rgb(15 23 42 / 0.06);
-  --shadow-raised: 0 4px 6px -1px rgb(15 23 42 / 0.07), 0 2px 4px -2px rgb(15 23 42 / 0.05);
-  --shadow-float: 0 20px 25px -5px rgb(15 23 42 / 0.1), 0 8px 10px -6px rgb(15 23 42 / 0.06);
-  --shadow-hero: 0 40px 100px -20px rgb(15 23 42 / 0.1);
-  --shadow-header: 0 10px 15px -3px rgb(15 23 42 / 0.1), 0 4px 6px -4px rgb(15 23 42 / 0.1);
+  /* Elevation scale, replacing one-off arbitrary shadows. Paper leans on rules
+     and ink, not blur; keep elevation faint and let borders do the work. */
+  --shadow-card: 0 1px 0 rgb(20 32 51 / 0.04);
+  --shadow-raised: 3px 3px 0 rgb(20 32 51 / 0.14);
+  --shadow-float: 0 24px 48px -24px rgb(16 24 39 / 0.22);
+  --shadow-hero: 0 1px 0 rgb(20 32 51 / 0.08);
+  --shadow-header: 0 1px 0 rgb(20 32 51 / 0.08);
 
   /* Motion. AGENTS.md caps interactive feedback at 500ms; these are the only
      two durations in the system so nothing has to be invented per component. */
@@ -225,7 +249,15 @@
   }
 
   body {
-    background: var(--background);
+    background-color: var(--background);
+    /* A 24px dot grid, barely visible, gives the paper a printed texture and
+       keeps large plain sections from looking like empty app canvas. */
+    background-image: radial-gradient(
+      circle at 1px 1px,
+      color-mix(in srgb, var(--foreground) 5%, transparent) 1px,
+      transparent 0
+    );
+    background-size: 24px 24px;
     color: var(--foreground);
     -webkit-font-smoothing: antialiased;
   }
@@ -236,11 +268,80 @@
   h4,
   h5,
   h6 {
-    font-family: var(--font-outfit), sans-serif;
+    font-family: var(--font-fraunces), Georgia, serif;
+    font-optical-sizing: auto;
+    letter-spacing: -0.025em;
+    text-wrap: balance;
   }
 }
 
 @layer components {
+  /* Shared editorial vocabulary. These are deliberately structural primitives,
+     not a second component library: every public page gets its eyebrow, rules,
+     and paper grid from the same three classes. */
+  .civic-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.65rem;
+    color: var(--primary-ink);
+    font-family: var(--font-inter), sans-serif;
+    font-size: 0.6875rem;
+    font-weight: 800;
+    letter-spacing: 0.18em;
+    line-height: 1.2;
+    text-transform: uppercase;
+  }
+
+  .civic-kicker::before {
+    content: '';
+    display: block;
+    width: 1.75rem;
+    height: 2px;
+    flex: 0 0 auto;
+    background: var(--accent);
+  }
+
+  .paper-grid {
+    background-image:
+      linear-gradient(to right, color-mix(in srgb, var(--foreground) 7%, transparent) 1px, transparent 1px),
+      linear-gradient(to bottom, color-mix(in srgb, var(--foreground) 7%, transparent) 1px, transparent 1px);
+    background-size: 64px 64px;
+  }
+
+  .civic-rule {
+    border: 0;
+    border-block-start: 1px solid var(--border);
+  }
+
+  .civic-frame {
+    position: relative;
+    border: 1px solid color-mix(in srgb, var(--foreground) 22%, transparent);
+    background: var(--surface-card);
+  }
+
+  .civic-frame::after {
+    content: '';
+    position: absolute;
+    inset: 0.5rem;
+    border: 1px solid color-mix(in srgb, var(--foreground) 10%, transparent);
+    pointer-events: none;
+  }
+
+  .civic-stamp {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    border: 1px solid color-mix(in srgb, var(--foreground) 28%, transparent);
+    padding: 0.35rem 0.55rem;
+    color: var(--muted-foreground);
+    font-family: var(--font-inter), sans-serif;
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    line-height: 1;
+    text-transform: uppercase;
+  }
+
   .site-header-padding {
     padding-block-start: calc(1rem + var(--safe-area-top));
     padding-block-end: 1rem;
@@ -932,6 +1033,35 @@ body[data-editorial-mode='active'] main [data-data-point],
 body[data-editorial-mode='active'] main [data-copy-region],
 body[data-editorial-mode='active'] main img {
   transition: outline 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Public-surface guardrails
+
+   Some long-lived public components (gallery metrics, event cards, newsletter
+   forms) still spell out the pre-redesign radii and elevation utilities. They
+   are real content surfaces, not admin chrome, and a half-migrated card row is
+   exactly what makes a redesign feel pasted on. Keep those legacy declarations
+   inside the civic scale without rewriting every component at once.
+
+   Scoped to `main`, so the paper masthead, footer and portalled dialogs keep
+   their own deliberate geometry. Unlayered on purpose: Tailwind's utilities
+   live in a layer, and a normal declaration must win over the legacy values.
+   ───────────────────────────────────────────────────────────────────────────── */
+main :where(.rounded-lg, .rounded-xl, .rounded-2xl, .rounded-3xl) {
+  border-radius: 3px;
+}
+
+main :where(.shadow-sm, .shadow, .shadow-md, .shadow-lg, .shadow-xl, .shadow-2xl) {
+  box-shadow: 0 1px 0 rgb(20 32 51 / 0.06);
+}
+
+/* Section headings are part of the publication's voice, including headings
+   that arrive inside CMS bodies. Card titles remain sans for legibility. */
+main h2 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.025em;
 }
 
 /* Reduced-motion safety net. Covers CSS animations and transitions *and* the

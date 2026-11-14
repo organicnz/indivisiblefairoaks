@@ -1,8 +1,12 @@
 import { HelpCircle } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import {
+  MASTHEAD_INTRO,
+  MASTHEAD_TITLE,
+  PageMasthead,
+} from '@/components/layout/PageMasthead';
 import { DataPoint } from '@/components/ui/DataPoint';
-import { VgpuAtmosphericHalo } from '@/components/ui/VgpuAtmosphericHalo';
 import { siteUrl } from '@/config/site';
 import { pageMetadata } from '@/lib/metadata';
 import { type FAQRow, getDataPoints, getFaqs } from '@/lib/queries/civic';
@@ -116,7 +120,7 @@ export default async function FAQPage() {
   };
 
   return (
-    <div className="w-full bg-background text-foreground pt-(--header-clearance) pb-20 min-h-screen">
+    <div className="civic-page w-full min-h-screen bg-background pb-20 text-foreground pt-(--header-clearance)">
       {/* JSON-LD. biome's noDangerouslySetInnerHtml is suppressed for this file
           (see biome.json); the value is escaped by serializeJsonLd, which handles
           <, >, & and the JS line separators so it cannot break out of the tag. */}
@@ -125,36 +129,35 @@ export default async function FAQPage() {
         dangerouslySetInnerHTML={{ __html: serializeJsonLd(faqJsonLd) }}
       />
 
-      {/* Header Banner with VGPU Atmospheric 22° Ice Halo & Parhelia */}
-      <section className="relative overflow-hidden bg-surface-muted border-b border-border text-foreground dark:bg-secondary dark:text-white py-16 mb-12">
-        <VgpuAtmosphericHalo />
-        <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary dark:bg-primary-bright/10 dark:border-primary-on-dark-muted/30 dark:text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
-            <HelpCircle size={14} className="text-accent-gold" />
-            <DataPoint initialData={dataPoints} name="faqs.hero.eyebrow">
-              Frequently Asked Questions
-            </DataPoint>
-          </div>
+      <PageMasthead
+        icon={HelpCircle}
+        eyebrow={
+          <DataPoint initialData={dataPoints} name="faqs.hero.eyebrow">
+            Frequently Asked Questions
+          </DataPoint>
+        }
+        title={
           <DataPoint
             initialData={dataPoints}
             name="faqs.hero.headline"
             as="h1"
-            className="text-4xl sm:text-5xl font-black tracking-tight mb-4 text-foreground dark:text-white"
+            className={MASTHEAD_TITLE}
           >
             Frequently Asked Questions
           </DataPoint>
-          <div className="h-1.5 w-24 bg-primary dark:bg-accent-gold rounded-full mb-4 mx-auto" />
+        }
+        intro={
           <DataPoint
             initialData={dataPoints}
             name="faqs.hero.intro"
             as="p"
-            className="text-muted-foreground dark:text-ink-on-dark text-sm sm:text-base max-w-xl mx-auto"
+            className={MASTHEAD_INTRO}
           >
             Have questions about attending a meeting, singing with the choir, or getting involved?
             Find quick answers below.
           </DataPoint>
-        </div>
-      </section>
+        }
+      />
 
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="space-y-12">
@@ -166,7 +169,7 @@ export default async function FAQPage() {
               <section key={group.category} aria-labelledby={categoryId}>
                 <h2
                   id={categoryId}
-                  className="text-xl font-bold text-primary-ink dark:text-accent-gold uppercase tracking-wider mb-6 flex items-center gap-3"
+                  className="mb-6 flex items-center gap-3 font-display text-2xl font-semibold tracking-[-0.03em]"
                 >
                   <span>{group.category}</span>
                   <div className="h-px bg-border dark:bg-white/5 flex-1" />
@@ -175,7 +178,7 @@ export default async function FAQPage() {
                   {group.questions.map((faq) => (
                     <div
                       key={faq.q}
-                      className="p-6 rounded-2xl bg-surface-card border border-border hover:border-border dark:hover:border-white/20 transition-all space-y-2"
+                      className="space-y-2 border-t border-border py-4"
                     >
                       <DataPoint
                         initialData={dataPoints}
@@ -201,12 +204,12 @@ export default async function FAQPage() {
           })}
         </div>
 
-        <div className="mt-16 text-center p-8 rounded-3xl bg-surface-card border border-border dark:bg-gradient-to-r dark:from-blue-950/60 dark:via-slate-900 dark:to-indigo-950/60 dark:border-primary-bright/30 space-y-4 shadow-card">
+        <div className="mt-16 space-y-4 border-y border-border bg-surface-card p-8 text-center">
           <DataPoint
             initialData={dataPoints}
             name="faqs.still_have_questions"
             as="h3"
-            className="text-xl font-black text-foreground dark:text-white"
+            className="font-display text-2xl font-semibold tracking-[-0.03em]"
           >
             Still have a question?
           </DataPoint>
@@ -220,7 +223,7 @@ export default async function FAQPage() {
           </DataPoint>
           <Link
             href="/contact"
-            className="inline-block px-6 py-3 rounded-xl bg-primary hover:bg-primary-dark dark:bg-primary-bright dark:hover:bg-primary-light text-white font-bold text-xs uppercase tracking-wider transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold focus-visible:ring-offset-2"
+            className="inline-flex min-h-11 items-center border border-primary bg-primary px-6 py-3 text-[11px] font-bold uppercase tracking-[0.12em] text-white transition-colors hover:bg-primary-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold focus-visible:ring-offset-2"
           >
             <DataPoint initialData={dataPoints} as="span" name="faqs.contact_button">
               Contact Us Directly

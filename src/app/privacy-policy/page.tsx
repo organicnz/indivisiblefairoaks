@@ -1,115 +1,109 @@
-import { DataPoint } from '@/components/ui/DataPoint';
-import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
-import { getDataPoints } from '@/lib/queries/civic';
+import { ShieldCheck } from 'lucide-react';
+import type { Metadata } from 'next';
+import {
+  MASTHEAD_INTRO,
+  MASTHEAD_TITLE,
+  PageMasthead,
+} from '@/components/layout/PageMasthead';
+import { pageMetadata } from '@/lib/metadata';
 
-export default async function PrivacyPage() {
-  const dataPoints = await getDataPoints('privacy');
+export const metadata: Metadata = pageMetadata({
+  title: 'Privacy Policy',
+  description:
+    'How Indivisible Fair Oaks-Carmichael handles contact messages, account information, analytics, embedded media, and privacy requests.',
+  path: '/privacy-policy',
+});
 
+export default function PrivacyPage() {
   return (
-    <div className="relative overflow-hidden bg-background min-h-screen pt-(--header-h) pb-16 px-4 sm:px-6 lg:px-8 text-foreground transition-colors duration-300">
-      <VgpuCivicConstellation className="pointer-events-none opacity-20" />
-      <div className="relative z-10 max-w-3xl mx-auto">
-        <DataPoint
-          name="privacy.hero.title"
-          as="h1"
-          initialData={dataPoints}
-          className="text-4xl font-black text-foreground uppercase tracking-tight mb-8"
-        >
-          Privacy Policy
-        </DataPoint>
-        <div className="h-1.5 w-24 bg-primary dark:bg-primary-bright mb-12" />
+    <div className="civic-page w-full min-h-screen bg-background pb-20 text-foreground pt-(--header-clearance)">
+      <PageMasthead
+        icon={ShieldCheck}
+        eyebrow="Privacy & trust"
+        title={<h1 className={MASTHEAD_TITLE}>Privacy Policy</h1>}
+        intro={
+          <p className={MASTHEAD_INTRO}>
+            We collect only what the chapter needs to answer you, run the site, and keep our
+            organizing records straight. This page explains that in plain language.
+          </p>
+        }
+        meta={<span className="civic-stamp">Last updated November 14, 2026</span>}
+      />
 
-        <div className="prose prose-slate dark:prose-invert max-w-none space-y-8 text-muted-foreground font-medium leading-relaxed">
-          <DataPoint name="privacy.body.intro" as="p" initialData={dataPoints}>
-            At Indivisible Fair Oaks-Carmichael, we recognise your right to confidentiality and are
-            committed to protecting your privacy. Our website address is:
-            https://indivisiblefairoaks.org.
-          </DataPoint>
+      <div className="mx-auto max-w-5xl px-4 py-14 sm:px-6 lg:px-8 lg:py-20">
+        <div className="civic-prose">
+          <p>
+            Indivisible Fair Oaks-Carmichael is a volunteer-run chapter in Sacramento County,
+            California. This policy covers this website and the chapter forms connected to it. It
+            does not cover third-party sites we link to.
+          </p>
 
-          <section>
-            <DataPoint
-              name="privacy.collect.title"
-              as="h2"
-              initialData={dataPoints}
-              className="text-xl font-black text-foreground uppercase tracking-wider mb-4"
-            >
-              What data we collect
-            </DataPoint>
-            <DataPoint name="privacy.collect.body" as="p" initialData={dataPoints}>
-              When visitors leave comments or place orders, we collect the data provided in the
-              forms, and also the visitor&apos;s IP address and browser user agent string to help
-              spam detection.
-            </DataPoint>
-          </section>
+          <h2>What we collect</h2>
+          <ul>
+            <li>
+              <strong>Contact messages:</strong> the name, email address, and message you submit
+              through our contact form, plus the optional preference to receive chapter email.
+            </li>
+            <li>
+              <strong>Account information:</strong> if you create an account, we store your email
+              address and authentication data through our hosted authentication provider.
+            </li>
+            <li>
+              <strong>Basic usage data:</strong> privacy-conscious analytics may record page views,
+              approximate region, device type, and referral source. We use this to understand which
+              pages are useful; we do not use it to identify individual visitors.
+            </li>
+            <li>
+              <strong>Display preferences:</strong> your theme choice and similar interface
+              settings may be stored in your browser.
+            </li>
+          </ul>
 
-          <section>
-            <DataPoint
-              name="privacy.cookies.title"
-              as="h2"
-              initialData={dataPoints}
-              className="text-xl font-black text-foreground uppercase tracking-wider mb-4"
-            >
-              Cookies
-            </DataPoint>
-            <DataPoint name="privacy.cookies.body1" as="p" initialData={dataPoints}>
-              If you leave a comment on our site you may opt-in to saving your name, email address
-              and website in cookies. These are for your convenience so that you do not have to fill
-              in your details again.
-            </DataPoint>
-            <DataPoint name="privacy.cookies.body2" as="p" initialData={dataPoints}>
-              When you log in, we will also set up several cookies to save your login information
-              and your screen display choices. Login cookies last for two days, and screen options
-              cookies last for a year.
-            </DataPoint>
-          </section>
+          <h2>Why we collect it</h2>
+          <p>
+            We use contact information to reply to you, coordinate volunteering, send requested
+            chapter updates, and maintain the security of the site. We do not sell your personal
+            information, and we do not share it with candidates or campaigns for their own
+            fundraising.
+          </p>
 
-          <section>
-            <DataPoint
-              name="privacy.embedded.title"
-              as="h2"
-              initialData={dataPoints}
-              className="text-xl font-black text-foreground uppercase tracking-wider mb-4"
-            >
-              Embedded content
-            </DataPoint>
-            <DataPoint name="privacy.embedded.body" as="p" initialData={dataPoints}>
-              Articles on this site may include embedded content (e.g. videos, images, articles,
-              etc.). Embedded content from other websites behaves in the exact same way as if the
-              visitor has visited the other website.
-            </DataPoint>
-          </section>
+          <h2>Service providers</h2>
+          <p>
+            The site runs on Vercel, stores data with Supabase, and may use privacy-conscious
+            analytics and error monitoring. These providers process data on the chapter&apos;s
+            behalf so the site can function. Embedded YouTube videos are loaded only when you
+            choose to play them, and YouTube&apos;s own privacy policy applies once you do.
+          </p>
 
-          <section>
-            <DataPoint
-              name="privacy.retain.title"
-              as="h2"
-              initialData={dataPoints}
-              className="text-xl font-black text-foreground uppercase tracking-wider mb-4"
-            >
-              How long we retain your data
-            </DataPoint>
-            <DataPoint name="privacy.retain.body" as="p" initialData={dataPoints}>
-              If you leave a comment, the comment and its metadata are retained indefinitely. For
-              users that register on our website, we also store the personal information they
-              provide in their user profile.
-            </DataPoint>
-          </section>
+          <h2>Cookies and browser storage</h2>
+          <p>
+            We use cookies or local browser storage for sign-in sessions, security, and display
+            preferences. We do not use advertising cookies. You can clear browser storage at any
+            time; some signed-in features will then require you to sign in again.
+          </p>
 
-          <section>
-            <DataPoint
-              name="privacy.security.title"
-              as="h2"
-              initialData={dataPoints}
-              className="text-xl font-black text-foreground uppercase tracking-wider mb-4"
-            >
-              Security
-            </DataPoint>
-            <DataPoint name="privacy.security.body" as="p" initialData={dataPoints}>
-              We use a secure server for transactions to ensure absolute confidentiality. Under no
-              circumstances is your information used for anything other than our grassroots
-              organizing and communications.
-            </DataPoint>
-          </section>
+          <h2>How long we keep it</h2>
+          <p>
+            Contact messages are kept while the chapter needs them to respond and maintain its
+            organizing records. Account data is kept until you ask us to delete the account or the
+            chapter no longer needs it. Analytics data is retained according to the provider&apos;s
+            configured retention period.
+          </p>
+
+          <h2>Your choices</h2>
+          <p>
+            You can ask to see, correct, or delete personal information we hold about you, and you
+            can unsubscribe from chapter email using the link in any message. Email{' '}
+            <a href="mailto:contact@indivisiblefairoaks.org">contact@indivisiblefairoaks.org</a> and
+            a volunteer will follow up.
+          </p>
+
+          <h2>Security and changes</h2>
+          <p>
+            We use reputable hosting and authentication providers, but no website can promise
+            perfect security. If this policy changes materially, we will update the date at the top
+            of this page and describe the change here.
+          </p>
         </div>
       </div>
     </div>

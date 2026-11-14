@@ -12,9 +12,14 @@ import {
 import type { Metadata } from 'next';
 import { LegacyDocumentArchive } from '@/components/archive/LegacyDocumentArchive';
 import { CopyRegion } from '@/components/cms/CopyRegion';
+import {
+  MASTHEAD_INTRO,
+  MASTHEAD_TITLE,
+  PageMasthead,
+} from '@/components/layout/PageMasthead';
 import { DataPoint } from '@/components/ui/DataPoint';
+import { LiteYouTube } from '@/components/ui/LiteYouTube';
 import { SacramentoRepresentativeFinder } from '@/components/ui/SacramentoRepresentativeFinder';
-import { VgpuGeomagneticCusp } from '@/components/ui/VgpuGeomagneticCusp';
 import { pageMetadata } from '@/lib/metadata';
 import { getDataPoints } from '@/lib/queries/civic';
 import {
@@ -41,48 +46,71 @@ export default async function VoterInfoPage() {
   };
 
   return (
-    <div className="w-full bg-background text-foreground min-h-screen pt-(--header-clearance) pb-20">
-      {/* Header Banner with VGPU Geomagnetic Cusp & True North Arcs */}
-      <div className="relative overflow-hidden bg-surface-muted border-b border-border text-foreground dark:bg-gradient-to-b dark:from-slate-900 dark:to-slate-950 dark:border-white/10 py-16">
-        <VgpuGeomagneticCusp />
-        <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center pointer-events-auto">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary-ink dark:bg-primary-bright/10 dark:border-primary-on-dark-muted/30 dark:text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
-            <Vote size={14} className="text-accent-gold" />
-            <DataPoint initialData={dataPoints} name="voter.hero.eyebrow">
-              Sacramento County Voter Center
-            </DataPoint>
-          </div>
+    <div className="civic-page w-full min-h-screen bg-background pb-20 text-foreground pt-(--header-clearance)">
+      <PageMasthead
+        icon={Vote}
+        eyebrow={
+          <DataPoint initialData={dataPoints} name="voter.hero.eyebrow">
+            Sacramento County Voter Center
+          </DataPoint>
+        }
+        title={
           <DataPoint
             initialData={dataPoints}
             as="h1"
             name="voter.hero.title"
-            className="text-4xl sm:text-5xl font-black text-foreground dark:text-white tracking-tight mb-4"
+            className={MASTHEAD_TITLE}
           >
             Voter Information & Guides
           </DataPoint>
+        }
+        intro={
           <DataPoint
             initialData={dataPoints}
             as="p"
             name="voter.hero.intro"
-            className="text-lg text-muted-foreground dark:text-ink-on-dark max-w-2xl mx-auto leading-relaxed"
+            className={MASTHEAD_INTRO}
           >
             Your vote is your voice and your power. Explore official guides, check your registration
             status, and know your rights as a California voter.
           </DataPoint>
+        }
+      />
+
+      <nav
+        aria-label="Voter information sections"
+        className="border-b border-border bg-surface-card"
+      >
+        <div className="mx-auto flex max-w-5xl gap-5 overflow-x-auto px-4 py-3 sm:px-6 lg:px-8">
+          {[
+            ['register', 'Register'],
+            ['representatives', 'Representatives'],
+            ['guides', 'Guides'],
+            ['rights', 'Rights'],
+            ['hotlines', 'Hotlines'],
+          ].map(([href, label]) => (
+            <a
+              key={href}
+              href={`#${href}`}
+              className="shrink-0 border-b border-transparent py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground transition-colors hover:border-accent hover:text-foreground"
+            >
+              {label}
+            </a>
+          ))}
         </div>
-      </div>
+      </nav>
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-16">
         {/* Quick Action Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div id="register" className="scroll-mt-28 grid grid-cols-1 gap-0 border-y border-border md:grid-cols-3 md:divide-x md:divide-border">
           <a
             href="https://registertovote.ca.gov"
             target="_blank"
             rel="noopener noreferrer"
-            className="p-6 rounded-2xl bg-primary/5 border border-primary/30 hover:border-blue-400 transition-all group flex flex-col justify-between dark:bg-blue-900/40 dark:border-primary-bright/40"
+            className="group flex flex-col justify-between p-6 transition-colors hover:bg-surface-muted"
           >
             <div>
-              <div className="w-12 h-12 rounded-xl bg-primary-bright flex items-center justify-center text-white mb-4 group-hover:scale-105 transition-transform">
+              <div className="mb-4 flex size-11 items-center justify-center border border-border bg-background text-primary-ink">
                 <Vote size={24} />
               </div>
               <DataPoint
@@ -113,10 +141,10 @@ export default async function VoterInfoPage() {
             href="https://wheresmyballot.sos.ca.gov"
             target="_blank"
             rel="noopener noreferrer"
-            className="p-6 rounded-2xl bg-surface-card border border-border hover:border-accent-gold/40 transition-all group flex flex-col justify-between"
+            className="group flex flex-col justify-between p-6 transition-colors hover:bg-surface-muted"
           >
             <div>
-              <div className="w-12 h-12 rounded-xl bg-accent-gold/20 text-accent dark:text-accent-gold flex items-center justify-center mb-4 group-hover:scale-105 transition-transform">
+              <div className="mb-4 flex size-11 items-center justify-center border border-border bg-background text-accent">
                 <Search size={24} />
               </div>
               <DataPoint
@@ -147,10 +175,10 @@ export default async function VoterInfoPage() {
             href="https://elections.saccounty.gov"
             target="_blank"
             rel="noopener noreferrer"
-            className="p-6 rounded-2xl bg-surface-card border border-border hover:border-emerald-500/40 transition-all group flex flex-col justify-between"
+            className="group flex flex-col justify-between p-6 transition-colors hover:bg-surface-muted"
           >
             <div>
-              <div className="w-12 h-12 rounded-xl bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 flex items-center justify-center mb-4 group-hover:scale-105 transition-transform">
+              <div className="mb-4 flex size-11 items-center justify-center border border-border bg-background text-primary-ink">
                 <CheckCircle2 size={24} />
               </div>
               <DataPoint
@@ -189,7 +217,7 @@ export default async function VoterInfoPage() {
         <div id="guides" className="space-y-8 scroll-mt-28">
           <CopyRegion id="voter-guides">
             {/* Featured 2026 Voter Guide & Ballot Recommendations */}
-            <div className="relative overflow-hidden rounded-3xl bg-surface-card border border-border dark:bg-gradient-to-br dark:from-blue-950 dark:via-slate-900 dark:to-indigo-950 dark:border-primary-bright/30 p-6 sm:p-8 shadow-card dark:shadow-float mb-8">
+            <div className="relative mb-8 border-y border-border bg-surface-card p-6 sm:p-8">
               <div className="relative z-10 space-y-6">
                 <div>
                   <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent-gold/15 dark:bg-accent-gold/20 border border-accent-gold/30 dark:border-accent-gold/30 text-amber-800 dark:text-accent-gold text-xs font-bold uppercase tracking-wider mb-2">
@@ -202,7 +230,7 @@ export default async function VoterInfoPage() {
                     initialData={dataPoints}
                     as="h2"
                     name="voter.guides.headline"
-                    className="text-2xl sm:text-3xl font-black text-foreground dark:text-white tracking-tight"
+                    className="font-display text-3xl font-semibold leading-tight tracking-[-0.03em] sm:text-4xl"
                   >
                     2026 Voter Guide &amp; Ballot Recommendations
                   </DataPoint>
@@ -227,10 +255,10 @@ export default async function VoterInfoPage() {
                     )}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="p-4 sm:p-5 rounded-2xl bg-surface-muted hover:bg-surface-muted/80 border border-border dark:bg-white/5 dark:hover:bg-white/10 dark:border-white/10 hover:border-primary/40 dark:hover:border-primary-on-dark transition-all flex flex-col justify-between group"
+                    className="group flex flex-col justify-between border-t border-border bg-transparent py-4 transition-colors hover:text-primary-ink"
                   >
                     <div className="space-y-2">
-                      <div className="size-9 rounded-xl bg-primary/10 text-primary-ink dark:bg-primary-bright/20 dark:text-primary-on-dark flex items-center justify-center group-hover:scale-105 transition-transform">
+                      <div className="flex size-8 items-center justify-center border border-border bg-background text-primary-ink">
                         <Vote size={18} />
                       </div>
                       <DataPoint
@@ -271,10 +299,10 @@ export default async function VoterInfoPage() {
                     )}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="p-4 sm:p-5 rounded-2xl bg-surface-muted hover:bg-surface-muted/80 border border-border dark:bg-white/5 dark:hover:bg-white/10 dark:border-white/10 hover:border-primary/40 dark:hover:border-primary-on-dark transition-all flex flex-col justify-between group"
+                    className="group flex flex-col justify-between border-t border-border bg-transparent py-4 transition-colors hover:text-primary-ink"
                   >
                     <div className="space-y-2">
-                      <div className="size-9 rounded-xl bg-accent-gold/15 text-amber-700 dark:bg-accent-gold/20 dark:text-accent-gold flex items-center justify-center group-hover:scale-105 transition-transform">
+                      <div className="flex size-8 items-center justify-center border border-border bg-background text-accent">
                         <CheckCircle2 size={18} />
                       </div>
                       <DataPoint
@@ -314,10 +342,10 @@ export default async function VoterInfoPage() {
                     )}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="p-4 sm:p-5 rounded-2xl bg-surface-muted hover:bg-surface-muted/80 border border-border dark:bg-white/5 dark:hover:bg-white/10 dark:border-white/10 hover:border-primary/40 dark:hover:border-primary-on-dark transition-all flex flex-col justify-between group"
+                    className="group flex flex-col justify-between border-t border-border bg-transparent py-4 transition-colors hover:text-primary-ink"
                   >
                     <div className="space-y-2">
-                      <div className="size-9 rounded-xl bg-emerald-500/15 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400 flex items-center justify-center group-hover:scale-105 transition-transform">
+                      <div className="flex size-8 items-center justify-center border border-border bg-background text-primary-ink">
                         <FileDown size={18} />
                       </div>
                       <DataPoint
@@ -357,10 +385,10 @@ export default async function VoterInfoPage() {
                     )}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="p-4 sm:p-5 rounded-2xl bg-surface-muted hover:bg-surface-muted/80 border border-border dark:bg-white/5 dark:hover:bg-white/10 dark:border-white/10 hover:border-primary/40 dark:hover:border-primary-on-dark transition-all flex flex-col justify-between group"
+                    className="group flex flex-col justify-between border-t border-border bg-transparent py-4 transition-colors hover:text-primary-ink"
                   >
                     <div className="space-y-2">
-                      <div className="size-9 rounded-xl bg-purple-500/15 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300 flex items-center justify-center group-hover:scale-105 transition-transform">
+                      <div className="flex size-8 items-center justify-center border border-border bg-background text-primary-ink">
                         <HelpCircle size={18} />
                       </div>
                       <DataPoint
@@ -394,15 +422,14 @@ export default async function VoterInfoPage() {
                 </div>
 
                 {/* Save America Act Video Spotlight (Issue #89) */}
-                <div className="mt-8 rounded-2xl bg-surface-card border border-border p-5 sm:p-6 shadow-xl">
+                <div className="mt-8 border border-border bg-surface-card p-5 sm:p-6">
                   <div className="flex flex-col lg:flex-row gap-6 items-center">
-                    <div className="w-full lg:w-1/2 aspect-video rounded-xl overflow-hidden bg-surface-deep dark:bg-black border border-border dark:border-white/10 shrink-0">
-                      <iframe
-                        className="w-full h-full"
-                        src="https://www.youtube.com/embed/0a9zLvWVqgQ"
+                    <div className="w-full shrink-0 lg:w-1/2">
+                      <LiteYouTube
+                        videoId="0a9zLvWVqgQ"
                         title="The SAVE America Act Educational Video"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
+                        poster="/images/gallery/sacramento-capitol-no-kings.jpg"
+                        className="border border-border"
                       />
                     </div>
                     <div className="space-y-3">
@@ -462,15 +489,15 @@ export default async function VoterInfoPage() {
               initialData={dataPoints}
               name="voter.guides_section.title"
               as="h2"
-              className="text-2xl sm:text-3xl font-black text-foreground dark:text-white tracking-tight mb-6"
+              id="rights" className="civic-section-title mb-6 scroll-mt-28"
             >
               Voter Rights &amp; Educational Guides
             </DataPoint>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Guide 1: Elected Officials */}
-              <div className="p-6 rounded-2xl bg-surface-card border border-border space-y-4">
-                <div className="w-10 h-10 rounded-lg bg-primary-bright/20 text-primary-ink dark:text-primary-on-dark-muted flex items-center justify-center">
+              <div className="space-y-4 border-t border-foreground/25 pt-6">
+                <div className="flex size-10 items-center justify-center border border-border bg-background text-primary-ink">
                   <UserCheck size={20} />
                 </div>
                 <DataPoint
@@ -527,8 +554,8 @@ export default async function VoterInfoPage() {
               </div>
 
               {/* Guide 2: Youth Pre-Registration */}
-              <div className="p-6 rounded-2xl bg-surface-card border border-border space-y-4">
-                <div className="w-10 h-10 rounded-lg bg-accent-gold/20 text-accent dark:text-accent-gold flex items-center justify-center">
+              <div className="space-y-4 border-t border-foreground/25 pt-6">
+                <div className="flex size-10 items-center justify-center border border-border bg-background text-accent">
                   <Vote size={20} />
                 </div>
                 <DataPoint
@@ -565,8 +592,8 @@ export default async function VoterInfoPage() {
               </div>
 
               {/* Guide 3: Rights Restoration */}
-              <div className="p-6 rounded-2xl bg-surface-card border border-border space-y-4">
-                <div className="w-10 h-10 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+              <div className="space-y-4 border-t border-foreground/25 pt-6">
+                <div className="flex size-10 items-center justify-center border border-border bg-background text-primary-ink">
                   <Shield size={20} />
                 </div>
                 <DataPoint
@@ -613,8 +640,8 @@ export default async function VoterInfoPage() {
               </div>
 
               {/* Guide 4: Unhoused Voters */}
-              <div className="p-6 rounded-2xl bg-surface-card border border-border space-y-4">
-                <div className="w-10 h-10 rounded-lg bg-primary-bright/20 text-primary-ink dark:text-primary-on-dark-muted flex items-center justify-center">
+              <div className="space-y-4 border-t border-foreground/25 pt-6">
+                <div className="flex size-10 items-center justify-center border border-border bg-background text-primary-ink">
                   <HelpCircle size={20} />
                 </div>
                 <DataPoint
@@ -656,9 +683,9 @@ export default async function VoterInfoPage() {
         {/* Official County Contacts & Hotlines — copy region */}
         <div
           id="hotlines"
-          className="p-8 rounded-2xl bg-surface-card border border-border dark:bg-gradient-to-r dark:from-blue-950/60 dark:to-slate-900 dark:border-primary-bright/30 space-y-6 scroll-mt-28 shadow-card"
+          className="scroll-mt-28 space-y-6 border-y border-border bg-surface-card p-8"
         >
-          <h2 className="text-2xl font-black text-foreground dark:text-white tracking-tight flex items-center gap-2">
+          <h2 className="flex items-center gap-2 font-display text-3xl font-semibold tracking-[-0.03em]">
             <Phone className="text-accent dark:text-accent-gold" />
             <DataPoint initialData={dataPoints} as="span" name="voter.hotlines.headline">
               Sacramento County Elections & Voter Hotlines

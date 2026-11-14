@@ -4,7 +4,6 @@ import * as Sentry from '@sentry/nextjs';
 import Link from 'next/link';
 import { useEffect } from 'react';
 import { DataPoint } from '@/components/ui/DataPoint';
-import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
 import { useDataPoints } from '@/hooks/useDataPoints';
 import { reportClientError } from '@/lib/error-report';
 
@@ -25,15 +24,14 @@ export default function RouteError({
   }, [error]);
 
   return (
-    <div className="relative overflow-hidden min-h-[70vh] bg-background text-foreground flex items-center justify-center px-4 pt-(--header-h) pb-16">
-      <VgpuCivicConstellation className="opacity-25" />
-      <div className="relative z-10 max-w-md w-full bg-surface-card p-10 rounded-3xl shadow-float text-center border border-border">
-        <div className="bg-primary/15 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-8 shadow-inner">
+    <div className="civic-page flex min-h-[70vh] items-center justify-center overflow-hidden bg-background px-4 pb-16 pt-(--header-h) text-foreground">
+      <div className="relative z-10 w-full max-w-md border border-border bg-surface-card p-10 text-center">
+        <div className="mx-auto mb-8 flex size-24 items-center justify-center rounded-full bg-primary/15">
           <DataPoint
             as="span"
             name="error.badge"
             initialData={dataPoints}
-            className="text-4xl font-black text-primary dark:text-primary-on-dark"
+            className="text-4xl font-semibold text-primary-ink"
           >
             !
           </DataPoint>
@@ -42,7 +40,7 @@ export default function RouteError({
           as="h1"
           name="error.title"
           initialData={dataPoints}
-          className="text-3xl font-black text-foreground uppercase tracking-tight mb-4"
+          className="mb-4 font-display text-3xl font-semibold tracking-[-0.03em]"
         >
           Something Snapped
         </DataPoint>
@@ -59,7 +57,7 @@ export default function RouteError({
           <button
             type="button"
             onClick={reset}
-            className="w-full py-5 px-8 bg-primary hover:bg-primary-dark dark:bg-primary-bright dark:hover:bg-primary-light text-white font-black rounded-full transition-all uppercase tracking-[0.2em] text-sm cursor-pointer shadow-raised hover:shadow-float duration-300 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            className="min-h-11 w-full cursor-pointer border border-primary bg-primary px-8 py-4 text-sm font-bold uppercase tracking-[0.16em] text-white transition-colors hover:bg-primary-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           >
             <DataPoint as="span" name="error.btn.retry" initialData={dataPoints}>
               Try Again
@@ -67,7 +65,7 @@ export default function RouteError({
           </button>
           <Link
             href="/contact"
-            className="text-xs font-black text-muted-foreground uppercase tracking-widest hover:text-foreground transition-colors"
+            className="min-h-11 text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground transition-colors hover:text-foreground"
           >
             <DataPoint as="span" name="error.btn.contact" initialData={dataPoints}>
               Contact Support

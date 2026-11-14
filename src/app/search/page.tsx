@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { DataPoint } from '@/components/ui/DataPoint';
-import { VgpuAtmosphericRefraction } from '@/components/ui/VgpuAtmosphericRefraction';
 import { getDataPoints } from '@/lib/queries/civic';
 import { buildTextSearchOr } from '@/lib/queries/content';
 import {
@@ -62,20 +61,17 @@ export default async function SearchPage({
   }
 
   return (
-    <div className="w-full bg-background min-h-[70vh] text-foreground pt-(--header-clearance) pb-20">
-      {/* Header Banner with VGPU Atmospheric Refraction & Mirage LIDAR Scan */}
-      <section className="relative overflow-hidden bg-surface-muted border-b border-border text-foreground dark:bg-secondary dark:text-white py-12 mb-10">
-        <VgpuAtmosphericRefraction />
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-foreground dark:text-white uppercase">
+    <div className="civic-page w-full min-h-[70vh] bg-background pb-20 text-foreground pt-(--header-clearance)">
+      <section className="relative mb-10 overflow-hidden border-b border-border bg-surface-muted py-12 text-foreground">
+        <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <p className="civic-kicker">Search the chapter</p>
+          <h1 className="mt-4 font-display text-4xl font-semibold leading-[0.98] tracking-[-0.04em] sm:text-5xl">
             <DataPoint name="search.header.title" initialData={dataPoints}>
               Search Results
             </DataPoint>
           </h1>
-          <div className="h-1.5 w-24 bg-primary dark:bg-accent-gold mt-3" />
-          <p className="mt-4 text-muted-foreground dark:text-ink-muted-on-dark font-bold uppercase tracking-widest text-xs">
-            Results for{' '}
-            <span className="text-primary dark:text-primary-on-dark">&ldquo;{q}&rdquo;</span>
+          <p className="civic-lede mt-4">
+            Results for <span className="font-semibold text-foreground">&ldquo;{q}&rdquo;</span>
           </p>
         </div>
       </section>
@@ -84,18 +80,15 @@ export default async function SearchPage({
         {/* Content Results */}
         {posts.length > 0 && (
           <div className="mb-20">
-            <h2 className="text-2xl font-black text-foreground uppercase tracking-widest mb-8 border-b-2 border-primary pb-2 inline-block">
+            <h2 className="mb-8 inline-block border-b border-primary pb-2 font-display text-2xl font-semibold tracking-[-0.03em]">
               <DataPoint name="search.results.logbook" initialData={dataPoints}>
                 From the Logbook & Pages
               </DataPoint>
             </h2>
             <div className="grid gap-6 max-w-3xl">
               {posts.map((post) => (
-                <div
-                  key={post.id}
-                  className="p-6 bg-surface-muted rounded-2xl border border-border hover:bg-surface-card hover:shadow-md transition-all"
-                >
-                  <h3 className="text-lg font-black text-foreground uppercase mb-2">
+                <div key={post.id} className="border-t border-border py-5 transition-colors hover:text-primary-ink">
+                  <h3 className="mb-2 font-display text-xl font-semibold tracking-[-0.02em]">
                     <Link
                       href={`/${post.slug}`}
                       className="hover:text-primary dark:hover:text-primary-on-dark transition-colors"
@@ -104,7 +97,7 @@ export default async function SearchPage({
                     </Link>
                   </h3>
                   <div className="flex items-center gap-4">
-                    <span className="text-[10px] font-black bg-surface-muted text-muted-foreground px-2 py-0.5 rounded uppercase tracking-widest">
+                    <span className="border border-border px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
                       {post.type || 'Content'}
                     </span>
                     <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
@@ -118,15 +111,15 @@ export default async function SearchPage({
         )}
 
         {posts.length === 0 && (
-          <div className="text-center py-24 bg-surface-muted rounded-3xl border border-dashed border-border">
-            <p className="text-muted-foreground font-black uppercase tracking-widest mb-6">
+          <div className="border-y border-border bg-surface-muted py-24 text-center">
+            <h2 className="mb-6 font-display text-3xl font-semibold tracking-[-0.03em]">
               <DataPoint name="search.empty.desc" initialData={dataPoints}>
                 No matches found.
               </DataPoint>
-            </p>
+            </h2>
             <Link
               href="/events"
-              className="inline-block border-2 border-primary text-foreground hover:bg-primary hover:text-white dark:border-border dark:hover:bg-primary-bright dark:hover:text-white font-black py-3 px-8 rounded-full transition-all uppercase tracking-widest text-xs"
+              className="inline-flex min-h-11 items-center border border-primary bg-transparent px-8 py-3 text-[11px] font-bold uppercase tracking-[0.12em] text-foreground transition-colors hover:bg-primary hover:text-white"
             >
               <DataPoint name="search.empty.btn" initialData={dataPoints}>
                 Browse upcoming events

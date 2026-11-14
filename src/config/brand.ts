@@ -12,31 +12,31 @@
 
 export const BRAND = {
   /** `--surface-muted` */
-  surfaceMuted: '#F4F8FF',
+  surfaceMuted: '#EBE4D5',
   /** `--surface-card` */
-  surfaceCard: '#FFFFFF',
+  surfaceCard: '#FBF8F0',
   /** `--secondary` — page backgrounds and dark surfaces */
-  surfaceDark: '#16305C',
+  surfaceDark: '#101827',
   /** Deepest wash, used behind dark hero art. `--surface-deep` */
-  surfaceDeep: '#0F2244',
+  surfaceDeep: '#DDD3C0',
   /** `--primary` */
-  primary: '#1E3A8A',
+  primary: '#1D4ED8',
   /** `--primary-light` */
   primaryLight: '#2563EB',
   /** `--primary-dark` */
-  primaryDark: '#172554',
+  primaryDark: '#1639A6',
   /** `--accent` */
-  accent: '#D97706',
+  accent: '#B42318',
   /** `--accent-gold` */
-  accentGold: '#F59E0B',
+  accentGold: '#E0A82E',
   /** `--accent-red` */
-  accentRed: '#DC2626',
-  /** Body copy on dark surfaces. `text-slate-600` is unreadable here (1.86:1). */
-  inkOnDark: '#CBD5E1',
+  accentRed: '#B42318',
+  /** Body copy on dark surfaces. */
+  inkOnDark: '#EDE8DE',
   /** Muted copy on dark surfaces. Retuned for WCAG AA compliance on cards. */
-  inkMutedOnDark: '#A3B4C9',
-  /** Body copy on light surfaces — passes AA at 7.58:1. */
-  inkOnLight: '#475569',
+  inkMutedOnDark: '#B8C0CD',
+  /** Body copy on light surfaces — passes AA. */
+  inkOnLight: '#4F5766',
   /** Reserved accent. Never body or heading text; never on light surfaces. */
   lime: '#D1FF00',
 } as const;

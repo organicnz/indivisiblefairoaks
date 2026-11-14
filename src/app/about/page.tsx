@@ -1,10 +1,13 @@
 import { CheckCircle2, Heart, Shield, Sparkles, Users } from 'lucide-react';
 import type { Metadata } from 'next';
-import Image from 'next/image';
 import Link from 'next/link';
 import { CopyRegion } from '@/components/cms/CopyRegion';
+import {
+  MASTHEAD_INTRO,
+  MASTHEAD_TITLE,
+  PageMasthead,
+} from '@/components/layout/PageMasthead';
 import { DataPoint } from '@/components/ui/DataPoint';
-import { VgpuNacreousClouds } from '@/components/ui/VgpuNacreousClouds';
 import { pageMetadata } from '@/lib/metadata';
 import { getDataPoints } from '@/lib/queries/civic';
 
@@ -19,55 +22,37 @@ export default async function AboutPage() {
   const dataPoints = await getDataPoints('about');
 
   return (
-    <div className="w-full bg-background text-foreground min-h-screen pt-(--header-clearance) pb-20">
-      {/* Header Banner with VGPU Stratospheric Nacreous Iridescence */}
-      <section className="relative overflow-hidden bg-surface-card/90 backdrop-blur-lg border-b border-border text-foreground dark:bg-secondary dark:text-white py-16">
-        <VgpuNacreousClouds />
-        <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center pointer-events-auto">
-          <div className="flex justify-center mb-6">
-            <Image
-              src="/images/logo/indivisible-fairoaks-logo.png"
-              alt="Indivisible Fair Oaks & Carmichael Chapter Identity"
-              width={380}
-              height={67}
-              className="block dark:hidden h-12 sm:h-16 md:h-20 w-auto object-contain drop-shadow-sm"
-              priority
-            />
-            <Image
-              src="/images/logo/indivisible-fairoaks-logo-dark.png"
-              alt="Indivisible Fair Oaks & Carmichael Chapter Identity"
-              width={380}
-              height={67}
-              className="hidden dark:block h-12 sm:h-16 md:h-20 w-auto object-contain drop-shadow-lg"
-              priority
-            />
-          </div>
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary dark:bg-primary-bright/10 dark:border-primary-on-dark-muted/30 dark:text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4 animate-fade-in">
-            <Users size={14} className="text-accent-gold" />
-            <DataPoint name="about.hero.eyebrow" initialData={dataPoints}>
-              Grassroots Democracy In Action
-            </DataPoint>
-          </div>
+    <div className="civic-page w-full min-h-screen bg-background pb-20 text-foreground pt-(--header-clearance)">
+      <PageMasthead
+        icon={Users}
+        eyebrow={
+          <DataPoint name="about.hero.eyebrow" initialData={dataPoints}>
+            Grassroots Democracy In Action
+          </DataPoint>
+        }
+        title={
           <DataPoint
             name="about.hero.headline"
             as="h1"
             initialData={dataPoints}
-            className="text-4xl sm:text-5xl font-black tracking-tight mb-4 text-foreground dark:text-white"
+            className={MASTHEAD_TITLE}
           >
             About Indivisible Fair Oaks-Carmichael
           </DataPoint>
+        }
+        intro={
           <DataPoint
             name="about.hero.subhead"
             as="p"
             initialData={dataPoints}
-            className="text-lg text-muted-foreground dark:text-ink-on-dark max-w-2xl mx-auto leading-relaxed"
+            className={MASTHEAD_INTRO}
           >
             We are a local grassroots chapter representing residents in and near Fair Oaks and
             Carmichael, California, dedicated to protecting our democracy through peaceful civic
             power.
           </DataPoint>
-        </div>
-      </section>
+        }
+      />
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-16">
         {/* Our Mission */}
@@ -76,13 +61,13 @@ export default async function AboutPage() {
             name="about.mission.headline"
             as="h2"
             initialData={dataPoints}
-            className="text-2xl sm:text-3xl font-black text-foreground dark:text-white tracking-tight flex items-center gap-3"
+            className="font-display text-3xl font-semibold leading-tight tracking-[-0.03em] text-foreground sm:text-4xl"
           >
             <Shield className="text-accent dark:text-accent-gold" />
             <span>Our Mission Statement</span>
           </DataPoint>
           <CopyRegion id="about-mission">
-            <div className="p-8 rounded-2xl bg-surface-card border border-border shadow-card space-y-4 text-muted-foreground dark:text-ink-on-dark leading-relaxed text-base">
+            <div className="space-y-4 border-y border-border bg-surface-card p-6 text-base leading-relaxed text-muted-foreground sm:p-8">
               <DataPoint
                 name="about.mission.intro"
                 as="p"
@@ -184,7 +169,7 @@ export default async function AboutPage() {
             name="about.who.headline"
             as="h2"
             initialData={dataPoints}
-            className="text-2xl sm:text-3xl font-black text-foreground dark:text-white tracking-tight flex items-center gap-3"
+            className="font-display text-3xl font-semibold leading-tight tracking-[-0.03em] text-foreground sm:text-4xl"
           >
             <Users
               className="text-primary-ink dark:text-primary-on-dark-muted"
@@ -212,12 +197,12 @@ export default async function AboutPage() {
         </section>
 
         {/* Commitment to Nonviolent Action */}
-        <section className="p-8 rounded-2xl bg-surface-card border border-border shadow-card space-y-4">
+        <section className="border-y border-border bg-surface-card p-6 sm:p-8 space-y-4">
           <DataPoint
             name="about.nonviolence.headline"
             as="h3"
             initialData={dataPoints}
-            className="text-xl font-bold text-foreground dark:text-white flex items-center gap-2"
+            className="flex items-center gap-2 font-display text-2xl font-semibold tracking-[-0.03em]"
           >
             <Sparkles className="text-accent dark:text-accent-gold" size={20} />
             <span>Commitment to Non-Violent Action & De-escalation</span>
@@ -243,7 +228,7 @@ export default async function AboutPage() {
             name="about.foodbank.headline"
             as="h2"
             initialData={dataPoints}
-            className="text-2xl sm:text-3xl font-black text-foreground dark:text-white tracking-tight flex items-center gap-3"
+            className="font-display text-3xl font-semibold leading-tight tracking-[-0.03em] text-foreground sm:text-4xl"
           >
             <Heart className="text-accent-red" />
             <span>Community Care & Food Drives</span>
@@ -261,12 +246,12 @@ export default async function AboutPage() {
         </section>
 
         {/* Contact & Join */}
-        <section className="p-8 rounded-2xl bg-surface-card border border-border shadow-card text-center space-y-6">
+        <section className="border-t border-foreground/25 pt-10 text-center space-y-6">
           <DataPoint
             name="about.join.headline"
             as="h3"
             initialData={dataPoints}
-            className="text-2xl font-black text-foreground dark:text-white"
+            className="font-display text-3xl font-semibold tracking-[-0.03em]"
           >
             Join Our Next Gathering
           </DataPoint>
@@ -284,7 +269,7 @@ export default async function AboutPage() {
           <div className="flex flex-wrap justify-center gap-4">
             <Link
               href="/events"
-              className="px-6 py-3 rounded-xl bg-primary hover:bg-primary-dark dark:bg-primary-bright dark:hover:bg-primary-light text-white font-bold text-xs uppercase tracking-wider transition-all shadow-md transform transition-transform duration-200 hover:scale-105"
+              className="inline-flex min-h-11 items-center bg-primary px-6 py-3 text-[11px] font-bold uppercase tracking-[0.12em] text-white transition-colors hover:bg-primary-dark"
             >
               <DataPoint name="about.join.btn_events" as="span" initialData={dataPoints}>
                 See Upcoming Events
@@ -292,7 +277,7 @@ export default async function AboutPage() {
             </Link>
             <Link
               href="/contact"
-              className="px-6 py-3 rounded-xl border-2 border-border text-foreground hover:bg-surface-card dark:border-white/20 dark:hover:bg-white/10 dark:text-white font-bold text-xs uppercase tracking-wider transition-all transform transition-transform duration-200 hover:scale-105"
+              className="inline-flex min-h-11 items-center border border-foreground/30 px-6 py-3 text-[11px] font-bold uppercase tracking-[0.12em] text-foreground transition-colors hover:border-primary hover:text-primary-ink"
             >
               <DataPoint name="about.join.btn_contact" as="span" initialData={dataPoints}>
                 Contact Us

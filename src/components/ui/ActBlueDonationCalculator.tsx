@@ -202,17 +202,13 @@ export function ActBlueDonationCalculator({
                   setSelectedAmount(amt);
                   setCustomAmount('');
                 }}
-                className={`min-h-11 p-4 rounded-2xl border text-center transition-colors duration-300 ease-out relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:focus-visible:ring-offset-secondary ${
+                className={`relative min-h-11 rounded-sm border p-4 text-center transition-colors duration-300 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:focus-visible:ring-offset-secondary ${
                   isSelected
-                    ? 'bg-accent-gold/10 border-accent-gold shadow-[0_0_20px_rgba(245,158,11,0.2)]'
-                    : 'bg-surface-muted border-border hover:border-primary/40 dark:bg-secondary/60 dark:border-white/10 dark:hover:border-slate-700'
+                    ? 'border-accent-gold bg-accent-gold/15'
+                    : 'border-border bg-surface-muted hover:border-primary/40'
                 }`}
               >
-                <span
-                  className={`text-2xl sm:text-3xl font-black block transition-colors ${
-                    isSelected ? 'text-accent-gold' : 'text-foreground dark:text-white'
-                  }`}
-                >
+                <span className="block text-2xl font-semibold text-foreground transition-colors sm:text-3xl">
                   ${amt}
                 </span>
                 <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground dark:text-ink-muted-on-dark mt-1 block">

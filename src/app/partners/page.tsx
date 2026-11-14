@@ -1,8 +1,12 @@
 import { ExternalLink, Handshake } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import {
+  MASTHEAD_INTRO,
+  MASTHEAD_TITLE,
+  PageMasthead,
+} from '@/components/layout/PageMasthead';
 import { DataPoint } from '@/components/ui/DataPoint';
-import { VgpuMagnetosphere } from '@/components/ui/VgpuMagnetosphere';
 import { pageMetadata } from '@/lib/metadata';
 import { getDataPoints, getPartners } from '@/lib/queries/civic';
 
@@ -79,45 +83,44 @@ export default async function PartnersPage() {
   }
 
   return (
-    <div className="bg-background text-foreground min-h-screen">
-      {/* Header Banner with VGPU Magnetosphere & Coalition Shield */}
-      <div className="relative overflow-hidden bg-surface-muted border-b border-border text-foreground dark:bg-gradient-to-b dark:from-slate-900 dark:to-slate-950 dark:border-white/10 pt-28 pb-16 px-4 sm:px-6 lg:px-8">
-        <VgpuMagnetosphere />
-        <div className="relative z-10 max-w-5xl mx-auto flex flex-col items-center text-center pointer-events-auto">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary-ink dark:bg-primary-bright/10 dark:border-primary-on-dark-muted/30 dark:text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
-            <Handshake size={14} className="text-accent-gold" />
-            <DataPoint initialData={dataPoints} name="partners.hero.eyebrow">
-              Grassroots Coalition Network
-            </DataPoint>
-          </div>
+    <div className="civic-page min-h-screen bg-background pb-20 text-foreground pt-(--header-clearance)">
+      <PageMasthead
+        icon={Handshake}
+        eyebrow={
+          <DataPoint initialData={dataPoints} name="partners.hero.eyebrow">
+            Grassroots Coalition Network
+          </DataPoint>
+        }
+        title={
           <DataPoint
             initialData={dataPoints}
             name="partners.hero.headline"
             as="h1"
-            className="text-4xl sm:text-5xl font-black text-foreground dark:text-white tracking-tight mb-4"
+            className={MASTHEAD_TITLE}
           >
             Our Coalition Partners & Allies
           </DataPoint>
-          <div className="h-1.5 w-24 bg-accent-gold rounded-full mb-4" />
+        }
+        intro={
           <DataPoint
             initialData={dataPoints}
             name="partners.hero.intro"
             as="p"
-            className="text-muted-foreground dark:text-ink-on-dark text-sm sm:text-base max-w-2xl leading-relaxed"
+            className={MASTHEAD_INTRO}
           >
             We believe democracy is a team sport. Indivisible Fair Oaks-Carmichael works in close
             partnership with national organizations, California coalitions, and Sacramento community
             advocates.
           </DataPoint>
-        </div>
-      </div>
+        }
+      />
 
       <div className="max-w-5xl mx-auto space-y-12 px-4 sm:px-6 lg:px-8 py-16">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {partners.map((partner) => (
             <div
               key={partner.slug}
-              className="p-6 rounded-2xl bg-surface-card border border-border hover:border-primary-bright/40 transition-all flex flex-col justify-between group"
+              className="group flex flex-col justify-between border-t border-foreground/25 pt-6 transition-colors hover:border-primary/60"
             >
               <div className="space-y-3">
                 <DataPoint
@@ -132,7 +135,7 @@ export default async function PartnersPage() {
                   initialData={dataPoints}
                   as="h2"
                   name={`partner.${partner.slug}.name`}
-                  className="text-xl font-bold text-foreground dark:text-white group-hover:text-primary-ink dark:group-hover:text-primary-on-dark transition-colors"
+                  className="font-display text-xl font-semibold tracking-[-0.02em] text-foreground transition-colors group-hover:text-primary-ink"
                 >
                   {partner.name}
                 </DataPoint>
@@ -163,12 +166,12 @@ export default async function PartnersPage() {
           ))}
         </div>
 
-        <div className="p-8 rounded-3xl bg-surface-card border border-border text-center space-y-4">
+        <div className="space-y-4 border-y border-border bg-surface-card p-8 text-center">
           <DataPoint
             initialData={dataPoints}
             name="partners.cta.headline"
             as="h3"
-            className="text-xl font-bold text-foreground dark:text-white"
+            className="font-display text-2xl font-semibold tracking-[-0.03em]"
           >
             Looking to Partner with Our Chapter?
           </DataPoint>
@@ -183,7 +186,7 @@ export default async function PartnersPage() {
           </DataPoint>
           <Link
             href="/contact"
-            className="inline-block px-6 py-3 rounded-xl bg-primary hover:bg-primary-dark dark:bg-primary-bright dark:hover:bg-primary-light text-white font-bold text-xs uppercase tracking-wider transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            className="inline-flex min-h-11 items-center border border-primary bg-primary px-6 py-3 text-[11px] font-bold uppercase tracking-[0.12em] text-white transition-colors hover:bg-primary-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           >
             <DataPoint initialData={dataPoints} as="span" name="partners.cta.button">
               Connect With Our Coalition Team

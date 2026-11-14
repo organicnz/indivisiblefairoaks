@@ -6,30 +6,30 @@
 // the colour. Deriving both surfaces from one list makes the active state a
 // property of the data rather than something each render has to remember.
 
+export type NavGroup = 'act' | 'community' | 'chapter' | 'more';
+
 export type NavLink = {
   label: string;
   /**
-   * Concise label for the horizontal desktop row, where all nine items sit on one
-   * line. The full label is used in the drawer and wherever there is room.
-   *
-   * This is not cosmetic: at `tracking-[0.2em]` (the nav rule in AGENTS.md) the
-   * full labels render a 1047px-wide row, which needs ~1700px of viewport once
-   * the logo and action cluster are laid out. No standard breakpoint is that wide,
-   * so the labels were wrapping at xl and overflowing outright at 1280.
+   * Concise label for the horizontal desktop row. The full label is used in the
+   * drawer and wherever there is room.
    */
   short?: string;
   href: string;
   /**
+   * Task group used by the drawer and by the desktop ordering. Home is the
+   * logo, not a nav item; eight entries plus Donate is the readable limit.
+   */
+  group?: NavGroup;
+  /**
    * Extra path prefixes that should also mark this link active. A link is active
-   * when the current path is the href itself or sits under one of these prefixes —
-   * without this, `/events/rally` highlights nothing at all.
+   * when the current path is the href itself or sits under one of these prefixes.
    */
   matchPrefixes?: readonly string[];
   /**
    * Dropdown children. A link with children renders as a dropdown trigger on
    * desktop and as an expanded group in the mobile drawer — both derived from
-   * this list, so the two surfaces cannot drift. Currently only Voter Info has
-   * children; it is the pilot for the pattern.
+   * this list, so the two surfaces cannot drift.
    */
   children?: readonly NavChild[];
 };
@@ -45,19 +45,39 @@ export type NavChild = {
   external?: boolean;
 };
 
+export const NAV_GROUPS: readonly { id: NavGroup; label: string }[] = [
+  { id: 'act', label: 'Take Action' },
+  { id: 'community', label: 'Community' },
+  { id: 'chapter', label: 'The Chapter' },
+  { id: 'more', label: 'More' },
+] as const;
+
 export const ROUTES: readonly NavLink[] = [
-  { label: 'Home', short: 'Home', href: '/' },
-  { label: 'About', short: 'About', href: '/about' },
-  { label: 'Events & Actions', short: 'Events', href: '/events' },
-  { label: 'Resistance Choir', short: 'Choir', href: '/choir' },
+  {
+    label: 'About',
+    short: 'About',
+    href: '/about',
+    group: 'chapter',
+  },
+  {
+    label: 'Events & Actions',
+    short: 'Events',
+    href: '/events',
+    group: 'act',
+  },
+  {
+    label: 'ICE Activity Alerts',
+    short: 'ICE Alerts',
+    href: '/ice-alerts',
+    group: 'act',
+  },
   {
     label: 'Voter Info',
     short: 'Voter Info',
     href: '/voter-info',
-    // Dropdown pilot (issue #78). First entry is the overview page itself so
-    // every existing link to `/voter-info` keeps working; anchors below need
-    // matching `id`s in `src/app/voter-info/page.tsx`, externals are the
-    // official portals the page already links to.
+    group: 'act',
+    // First entry is the overview page itself so every existing link to
+    // `/voter-info` keeps working; anchors below match `id`s in the page.
     children: [
       { label: 'Voter Overview', href: '/voter-info' },
       { label: 'Register to Vote', href: 'https://registertovote.ca.gov', external: true },
@@ -72,16 +92,45 @@ export const ROUTES: readonly NavLink[] = [
       { label: 'Election Hotlines', href: '/voter-info#hotlines' },
     ],
   },
-  { label: 'Gallery', short: 'Gallery', href: '/gallery' },
-  { label: 'Newsletters', short: 'News', href: '/news' },
-  { label: 'Link Tree', short: 'Links', href: '/links' },
-  { label: 'Contact', short: 'Contact', href: '/contact' },
+  {
+    label: 'Resistance Choir',
+    short: 'Choir',
+    href: '/choir',
+    group: 'community',
+  },
+  {
+    label: 'News & Updates',
+    short: 'News',
+    href: '/news',
+    group: 'community',
+  },
+  {
+    label: 'Contact',
+    short: 'Contact',
+    href: '/contact',
+    group: 'chapter',
+  },
+  {
+    label: 'More',
+    short: 'More',
+    href: '/gallery',
+    group: 'more',
+    matchPrefixes: ['/gallery', '/links', '/archive', '/faqs', '/partners'],
+    children: [
+      { label: 'Gallery', href: '/gallery' },
+      { label: 'Coalition Links', href: '/links' },
+      { label: 'Chapter Archive', href: '/archive' },
+      { label: 'Frequently Asked Questions', href: '/faqs' },
+      { label: 'Coalition Partners', href: '/partners' },
+    ],
+  },
 ] as const;
 
 /** Compact subset for the 404 page, where a wall of links would be noise. */
 export const NOT_FOUND_ROUTES: readonly NavLink[] = [
   { label: 'About us', href: '/about' },
   { label: 'Events & Actions', href: '/events' },
+  { label: 'ICE Activity Alerts', href: '/ice-alerts' },
   { label: 'Voter Info', href: '/voter-info' },
   { label: 'News', href: '/news' },
   { label: 'Gallery', href: '/gallery' },
