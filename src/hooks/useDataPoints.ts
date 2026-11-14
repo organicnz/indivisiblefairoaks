@@ -32,14 +32,14 @@ function fetchGroup(group?: string): Promise<Record<string, string>> {
 /**
  * React hook to fetch and reactively sync data points from Supabase via Edge API functions.
  * The root layout supplies the whole table as a server snapshot, so the first
- * render already has database copy; the mount fetch keeps it fresh. Listens for
- * local visual-edit save events for real-time instantaneous DOM synchronization.
+ * render already has database copy; the mount fetch keeps it fresh. The
+ * snapshot wins over literal initialData, which only fills keys it lacks.
+ * Listens for local visual-edit save events for real-time DOM synchronization.
  */
 export function useDataPoints(group?: string, initialData: Record<string, string> = {}) {
   const snapshot = useDataPointsSnapshot();
-  const seeded = snapshot ?? EMPTY_DATA_POINTS;
   const [dataPoints, setDataPoints] = useState<Record<string, string>>(
-    Object.keys(initialData).length > 0 ? { ...seeded, ...initialData } : seeded
+    snapshot ? { ...initialData, ...snapshot } : initialData
   );
   const [loading, setLoading] = useState<boolean>(false);
 

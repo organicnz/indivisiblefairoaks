@@ -294,11 +294,11 @@ describe('useDataPoints and Edge API Integration', () => {
     );
   });
 
-  it('seeds useDataPoints from the server snapshot on the first render', async () => {
+  it('prefers the server snapshot over fallback initialData on the first render', async () => {
     vi.spyOn(civicClient, 'getDataPoints').mockResolvedValue({ dataPoints: {}, rows: [] });
 
     function SnapshotConsumer() {
-      const { dataPoints } = useDataPoints('header');
+      const { dataPoints } = useDataPoints('header', { 'header.logo.title': 'Fallback copy' });
       return <span data-snapshot>{dataPoints['header.logo.title']}</span>;
     }
 
