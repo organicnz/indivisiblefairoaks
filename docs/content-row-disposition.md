@@ -5,6 +5,11 @@
 > `status = 'publish'`; none has a revision. **No rows have been changed.**
 > This table is a recommendation for the content owner, not authorization to
 > delete anything.
+>
+> **2026-11-14:** the six review rows were read against the live `/`, `/about`,
+> `/faqs`, `/privacy-policy` and `/terms-and-conditions` pages. The final copy
+> findings are in [Final copy review](#2026-11-14-final-copy-review). Still no
+> rows changed.
 
 The admin list marks these rows **Unreachable** and the **Hide unreachable**
 filter shows how many matching rows it hides. Only `copy-home-hero` is live;
@@ -89,6 +94,32 @@ payment processors are named, how gear proceeds are described, the non-violence
 commitment, and the photo/copyright terms. This is legal copy, so a person — not
 an overlap score — should confirm the live pages cover anything the chapter still
 needs to promise.
+
+## 2026-11-14 final copy review
+
+The six review rows were fetched read-only and compared with the live pages on
+`test.indivisiblefairoaks.org`. The live pages are the current coded routes; the
+archived rows are still unreachable shadow copies. No content row was edited.
+
+| Row | What the live page already covers | Final disposition |
+|---|---|---|
+| `home` | The mission sentence is present **verbatim** on `/`; `contact@` and `subscribe@` are in the live footer. The rest is Google Sites navigation, a September 1 event and the old Good Trouble listing. | **Archive.** No copy migration. |
+| `about-us` | `/about` has an equivalent, newer description ("local grassroots chapter representing residents in and near Fair Oaks and Carmichael…"). The old 182-character blurb contains no unique fact. | **Archive.** Optionally reuse the old phrasing if the chapter prefers it, but there is no content gap. |
+| `faqs` | `/faqs` has all four archived answers, with the same first-Tuesday 6:30–8:00 PM meeting, St. Michael's address, hybrid Zoom, no-audition choir policy and non-tax-deductible contribution policy. | **Archive.** No copy migration. |
+| `privacy-policy` | The live policy covers data collection, cookies, embedded content, retention and security, but it omits the archived email-communications promise, the ActBlue third-party reference, and the unsubscribe/contact route. | **Preserve three clauses** in the live policy: (1) email is used only for chapter updates and is never sold, rented or shared; (2) ActBlue is the contribution processor; (3) contact/unsubscribe via `contact@indivisiblefairoaks.org`. The archived Stripe reference is obsolete and must not be copied. |
+| `terms-and-conditions` | The live terms cover the grassroots/non-violence commitment and non-tax-deductible ActBlue contributions. The archived photo/copyright permission (community photos and protest art may be shared for non-commercial, civic or educational use with attribution) is absent. | **Preserve the photo/copyright/attribution clause** if it is still chapter policy. Discard the archived gear prices, shipping and order terms; commerce was removed. |
+| `shipping-returns` | The only copy of the pickup, USPS shipping and damaged/incorrect-item terms. `/shipping-returns` now redirects to `/`; there is no live page. | **Content-owner decision.** Archive if the chapter no longer ships or distributes gear. If it still hands out yard signs/songbooks at meetings, preserve only the community-pickup and damaged-item paragraphs in a real page or FAQ; do not publish the old USPS/commerce terms. |
+
+### What this means for archiving
+
+- Safe to archive now: `home`, `about-us`, `faqs`.
+- Do not archive until the live legal copy is updated (or the owner explicitly
+  accepts the gap): `privacy-policy`, `terms-and-conditions`.
+- Do not archive until the chapter decides whether it still distributes gear:
+  `shipping-returns`.
+- The archived rows are not authorization to rewrite the live pages. The two
+  legal edits should be made through the normal content workflow and reviewed
+  by the chapter.
 
 ## What not to do
 
