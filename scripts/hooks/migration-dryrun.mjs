@@ -15,7 +15,12 @@ if (!(await Bun.file('supabase/.temp/linked-project.json').exists())) {
 
 // See `migration-verify.mjs`: a `grep -q` to answer a question about one line
 // of one file is a shell, a pipe and a subprocess.
-const envLocal = await Bun.file('.env.local').text();
+const envLocalFile = Bun.file('.env.local');
+if (!(await envLocalFile.exists())) {
+  console.log('ℹ️   No .env.local — skipping migration dry-run.');
+  process.exit(0);
+}
+const envLocal = await envLocalFile.text();
 if (!/^SUPABASE_ACCESS_TOKEN=.{5,}$/m.test(envLocal)) {
   console.log('ℹ️   SUPABASE_ACCESS_TOKEN not configured — skipping migration dry-run.');
   process.exit(0);

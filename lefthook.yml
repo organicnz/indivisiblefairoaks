@@ -593,7 +593,14 @@ pre-push:
     # Local runs use `bun run test:coverage` on demand to avoid heap thrashing.
     build-check:
       priority: 35
-      run: NEXT_E2E_BUILD=true NEXT_SKIP_ENV_VALIDATION=1 bun run build
+      # `NEXT_SKIP_ENV_VALIDATION=1` bypasses the Zod defaults, so a fresh
+      # checkout with no `.env.local` reaches the build with no public Supabase
+      # values at all — and `/sitemap.xml` constructs a client directly rather
+      # than going through the guarded helpers, so it fails the build. These
+      # fallbacks are deliberately loopback/placeholder values: the build only
+      # needs a syntactically valid client, and the e2e hook runs after this
+      # one without inheriting them. A real environment always wins.
+      run: NEXT_E2E_BUILD=true NEXT_SKIP_ENV_VALIDATION=1 NEXT_PUBLIC_SITE_URL="${NEXT_PUBLIC_SITE_URL:-http://localhost:3100}" NEXT_PUBLIC_SUPABASE_URL="${NEXT_PUBLIC_SUPABASE_URL:-http://127.0.0.1:9}" NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:-placeholder}" bun run build
 
     # ── 8. Peer-dependency compatibility ──────────────────────────────────────
     # Checks the installed dependency graph before a build can reach deployment.
