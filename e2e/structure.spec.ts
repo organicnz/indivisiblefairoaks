@@ -17,6 +17,7 @@ const ROUTES = [
   { path: '/voter-info', name: 'Voter information' },
   { path: '/choir', name: 'Choir' },
   { path: '/news', name: 'News' },
+  { path: '/newsletters', name: 'Newsletters' },
   { path: '/contact', name: 'Contact' },
   { path: '/gallery', name: 'Gallery' },
   { path: '/links', name: 'Coalition links' },
@@ -28,7 +29,7 @@ const ROUTES = [
   { path: '/terms-and-conditions', name: 'Terms' },
   { path: '/search?q=democracy', name: 'Search' },
   { path: '/login', name: 'Login' },
-  { path: '/ice-alerts', name: 'ICE alerts demo' },
+  { path: '/ice-alerts', name: 'ICE arrest heat map' },
   { path: '/this-page-does-not-exist', name: '404' },
 ] as const;
 

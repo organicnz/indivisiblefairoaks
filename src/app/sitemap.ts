@@ -28,6 +28,7 @@ const STATIC_ROUTES: {
   { path: '/voter-info', changeFrequency: 'weekly', priority: 0.9 },
   { path: '/choir', changeFrequency: 'weekly', priority: 0.8 },
   { path: '/news', changeFrequency: 'weekly', priority: 0.8 },
+  { path: '/newsletters', changeFrequency: 'weekly', priority: 0.8 },
   { path: '/donate', changeFrequency: 'monthly', priority: 0.8 },
   { path: '/contact', changeFrequency: 'monthly', priority: 0.8 },
   { path: '/gallery', changeFrequency: 'weekly', priority: 0.7 },

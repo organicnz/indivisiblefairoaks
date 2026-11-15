@@ -105,8 +105,13 @@ export async function Footer() {
               </li>
               <li>
                 <Link href="/news" className="hover:text-white transition-colors">
+                  News &amp; Updates
+                </Link>
+              </li>
+              <li>
+                <Link href="/newsletters" className="hover:text-white transition-colors">
                   <DataPoint name="footer.nav.news" as="span" initialData={dataPoints}>
-                    Newsletters & Bulletins
+                    Newsletters &amp; Bulletins
                   </DataPoint>
                 </Link>
               </li>

@@ -9,15 +9,20 @@ describe('isActiveRoute', () => {
     expect(isActiveRoute('/about-us', { label: 'About', href: '/about' })).toBe(false);
   });
 
-  it('matches the logo Home link only on the root, not on every path', () => {
-    // Home moved out of the primary row and onto the logo. The trap is
-    // unchanged: every path starts with "/", so a naive startsWith would mark
-    // the logo current on the entire site.
-    expect(ROUTES.some((route) => route.href === '/')).toBe(false);
-    const home = { label: 'Home', href: '/' };
-    expect(isActiveRoute('/', home)).toBe(true);
-    expect(isActiveRoute('/about', home)).toBe(false);
-    expect(isActiveRoute('/events/rally', home)).toBe(false);
+  it('matches the Main link only on the root, not on every path', () => {
+    // Main is the first primary-row item, directly before About. The trap is
+    // that every path starts with "/", so a naive startsWith would mark Main
+    // current on the entire site.
+    const main = ROUTES[0];
+    expect(main).toMatchObject({ label: 'Main', href: '/' });
+    expect(isActiveRoute('/', main)).toBe(true);
+    expect(isActiveRoute('/about', main)).toBe(false);
+    expect(isActiveRoute('/events/rally', main)).toBe(false);
+  });
+
+  it('places Main directly before About', () => {
+    expect(ROUTES[0]?.href).toBe('/');
+    expect(ROUTES[1]?.href).toBe('/about');
   });
 
   it('does not treat a sibling with a shared prefix as active', () => {
@@ -103,6 +108,13 @@ describe('ROUTES children (dropdown)', () => {
     expect(voterInfo.children?.length).toBeGreaterThan(0);
     // Anchors share the page pathname, so the parent stays highlighted.
     expect(isActiveRoute('/voter-info', voterInfo)).toBe(true);
+  });
+
+  it('keeps News active on the dedicated newsletters page', () => {
+    const news = ROUTES.find((route) => route.href === '/news');
+    if (!news) throw new Error('ROUTES must contain a News entry');
+    expect(news.children?.map((child) => child.href)).toContain('/newsletters');
+    expect(isActiveRoute('/newsletters', news)).toBe(true);
   });
 
   it('leads with the overview page so existing links keep working', () => {

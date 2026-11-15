@@ -21,6 +21,7 @@
     "test:coverage": "bun --bun vitest run --coverage",
     "types:generate": "bun scripts/gen-types.mjs",
     "content:export": "bun scripts/export-content-rows.mjs",
+    "ice:verify": "bun scripts/verify-ice-heatmap.mjs",
     "content:archive:preview": "bun scripts/preview-content-archive.mjs",
     "legacy:audit": "bun scripts/legacy-audit.mjs",
     "legacy:import": "bun scripts/legacy-import.mjs",

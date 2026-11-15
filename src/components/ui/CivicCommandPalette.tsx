@@ -86,11 +86,19 @@ const PALETTE_ITEMS: PaletteItem[] = [
   },
   {
     id: 'news',
-    title: 'Newsletters & Alerts',
-    description: 'Legislative updates and calls to action',
+    title: 'News & Updates',
+    description: 'Articles, meeting minutes, and chapter dispatches',
     category: 'Pages',
     href: '/news',
     icon: FileText,
+  },
+  {
+    id: 'newsletters',
+    title: 'Newsletters & Bulletins',
+    description: 'Monthly bulletins and the chapter newsletter archive',
+    category: 'Pages',
+    href: '/newsletters',
+    icon: Mail,
   },
   {
     id: 'links',

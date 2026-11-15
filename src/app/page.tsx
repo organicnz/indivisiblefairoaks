@@ -1,6 +1,5 @@
 import {
   ArrowRight,
-  Calendar,
   CheckCircle2,
   FileText,
   Heart,
@@ -9,6 +8,7 @@ import {
   Megaphone,
   Music,
   Shield,
+  Soup,
   Sparkles,
   Users,
   Vote,
@@ -114,7 +114,7 @@ export default async function HomePage() {
                     name="home.hero.mission"
                     as="p"
                     initialData={dataPoints}
-                    className="text-base leading-relaxed text-muted-foreground sm:text-lg"
+                    className="civic-hero-lede"
                   >
                     The mission of the Fair Oaks-Carmichael chapter of Indivisible is to cultivate a
                     non-violent grassroots movement to stop the rise of authoritarianism, to support
@@ -248,45 +248,61 @@ export default async function HomePage() {
           from the `events` table via `gatheringCard`, so updating the row moves
           this card with no deploy. The food-drive note stays static — it is
           meeting policy, not event data. */}
-      <section className="border-b border-border bg-background py-6">
+      <section aria-labelledby="next-gathering-title" className="border-b border-border bg-background py-8 md:py-10">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col items-start justify-between gap-6 border-l-4 border-accent bg-surface-card px-5 py-6 shadow-card md:flex-row md:items-center md:px-8">
-            <div className="flex items-start gap-4">
-              <div className="mt-1 flex size-11 shrink-0 items-center justify-center border border-border bg-background text-accent">
-                <Calendar size={22} strokeWidth={1.5} />
+          <div className="grid overflow-hidden border border-border border-l-4 border-l-accent bg-surface-card lg:grid-cols-[8.5rem_minmax(0,1fr)_15rem]">
+            <div className="flex items-center justify-between gap-3 border-b border-border bg-surface-muted px-5 py-4 lg:flex-col lg:justify-center lg:gap-1 lg:border-b-0 lg:border-r lg:px-4 lg:py-6">
+              <span className="font-mono text-[9px] font-bold uppercase tracking-[0.16em] text-accent">
+                {card.startWeekday}
+              </span>
+              <span className="font-display text-[3rem] leading-none tracking-[-0.05em] text-foreground lg:text-[3.6rem]">
+                {card.startDay}
+              </span>
+              <span className="font-mono text-[9px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
+                {card.startMonth}
+              </span>
+            </div>
+
+            <div className="min-w-0 px-5 py-5 lg:px-7 lg:py-6">
+              <div className="inline-flex items-center gap-2 border-b border-accent pb-1 text-[10px] font-bold uppercase tracking-[0.16em] text-accent">
+                <DataPoint as="span" name="home.gathering.badge" initialData={dataPoints}>
+                  Next Community Gathering
+                </DataPoint>
               </div>
-              <div>
-                <div className="mb-1 inline-flex items-center gap-2 border-b border-accent pb-1 text-[10px] font-bold uppercase tracking-[0.16em] text-accent">
-                  <DataPoint as="span" name="home.gathering.badge" initialData={dataPoints}>
-                    Next Community Gathering
-                  </DataPoint>
-                </div>
-                <h2 className="font-display text-2xl font-semibold leading-tight tracking-[-0.03em] text-foreground sm:text-3xl">
-                  {card.title}
-                </h2>
-                <p className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
-                  <span className="font-semibold text-foreground">{card.dateLine}</span>
-                  <span className="flex items-center gap-1">
-                    <MapPin size={14} className="text-accent" />
-                    {card.locationLine}
-                  </span>
-                </p>
-                <p className="mt-2 text-xs text-muted-foreground">
-                  🥫 <strong className="text-foreground">Food Bank Drive:</strong>{' '}
+              <h2
+                id="next-gathering-title"
+                className="mt-2 max-w-[24ch] font-display text-2xl font-semibold leading-tight tracking-[-0.03em] text-foreground sm:text-3xl"
+              >
+                {card.title}
+              </h2>
+              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
+                <span className="inline-flex items-center gap-1.5 border border-border px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-foreground">
+                  <span className="size-1.5 bg-accent" aria-hidden="true" />
+                  {card.timeLine}
+                </span>
+                <span className="flex items-center gap-1.5 leading-snug">
+                  <MapPin size={14} className="shrink-0 text-accent" aria-hidden="true" />
+                  {card.locationLine}
+                </span>
+              </div>
+              <p className="mt-4 flex items-start gap-1.5 border-t border-border pt-3 text-xs leading-relaxed text-muted-foreground">
+                <Soup size={13} className="mt-0.5 shrink-0 text-accent" aria-hidden="true" />
+                <span>
+                  <strong className="text-foreground">Food Bank Drive:</strong>{' '}
                   <DataPoint name="home.gathering.food_bank" initialData={dataPoints}>
                     Please bring a can or box of non-perishable food to support our local community
                     food pantry.
                   </DataPoint>
-                </p>
-              </div>
+                </span>
+              </p>
             </div>
 
-            <div className="flex w-full shrink-0 flex-col items-stretch gap-2 sm:flex-row md:w-auto">
+            <div className="flex flex-col justify-center gap-2 border-t border-border px-5 py-5 lg:border-l lg:border-t-0 lg:px-5">
               <a
                 href={card.calendarUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full border border-foreground/30 px-4 py-3 text-center text-[10px] font-bold uppercase tracking-[0.12em] text-foreground transition-colors duration-300 hover:border-primary hover:text-primary sm:w-auto"
+                className="inline-flex min-h-11 w-full items-center justify-center border border-foreground/30 px-4 py-3 text-center text-[10px] font-bold uppercase tracking-[0.12em] text-foreground transition-colors duration-300 hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
               >
                 <DataPoint as="span" name="home.gathering.btn_cal" initialData={dataPoints}>
                   + Add to Calendar
@@ -296,7 +312,7 @@ export default async function HomePage() {
                 href={card.rsvpUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full bg-accent-gold px-5 py-3 text-center text-[10px] font-bold uppercase tracking-[0.12em] text-ink-strong transition-all duration-300 hover:brightness-95 sm:w-auto"
+                className="inline-flex min-h-11 w-full items-center justify-center bg-accent-gold px-5 py-3 text-center text-[10px] font-bold uppercase tracking-[0.12em] text-ink-strong transition-all duration-300 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
               >
                 <DataPoint as="span" name="home.gathering.btn_rsvp" initialData={dataPoints}>
                   RSVP via Mobilize

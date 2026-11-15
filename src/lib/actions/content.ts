@@ -239,8 +239,8 @@ async function assertSlugAvailable(
    * The conflict checks below answer "may this page claim this path?", and a
    * row that is being updated has already claimed it. Applying them to the
    * unchanged slug made every seeded row unsaveable: `content` still holds
-   * rows from the Google Sites import (`about-us`, `newsletters`, `home`) and
-   * route-shadowed rows (`faqs`), and each one reports its own slug as a
+   * rows from the Google Sites import (`about-us`, `home`) and route-shadowed
+   * rows (`faqs`, `newsletters`), and each one reports its own slug as a
    * legacy redirect or a site route. Editing the copy on such a page failed
    * with "Pick a different slug" — advice that would move the page to a URL
    * nobody links to. Keep the checks for a *changed* slug, where they are what

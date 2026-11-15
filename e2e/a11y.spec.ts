@@ -23,7 +23,8 @@ const PAGES: { path: string; name?: string }[] = [
   { path: '/events' },
   { path: '/voter-info', name: 'Voter Information' },
   { path: '/choir', name: 'Resistance Choir' },
-  { path: '/news', name: 'Newsletters' },
+  { path: '/news', name: 'News & Updates' },
+  { path: '/newsletters', name: 'Newsletters & Bulletins' },
   { path: '/contact' },
   { path: '/gallery' },
   { path: '/links', name: 'Coalition Links' },
@@ -35,7 +36,7 @@ const PAGES: { path: string; name?: string }[] = [
   { path: '/terms-and-conditions', name: 'Terms' },
   { path: '/search?q=democracy', name: 'Search' },
   { path: '/login', name: 'Login' },
-  { path: '/ice-alerts', name: 'ICE alerts demo' },
+  { path: '/ice-alerts', name: 'ICE arrest heat map' },
   { path: '/this-page-does-not-exist', name: '404' },
 ];
 

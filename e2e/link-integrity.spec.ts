@@ -17,6 +17,7 @@ const CRAWL_SEEDS = [
   '/partners',
   '/contact',
   '/gallery',
+  '/newsletters',
 ];
 
 const EXCLUDED_PREFIXES = ['/api/', '/_next', 'mailto:', 'tel:', '#'];

@@ -340,15 +340,6 @@ function HeaderInner() {
             </div>
 
             <nav aria-label="Mobile" className="flex flex-col gap-1 py-6 overflow-y-auto">
-              <Link
-                href="/"
-                onClick={() => setIsMenuOpen(false)}
-                className={`rounded-sm py-2 font-display text-2xl font-semibold tracking-[-0.02em] transition-colors duration-300 ease-out ${FOCUS_RING} ${
-                  pathname === '/' ? 'text-accent-gold' : 'text-ink-on-dark hover:text-white'
-                }`}
-              >
-                Home
-              </Link>
               {/* Primary Route Navigation Links First */}
               {ROUTES.map((link, index) => {
                 const isActive = isActiveRoute(pathname, link);

@@ -125,6 +125,20 @@ export const FUNCTION_SECRETS = {
     WALLE_RATE_LIMIT_MAX: { verify: false, note: 'Defaults in code.' },
     WALLE_RATE_LIMIT_WINDOW_MIN: { verify: false, note: 'Defaults in code.' },
   },
+  'ice-case-brief': {
+    ZAI_API_KEY: {
+      verify: false,
+      note: 'Primary model provider. Falls back to Groq, then a deterministic dataset note.',
+    },
+    GROQ_API_KEY: {
+      verify: false,
+      note: 'Fallback model provider. Falls back to the deterministic dataset note.',
+    },
+    ICE_ZAI_MODEL: { verify: false, note: 'Model name, not a credential.' },
+    ICE_GROQ_MODEL: { verify: false, note: 'Model name, not a credential.' },
+    ICE_AI_RATE_LIMIT_MAX: { verify: false, note: 'Defaults in code.' },
+    ICE_AI_RATE_LIMIT_WINDOW_MIN: { verify: false, note: 'Defaults in code.' },
+  },
   'walle-refresh': {
     WALLE_REFRESH_TOKEN: {
       verify: false,
@@ -150,7 +164,14 @@ export const FUNCTION_SECRETS = {
 /** Secrets shared by more than one function, listed for the docs table. */
 export const SHARED = {
   RESEND_API_KEY: ['notify-contact'],
-  SUPABASE_SERVICE_ROLE_KEY: ['notify-contact', 'search', 'walle-refresh', 'wall-e-chat', 'data-points'],
+  SUPABASE_SERVICE_ROLE_KEY: [
+    'notify-contact',
+    'search',
+    'walle-refresh',
+    'wall-e-chat',
+    'ice-case-brief',
+    'data-points',
+  ],
 }
 
 /** Flat set of every operator-managed secret, for `supabase secrets list`. */

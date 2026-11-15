@@ -37,7 +37,7 @@ from the row.
 | `upcoming-fall-events` | event | 2,607 | `/events` | 3% | Duplicate of the old events import. |
 | `resistance-choir` | page | 1,484 | `/choir` | 1% | Old choir page. |
 | `voter-information` | page | 1,119 | `/voter-info` | 0% | Old counterpart of the coded voter page. |
-| `newsletters` | post | 781 | `/news` | 0% | Old newsletter index. |
+| `newsletters` | post | 781 | `/newsletters` | 0% | Old newsletter index; the dedicated route is live. |
 | `coalition-links` | page | 1,518 | `/links` | 7% | Shared organisation names only. |
 | `privacy-policy` | page | 1,160 | `/privacy-policy` | 9% | Generic legal phrasing; the coded policy was rewritten. |
 | `terms-and-conditions` | page | 1,019 | `/terms-and-conditions` | 0% | Coded terms were rewritten. |

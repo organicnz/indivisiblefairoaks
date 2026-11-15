@@ -649,7 +649,15 @@ if (current) {
     import('../src/config/routes.ts'),
     import('../src/config/legacy-redirects.ts'),
   ]);
-  current.routes = [...ROUTES.map((route) => route.href), '/archive'];
+  current.routes = [
+    ...ROUTES.flatMap((route) => [
+      route.href,
+      ...(route.children ?? [])
+        .filter((child) => !child.external)
+        .map((child) => child.href.split('#')[0]),
+    ]),
+    '/archive',
+  ];
   current.legacyRedirects = LEGACY_REDIRECTS.map((redirect) => redirect.destination);
 }
 

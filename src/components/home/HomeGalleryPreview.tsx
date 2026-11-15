@@ -7,11 +7,13 @@ import { useEffect, useState } from 'react';
 import { FALLBACK_GALLERY_PHOTOS } from '@/config/gallery-fallback';
 import { GalleryImage } from '@/components/gallery/GalleryImage';
 import { DataPoint } from '@/components/ui/DataPoint';
+import { galleryAltText } from '@/lib/gallery-alt';
 import { getGalleryPhotos, type GalleryPhoto } from '@/lib/queries/content-client';
 import type { GalleryPhotoView } from '@/types/gallery';
 
 interface PreviewPhoto {
   id: string;
+  alt: string;
   title: string;
   location: string;
   category:
@@ -28,6 +30,7 @@ interface PreviewPhoto {
 
 const toPreviewPhoto = (photo: GalleryPhotoView | GalleryPhoto): PreviewPhoto => ({
   id: photo.id,
+  alt: galleryAltText(photo),
   title: photo.caption || photo.alt || '',
   location: photo.location || '',
   category: (photo.category as PreviewPhoto['category']) || 'No Kings Sacramento',
@@ -176,53 +179,70 @@ export function HomeGalleryPreview({
           ))}
         </div>
 
-        {/* One horizontal, snap-scrolling strip on phones; a 3-up grid from sm. */}
-        <div className="-mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-4 sm:mx-0 sm:grid sm:grid-cols-2 sm:px-0 lg:grid-cols-3">
-          {displayedPhotos.map((photo) => (
-            <Link
-              key={photo.id}
-              href="/gallery"
-              className="group relative block h-80 w-[82vw] max-w-[340px] shrink-0 snap-start overflow-hidden rounded-sm border border-foreground/20 bg-surface-card text-left transition-colors hover:border-primary/40 sm:h-88 sm:w-auto sm:max-w-none"
-            >
-              <GalleryImage
-                src={photo.image}
-                alt={photo.title}
-                sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                className="object-cover group-hover:scale-105 transition-transform duration-300 brightness-95 group-hover:brightness-100"
-              />
+        {/* One horizontal, snap-scrolling strip on phones; a two-up grid from sm,
+            with a featured lead frame from lg. */}
+        <div className="-mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-4 sm:mx-0 sm:grid sm:grid-cols-2 sm:px-0 lg:auto-rows-[20rem] lg:grid-cols-3">
+          {displayedPhotos.map((photo, index) => {
+            // The first frame becomes a magazine feature on large screens while
+            // the rest keep the compact three-up rhythm. Filters with only a few
+            // results fall back to equal cards rather than leaving a hole.
+            const isFeature = index === 0 && displayedPhotos.length >= 5;
+            return (
+              <Link
+                key={photo.id}
+                href="/gallery"
+                className={`group relative block h-80 w-[82vw] max-w-[340px] shrink-0 snap-start overflow-hidden rounded-sm border border-foreground/20 bg-surface-card text-left transition-colors hover:border-primary/40 sm:h-88 sm:w-auto sm:max-w-none lg:h-full ${
+                  isFeature ? 'lg:col-span-2 lg:row-span-2' : ''
+                }`}
+              >
+                <GalleryImage
+                  src={photo.image}
+                  alt={photo.alt}
+                  sizes={
+                    isFeature
+                      ? '(min-width: 1024px) 66vw, (min-width: 640px) 100vw, 82vw'
+                      : '(max-width: 768px) 82vw, (max-width: 1024px) 50vw, 33vw'
+                  }
+                  className="object-cover group-hover:scale-105 transition-transform duration-300 brightness-95 group-hover:brightness-100"
+                />
 
-              {/* Gradient Scrim */}
-              <div className="absolute inset-0 bg-gradient-to-t from-secondary via-secondary/35 to-transparent opacity-90 transition-opacity group-hover:opacity-80" />
+                {/* Gradient Scrim */}
+                <div className="absolute inset-0 bg-gradient-to-t from-secondary via-secondary/35 to-transparent opacity-90 transition-opacity group-hover:opacity-80" />
 
-              {/* Top Badges */}
-              <div className="absolute left-4 top-4 z-10 flex max-w-[85%] flex-col items-start gap-1.5">
-                <span className="border border-white/20 bg-secondary/85 px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-accent-gold backdrop-blur-md">
-                  {photo.category}
-                </span>
-                {photo.signQuote && (
-                  <span className="max-w-full truncate bg-accent-gold px-2 py-0.5 text-[10px] font-bold text-ink-strong">
-                    “{photo.signQuote}”
+                {/* Top Badges */}
+                <div className="absolute left-4 top-4 z-10 flex max-w-[85%] flex-col items-start gap-1.5">
+                  <span className="border border-white/20 bg-secondary/85 px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-accent-gold backdrop-blur-md">
+                    {photo.category}
                   </span>
-                )}
-              </div>
-
-              {/* Bottom Metadata */}
-              <div className="absolute bottom-0 inset-x-0 p-5 z-10 space-y-1.5">
-                <h3 className="font-display text-xl font-semibold leading-snug text-white transition-colors group-hover:text-accent-gold">
-                  {photo.title}
-                </h3>
-                <div className="flex items-center justify-between text-xs text-ink-muted-on-dark">
-                  <span className="flex items-center gap-1 truncate max-w-[70%]">
-                    <MapPin size={12} className="text-accent-gold shrink-0" />
-                    <span className="truncate">{photo.location}</span>
-                  </span>
-                  <span className="font-mono text-[10px] text-ink-muted-on-dark shrink-0">
-                    {photo.date}
-                  </span>
+                  {photo.signQuote && (
+                    <span className="max-w-full truncate bg-accent-gold px-2 py-0.5 text-[10px] font-bold text-ink-strong">
+                      “{photo.signQuote}”
+                    </span>
+                  )}
                 </div>
-              </div>
-            </Link>
-          ))}
+
+                {/* Bottom Metadata */}
+                <div className="absolute bottom-0 inset-x-0 p-5 z-10 space-y-1.5">
+                  <h3
+                    className={`font-display text-xl font-semibold leading-snug text-white transition-colors group-hover:text-accent-gold ${
+                      isFeature ? 'lg:text-3xl' : ''
+                    }`}
+                  >
+                    {photo.title}
+                  </h3>
+                  <div className="flex items-center justify-between text-xs text-ink-muted-on-dark">
+                    <span className="flex items-center gap-1 truncate max-w-[70%]">
+                      <MapPin size={12} className="text-accent-gold shrink-0" />
+                      <span className="truncate">{photo.location}</span>
+                    </span>
+                    <span className="font-mono text-[10px] text-ink-muted-on-dark shrink-0">
+                      {photo.date}
+                    </span>
+                  </div>
+                </div>
+              </Link>
+            );
+          })}
         </div>
       </div>
     </section>

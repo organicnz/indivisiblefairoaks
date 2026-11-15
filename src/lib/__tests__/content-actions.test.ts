@@ -761,10 +761,10 @@ describe('saveContent — an update keeps the row’s own slug', () => {
 
   it('saves a row whose existing slug is a legacy redirect or a site route', async () => {
     /*
-     * Every seeded row is in this position: `faqs` is shadowed by a route and
-     * the Google Sites imports (`about-us`, `newsletters`, `home`) redirect.
-     * The conflict checks describe claiming a *new* path, so applying them to
-     * the unchanged slug made the whole CMS read-only.
+     * Every seeded row is in this position: `faqs` and `newsletters` are
+     * shadowed by routes, and the Google Sites imports (`about-us`, `home`)
+     * redirect. The conflict checks describe claiming a *new* path, so applying
+     * them to the unchanged slug made the whole CMS read-only.
      */
     const rows = [
       {

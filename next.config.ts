@@ -50,7 +50,7 @@ const csp = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline' https://js.stripe.com https://m.stripe.com ${posthogHost}`.trim(),
   "style-src 'self' 'unsafe-inline'",
-  `img-src 'self' data: blob: ${supabaseHost ? `https://${supabaseHost}` : ''} https://*.tile.openstreetmap.org https://images.unsplash.com https://sites.google.com https://*.googleusercontent.com https://i.ytimg.com ${firstPartyHosts.map((h) => `https://${h}`).join(' ')} https://i0.wp.com https://i1.wp.com https://i2.wp.com`.replace(
+  `img-src 'self' data: blob: ${supabaseHost ? `https://${supabaseHost}` : ''} https://*.tile.openstreetmap.org https://upload.wikimedia.org https://thumb.wikimedia.org https://images.unsplash.com https://sites.google.com https://*.googleusercontent.com https://i.ytimg.com ${firstPartyHosts.map((h) => `https://${h}`).join(' ')} https://i0.wp.com https://i1.wp.com https://i2.wp.com`.replace(
     /\s+/g,
     ' '
   ),
@@ -86,7 +86,7 @@ const securityHeaders = [
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
   {
     key: 'Permissions-Policy',
-    value: 'camera=(), microphone=(), geolocation=(), browsing-topics=()',
+    value: 'camera=(), microphone=(), geolocation=(self), browsing-topics=()',
   },
 ];
 
@@ -247,6 +247,18 @@ const nextConfig: NextConfig = {
       {
         protocol: 'https',
         hostname: 'i2.wp.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'upload.wikimedia.org',
+        port: '',
+        pathname: '/wikipedia/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'thumb.wikimedia.org',
+        port: '',
+        pathname: '/wikipedia/**',
       },
       {
         protocol: 'https',

@@ -50,7 +50,12 @@ export const LEGACY_PAGES = [
     destination: '/choir',
     kind: 'choir',
   },
-  { path: '/newsletters', title: 'Newsletters', destination: '/news', kind: 'newsletters' },
+  {
+    path: '/newsletters',
+    title: 'Newsletters',
+    destination: '/newsletters',
+    kind: 'newsletters',
+  },
 ];
 
 /** Old paths whose new home is a legacy redirect rather than a live route. */

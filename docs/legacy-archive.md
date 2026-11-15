@@ -142,7 +142,7 @@ assets, 20 documents, 27 links, 49 public assets, and 17 public documents.
 - `/archive` is the public index.
 - `/voter-info` resolves its four old Drive cards through the archive when a
   document row exists, otherwise it keeps the existing link.
-- `/news` adds legacy newsletter PDFs.
+- `/newsletters` adds legacy newsletter PDFs.
 - `/choir` adds the old feature article, Instagram, Mobilize and film/document
   records.
 - `/events` links to the archive and event documents.

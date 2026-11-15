@@ -120,7 +120,7 @@ describe('contentPublicHref', () => {
 
   it('names the destination of a legacy redirect', () => {
     expect(describeSlugConflict('about-us')).toContain('to /about');
-    expect(describeSlugConflict('newsletters')).toContain('to /news');
+    expect(describeSlugConflict('newsletters')).toContain('already served by a site route');
   });
 
   it('returns null for a region no page renders', () => {
@@ -132,6 +132,7 @@ describe('contentPublicHref', () => {
     // link would be a promise the row cannot keep.
     expect(contentPublicHref({ slug: 'about', status: 'publish' })).toBeNull();
     expect(contentPublicHref({ slug: 'about-us', status: 'publish' })).toBeNull();
+    expect(contentPublicHref({ slug: 'newsletters', status: 'publish' })).toBeNull();
   });
 });
 

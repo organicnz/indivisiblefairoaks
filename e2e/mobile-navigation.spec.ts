@@ -44,14 +44,14 @@ test.describe('mobile navigation contract', () => {
     await expect(page.locator('body')).not.toHaveCSS('overflow', 'hidden');
   });
 
-  test('contains the ICE alerts link', async ({ page }) => {
+  test('contains the ICE Alert link', async ({ page }) => {
     await page.goto('/');
 
     await page.getByRole('button', { name: 'Open navigation menu' }).click();
     const dialog = page.getByRole('dialog', { name: 'Navigation menu' });
     await expect(dialog).toBeVisible();
 
-    const iceLink = dialog.getByRole('link', { name: 'ICE Activity Alerts' });
+    const iceLink = dialog.getByRole('link', { name: 'ICE Alert' });
     await expect(iceLink).toBeVisible();
     await expect(iceLink).toHaveAttribute('href', '/ice-alerts');
   });

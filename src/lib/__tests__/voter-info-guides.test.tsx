@@ -60,6 +60,9 @@ describe('VoterInfoPage & 2026 Voter Guides', () => {
     expect(container.textContent).toContain('Ballot Recommendations');
     expect(container.textContent).toContain('Candidate & Measure Brief');
     expect(container.textContent).toContain('Voter Information Doc');
+    expect(container.textContent).toContain('Voter Information Archives');
+    expect(container.textContent).toContain('not a live election guide');
+    expect(container.textContent).not.toContain('Voter guides from the old site');
 
     const links = Array.from(container.querySelectorAll<HTMLAnchorElement>('a'));
 
@@ -93,6 +96,10 @@ describe('VoterInfoPage & 2026 Voter Guides', () => {
 
     const whoCanVoteLink = links.find((a) => a.href === 'https://www.sos.ca.gov/elections/voting-resources/voting-california/who-can-vote-california');
     expect(whoCanVoteLink).toBeDefined();
+
+    const archiveLink = links.find((a) => a.getAttribute('href') === '/archive#voter-information');
+    expect(archiveLink).toBeDefined();
+    expect(archiveLink?.textContent).toContain('Open the 2026 voter archive');
   });
 
   it('renders the SAVE America Act spotlight as a click-to-load video', async () => {

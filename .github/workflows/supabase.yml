@@ -147,14 +147,22 @@ jobs:
             --no-verify-jwt \
             --yes
 
-      # NOTE: wall-e-chat / walle-refresh keep gateway JWT verification ON
-      # (no --no-verify-jwt). Callers present a valid key: the Next.js proxy
-      # uses the publishable key, ops callers use the service-role key.
+      # NOTE: wall-e-chat / ice-case-brief / walle-refresh keep gateway JWT
+      # verification ON (no --no-verify-jwt). Callers present a valid key: the
+      # Next.js proxies use the publishable key, ops callers use the service-role key.
       - name: Deploy Edge Function — wall-e-chat
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
           supabase_retry supabase functions deploy wall-e-chat \
+            --project-ref "$SUPABASE_PROJECT_REF" \
+            --yes
+
+      - name: Deploy Edge Function — ice-case-brief
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          supabase_retry supabase functions deploy ice-case-brief \
             --project-ref "$SUPABASE_PROJECT_REF" \
             --yes
 
@@ -498,6 +506,7 @@ jobs:
           fi
 
           check_get wall-e-chat
+          check_get ice-case-brief
           check_get walle-refresh
 
           # Issue #153: same assertion shape as crm-broadcast-send. The publishable

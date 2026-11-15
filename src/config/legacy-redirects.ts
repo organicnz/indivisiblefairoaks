@@ -29,7 +29,6 @@ export const LEGACY_REDIRECTS: readonly LegacyRedirect[] = [
   },
   { source: '/upcoming-fall-events', destination: '/events', permanent: true },
   { source: '/current-events', destination: '/archive#current-events', permanent: true },
-  { source: '/newsletters', destination: '/news', permanent: true },
   { source: '/coalition-links', destination: '/links', permanent: true },
   { source: '/home', destination: '/', permanent: true },
   { source: '/good-trouble', destination: '/news', permanent: true },

@@ -21,7 +21,7 @@ type NavDropdownProps = {
 };
 
 /**
- * Desktop dropdown for a primary-nav link with children (Voter Info pilot).
+ * Desktop dropdown for a primary-nav link with children.
  *
  * Radix supplies the keyboard contract (Enter/Space opens, arrows move, Escape
  * closes and restores focus) — the same primitive `AccountButton` already uses,

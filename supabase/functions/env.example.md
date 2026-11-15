@@ -58,15 +58,19 @@ BACKEND_VERIFY_EMAIL=tamerlanium@gmail.com
 
 `RESEND_API_KEY` is required; a missing key means a silently unsent contact form.
 
-### AI providers — `wall-e-chat` (all optional; the function degrades)
+### AI providers — `wall-e-chat`, `ice-case-brief` (all optional; both functions degrade)
 
-At least one provider key is needed for WALL-E to answer at all.
+At least one provider key is needed for WALL-E to answer at all. `ice-case-brief`
+uses the same providers and returns a deterministic dataset note if neither is
+available or if the model output fails its grounding checks.
 
 ```
 ZAI_API_KEY=
 GROQ_API_KEY=
 WALLE_ZAI_MODEL=
 WALLE_GROQ_MODEL=
+ICE_ZAI_MODEL=
+ICE_GROQ_MODEL=
 ```
 
 ### Rate limits and tuning — all optional, defaults live in code
@@ -77,6 +81,8 @@ SEARCH_RATE_LIMIT_WINDOW_MIN=10
 SEARCH_RPC_TIMEOUT_MS=10000
 WALLE_RATE_LIMIT_MAX=
 WALLE_RATE_LIMIT_WINDOW_MIN=
+ICE_AI_RATE_LIMIT_MAX=
+ICE_AI_RATE_LIMIT_WINDOW_MIN=
 ```
 
 ### `walle-refresh` — deliberately unset

@@ -11,6 +11,7 @@ import { expect, test } from '@playwright/test';
 const STATIC_PAGES = [
   '/events',
   '/news',
+  '/newsletters',
   '/voter-info',
   '/choir',
   '/about-us',

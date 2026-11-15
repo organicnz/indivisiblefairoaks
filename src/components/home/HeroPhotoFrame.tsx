@@ -156,12 +156,17 @@ export function HeroPhotoFrame({
     <div className="mx-auto flex w-full max-w-full select-none flex-col gap-4 md:max-w-2xl lg:max-w-3xl">
       <div className="flex flex-col gap-4">
         {/* ── Row 1: crossfading large photo ── */}
-        <div
-          role="group"
-          aria-roledescription="carousel"
-          aria-label="Community photo highlights"
-          className="relative aspect-[4/3] overflow-hidden rounded-sm border border-foreground/25 bg-surface-deep shadow-[8px_8px_0_var(--surface-deep)]"
-        >
+        <div className="relative">
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 translate-x-2 translate-y-2 border border-foreground/25 bg-surface-deep"
+          />
+          <div
+            role="group"
+            aria-roledescription="carousel"
+            aria-label="Community photo highlights"
+            className="relative aspect-[4/3] overflow-hidden rounded-sm border border-foreground/25 bg-surface-deep"
+          >
           {heroPhotos.length > 0 && (
             <AnimatePresence mode="sync" initial={false}>
               <motion.div
@@ -247,6 +252,7 @@ export function HeroPhotoFrame({
               </div>
             </div>
           )}
+          </div>
         </div>
 
         {/* ── Row 2: fixed pair ── */}

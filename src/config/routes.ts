@@ -17,8 +17,9 @@ export type NavLink = {
   short?: string;
   href: string;
   /**
-   * Task group used by the drawer and by the desktop ordering. Home is the
-   * logo, not a nav item; eight entries plus Donate is the readable limit.
+   * Task group used by the drawer and by the desktop ordering. Main is the
+   * explicit Home tab (the logo also links home); eight primary entries plus
+   * the alert link and Donate is the readable limit.
    */
   group?: NavGroup;
   /**
@@ -53,6 +54,13 @@ export const NAV_GROUPS: readonly { id: NavGroup; label: string }[] = [
 ] as const;
 
 export const ROUTES: readonly NavLink[] = [
+  // The explicit Home tab. The logo still links home, but the primary row
+  // starts with a readable Main entry so the landing page is discoverable.
+  {
+    label: 'Main',
+    short: 'Main',
+    href: '/',
+  },
   {
     label: 'About',
     short: 'About',
@@ -66,8 +74,8 @@ export const ROUTES: readonly NavLink[] = [
     group: 'act',
   },
   {
-    label: 'ICE Activity Alerts',
-    short: 'ICE Alerts',
+    label: 'ICE Alert',
+    short: 'ICE Alert',
     href: '/ice-alerts',
     group: 'act',
   },
@@ -103,6 +111,11 @@ export const ROUTES: readonly NavLink[] = [
     short: 'News',
     href: '/news',
     group: 'community',
+    matchPrefixes: ['/newsletters'],
+    children: [
+      { label: 'News & Updates', href: '/news' },
+      { label: 'Newsletters', href: '/newsletters' },
+    ],
   },
   {
     label: 'Contact',
@@ -130,7 +143,7 @@ export const ROUTES: readonly NavLink[] = [
 export const NOT_FOUND_ROUTES: readonly NavLink[] = [
   { label: 'About us', href: '/about' },
   { label: 'Events & Actions', href: '/events' },
-  { label: 'ICE Activity Alerts', href: '/ice-alerts' },
+  { label: 'ICE Alert', href: '/ice-alerts' },
   { label: 'Voter Info', href: '/voter-info' },
   { label: 'News', href: '/news' },
   { label: 'Gallery', href: '/gallery' },

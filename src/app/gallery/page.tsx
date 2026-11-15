@@ -24,6 +24,7 @@ import { FALLBACK_GALLERY_PHOTOS } from '@/config/gallery-fallback';
 import { GalleryImage } from '@/components/gallery/GalleryImage';
 import { LiteYouTube } from '@/components/ui/LiteYouTube';
 import { useDataPoints } from '@/hooks/useDataPoints';
+import { galleryAltText } from '@/lib/gallery-alt';
 import { type GalleryPhoto, getGalleryPhotos } from '@/lib/queries/content-client';
 
 export default function GalleryPage() {
@@ -160,14 +161,19 @@ export default function GalleryPage() {
               <div className="relative aspect-[4/5] overflow-hidden border border-foreground/25 bg-surface-muted">
                 <GalleryImage
                   src={mastheadPhoto.url}
-                  alt={mastheadPhoto.caption}
+                  alt={galleryAltText(mastheadPhoto)}
                   sizes="(min-width: 1280px) 240px, 208px"
                   className="object-cover"
                   priority
                 />
                 <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-secondary/90 via-secondary/45 to-transparent p-3 pt-10">
-                  <figcaption className="text-[9px] font-bold uppercase tracking-[0.14em] text-white">
-                    {mastheadPhoto.category} / Archive
+                  <figcaption className="text-white">
+                    <span className="line-clamp-2 block font-display text-sm font-semibold leading-snug">
+                      {mastheadPhoto.caption}
+                    </span>
+                    <span className="mt-1 block text-[9px] font-bold uppercase tracking-[0.14em] text-white/80">
+                      {mastheadPhoto.category} / Archive
+                    </span>
                   </figcaption>
                 </div>
               </div>
@@ -345,7 +351,7 @@ export default function GalleryPage() {
               >
                 <GalleryImage
                   src={photo.url}
-                  alt={photo.caption}
+                  alt={galleryAltText(photo)}
                   sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                   className="object-cover group-hover:scale-105 transition-transform duration-700 brightness-95 group-hover:brightness-100"
                 />
@@ -541,8 +547,6 @@ export default function GalleryPage() {
               aria-describedby={undefined}
               className="fixed inset-0 z-[160] flex items-center justify-center p-4 sm:p-6 md:p-10 focus:outline-none"
             >
-              <Dialog.Title className="sr-only">Photo viewer</Dialog.Title>
-
               <Dialog.Close className="absolute top-6 right-6 z-50 inline-flex size-11 items-center justify-center rounded-sm border border-white/20 bg-secondary/80 text-ink-on-dark transition-colors duration-300 ease-out hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold">
                 <X size={20} aria-hidden="true" />
                 <span className="sr-only">Close image viewer</span>
@@ -571,7 +575,7 @@ export default function GalleryPage() {
                 <div className="relative w-full h-[55vh] sm:h-[65vh] bg-black">
                   <GalleryImage
                     src={selectedPhoto.url}
-                    alt={selectedPhoto.caption}
+                    alt={galleryAltText(selectedPhoto)}
                     sizes="(max-width: 640px) 100vw, (max-width: 1024px) 90vw, 1024px"
                     className="object-contain"
                   />
@@ -588,9 +592,11 @@ export default function GalleryPage() {
                         {selectedPhoto.date}
                       </span>
                     </div>
-                    <h2 className="text-lg sm:text-xl font-bold text-white">
+
+                    <Dialog.Title className="text-lg font-bold text-white sm:text-xl">
                       {selectedPhoto.caption}
-                    </h2>
+                    </Dialog.Title>
+
                     {selectedPhoto.signQuote && (
                       <div className="my-1 inline-block bg-accent-gold px-3 py-1 text-xs font-bold tracking-tight text-ink-strong">
                         Featured Sign: “{selectedPhoto.signQuote}”

@@ -1,123 +1,186 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
-const MAP_LABEL = 'Interactive sample alert map';
+const MAP_LABEL = 'Interactive historical map of ICE arrests by city';
 
-type PinPosition = {
-  label: string;
-  inMap: boolean;
-  hidden: boolean;
-  tabIndex: number;
-};
-
-/**
- * Read the map's rendered pin positions.
- *
- * Leaflet keeps off-screen pins in the DOM at large translated coordinates, so
- * `toBeVisible()` alone would pass for every national pin even while the map is
- * still showing only Sacramento. The meaningful browser question is whether
- * the pin's box is inside the map viewport.
- */
-async function readPinPositions(page: Page): Promise<PinPosition[]> {
-  return page.evaluate((mapLabel) => {
-    const map = document.querySelector<HTMLElement>(`[aria-label="${mapLabel}"]`);
-    if (!map) throw new Error(`Map region "${mapLabel}" was not rendered`);
-
-    const mapRect = map.getBoundingClientRect();
-    return [...map.querySelectorAll<HTMLElement>('.ice-map-marker')].map((pin) => {
-      const pinRect = pin.getBoundingClientRect();
-      return {
-        label: pin.getAttribute('aria-label') ?? '',
-        inMap:
-          pinRect.left >= mapRect.left &&
-          pinRect.right <= mapRect.right &&
-          pinRect.top >= mapRect.top &&
-          pinRect.bottom <= mapRect.bottom,
-        hidden: pin.getAttribute('aria-hidden') === 'true',
-        tabIndex: pin.tabIndex,
-      };
-    });
-  }, MAP_LABEL);
-}
-
-test.describe('ICE alerts map', () => {
-  test('opens on the broader Sacramento view', async ({ page }) => {
-    await page.goto('/ice-alerts');
-
-    const panel = page.locator('#ice-map-panel');
-    const map = page.getByRole('region', { name: MAP_LABEL });
-    const coverage = panel.getByRole('group', { name: 'Map coverage' });
-    const sacramento = coverage.getByRole('button', { name: 'Sacramento' });
-    const nationwide = coverage.getByRole('button', { name: 'Nationwide' });
-
-    await expect(map).toBeVisible();
-    await expect(panel.getByRole('heading', { level: 2, name: 'Sacramento region' })).toBeVisible();
-    await expect(sacramento).toHaveAttribute('aria-pressed', 'true');
-    await expect(nationwide).toHaveAttribute('aria-pressed', 'false');
-    await expect(panel.getByText('Regional overview', { exact: true })).toBeVisible();
-
-    // Wait for Leaflet's dynamically imported markers before measuring the
-    // initial viewport.
-    await expect(page.locator('.ice-map-marker')).toHaveCount(9);
-
-    const pins = await readPinPositions(page);
-    const regional = pins.filter((pin) => /^Report [1-5]:/.test(pin.label));
-    const national = pins.filter((pin) => /^Report [6-9]:/.test(pin.label));
-
-    expect(regional).toHaveLength(5);
-    expect(regional.every((pin) => pin.inMap)).toBe(true);
-    expect(regional.every((pin) => !pin.hidden && pin.tabIndex === 0)).toBe(true);
-    expect(national).toHaveLength(4);
-    expect(national.every((pin) => !pin.inMap)).toBe(true);
-    // Off-screen markers stay in Leaflet's DOM; they must not stay in the tab
-    // order or the accessibility tree while the map shows Sacramento.
-    expect(national.every((pin) => pin.hidden && pin.tabIndex === -1)).toBe(true);
-  });
-
-  test('Nationwide fits the lower 48 and activates the national pins', async ({ page }) => {
-    await page.goto('/ice-alerts');
-
-    const panel = page.locator('#ice-map-panel');
-    const map = page.getByRole('region', { name: MAP_LABEL });
-    const coverage = panel.getByRole('group', { name: 'Map coverage' });
-    const nationwide = coverage.getByRole('button', { name: 'Nationwide' });
-
-    await expect(map).toBeVisible();
-    await expect(page.locator('.ice-map-marker')).toHaveCount(9);
-
-    await nationwide.click();
-
-    await expect(panel.getByRole('heading', { level: 2, name: 'Nationwide view' })).toBeVisible();
-    await expect(nationwide).toHaveAttribute('aria-pressed', 'true');
-    await expect(
-      coverage.getByRole('button', { name: 'Sacramento' })
-    ).toHaveAttribute('aria-pressed', 'false');
-    await expect(panel.getByText('Lower 48 overview', { exact: true })).toBeVisible();
-
-    // fitBounds animates for 400ms. Wait for every pin to land inside the map,
-    // which proves the viewport is the lower-48 overview rather than a
-    // Sacramento-sized window with the national pins merely in the DOM.
-    await expect
-      .poll(async () => {
-        const pins = await readPinPositions(page);
-        return pins
-          .filter((pin) => !pin.inMap || pin.hidden || pin.tabIndex !== 0)
-          .map((pin) => pin.label);
+test.describe('ICE arrest city map', () => {
+  test('shows the historical snapshot and renders the city circles', async ({ page }) => {
+    await page.route('**/api/geo', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ available: false, reason: 'unavailable' }),
       })
-      .toEqual([]);
+    );
+    await page.goto('/ice-alerts');
 
-    const losAngeles = page.getByRole('button', {
-      name: /^Report 6: Enforcement activity at Los Angeles, CA/,
-    });
-    await expect(losAngeles).toBeVisible();
-    await losAngeles.click();
+    const panel = page.locator('#ice-map-panel');
+    const map = page.getByRole('region', { name: MAP_LABEL });
+    const coverage = panel.getByRole('group', { name: 'Map coverage' });
 
-    await expect(losAngeles).toHaveAttribute('aria-pressed', 'true');
-    await expect(
-      panel.getByRole('heading', { level: 3, name: 'Los Angeles, CA' })
-    ).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'ICE arrests, mapped' })).toBeVisible();
+    await expect(page.getByText(/Historical data, not a live alert map/)).toBeVisible();
+    await expect(map).toBeVisible();
+    await expect(panel.getByRole('heading', { level: 2, name: 'U.S. overview' })).toBeVisible();
+    await expect(coverage.getByRole('button', { name: 'U.S. overview' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    await expect(panel.locator('#ice-location-status')).toContainText(
+      'Showing the U.S. overview'
+    );
+    await expect(panel.getByRole('button', { name: 'Use precise location' })).toHaveCount(0);
+    await expect(coverage.getByRole('button', { name: 'Locate me' })).toBeDisabled();
+    await expect(panel.getByText('Clustered city map active')).toBeVisible();
+    await expect(page.locator('.ice-cluster').first()).toBeVisible();
+    await expect(page.locator('.ice-cluster').first()).toHaveText(/\d/);
+    await expect(panel.getByText(/760,248/).first()).toBeVisible();
+    await expect(panel.getByText(/8,599 city points/).first()).toBeVisible();
   });
 
-  test('searches a U.S. address, moves the map, and does not add a report', async ({ page }) => {
+  test('opens a cluster popup with a zoom action and documentation link', async ({ page }) => {
+    await page.goto('/ice-alerts');
+
+    const cluster = page.locator('.ice-cluster').first();
+    await expect(cluster).toBeVisible();
+    await cluster.click();
+
+    const popup = page.locator('.ice-map-popup');
+    await expect(popup).toBeVisible();
+    await expect(popup).toContainText(/nearby cities|City total/);
+    await expect(popup.getByRole('button', { name: /Zoom in|Open context brief/ })).toBeVisible();
+    await expect(popup.getByRole('link', { name: 'How this is documented' })).toHaveAttribute(
+      'href',
+      '#ice-case-documentation'
+    );
+  });
+
+  test('selects a city and moves to a custom U.S. view', async ({ page }) => {
+    await page.goto('/ice-alerts');
+
+    const panel = page.locator('#ice-map-panel');
+    await expect(panel.getByText('Clustered city map active')).toBeVisible();
+
+    const conroe = page.getByRole('button', { name: /Conroe/ });
+    await conroe.click();
+
+    await expect(conroe).toHaveAttribute('aria-pressed', 'true');
+    await expect(panel.getByRole('heading', { level: 2, name: 'Custom U.S. view' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 2, name: 'Conroe, TX' })).toBeVisible();
+    await expect(page.getByText('#1', { exact: true })).toBeVisible();
+    await expect(page.locator('.ice-selected-city')).toHaveCount(1);
+  });
+
+  test('centers on an approximate area and can return to the U.S. overview', async ({ page }) => {
+    await page.route('**/api/geo', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          available: true,
+          lat: 38.5816,
+          lng: -121.4944,
+          label: 'Sacramento, CA',
+          precision: 'approximate',
+          source: 'vercel-ip',
+        }),
+      })
+    );
+    await page.goto('/ice-alerts');
+
+    const panel = page.locator('#ice-map-panel');
+    const coverage = panel.getByRole('group', { name: 'Map coverage' });
+    const overview = coverage.getByRole('button', { name: 'U.S. overview' });
+    const myArea = coverage.getByRole('button', { name: 'My area' });
+
+    await expect(panel.getByText('Clustered city map active')).toBeVisible();
+    await expect(panel.locator('#ice-location-status')).toContainText(
+      'Approximate area: Sacramento, CA'
+    );
+    await expect(panel.getByRole('button', { name: 'Use precise location' })).toHaveCount(0);
+    await expect(panel.getByRole('heading', { level: 2, name: 'Your area' })).toBeVisible();
+    await expect(page.locator('.ice-user-location.is-approximate')).toHaveCount(1);
+    await expect(myArea).toHaveAttribute('aria-pressed', 'true');
+    await expect(overview).toHaveAttribute('aria-pressed', 'false');
+
+    await overview.click();
+    await expect(panel.getByRole('heading', { level: 2, name: 'U.S. overview' })).toBeVisible();
+    await expect(overview).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('.ice-user-location.is-approximate')).toHaveCount(1);
+
+    await myArea.click();
+    await expect(panel.getByRole('heading', { level: 2, name: 'Your area' })).toBeVisible();
+    await expect(myArea).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('.ice-cluster').first()).toBeVisible();
+  });
+
+  test('uses precise device location when permission is already granted', async ({
+    page,
+    context,
+  }) => {
+    await context.grantPermissions(['geolocation']);
+    await context.setGeolocation({ latitude: 38.5816, longitude: -121.4944 });
+    await page.route('**/api/geo', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ available: false, reason: 'unavailable' }),
+      })
+    );
+    await page.goto('/ice-alerts');
+
+    const panel = page.locator('#ice-map-panel');
+    const coverage = panel.getByRole('group', { name: 'Map coverage' });
+
+    await expect(panel.getByText('Using your current location')).toBeVisible();
+    await expect(panel.getByRole('heading', { level: 2, name: 'Your area' })).toBeVisible();
+    await expect(page.locator('.ice-user-location.is-precise')).toHaveCount(1);
+    await expect(coverage.getByRole('button', { name: 'My area' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    await expect(panel.getByRole('button', { name: 'Refresh precise' })).toHaveCount(0);
+    await expect(panel.getByRole('button', { name: 'Use precise location' })).toHaveCount(0);
+  });
+
+  test('uses the approximate area when precise permission is denied', async ({ page }) => {
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator.permissions, 'query', {
+        configurable: true,
+        value: async () => ({ state: 'denied' }),
+      });
+    });
+    await page.route('**/api/geo', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          available: true,
+          lat: 38.5816,
+          lng: -121.4944,
+          label: 'Sacramento, CA',
+          precision: 'approximate',
+          source: 'vercel-ip',
+        }),
+      })
+    );
+    await page.goto('/ice-alerts');
+
+    const panel = page.locator('#ice-map-panel');
+    const coverage = panel.getByRole('group', { name: 'Map coverage' });
+
+    await expect(panel.locator('#ice-location-status')).toContainText(
+      'Approximate area: Sacramento, CA'
+    );
+    await expect(panel.getByRole('button', { name: 'Use precise location' })).toHaveCount(0);
+    await expect(panel.getByText(/Precise location is blocked/)).toHaveCount(0);
+    await expect(coverage.getByRole('button', { name: 'My area' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    await expect(page.locator('.ice-user-location.is-approximate')).toHaveCount(1);
+  });
+
+  test('searches a U.S. address without changing the snapshot', async ({ page }) => {
     let geocodeRequests = 0;
     await page.route(/^https:\/\/nominatim\.openstreetmap\.org\/search\?/, async (route) => {
       geocodeRequests += 1;
@@ -141,30 +204,20 @@ test.describe('ICE alerts map', () => {
 
     await page.goto('/ice-alerts');
     const panel = page.locator('#ice-map-panel');
-    const search = panel.getByRole('search', { name: 'Find a U.S. location on the map' });
+    const search = panel.getByRole('search', { name: 'Find a U.S. location on the city map' });
 
-    await expect(page.locator('.ice-map-marker')).toHaveCount(9);
+    await expect(panel.getByText('Clustered city map active')).toBeVisible();
     await search.getByLabel('Find a U.S. city or address').fill('350 5th Ave, New York, NY');
     await search.getByRole('button', { name: 'Search' }).click();
 
     await expect(search.getByRole('status')).toContainText('Moved map to 350 5th Avenue');
     await expect(page.locator('.ice-map-search-target')).toHaveCount(1);
     await expect(panel.getByRole('heading', { level: 2, name: 'Custom U.S. view' })).toBeVisible();
-
-    // The New York sample pin proves the map moved to the result, while the
-    // report count staying at nine proves the search did not create a report.
-    await expect
-      .poll(async () => {
-        const pins = await readPinPositions(page);
-        const newYork = pins.find((pin) => pin.label.startsWith('Report 9:'));
-        return Boolean(newYork?.inMap && !newYork.hidden && newYork.tabIndex === 0);
-      })
-      .toBe(true);
-    await expect(page.locator('.ice-map-marker')).toHaveCount(9);
+    await expect(page.locator('.leaflet-pane canvas')).toHaveCount(1);
     expect(geocodeRequests).toBe(1);
   });
 
-  test('shows a clear no-results state without moving or adding a report', async ({ page }) => {
+  test('shows a clear no-results state without moving the map', async ({ page }) => {
     await page.route(/^https:\/\/nominatim\.openstreetmap\.org\/search\?/, (route) =>
       route.fulfill({
         status: 200,
@@ -175,15 +228,15 @@ test.describe('ICE alerts map', () => {
 
     await page.goto('/ice-alerts');
     const panel = page.locator('#ice-map-panel');
-    const search = panel.getByRole('search', { name: 'Find a U.S. location on the map' });
+    const search = panel.getByRole('search', { name: 'Find a U.S. location on the city map' });
 
-    await expect(page.locator('.ice-map-marker')).toHaveCount(9);
+    await expect(panel.getByText('Clustered city map active')).toBeVisible();
     await search.getByLabel('Find a U.S. city or address').fill('Nowhere, US');
     await search.getByRole('button', { name: 'Search' }).click();
 
     await expect(search.getByRole('status')).toContainText('No U.S. location found.');
     await expect(page.locator('.ice-map-search-target')).toHaveCount(0);
-    await expect(panel.getByRole('heading', { level: 2, name: 'Sacramento region' })).toBeVisible();
-    await expect(page.locator('.ice-map-marker')).toHaveCount(9);
+    await expect(panel.getByRole('heading', { level: 2, name: 'U.S. overview' })).toBeVisible();
+    await expect(page.locator('.ice-cluster').first()).toBeVisible();
   });
 });

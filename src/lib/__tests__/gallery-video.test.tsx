@@ -39,6 +39,9 @@ describe('GalleryPage Video Archive (Issue #88)', () => {
     expect(container.textContent).toContain('No Kings in America: The Movement in Motion');
     expect(container.textContent).toContain('No Kings 3 Nationwide Action');
 
+    const mastheadCaption = container.querySelector('figure figcaption');
+    expect(mastheadCaption?.textContent).toContain('No Kings at the California State Capitol');
+
     // The archive now uses the shared click-to-load player. Assert the local
     // poster surface first, then the player after intent — a raw iframe on
     // every page view is the regression this test now guards against.
@@ -56,5 +59,25 @@ describe('GalleryPage Video Archive (Issue #88)', () => {
     expect(iframe).not.toBeNull();
     expect(iframe?.title).toContain('No Kings 3');
     expect(iframe?.allowFullscreen).toBe(true);
+  });
+
+  it('names the photo dialog with the visible caption', async () => {
+    await act(async () => {
+      root.render(<GalleryPage />);
+    });
+
+    const firstPhoto = container.querySelector<HTMLButtonElement>('button[data-gallery-photo]');
+    expect(firstPhoto).not.toBeNull();
+
+    await act(async () => {
+      firstPhoto?.click();
+    });
+
+    const dialog = document.querySelector('[role="dialog"]');
+    expect(dialog).not.toBeNull();
+
+    const labelId = dialog?.getAttribute('aria-labelledby');
+    const dialogTitle = labelId ? document.getElementById(labelId) : null;
+    expect(dialogTitle?.textContent).toContain('No Kings at the California State Capitol');
   });
 });

@@ -67,6 +67,10 @@ describe('gatheringCard', () => {
     const card = gatheringCard(MEETING);
     expect(card.title).toBe('Monthly Chapter Gathering & Food Bank Drive');
     expect(card.dateLine).toBe('Tuesday, October 6, 2026 • 6:30 PM – 8:00 PM');
+    expect(card.timeLine).toBe('6:30 PM – 8:00 PM');
+    expect(card.startWeekday).toBe('Tue');
+    expect(card.startMonth).toBe('Oct');
+    expect(card.startDay).toBe('6');
     expect(card.locationLine).toBe(
       "St. Michael's Episcopal Church, 2140 Mission Avenue, Carmichael, CA 95608"
     );
@@ -78,6 +82,10 @@ describe('gatheringCard', () => {
     const card = gatheringCard(undefined);
     expect(card.title).toContain('Monthly Chapter Meeting');
     expect(card.dateLine).toBe('Tuesday, November 10, 2026 • 6:30 PM – 8:00 PM');
+    expect(card.timeLine).toBe('6:30 PM – 8:00 PM');
+    expect(card.startWeekday).toBe('Tue');
+    expect(card.startMonth).toBe('Nov');
+    expect(card.startDay).toBe('10');
     expect(card.rsvpUrl).toBe('https://www.mobilize.us/indivisible/');
     expect(card.calendarUrl).toContain('calendar.google.com/calendar/render');
     expect(card.calendarUrl).toContain('20261110T183000');

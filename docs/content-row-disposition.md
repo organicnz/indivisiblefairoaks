@@ -48,7 +48,7 @@ and the App Router files on 2026-11-08.
 | 6 | `upcoming-fall-events` | event | 2,618 | `/events` | Legacy redirect | **Archive** — duplicate of the old events import. |
 | 7 | `resistance-choir` | page | 1,497 | `/choir` | Legacy redirect | **Archive** — old choir page; `/choir` is live. |
 | 8 | `voter-information` | page | 1,122 | `/voter-info` | Legacy redirect | **Archive** — old voter page; `/voter-info` is live. |
-| 9 | `newsletters` | post | 784 | `/news` | Legacy redirect | **Archive** — old newsletter index; `/news` is live. |
+| 9 | `newsletters` | post | 784 | `/newsletters` | Reserved route | **Archive** — old newsletter index; the dedicated `/newsletters` route is live. |
 | 10 | `coalition-links` | page | 1,521 | `/links` | Legacy redirect | **Archive** — old links page; only shared organisation names overlap. |
 | 11 | `privacy-policy` | page | 1,242 | `/privacy-policy` | Reserved route | **Review** — legal copy; compare data, email, ActBlue/Stripe, and contact clauses. |
 | 12 | `terms-and-conditions` | page | 1,092 | `/terms-and-conditions` | Reserved route | **Review** — legal copy; gear/price terms may be obsolete since commerce was removed. |

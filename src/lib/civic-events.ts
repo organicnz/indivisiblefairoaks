@@ -99,9 +99,51 @@ export function buildIcsCalendar(event: CardEvent, stamp: Date = new Date()): st
 export interface GatheringCard {
   title: string;
   dateLine: string;
+  timeLine: string;
+  startWeekday: string;
+  startMonth: string;
+  startDay: string;
   locationLine: string;
   rsvpUrl: string;
   calendarUrl: string;
+}
+
+const WEEKDAY_FORMAT = new Intl.DateTimeFormat('en-US', {
+  weekday: 'short',
+  timeZone: 'UTC',
+});
+const MONTH_FORMAT = new Intl.DateTimeFormat('en-US', {
+  month: 'short',
+  timeZone: 'UTC',
+});
+const DAY_FORMAT = new Intl.DateTimeFormat('en-US', {
+  day: 'numeric',
+  timeZone: 'UTC',
+});
+
+/**
+ * Calendar parts for the printed date block. `isoDateStart` is a Pacific wall
+ * stamp, so it is split and formatted in UTC — converting it through the local
+ * timezone would move the date backwards for anyone west of Greenwich.
+ */
+function dateBlockFromStamp(stamp: string): Pick<
+  GatheringCard,
+  'startWeekday' | 'startMonth' | 'startDay'
+> {
+  const year = Number(stamp.slice(0, 4));
+  const month = Number(stamp.slice(4, 6));
+  const day = Number(stamp.slice(6, 8));
+  const date = new Date(Date.UTC(year, month - 1, day));
+
+  if (Number.isNaN(date.getTime())) {
+    return { startWeekday: '', startMonth: '', startDay: '' };
+  }
+
+  return {
+    startWeekday: WEEKDAY_FORMAT.format(date),
+    startMonth: MONTH_FORMAT.format(date),
+    startDay: DAY_FORMAT.format(date),
+  };
 }
 
 /**
@@ -116,6 +158,8 @@ export function gatheringCard(event: CardEvent | undefined): GatheringCard {
     return {
       title: 'Monthly Chapter Meeting & Food Drive',
       dateLine: 'Tuesday, November 10, 2026 • 6:30 PM – 8:00 PM',
+      timeLine: '6:30 PM – 8:00 PM',
+      ...dateBlockFromStamp('20261110T183000'),
       locationLine: "St. Michael's Episcopal Church, 2140 Mission Ave, Carmichael",
       rsvpUrl: 'https://www.mobilize.us/indivisible/',
       calendarUrl:
@@ -125,6 +169,8 @@ export function gatheringCard(event: CardEvent | undefined): GatheringCard {
   return {
     title: event.title,
     dateLine: `${event.dateLabel} • ${event.timeLabel}`,
+    timeLine: event.timeLabel,
+    ...dateBlockFromStamp(event.isoDateStart),
     locationLine: `${event.locationName}, ${event.address}`,
     rsvpUrl: event.rsvpUrl,
     calendarUrl: buildGoogleCalendarUrl(event),
