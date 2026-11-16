@@ -65,6 +65,35 @@ type AiReport = {
 };
 
 const robotsCache = new Map<string, string[]>();
+const STOPICE_MONTHS = [
+  'jan', 'feb', 'mar', 'apr', 'may', 'jun',
+  'jul', 'aug', 'sep', 'oct', 'nov', 'dec',
+] as const;
+
+/**
+ * StopICE publishes one XML file per month. Its public home page is the stable
+ * source URL an admin adds, but fetching that large page wastes the page budget;
+ * resolve it to the current export, with the previous two months as fallbacks
+ * for the first days of a new month.
+ */
+export function resolveCrawlUrls(rawUrl: string, now = new Date()): string[] {
+  let parsed: URL;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    return [rawUrl];
+  }
+  const isStopIce =
+    parsed.hostname === 'stopice.net' || parsed.hostname === 'www.stopice.net';
+  if (!isStopIce || (parsed.pathname !== '/' && !parsed.searchParams.has('data'))) {
+    return [rawUrl];
+  }
+
+  return [0, 1, 2].map((offset) => {
+    const date = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - offset, 1));
+    return `https://stopice.net/login/data/stats/stopicenet_${STOPICE_MONTHS[date.getUTCMonth()]}_${date.getUTCFullYear()}_complete.xml`;
+  });
+}
 
 function isPrivateIpv4(value: string) {
   const parts = value.split('.').map(Number);
@@ -422,14 +451,15 @@ export async function crawlIceSource(source: IceCrawlSource): Promise<IceCrawlSu
   if (!store) throw new Error('Crawler storage is not configured.');
 
   const now = new Date().toISOString();
-  const queue: QueueItem[] = [{ url: source.url, depth: 0 }];
-  const queued = new Set([source.url]);
+  const startUrls = resolveCrawlUrls(source.url);
+  const queue: QueueItem[] = startUrls.map((url) => ({ url, depth: 0 }));
+  const queued = new Set(startUrls);
   const visited = new Set<string>();
   const errors: string[] = [];
   let pagesFetched = 0;
   let reportsFound = 0;
   let skipped = 0;
-  let discovered = 1;
+  let discovered = startUrls.length;
 
   while (queue.length > 0) {
     if (pagesFetched >= source.max_pages) break;

@@ -10,7 +10,7 @@ import {
   readableText,
   verbatimExcerpt,
 } from '@/lib/ice-crawl-extract';
-import { isPrivateAddress } from '@/lib/ice-crawl';
+import { isPrivateAddress, resolveCrawlUrls } from '@/lib/ice-crawl';
 
 describe('ice source extraction', () => {
   it('keeps readable source paragraphs and drops scripts', () => {
@@ -103,5 +103,16 @@ describe('crawler SSRF boundary', () => {
   it('allows a public address', () => {
     expect(isPrivateAddress('203.0.113.10')).toBe(false);
     expect(isPrivateAddress('2001:4860:4860::8888')).toBe(false);
+  });
+
+  it('resolves the StopICE home source to its monthly exports', () => {
+    expect(resolveCrawlUrls('https://stopice.net/?data=1', new Date('2026-11-16T12:00:00Z'))).toEqual([
+      'https://stopice.net/login/data/stats/stopicenet_nov_2026_complete.xml',
+      'https://stopice.net/login/data/stats/stopicenet_oct_2026_complete.xml',
+      'https://stopice.net/login/data/stats/stopicenet_sep_2026_complete.xml',
+    ]);
+    expect(resolveCrawlUrls('https://example.org/feed.xml')).toEqual([
+      'https://example.org/feed.xml',
+    ]);
   });
 });
