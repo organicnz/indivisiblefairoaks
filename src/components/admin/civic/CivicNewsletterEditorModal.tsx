@@ -289,6 +289,9 @@ export function CivicNewsletterEditorModal({
                   onChange={(e) => setPublishedAt(e.target.value)}
                   className="w-full px-3.5 py-2 rounded-xl border border-border bg-background focus:ring-2 focus:ring-primary focus:outline-none font-medium text-xs transition-all"
                 />
+                <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                  Future timestamps keep this bulletin out of the public archive until then.
+                </p>
               </div>
 
               <div>

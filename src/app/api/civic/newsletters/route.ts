@@ -1,5 +1,7 @@
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { buildNewsletterVisibilityFilter } from '@/lib/queries/civic';
 import { createPublicClient, createServerClient } from '@/lib/supabase-server';
 
 const newsletterSchema = z.object({
@@ -23,7 +25,8 @@ function slugify(text: string): string {
 
 /**
  * GET /api/civic/newsletters
- * Fetches all chapter newsletters directly from Supabase DB newsletters table.
+ * Fetches public chapter newsletters. Future-dated bulletins are omitted until
+ * their publication timestamp passes; the admin manager reads the full table.
  */
 export async function GET() {
   try {
@@ -31,6 +34,7 @@ export async function GET() {
     const { data, error } = await supabase
       .from('newsletters')
       .select('slug, title, date_label, description, topics, sort_order, published_at, created_at')
+      .or(buildNewsletterVisibilityFilter(new Date().toISOString()))
       .order('sort_order', { ascending: true })
       .order('published_at', { ascending: false });
 
@@ -114,6 +118,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    // The API path bypasses the server action's cache invalidation. Refresh the
+    // dedicated archive too, or editors keep seeing the old cached page.
+    revalidateTag('newsletters', 'hours');
+    revalidatePath('/newsletters');
+    revalidatePath('/news');
+
     return NextResponse.json({ success: true, newsletter: data }, { status: 200 });
   } catch (err) {
     return NextResponse.json(
@@ -159,6 +169,10 @@ export async function DELETE(req: NextRequest) {
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
+
+    revalidateTag('newsletters', 'hours');
+    revalidatePath('/newsletters');
+    revalidatePath('/news');
 
     return NextResponse.json({ success: true, deletedSlug: slug }, { status: 200 });
   } catch (err) {

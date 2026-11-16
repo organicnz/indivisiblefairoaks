@@ -54,6 +54,16 @@ export interface NewsletterRow {
   description: string;
   topics: string[];
   sort_order: number;
+  published_at: string | null;
+}
+
+/**
+ * Public newsletter visibility. The bulletin manager exposes `published_at`,
+ * so a future timestamp is a scheduled bulletin and must not appear in the
+ * archive yet. Legacy rows with NULL remain visible immediately.
+ */
+export function buildNewsletterVisibilityFilter(nowISO: string): string {
+  return `published_at.is.null,published_at.lte.${nowISO}`;
 }
 
 export interface FAQRow {
@@ -155,7 +165,10 @@ export async function getNewsletters(): Promise<NewsletterRow[]> {
     const supabase = publicClient();
     const { data } = await supabase
       .from('newsletters')
-      .select('slug, title, date_label, description, topics, sort_order')
+      .select('slug, title, date_label, description, topics, sort_order, published_at')
+      // The admin manager reads the full table; this public archive must hide
+      // a bulletin whose publication timestamp is still in the future.
+      .or(buildNewsletterVisibilityFilter(new Date().toISOString()))
       .order('sort_order', { ascending: true });
     const rows = (data ?? []) as NewsletterRow[];
     return rows.map((row) => ({

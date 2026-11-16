@@ -182,13 +182,13 @@ const PALETTE_ITEMS: PaletteItem[] = [
 
 const ADMIN_PALETTE_ITEMS: PaletteItem[] = [
   {
-    id: 'admin-new-post',
-    title: 'Write New Post',
+    id: 'admin-add-news',
+    title: 'Add News',
     description: 'Draft or publish a chapter article or dispatch in the block editor',
     category: 'Admin & Publishing',
     href: '/admin/content/new?type=post',
     icon: FilePlus2,
-    keywords: ['post', 'write', 'article', 'dispatch', 'blog', 'publish', 'new', 'cms'],
+    keywords: ['post', 'news', 'write', 'article', 'dispatch', 'blog', 'publish', 'new', 'cms'],
   },
   {
     id: 'admin-events',

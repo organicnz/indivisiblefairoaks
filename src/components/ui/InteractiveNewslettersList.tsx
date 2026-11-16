@@ -89,7 +89,9 @@ export function InteractiveNewslettersList({
       description: item.description,
       topics: item.topics,
       sort_order: item.sort_order ?? 10,
-      published_at: null,
+      // Preserve the real timestamp: this record feeds the edit form, and a
+      // null here used to reset the bulletin to "now" whenever it was edited.
+      published_at: item.published_at ?? null,
     });
     setIsEditorModalOpen(true);
   };
@@ -125,6 +127,7 @@ export function InteractiveNewslettersList({
       description: savedRecord.description,
       topics: savedRecord.topics,
       sort_order: savedRecord.sort_order,
+      published_at: savedRecord.published_at ?? null,
     };
 
     setNewslettersList((prev) => {
@@ -195,12 +198,23 @@ export function InteractiveNewslettersList({
 
       {/* Bulletins Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {filteredNewsletters.length === 0 ? (
+        {newslettersList.length === 0 ? (
+          <div className="civic-panel col-span-full p-12 text-center text-muted-foreground dark:text-ink-muted-on-dark">
+            {/*
+              `news.empty.desc` is seeded with the filter/no-results copy. Using
+              it here would make the seeded CMS value override the honest
+              archive-empty message, so this branch stays local.
+            */}
+            <p className="text-sm">
+              No chapter bulletins have been published yet. Check back soon for the next archive
+              entry.
+            </p>
+          </div>
+        ) : filteredNewsletters.length === 0 ? (
           <div className="civic-panel col-span-full p-12 text-center text-muted-foreground dark:text-ink-muted-on-dark">
             <DataPoint as="span" name="news.empty.desc" initialData={dataPoints}>
-              {newslettersList.length === 0
-                ? 'No chapter bulletins have been published yet. Check back soon for the next archive entry.'
-                : 'No chapter bulletins match your criteria. Try choosing “All Topics” or searching for another civic keyword.'}
+              No chapter bulletins match your criteria. Try choosing “All Topics” or searching for
+              another civic keyword.
             </DataPoint>
           </div>
         ) : (

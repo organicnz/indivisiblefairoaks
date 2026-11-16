@@ -280,6 +280,7 @@ export async function saveCivicNewsletter(
     if (error) return fail(error.message);
 
     revalidateTag('newsletters', 'hours');
+    revalidatePath('/newsletters');
     revalidatePath('/news');
 
     return {
@@ -315,6 +316,7 @@ export async function deleteCivicNewsletter(slug: string): Promise<CivicActionRe
     if (!deleted) return fail('Newsletter not found');
 
     revalidateTag('newsletters', 'hours');
+    revalidatePath('/newsletters');
     revalidatePath('/news');
 
     return { success: true };

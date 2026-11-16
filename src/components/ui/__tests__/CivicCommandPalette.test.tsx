@@ -150,8 +150,8 @@ describe('CivicCommandPalette component', () => {
     });
 
     const options = Array.from(document.querySelectorAll('li[role="option"]'));
-    const newPostOption = options.find((opt) => opt.textContent?.includes('Write New Post'));
-    expect(newPostOption).toBeDefined();
+    const addNewsOption = options.find((opt) => opt.textContent?.includes('Add News'));
+    expect(addNewsOption).toBeDefined();
 
     const eventsOption = options.find((opt) => opt.textContent?.includes('Manage Chapter Events'));
     expect(eventsOption).toBeDefined();
@@ -172,7 +172,7 @@ describe('CivicCommandPalette component', () => {
     expect(visualEditOption).toBeDefined();
 
     await act(async () => {
-      newPostOption?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+      addNewsOption?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
     });
 
     expect(mockPush).toHaveBeenCalledWith('/admin/content/new?type=post');

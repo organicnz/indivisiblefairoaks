@@ -5,12 +5,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const createPublicClient = vi.hoisted(() => vi.fn());
 const createAdminClient = vi.hoisted(() => vi.fn());
 const createServerClient = vi.hoisted(() => vi.fn());
+const revalidateTag = vi.hoisted(() => vi.fn());
+const revalidatePath = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/supabase-server', () => ({
   createPublicClient,
   createAdminClient,
   createServerClient,
 }));
+vi.mock('next/cache', () => ({ revalidateTag, revalidatePath }));
 
 const {
   GET: getEvents,
@@ -200,13 +203,15 @@ describe('Civic Newsletters Edge API Route (/api/civic/newsletters)', () => {
       },
     ];
 
+    const or = vi.fn(() => ({
+      order: () => ({
+        order: async () => ({ data: mockNewsletters, error: null }),
+      }),
+    }));
+
     createPublicClient.mockReturnValue({
       from: () => ({
-        select: () => ({
-          order: () => ({
-            order: async () => ({ data: mockNewsletters, error: null }),
-          }),
-        }),
+        select: () => ({ or }),
       }),
     });
 
@@ -216,6 +221,9 @@ describe('Civic Newsletters Edge API Route (/api/civic/newsletters)', () => {
     expect(json.success).toBe(true);
     expect(json.newsletters).toHaveLength(1);
     expect(json.newsletters[0].slug).toBe('fall-bulletin-2026');
+    expect(or).toHaveBeenCalledWith(
+      expect.stringMatching(/^published_at\.is\.null,published_at\.lte\./)
+    );
   });
 
   it('POST saves newsletter when user is admin', async () => {
@@ -267,6 +275,8 @@ describe('Civic Newsletters Edge API Route (/api/civic/newsletters)', () => {
     const json = await res.json();
     expect(json.success).toBe(true);
     expect(json.newsletter.title).toBe('Winter Bulletin');
+    expect(revalidateTag).toHaveBeenCalledWith('newsletters', 'hours');
+    expect(revalidatePath).toHaveBeenCalledWith('/newsletters');
   });
 
   it('DELETE removes newsletter by slug when user is admin', async () => {
@@ -302,5 +312,7 @@ describe('Civic Newsletters Edge API Route (/api/civic/newsletters)', () => {
     const json = await res.json();
     expect(json.success).toBe(true);
     expect(json.deletedSlug).toBe('fall-bulletin-2026');
+    expect(revalidateTag).toHaveBeenCalledWith('newsletters', 'hours');
+    expect(revalidatePath).toHaveBeenCalledWith('/newsletters');
   });
 });

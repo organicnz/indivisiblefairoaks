@@ -1,6 +1,6 @@
 # Publishing chapter news
 
-This is the chapter-editor workflow for Erin's ongoing news submissions. It covers the two editorial paths on the site, how to publish safely, and what to check afterward. The admin entry point is `/admin/news`; both paths require an admin account. `/news` is article-first: published posts lead the page, and meeting materials, bulletins, and subscription links follow.
+This is the chapter-editor workflow for Erin's ongoing news submissions. It covers the two editorial paths on the site, how to publish safely, and what to check afterward. The admin entry point is `/admin/news`; both paths require an admin account. `/news` is article-first: published posts lead the page, followed by the bulletin callout, meeting materials, the action-alert subscription, and national resources.
 
 ## Choose the right format
 
@@ -50,7 +50,7 @@ Do not create a new account or share an admin login to route around access. Ask 
 - The person can sign in at `/login`.
 - Their profile has `is_admin = true`.
 - `/admin/news` and `/admin/content/new?type=post` are reachable without a redirect.
-- They can see **New Bulletin** and **New Post** after signing in.
+- They can see **Add News** and **New Bulletin** after signing in.
 - If MFA is required for the account, complete the step-up before trying to publish.
 
 ## Pre-publish checklist
