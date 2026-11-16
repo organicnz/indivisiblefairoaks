@@ -52,7 +52,10 @@ describe('Client queries through Edge API', () => {
 
       const photos = await getGalleryPhotos();
 
-      expect(globalThis.fetch).toHaveBeenCalledWith('/api/gallery');
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        '/api/gallery',
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
+      );
       expect(photos).toHaveLength(1);
       expect(photos[0].id).toBe('photo-1');
       expect(photos[0].dbId).toBe(101);
@@ -88,7 +91,10 @@ describe('Client queries through Edge API', () => {
 
       const events = await getTickerEvents();
 
-      expect(globalThis.fetch).toHaveBeenCalledWith('/api/civic/events');
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        '/api/civic/events',
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
+      );
       expect(events).toHaveLength(1);
       expect(events[0].label).toBe('General Meeting');
       expect(events[0].detail).toBe('Oct 20, 2026 • 6:30 PM');
@@ -128,7 +134,10 @@ describe('Client queries through Edge API', () => {
       );
 
       const res = await getFaqs();
-      expect(globalThis.fetch).toHaveBeenCalledWith('/api/faqs');
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        '/api/faqs',
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
+      );
       expect(res.faqs).toHaveLength(1);
       expect(res.categories).toContain('General');
     });
@@ -147,7 +156,10 @@ describe('Client queries through Edge API', () => {
       );
 
       const partners = await getPartners();
-      expect(globalThis.fetch).toHaveBeenCalledWith('/api/partners');
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        '/api/partners',
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
+      );
       expect(partners).toHaveLength(1);
       expect(partners[0].name).toBe('Partner One');
     });
@@ -166,7 +178,10 @@ describe('Client queries through Edge API', () => {
       );
 
       const links = await getCoalitionLinks();
-      expect(globalThis.fetch).toHaveBeenCalledWith('/api/coalition-links');
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        '/api/coalition-links',
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
+      );
       expect(links).toHaveLength(1);
       expect(links[0].name).toBe('Link One');
     });

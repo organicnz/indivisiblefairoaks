@@ -1,10 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import heatmapData from '@/data/ice-arrest-heatmap.json';
 import { clientIp } from '@/lib/rate-limit';
-import type { HeatmapSnapshot } from '@/components/ice-alerts/types';
-
-const DATA = heatmapData as HeatmapSnapshot;
+import { getIceHeatmapSnapshot } from '@/lib/queries/ice-heatmap';
 const MAX_REQUEST_BYTES = 2_000;
 // The edge function can spend up to 10s on its primary provider, 10s on the
 // fallback and 6s on the Wikimedia image lookup in parallel.
@@ -57,7 +54,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid city.' }, { status: 400 });
   }
 
-  const cityIndex = DATA.cities.findIndex(
+  const snapshot = await getIceHeatmapSnapshot().catch(() => null);
+  if (!snapshot) {
+    return NextResponse.json(
+      { error: 'City context is temporarily unavailable.' },
+      { status: 503 }
+    );
+  }
+
+  const cityIndex = snapshot.cities.findIndex(
     (candidate) =>
       candidate.stateCode.toUpperCase() === parsed.data.stateCode &&
       normalizeCity(candidate.city) === normalizeCity(parsed.data.city)
@@ -66,9 +71,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'That city is not in this snapshot.' }, { status: 400 });
   }
 
-  const city = DATA.cities[cityIndex];
+  const city = snapshot.cities[cityIndex];
   const rank = cityIndex + 1;
-  const sharePercent = Number(((city.count / DATA.meta.mappedRecords) * 100).toFixed(1));
+  const sharePercent = Number(
+    ((city.count / snapshot.meta.mappedRecords) * 100).toFixed(1)
+  );
 
   const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
@@ -98,13 +105,13 @@ export async function POST(request: Request) {
         count: city.count,
         rank,
         sharePercent,
-        mappedRecords: DATA.meta.mappedRecords,
-        periodStart: DATA.meta.periodStart,
-        periodEnd: DATA.meta.periodEnd,
-        sourceName: DATA.meta.sourceName,
-        sourceRelease: DATA.meta.sourceRelease,
-        sourceUrl: DATA.meta.sourceUrl,
-        sourceCitation: DATA.meta.sourceCitation,
+        mappedRecords: snapshot.meta.mappedRecords,
+        periodStart: snapshot.meta.periodStart,
+        periodEnd: snapshot.meta.periodEnd,
+        sourceName: snapshot.meta.sourceName,
+        sourceRelease: snapshot.meta.sourceRelease,
+        sourceUrl: snapshot.meta.sourceUrl,
+        sourceCitation: snapshot.meta.sourceCitation,
       }),
       cache: 'no-store',
       signal: AbortSignal.timeout(FUNCTION_TIMEOUT_MS),

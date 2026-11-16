@@ -65,6 +65,14 @@ describe('InteractivePostsList', () => {
     const links = Array.from(container.querySelectorAll<HTMLAnchorElement>('a'));
     const schoolLink = links.find((l) => l.getAttribute('href') === '/fair-oaks-public-schools');
     expect(schoolLink).toBeDefined();
+
+    const submitNews = links.find((l) =>
+      l.getAttribute('href')?.startsWith(
+        'mailto:contact@indivisiblefairoaks.org?subject=Chapter%20news%20submission'
+      )
+    );
+    expect(submitNews).toBeDefined();
+    expect(submitNews?.textContent).toContain('Submit chapter news');
   });
 
   it('gives admins one clear Add News action into the block editor', async () => {
@@ -78,6 +86,12 @@ describe('InteractivePostsList', () => {
     );
     expect(addNews).toBeDefined();
     expect(addNews?.textContent).toContain('Add News');
+
+    const guide = Array.from(container.querySelectorAll<HTMLAnchorElement>('a')).find(
+      (link) => link.getAttribute('href') === '/admin/news#news-publishing-guide'
+    );
+    expect(guide).toBeDefined();
+    expect(guide?.textContent).toContain('How to publish');
   });
 
   it('renders empty state when no posts are provided', async () => {

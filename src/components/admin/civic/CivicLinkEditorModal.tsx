@@ -144,12 +144,10 @@ export function CivicLinkEditorModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-2xl bg-surface-card border border-border text-foreground shadow-2xl p-6 sm:p-8 rounded-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl bg-surface-card border border-border text-foreground p-6 sm:p-8 max-h-[90vh] overflow-y-auto">
         <DialogHeader className="flex flex-row items-center justify-between pb-4 border-b border-border">
           <div>
-            <DialogTitle className="text-xl font-black uppercase tracking-tight text-foreground">
-              {link ? 'Edit Coalition Link' : 'Add Coalition Link'}
-            </DialogTitle>
+            <DialogTitle>{link ? 'Edit Coalition Link' : 'Add Coalition Link'}</DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground mt-0.5">
               Publish vetted civic resources, voting guides, and democracy partner websites.
             </DialogDescription>

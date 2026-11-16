@@ -22,7 +22,9 @@ function subscription(endpoint: string) {
 describe('sendIceAlertPush endpoint revalidation', () => {
   it.each([
     ['https://127.0.0.1/push', 'push-endpoint-private-destination'],
-    ['https://service.internal/push', 'push-endpoint-private-destination'],
+    ['https://[::ffff:0:127.0.0.1]/push', 'push-endpoint-private-destination'],
+    ['https://[64:ff9b:1::a00:1]/push', 'push-endpoint-private-destination'],
+    ['https://service.internal/push', 'push-endpoint-provider-not-allowed'],
     ['https://example.com/push', 'push-endpoint-provider-not-allowed'],
     ['http://fcm.googleapis.com/push', 'push-endpoint-insecure-protocol'],
   ])('rejects %s before sending', async (endpoint, error) => {

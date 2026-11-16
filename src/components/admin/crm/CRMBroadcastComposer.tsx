@@ -822,8 +822,8 @@ export function CRMBroadcastComposer({
               <Megaphone size={20} />
             </div>
             <div>
-              <h1 className="text-2xl sm:text-3xl font-black text-foreground uppercase tracking-tight">
-                Campaign Broadcasts
+              <h1 className="font-display text-2xl font-semibold tracking-[-0.03em] text-foreground sm:text-3xl">
+                Campaign broadcasts
               </h1>
               <p className="text-xs font-bold text-muted-foreground">
                 Segment and dispatch branded chapter email broadcasts via Resend.
@@ -893,8 +893,8 @@ export function CRMBroadcastComposer({
           <div className="bg-surface-card p-6 rounded-2xl border border-border shadow-xs space-y-6">
             <div className="flex items-center gap-2">
               <Radio size={16} className="text-primary dark:text-primary-on-dark" />
-              <h2 className="text-xs font-black uppercase tracking-widest text-foreground">
-                1. Audience Segmentation
+              <h2 className="font-display text-xs font-semibold tracking-[-0.01em] text-foreground">
+                1. Audience segmentation
               </h2>
             </div>
 
@@ -1153,8 +1153,8 @@ export function CRMBroadcastComposer({
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <Mail size={16} className="text-primary dark:text-primary-on-dark" />
-                <h2 className="text-xs font-black uppercase tracking-widest text-foreground">
-                  2. Message Content
+                <h2 className="font-display text-xs font-semibold tracking-[-0.01em] text-foreground">
+                  2. Message content
                 </h2>
               </div>
               <div className="flex flex-wrap items-center gap-2">
@@ -1549,7 +1549,7 @@ export function CRMBroadcastComposer({
         <div className="space-y-3">
           <div className="flex items-center gap-2">
             <Save size={16} className="text-muted-foreground" />
-            <h2 className="text-xs font-black uppercase tracking-widest text-muted-foreground">
+            <h2 className="font-display text-xs font-semibold tracking-[-0.01em] text-muted-foreground">
               Unsent drafts ({drafts.length})
             </h2>
           </div>
@@ -1609,8 +1609,8 @@ export function CRMBroadcastComposer({
       <div className="space-y-4">
         <div className="flex items-center gap-2">
           <Clock size={16} className="text-muted-foreground" />
-          <h2 className="text-xs font-black uppercase tracking-widest text-muted-foreground">
-            Past Campaigns &amp; Dispatch History
+          <h2 className="font-display text-xs font-semibold tracking-[-0.01em] text-muted-foreground">
+            Past campaigns &amp; dispatch history
             {/*
    The total, not `initialBroadcasts.length`.
 
@@ -1929,10 +1929,10 @@ export function CRMBroadcastComposer({
 
       {/* Campaign Template Chooser Dialog */}
       <Dialog open={isTemplatesOpen} onOpenChange={setIsTemplatesOpen}>
-        <DialogContent className="max-w-2xl bg-surface-card p-6 rounded-2xl border border-border shadow-xl">
+        <DialogContent className="max-w-2xl bg-surface-card p-6 border border-border">
           <DialogHeader>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-border">
-              <DialogTitle className="flex items-center gap-2 text-base font-black uppercase text-foreground">
+              <DialogTitle className="flex items-center gap-2">
                 <Sparkles className="text-amber-500" size={18} />
                 Campaign Templates & Backend Drafts
               </DialogTitle>
@@ -1984,7 +1984,7 @@ export function CRMBroadcastComposer({
                         {tmpl.blocks.length} sections
                       </span>
                     </div>
-                    <h4 className="text-sm font-black text-foreground mb-1">{tmpl.name}</h4>
+                    <h4 className="mb-1 font-display text-sm font-semibold tracking-[-0.01em] text-foreground">{tmpl.name}</h4>
                     <p className="text-xs text-muted-foreground line-clamp-2 mb-3">
                       {tmpl.description}
                     </p>

@@ -2,9 +2,16 @@ import { Circle, Database, Info } from 'lucide-react';
 import type { FormEvent, RefObject } from 'react';
 import { IceMapCanvas } from './IceMapCanvas';
 import { IceMapToolbar } from './IceMapToolbar';
-import type { HeatStatus, LocationSearchState, MapView, UserLocation } from './types';
+import type {
+  HeatStatus,
+  HeatmapMeta,
+  LocationSearchState,
+  MapView,
+  UserLocation,
+} from './types';
 
 type IceMapPanelProps = {
+  meta: HeatmapMeta;
   mapView: MapView;
   heatStatus: HeatStatus;
   mapContainerRef: RefObject<HTMLDivElement | null>;
@@ -24,6 +31,7 @@ type IceMapPanelProps = {
 };
 
 export function IceMapPanel({
+  meta,
   mapView,
   heatStatus,
   mapContainerRef,
@@ -45,6 +53,7 @@ export function IceMapPanel({
     <div id="ice-map-panel" className="min-w-0 scroll-mt-28 lg:sticky lg:top-28 lg:self-start">
       <div className="overflow-hidden border border-border bg-surface-card">
         <IceMapToolbar
+          meta={meta}
           mapView={mapView}
           locationInput={locationInput}
           locationSearch={locationSearch}
@@ -58,7 +67,12 @@ export function IceMapPanel({
           onFocusOverview={onFocusOverview}
           onFocusUserArea={onFocusUserArea}
         />
-        <IceMapCanvas mapContainerRef={mapContainerRef} onZoom={onZoom} onReset={onReset} />
+        <IceMapCanvas
+          meta={meta}
+          mapContainerRef={mapContainerRef}
+          onZoom={onZoom}
+          onReset={onReset}
+        />
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border bg-surface-muted px-4 py-2.5 text-[9px] font-bold uppercase tracking-[0.09em] text-muted-foreground sm:px-5">
           <span className="inline-flex items-center gap-1.5">
             <Circle className="size-3.5" aria-hidden="true" />

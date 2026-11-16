@@ -24,7 +24,7 @@ export default function RouteError({
   }, [error]);
 
   return (
-    <div className="civic-page flex min-h-[70vh] items-center justify-center overflow-hidden bg-background px-4 pb-16 pt-(--header-h) text-foreground">
+    <div className="civic-page flex min-h-[70vh] items-center justify-center overflow-hidden bg-background px-4 pb-16 pt-(--header-clearance) text-foreground">
       <div className="relative z-10 w-full max-w-md border border-border bg-surface-card p-10 text-center">
         <div className="mx-auto mb-8 flex size-24 items-center justify-center rounded-full bg-primary/15">
           <DataPoint

@@ -118,7 +118,7 @@ export default async function AccountPage(props: {
       <UserSettings />
       <MfaSettings />
       <div className="pt-8 border-t border-border">
-        <h3 className="text-sm font-black text-foreground uppercase tracking-widest mb-1">
+        <h3 className="civic-meta text-foreground mb-1">
           <DataPoint name="account.session.title" initialData={dataPoints}>
             Session Control
           </DataPoint>
@@ -135,17 +135,17 @@ export default async function AccountPage(props: {
   );
 
   return (
-    <div className="relative overflow-hidden bg-background min-h-screen pt-(--header-h) pb-16 text-foreground transition-colors duration-300">
+    <div className="civic-page relative overflow-hidden bg-background min-h-screen pt-(--header-clearance) pb-16 text-foreground transition-colors duration-300">
       <VgpuCivicConstellation className="pointer-events-none opacity-20" />
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Admin Restricted Notice */}
         {sp.error === 'admin_required' && (
-          <div className="mb-8 p-5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 flex items-start gap-4 text-amber-950 dark:text-amber-200 animate-in fade-in">
+          <div className="mb-8 flex items-start gap-4 rounded-sm border border-amber-200 bg-amber-50 p-5 text-amber-950 animate-in fade-in dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-200">
             <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
             <div>
-              <h3 className="text-xs font-black uppercase tracking-wider text-amber-900 dark:text-amber-200 mb-1">
+              <h3 className="mb-1 font-display text-sm font-semibold tracking-[-0.01em] text-amber-900 dark:text-amber-200">
                 <DataPoint name="account.admin_required.title" initialData={dataPoints}>
-                  Administrator Privileges Required
+                  Administrator privileges required
                 </DataPoint>
               </h3>
               <DataPoint
@@ -177,23 +177,23 @@ export default async function AccountPage(props: {
 
         {/* Administrator Portal Bridge */}
         {isAdmin && (
-          <div className="mb-10 p-6 rounded-3xl bg-surface-card border border-border dark:bg-secondary dark:border-white/10 text-foreground dark:text-white shadow-card dark:shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6 animate-in fade-in">
+          <div className="civic-panel mb-10 flex flex-col items-start justify-between gap-6 p-6 animate-in fade-in md:flex-row md:items-center">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-primary/10 border border-primary/20 text-primary-ink dark:bg-primary/20 dark:border-primary/30 dark:text-primary-on-dark flex items-center justify-center shrink-0">
+              <div className="flex size-12 shrink-0 items-center justify-center rounded-sm border border-primary/20 bg-primary/10 text-primary-ink dark:border-primary/30 dark:bg-primary/20 dark:text-primary-on-dark">
                 <Shield className="w-6 h-6" />
               </div>
               <div>
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="text-[10px] font-black uppercase tracking-[0.25em] text-primary-ink dark:text-primary-on-dark-muted">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.25em] text-primary-ink dark:text-primary-on-dark-muted">
                     <DataPoint name="account.admin_bridge.badge" initialData={dataPoints}>
                       Chapter Leadership
                     </DataPoint>
                   </span>
                   <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse" />
                 </div>
-                <h2 className="text-lg font-black uppercase tracking-tight text-foreground dark:text-white">
+                <h2 className="font-display text-lg font-semibold tracking-[-0.02em] text-foreground">
                   <DataPoint name="account.admin_bridge.title" initialData={dataPoints}>
-                    Admin Control & Civic CRM
+                    Admin control & civic CRM
                   </DataPoint>
                 </h2>
                 <p className="text-xs text-muted-foreground dark:text-ink-muted-on-dark font-medium">
@@ -208,7 +208,7 @@ export default async function AccountPage(props: {
             <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
               <Link
                 href="/admin/crm"
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-primary hover:bg-primary-dark dark:bg-primary-bright dark:hover:bg-primary-light text-white font-bold text-xs uppercase tracking-wider shadow-md hover:shadow-primary/25 transition-all"
+                className="inline-flex items-center gap-2 rounded-sm bg-primary px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white transition-colors hover:bg-primary-dark dark:bg-primary-bright dark:hover:bg-primary-light"
               >
                 <Users className="w-4 h-4" />
                 <span>
@@ -220,7 +220,7 @@ export default async function AccountPage(props: {
               </Link>
               <Link
                 href="/admin"
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-surface-muted hover:bg-surface-muted/80 text-foreground dark:bg-white/10 dark:hover:bg-white/15 dark:text-ink-on-dark dark:hover:text-white font-bold text-xs uppercase tracking-wider border border-border dark:border-white/10 transition-all"
+                className="inline-flex items-center gap-2 rounded-sm border border-border bg-surface-muted px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-foreground transition-colors hover:bg-surface-muted/80 dark:border-white/10 dark:bg-white/10 dark:text-ink-on-dark dark:hover:bg-white/15 dark:hover:text-white"
               >
                 <span>
                   <DataPoint name="account.admin_bridge.control_btn" initialData={dataPoints}>
@@ -233,12 +233,15 @@ export default async function AccountPage(props: {
         )}
 
         <div className="flex flex-col mb-10">
-          <h1 className="text-4xl font-black tracking-tight text-foreground uppercase">
+          <p className="civic-kicker mb-4">
+            {isAdmin ? 'Chapter operations' : 'Member account'}
+          </p>
+          <h1 className="font-display text-4xl font-semibold tracking-[-0.03em] text-foreground">
             <DataPoint
               name={isAdmin ? 'account.title.dashboard' : 'account.title.my_account'}
               initialData={dataPoints}
             >
-              {isAdmin ? 'Dashboard' : 'My Account'}
+              {isAdmin ? 'Dashboard' : 'My account'}
             </DataPoint>
           </h1>
           <div className="h-1.5 w-24 bg-primary dark:bg-primary-bright mt-3" />

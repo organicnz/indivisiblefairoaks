@@ -24,7 +24,7 @@ import { FALLBACK_GALLERY_PHOTOS } from '@/config/gallery-fallback';
 import { GalleryImage } from '@/components/gallery/GalleryImage';
 import { LiteYouTube } from '@/components/ui/LiteYouTube';
 import { useDataPoints } from '@/hooks/useDataPoints';
-import { galleryAltText } from '@/lib/gallery-alt';
+import { galleryAltText, galleryCaption } from '@/lib/gallery-alt';
 import { type GalleryPhoto, getGalleryPhotos } from '@/lib/queries/content-client';
 
 export default function GalleryPage() {
@@ -153,11 +153,7 @@ export default function GalleryPage() {
         icon={Camera}
         visual={
           mastheadPhoto ? (
-            <figure className="relative w-52 xl:w-60">
-              <div
-                aria-hidden="true"
-                className="absolute -left-3 -top-3 h-full w-full border border-accent/70"
-              />
+            <figure className="w-52 xl:w-60">
               <div className="relative aspect-[4/5] overflow-hidden border border-foreground/25 bg-surface-muted">
                 <GalleryImage
                   src={mastheadPhoto.url}
@@ -169,7 +165,7 @@ export default function GalleryPage() {
                 <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-secondary/90 via-secondary/45 to-transparent p-3 pt-10">
                   <figcaption className="text-white">
                     <span className="line-clamp-2 block font-display text-sm font-semibold leading-snug">
-                      {mastheadPhoto.caption}
+                      {galleryCaption(mastheadPhoto)}
                     </span>
                     <span className="mt-1 block text-[9px] font-bold uppercase tracking-[0.14em] text-white/80">
                       {mastheadPhoto.category} / Archive
@@ -377,7 +373,7 @@ export default function GalleryPage() {
                       content; a heading inside it was invalid HTML. The
                       catalogue heading is the section h2 outside the grid. */}
                   <span className="line-clamp-2 block font-display text-xl font-semibold leading-snug text-white transition-colors group-hover:text-accent-gold">
-                    {photo.caption}
+                    {galleryCaption(photo)}
                   </span>
                   <div className="flex items-center justify-between text-xs text-ink-muted-on-dark">
                     <span className="flex max-w-[70%] items-center gap-1 truncate">
@@ -572,7 +568,7 @@ export default function GalleryPage() {
 
               <div className="relative flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden border border-white/10 bg-secondary shadow-float">
                 {/* Image Container */}
-                <div className="relative w-full h-[55vh] sm:h-[65vh] bg-black">
+                <div className="relative h-[min(55vh,70vw)] w-full bg-black sm:h-[65vh]">
                   <GalleryImage
                     src={selectedPhoto.url}
                     alt={galleryAltText(selectedPhoto)}
@@ -594,7 +590,7 @@ export default function GalleryPage() {
                     </div>
 
                     <Dialog.Title className="text-lg font-bold text-white sm:text-xl">
-                      {selectedPhoto.caption}
+                      {galleryCaption(selectedPhoto)}
                     </Dialog.Title>
 
                     {selectedPhoto.signQuote && (
@@ -602,12 +598,12 @@ export default function GalleryPage() {
                         Featured Sign: “{selectedPhoto.signQuote}”
                       </div>
                     )}
-                    <div className="flex items-center gap-3 text-xs text-ink-muted-on-dark pt-0.5">
+                    <div className="flex flex-col gap-1 pt-0.5 text-xs text-ink-muted-on-dark sm:flex-row sm:items-center sm:gap-3">
                       <span className="flex items-center gap-1">
                         <MapPin size={12} className="text-accent-gold" />
                         <span>{selectedPhoto.location}</span>
                       </span>
-                      <span>•</span>
+                      <span className="hidden sm:inline">•</span>
                       <span>Photo: {selectedPhoto.photographer}</span>
                     </div>
                   </div>

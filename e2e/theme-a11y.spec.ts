@@ -33,6 +33,9 @@ const PAGES: { path: string; name?: string }[] = [
 ];
 
 test('a11y: all public pages pass axe in the dark palette', async ({ page }) => {
+  // Eleven full-page axe scans are CPU-bound; the shared gate runs two
+  // workers, and the default 60s budget is not enough when the a11y scan
+  // shares the host. Slow mode triples it without weakening any assertion.
   test.slow();
   // Fold the OS preference into the palette the same way the bootstrap script
   // does, so this exercises the attribute path a dark-mode reader actually
@@ -45,8 +48,11 @@ test('a11y: all public pages pass axe in the dark palette', async ({ page }) => 
     await page.goto(path, { waitUntil: 'load' });
     // The attribute is set before paint by the inline bootstrap script; a page
     // that never took the palette is the failure this gate exists for, and axe
-    // would read it as a light page and pass.
+    // would read it as a light page and pass. `color-scheme` is the browser's
+    // native half of the same contract: asserting only the attribute would let
+    // a stylesheet that never adopts the dark palette pass.
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    await expect(page.locator('html')).toHaveCSS('color-scheme', 'dark');
     await page.waitForTimeout(400);
 
     const results = await new AxeBuilder({ page })

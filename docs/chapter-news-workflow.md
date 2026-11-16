@@ -41,9 +41,10 @@ There is no separate submission queue. A chapter editor can publish directly whe
 
 - Use a post for the full story.
 - Use a bulletin when the update is short enough to read as an email blast.
+- Anyone can send a chapter news item from the **Submit chapter news** link on `/news`. It opens an email to the chapter inbox with the subject “Chapter news submission”; an editor reviews it and publishes it through the workflow above.
 - Send the text and any image to another chapter editor if the author does not have admin access.
 
-Do not create a new account or share an admin login to route around access. Ask an existing admin to verify the person's `profiles.is_admin` flag.
+Do not create a new account or share an admin login to route around access. Ask an existing admin to verify the person's `profiles.is_admin` flag. The **Submit chapter news** email is a submission route, not an account or a public publishing form.
 
 ## Access checklist for an existing admin
 
@@ -70,6 +71,29 @@ Do not create a new account or share an admin login to route around access. Ask 
 - **Publish is not visible:** confirm the status is Published, then check `/news` for a post or `/newsletters` for a bulletin. A draft has no public URL.
 - **The admin controls are missing:** the account is signed in but is not an admin, or the admin page redirected. Verify the profile flag rather than creating a second account.
 
+## Update the next chapter meeting
+
+The homepage's “Next Community Gathering” card and the public Events page are date-aware. An organizer can put future dates in now and the program will move to the next one without a code change:
+
+1. Open **Admin → Events** (`/admin/events`).
+2. Select **Add Event**.
+3. Choose **Meetings** and enter the title, date label, time label, location, and RSVP link. Mark the monthly chapter meeting as highlighted.
+4. Save, then open `/events` and the homepage. The next future highlighted meeting is announced automatically; past one-off events are omitted from the public list.
+5. To correct or remove an event, use **Edit** or **Delete** on the event card. Recurring rows whose date label begins with “Ongoing” or “Every” stay visible after their first occurrence.
+
+The December 1, 2026 meeting is the built-in fallback until a future meeting row is available. It uses the chapter's established monthly time and venue; change the row from `/admin/events` if the meeting details differ.
+
+## Editing other pages
+
+Permanent pages and full articles use the same block editor:
+
+1. Open **Admin → Pages & Posts** (`/admin/content`).
+2. Search for the page or post, then select **Edit**.
+3. Use **Preview** before publishing. The editor autosaves and keeps revisions.
+4. To create a page, use **Add News** for a news post or `/admin/content/new?type=page` for a permanent page.
+
+Do not use the Pages & Posts editor to change coded pages such as `/voter-info`, `/events`, or `/newsletters`; those are maintained in their dedicated admin screens or a deployment. The **How to publish** link on `/news` opens this guide for admins.
+
 ## Out of scope
 
-A public, non-admin submission form is not implemented. Chapter leadership has not approved one, and the current site deliberately keeps publishing behind admin authentication. If leadership wants public submissions, that needs a separate decision about moderation, spam, notifications, and where the submitted content is stored.
+A public, non-admin submission **form** is not implemented. Chapter leadership has not approved one, and the current site deliberately keeps publishing behind admin authentication. The **Submit chapter news** link is intentionally an email route to the existing chapter inbox, with no stored submission record. If leadership wants a form, that needs a separate decision about moderation, spam, notifications, and where the submitted content is stored.

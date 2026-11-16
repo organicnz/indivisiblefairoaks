@@ -812,9 +812,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({
       <Dialog open={isTaskFormOpen} onOpenChange={() => setIsTaskFormOpen(false)}>
         <DialogContent className="max-w-md bg-surface-card text-foreground p-6 rounded-3xl">
           <DialogHeader>
-            <DialogTitle className="text-lg font-black uppercase tracking-tight">
-              Add Follow-up
-            </DialogTitle>
+            <DialogTitle>Add Follow-up</DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
               Create a follow-up task for {selectedContact.first_name} {selectedContact.last_name}
             </DialogDescription>

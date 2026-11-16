@@ -22,7 +22,7 @@ function isApproximateGeoResponse(value: unknown): value is ApproximateGeoRespon
 }
 
 type UseUserLocationOptions = {
-  shouldFocusUser: RefObject<boolean>;
+  shouldFocusUser?: RefObject<boolean>;
 };
 
 /**
@@ -58,7 +58,7 @@ export function useUserLocation({ shouldFocusUser }: UseUserLocationOptions) {
     precisePendingRef.current = true;
     setUserLocationStatus('locating');
     setLocationNotice(null);
-    shouldFocusUser.current = true;
+    if (shouldFocusUser) shouldFocusUser.current = true;
 
     try {
       navigator.geolocation.getCurrentPosition(

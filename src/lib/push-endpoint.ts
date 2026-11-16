@@ -15,8 +15,8 @@ const PUSH_PROVIDER_HOSTS = new Set([
   'web.push.apple.com',
 ]);
 
-/** Providers that issue per-region or per-device subdomains. */
-const PUSH_PROVIDER_SUFFIXES = ['notify.windows.com', 'push.services.mozilla.com'];
+/** WNS issues per-region endpoints under a shared zone. */
+const PUSH_PROVIDER_SUFFIXES = ['notify.windows.com'];
 
 const IPV4_BLOCKS: ReadonlyArray<readonly [string, number]> = [
   ['0.0.0.0', 8],
@@ -146,6 +146,11 @@ function isPrivateIpv6(value: string): boolean {
   if (address >> 32n === 0n) return true;
   if (address >> 32n === 0xffffn) return true;
 
+  // IPv4-translated addresses (RFC 2765) use ::ffff:0:0:0/96, a different
+  // prefix from IPv4-mapped. Block the whole range, including translations of
+  // public IPv4 addresses, because the wrapper is non-public.
+  if (address >> 32n === 0xffff0000n) return true;
+
   const top8 = Number(address >> 120n);
   if (top8 === 0xfc || top8 === 0xfd) return true; // unique local fc00::/7
 
@@ -158,7 +163,8 @@ function isPrivateIpv6(value: string): boolean {
   if (address >> 96n === 0x20010000n) return true; // Teredo 2001::/32
   if (address >> 96n === 0x20010db8n) return true; // documentation 2001:db8::/32
   if (address >> 64n === 0x0100000000000000n) return true; // discard-only 100::/64
-  if (address >> 32n === 0x64ff9b0000000000000000n) return true; // NAT64
+  if (address >> 32n === 0x64ff9b0000000000000000n) return true; // NAT64 well-known
+  if (address >> 80n === 0x64ff9b0001n) return true; // NAT64 local-use 64:ff9b:1::/48
 
   return false;
 }
@@ -178,23 +184,6 @@ export function isKnownPushProviderHost(hostname: string): boolean {
   return PUSH_PROVIDER_SUFFIXES.some(
     (suffix) => host === suffix || host.endsWith(`.${suffix}`)
   );
-}
-
-function isInternalHostname(hostname: string): boolean {
-  const host = hostname.toLowerCase().replace(/\.$/, '');
-  if (host === 'localhost') return true;
-
-  return [
-    '.localhost',
-    '.local',
-    '.internal',
-    '.home.arpa',
-    '.lan',
-    '.test',
-    '.invalid',
-    '.example',
-    '.onion',
-  ].some((suffix) => host.endsWith(suffix));
 }
 
 async function resolvePushHost(hostname: string): Promise<PushEndpointAddress[]> {
@@ -255,9 +244,6 @@ export async function validatePushEndpoint(
     fail('provider-not-allowed', 'The push endpoint is not a known push provider.');
   }
 
-  if (isInternalHostname(hostname)) {
-    fail('private-destination', 'The push endpoint points to an internal host.');
-  }
   if (!isKnownPushProviderHost(hostname)) {
     fail('provider-not-allowed', 'The push endpoint is not a known push provider.');
   }

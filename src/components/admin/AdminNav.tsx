@@ -48,7 +48,7 @@ export function AdminNav() {
               key={href}
               href={href}
               aria-current={active ? 'page' : undefined}
-              className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest transition-colors shrink-0 touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
+              className={`inline-flex shrink-0 touch-manipulation items-center gap-2 rounded-sm px-4 py-2 text-[11px] font-black uppercase tracking-widest transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
                 active
                   ? 'bg-primary text-white'
                   : 'bg-surface-muted text-muted-foreground hover:bg-surface-muted hover:text-foreground'

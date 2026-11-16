@@ -6,10 +6,8 @@ import path from 'node:path';
  *
  * ## The failure this exists to prevent
  *
- * `playwright.config.ts` sets `reuseExistingServer: !Bun.env.CI`, so a
- * local run reuses whatever is already listening on the port instead of
- * starting its own. That is a reasonable convenience — and it is also a way
- * for the suite to test **the wrong application** without saying so.
+ * Playwright used to reuse whatever was already listening on the e2e port,
+ * so a local run could test **the wrong application** without saying so.
  *
  * It happened on this repository. Another Next.js app on the same machine was
  * listening on the e2e port; Playwright reused it; the suite drove it; and
@@ -20,6 +18,10 @@ import path from 'node:path';
  * looked like a product regression.
  *
  * The page snapshot gave it away — the foreign app's name, in the header.
+ *
+ * The config no longer reuses a server at all. It starts one on a free port
+ * and this check is the second guard: a server that came up on that port but
+ * is not serving the build in `.next` still fails before any spec runs.
  *
  * ## What this checks
  *
@@ -36,18 +38,13 @@ import path from 'node:path';
  * earlier build of this repository would pass the suite against code that is
  * no longer the code.
  *
- * ## Why it fails rather than starting its own server
+ * ## Why it fails rather than skipping
  *
- * It cannot start its own server: the port is occupied, which is the whole
- * reason the foreign server was reached in the first place. So the honest
- * outcome is a failure that **names the cause**, which is the difference
- * between a diagnosis and a symptom.
- *
- * The fix is one of:
- *
- *   - stop whatever is listening on the port, or
- *   - run with `CI=1`, which sets `reuseExistingServer: false` and makes
- *     Playwright refuse to reuse — and report the collision by name.
+ * If the server on the selected port is not this build, the suite would be
+ * measuring something else. The honest outcome is a failure that **names the
+ * cause**, which is the difference between a diagnosis and a symptom. The
+ * config starts a fresh server on a port it verified is free; a remaining
+ * mismatch is a stale or foreign process that won the race for the port.
  *
  * ## What it does not do
  *
@@ -163,7 +160,7 @@ export default async function globalSetup(config: {
       '   • A stale server from an earlier build of this repository is listening.\n' +
       '     The suite would pass against code that is no longer the code.\n' +
       '\n' +
-      '   Fix: stop whatever is listening on the port, or run with CI=1, which\n' +
-      '   refuses to reuse and reports the collision by name.\n'
+      '   Fix: stop whatever is listening on the port and rerun. The config\n' +
+      '   starts its own server on a free port; it never adopts this one.\n'
   );
 }

@@ -22,14 +22,14 @@ export function EmailActions({ email }: { email: string | null }) {
     <div className="flex items-center gap-2 mt-3 flex-wrap">
       <a
         href={`mailto:${email}`}
-        className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest rounded-full bg-surface-muted text-muted-foreground hover:bg-primary hover:text-white px-3 py-1.5 transition-colors"
+        className="inline-flex items-center gap-1.5 rounded-sm bg-surface-muted px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-muted-foreground transition-colors hover:bg-primary hover:text-white"
       >
         <Mail size={11} /> Email customer
       </a>
       <button
         type="button"
         onClick={copy}
-        className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest rounded-full bg-surface-muted text-muted-foreground hover:bg-surface-muted px-3 py-1.5 transition-colors"
+        className="inline-flex items-center gap-1.5 rounded-sm bg-surface-muted px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-muted-foreground transition-colors hover:bg-surface-muted"
       >
         {copied ? <Check size={11} className="text-emerald-600" /> : <Copy size={11} />}
         {copied ? 'Copied' : 'Copy email'}

@@ -117,7 +117,7 @@ export function ContentList({
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-heading text-2xl font-black uppercase tracking-tight text-foreground">
+        <h1 className="font-display text-2xl font-semibold tracking-[-0.03em] text-foreground">
           {dataPoints['admin.content.title'] || 'Pages & posts'}
         </h1>
         <div className="flex flex-wrap items-center gap-2">

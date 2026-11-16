@@ -2,7 +2,7 @@
 
 import { ImageOff } from 'lucide-react';
 import Image from 'next/image';
-import { useState } from 'react';
+import { type ReactNode, useState } from 'react';
 
 type GalleryImageProps = {
   src: string;
@@ -11,6 +11,8 @@ type GalleryImageProps = {
   sizes?: string;
   priority?: boolean;
   fallbackLabel?: string;
+  /** Optional civic replacement for the generic error plate. */
+  fallback?: ReactNode;
 };
 
 /**
@@ -32,6 +34,7 @@ function GalleryImageState({
   sizes,
   priority = false,
   fallbackLabel = 'Photo unavailable',
+  fallback,
 }: GalleryImageProps) {
   const [failed, setFailed] = useState(!src);
 
@@ -41,10 +44,18 @@ function GalleryImageState({
         role="img"
         aria-label={alt ? `${alt} — ${fallbackLabel}` : fallbackLabel}
         data-testid="gallery-image-fallback"
-        className="absolute inset-0 z-[1] flex flex-col items-center justify-center gap-2 bg-surface-muted px-4 text-center text-muted-foreground dark:bg-secondary dark:text-ink-muted-on-dark"
+        className={
+          fallback
+            ? 'absolute inset-0 z-[1]'
+            : 'absolute inset-0 z-[1] flex flex-col items-center justify-center gap-2 bg-surface-muted px-4 text-center text-muted-foreground dark:bg-secondary dark:text-ink-muted-on-dark'
+        }
       >
-        <ImageOff size={22} aria-hidden="true" className="shrink-0" />
-        <span className="text-[10px] font-bold uppercase tracking-[0.18em]">{fallbackLabel}</span>
+        {fallback ?? (
+          <>
+            <ImageOff size={22} aria-hidden="true" className="shrink-0" />
+            <span className="text-[10px] font-bold uppercase tracking-[0.18em]">{fallbackLabel}</span>
+          </>
+        )}
       </div>
     );
   }

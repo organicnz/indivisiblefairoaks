@@ -6,6 +6,10 @@ export const NATIONWIDE_BOUNDS: [[number, number], [number, number]] = [
   [24.4, -125],
   [49.4, -66.9],
 ];
+export const NATIONWIDE_CENTER: [number, number] = [39.5, -98.35];
+export const NATIONWIDE_ZOOM = 4;
+export const CITY_FOCUS_ZOOM = 9;
+export const MAX_ZOOM = 19;
 export const MIN_ZOOM = 3;
 export const TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 export const TILE_ATTRIBUTION =

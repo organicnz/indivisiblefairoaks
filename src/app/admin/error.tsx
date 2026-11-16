@@ -23,8 +23,8 @@ export default function AdminError({
       <div className="w-16 h-16 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto mb-6 border border-amber-500/20">
         <AlertCircle size={32} />
       </div>
-      <h2 className="text-2xl font-black text-foreground uppercase tracking-tight mb-2">
-        Admin Portal Notice
+      <h2 className="mb-2 font-display text-2xl font-semibold tracking-[-0.02em] text-foreground">
+        Admin portal notice
       </h2>
       <p className="text-sm font-medium text-muted-foreground mb-4 max-w-md mx-auto">
         An error occurred while loading this administrative view. Your session remains secure.

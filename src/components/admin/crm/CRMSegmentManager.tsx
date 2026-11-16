@@ -181,7 +181,7 @@ export function CRMSegmentManager({
       <div className="space-y-3">
         <div className="flex items-center gap-2">
           <Layers size={16} className="text-primary dark:text-primary-on-dark" aria-hidden="true" />
-          <h2 className="text-lg font-black uppercase tracking-tight text-foreground">
+          <h2 className="font-display text-lg font-semibold tracking-[-0.02em] text-foreground">
             Saved segments
           </h2>
           <span className="text-xs text-muted-foreground">{segments.length} total</span>
@@ -262,7 +262,7 @@ export function CRMSegmentManager({
           void save();
         }}
       >
-        <h3 className="text-sm font-black uppercase tracking-wider text-foreground">
+        <h3 className="font-display text-sm font-semibold tracking-[-0.01em] text-foreground">
           {editingId ? 'Edit segment' : 'New segment'}
         </h3>
 
@@ -344,7 +344,7 @@ export function CRMSegmentManager({
           <button
             type="submit"
             disabled={saving || !form.name.trim()}
-            className="rounded-full bg-secondary px-4 py-2 text-xs font-black uppercase tracking-wider text-white transition-colors hover:bg-primary disabled:opacity-50"
+            className="rounded-sm bg-secondary px-4 py-2 text-xs font-black uppercase tracking-wider text-white transition-colors hover:bg-primary disabled:opacity-50"
           >
             {editingId ? 'Save changes' : 'Create segment'}
           </button>

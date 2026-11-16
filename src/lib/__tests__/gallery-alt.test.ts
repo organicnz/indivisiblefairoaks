@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
-import { galleryAltText } from '@/lib/gallery-alt';
+import { galleryAltText, galleryCaption } from '@/lib/gallery-alt';
 
 describe('galleryAltText', () => {
   it('prefers the authored alt text over the visible caption', () => {
@@ -23,5 +23,15 @@ describe('galleryAltText', () => {
 
   it('never leaves a content image without an accessible name', () => {
     expect(galleryAltText({ alt: undefined, caption: '  ' })).toBe('Community photo');
+  });
+});
+
+describe('galleryCaption', () => {
+  it('prefers the visible caption and never returns an empty dialog title', () => {
+    expect(galleryCaption({ alt: 'Authored alt', caption: 'Visible caption' })).toBe(
+      'Visible caption'
+    );
+    expect(galleryCaption({ alt: 'Authored alt', caption: '   ' })).toBe('Authored alt');
+    expect(galleryCaption({ alt: '', caption: '' })).toBe('Community photo');
   });
 });

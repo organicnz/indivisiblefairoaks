@@ -9,7 +9,7 @@ export default function NotFound() {
   const { dataPoints } = useDataPoints('notfound');
 
   return (
-    <div className="civic-page relative flex min-h-[70vh] flex-col items-center justify-center overflow-hidden bg-background px-4 pb-24 pt-(--header-h) text-center text-foreground">
+    <div className="civic-page relative flex min-h-[70vh] flex-col items-center justify-center overflow-hidden bg-background px-4 pb-24 pt-(--header-clearance) text-center text-foreground">
       <div className="relative z-10 max-w-xl">
         <DataPoint
           as="p"

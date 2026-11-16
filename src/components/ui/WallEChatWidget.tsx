@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { useDataPoints } from '@/hooks/useDataPoints';
+import { fetchWithTimeout } from '@/lib/service-fetch';
 import { formatWallEMessage } from '@/lib/walle-format';
 
 type Citation = { title: string; url: string };
@@ -20,7 +21,7 @@ const STATUS_LABELS: Record<Availability, string> = {
 };
 
 const STATUS_TONES: Record<Availability, string> = {
-  idle: 'bg-white/10 text-white/80',
+  idle: 'bg-white/15 text-white',
   checking: 'bg-amber-300/20 text-amber-200',
   online: 'bg-emerald-400/20 text-emerald-300',
   offline: 'bg-rose-400/20 text-rose-200',
@@ -63,13 +64,17 @@ function WallEAvatar({ small = false, inButton = false }: { small?: boolean; inB
     <span
       aria-hidden="true"
       data-testid="walle-avatar"
-      className={`inline-flex shrink-0 items-center justify-center rounded-2xl ${
+      className={`inline-flex shrink-0 items-center justify-center ${
         inButton
-          ? 'size-11 bg-transparent p-0'
-          : `bg-primary dark:bg-primary-bright p-1 shadow-lg ring-2 ring-white/80 dark:ring-white/20 ${small ? 'size-9' : 'size-12'}`
+          ? 'size-11 rounded-full bg-transparent p-0'
+          : `rounded-sm bg-primary p-1 ring-2 ring-white/80 dark:bg-primary-bright dark:ring-white/20 ${small ? 'size-9' : 'size-12'}`
       }`}
     >
-      <span className="relative block aspect-[271/237] size-full overflow-hidden rounded-xl bg-white p-0.5 shadow-xs">
+      <span
+        className={`relative block aspect-[271/237] size-full overflow-hidden bg-white p-0.5 ${
+          inButton ? 'rounded-full' : 'rounded-sm'
+        }`}
+      >
         <Image
           src="/walle-avatar.png"
           alt=""
@@ -154,17 +159,21 @@ export function WallEChatWidget() {
     let responseStatus = 0;
     let serverError = '';
     try {
-      const response = await fetch('/api/wall-e-chat', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          message: question,
-          // Exclude the message being sent: the edge function appends it as the
-          // current turn, and sending it in history duplicated it in the prompt.
-          history: next.slice(0, -1).slice(-8).map(({ role, content }) => ({ role, content })),
-        }),
-        signal: controller.signal,
-      });
+      const response = await fetchWithTimeout(
+        '/api/wall-e-chat',
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            message: question,
+            // Exclude the message being sent: the edge function appends it as the
+            // current turn, and sending it in history duplicated it in the prompt.
+            history: next.slice(0, -1).slice(-8).map(({ role, content }) => ({ role, content })),
+          }),
+          signal: controller.signal,
+        },
+        30_000
+      );
       responseStatus = response.status;
       const data = (await response.json()) as {
         answer?: string;
@@ -261,22 +270,21 @@ export function WallEChatWidget() {
               e.preventDefault();
               inputRef.current?.focus();
             }}
-            className="fixed z-[70] floating-safe-position-panel flex h-[min(36rem,calc(100dvh-12rem-var(--safe-area-top)-var(--safe-area-bottom)))] w-[min(25rem,calc(100vw-2rem-var(--safe-area-left)-var(--safe-area-right)))] flex-col overflow-hidden rounded-2xl border border-primary/20 dark:border-white/10 bg-surface-card shadow-float data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom-4 data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:slide-out-to-bottom-4 data-[state=closed]:fade-out-0 data-[state=open]:duration-300 data-[state=closed]:duration-200"
+            className="fixed z-[70] floating-safe-position-panel flex h-[min(36rem,calc(100dvh-12rem-var(--safe-area-top)-var(--safe-area-bottom)))] w-[min(25rem,calc(100vw-2rem-var(--safe-area-left)-var(--safe-area-right)))] flex-col overflow-hidden rounded-sm border border-primary/20 bg-surface-card shadow-float data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom-4 data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:slide-out-to-bottom-4 data-[state=closed]:fade-out-0 data-[state=open]:duration-300 data-[state=closed]:duration-200 dark:border-white/10"
           >
             <Dialog.Title className="sr-only">WALL-E site assistant</Dialog.Title>
             <header className="relative overflow-hidden bg-secondary px-5 py-4 text-white">
-              <div className="absolute -right-8 -top-10 size-28 rounded-full bg-primary/20 blur-2xl" />
               <div className="relative flex items-center gap-3">
                 <WallEAvatar />
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <p className="font-outfit text-lg font-black tracking-tight">WALL-E</p>
+                    <p className="font-display text-xl font-semibold tracking-[-0.02em]">WALL-E</p>
                     {/* Deliberately not a DataPoint: a stored "Online" label
                         would re-create the false status this replaced. */}
                     <span
                       role="status"
                       aria-live="polite"
-                      className={`rounded-full px-2 py-0.5 text-xs font-bold uppercase tracking-wider ${STATUS_TONES[availability]}`}
+                      className={`px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] ${STATUS_TONES[availability]}`}
                     >
                       {STATUS_LABELS[availability]}
                     </span>
@@ -297,13 +305,13 @@ export function WallEChatWidget() {
                       onClick={resetChat}
                       title={dataPoints['walle.action.clear'] || 'Reset conversation'}
                       aria-label={dataPoints['walle.action.clear'] || 'Reset conversation'}
-                      className="inline-flex size-9 items-center justify-center rounded-full text-white/70 transition-colors duration-300 ease-out hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold cursor-pointer"
+                      className="inline-flex size-9 cursor-pointer items-center justify-center rounded-sm text-white/70 transition-colors duration-300 ease-out hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold"
                     >
                       <RotateCcw size={16} aria-hidden="true" />
                     </button>
                   )}
                   <Dialog.Close
-                    className="inline-flex size-9 items-center justify-center rounded-full text-white/70 transition-colors duration-300 ease-out hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold cursor-pointer"
+                    className="inline-flex size-9 cursor-pointer items-center justify-center rounded-sm text-white/70 transition-colors duration-300 ease-out hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold"
                     aria-label="Close WALL-E"
                   >
                     <X size={18} strokeWidth={2.5} aria-hidden="true" />
@@ -314,7 +322,7 @@ export function WallEChatWidget() {
                 as="div"
                 name="walle.prompt_tip"
                 initialData={dataPoints}
-                className="relative mt-4 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-ink-on-dark"
+                className="relative mt-4 rounded-sm border border-white/10 bg-white/5 px-3 py-2 text-xs text-ink-on-dark"
               >
                 Ask about events, voter resources, partners, or getting involved.
               </DataPoint>
@@ -324,7 +332,7 @@ export function WallEChatWidget() {
               aria-live="polite"
               aria-relevant="additions"
               aria-label="Chat messages"
-              className="flex-1 space-y-4 overflow-y-auto bg-gradient-to-b from-surface-muted to-surface-card dark:from-secondary dark:to-slate-950 p-4"
+              className="flex-1 space-y-4 overflow-y-auto bg-surface-muted p-4 dark:bg-secondary"
             >
               {messages.map((message) => (
                 <div
@@ -333,10 +341,10 @@ export function WallEChatWidget() {
                 >
                   {message.role === 'assistant' && <WallEAvatar small />}
                   <div
-                    className={`max-w-[84%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
+                    className={`max-w-[84%] rounded-sm px-3.5 py-2.5 text-sm leading-relaxed ${
                       message.role === 'user'
-                        ? 'rounded-br-md bg-primary dark:bg-primary-bright text-white shadow-raised shadow-primary/20'
-                        : 'rounded-bl-md border border-border dark:border-white/10 bg-surface-card/90 text-foreground dark:text-ink-on-dark shadow-sm'
+                        ? 'bg-primary text-white dark:bg-primary-bright'
+                        : 'border border-border bg-surface-card text-foreground dark:border-white/10 dark:text-ink-on-dark'
                     }`}
                   >
                     {message.role === 'assistant' ? (
@@ -358,7 +366,7 @@ export function WallEChatWidget() {
                           <a
                             key={citation.url}
                             href={citation.url}
-                            className="block rounded-lg bg-surface-muted dark:bg-white/5 border border-border dark:border-white/10 px-2.5 py-1.5 font-semibold text-primary-ink dark:text-primary-on-dark transition-colors duration-200 hover:bg-primary/10 dark:hover:bg-primary/20"
+                            className="block rounded-sm border border-border bg-surface-muted px-2.5 py-1.5 font-semibold text-primary-ink transition-colors duration-200 hover:bg-primary/10 dark:border-white/10 dark:bg-white/5 dark:text-primary-on-dark dark:hover:bg-primary/20"
                           >
                             <span className="mr-1">↗</span>
                             {citation.title}
@@ -411,7 +419,7 @@ export function WallEChatWidget() {
                         key={item.key}
                         type="button"
                         onClick={() => sendQuery(item.prompt)}
-                        className="inline-flex items-center gap-1.5 rounded-full border border-border dark:border-white/10 bg-surface-card/90 px-3 py-1.5 text-xs font-semibold text-primary-ink dark:text-primary-on-dark shadow-xs hover:border-primary/40 dark:hover:border-primary-bright/40 hover:bg-primary/5 dark:hover:bg-primary/15 transition-all duration-200 active:scale-95 cursor-pointer"
+                        className="inline-flex cursor-pointer items-center gap-1.5 rounded-sm border border-border bg-surface-card px-3 py-1.5 text-xs font-semibold text-primary-ink transition-colors duration-200 hover:border-primary/40 hover:bg-primary/5 dark:border-white/10 dark:text-primary-on-dark dark:hover:border-primary-bright/40 dark:hover:bg-primary/15"
                       >
                         <DataPoint as="span" name={item.key} initialData={dataPoints}>
                           {item.defaultLabel}
@@ -424,7 +432,7 @@ export function WallEChatWidget() {
               {loading && (
                 <div className="flex items-center gap-2 text-xs text-muted-foreground dark:text-ink-muted-on-dark">
                   <WallEAvatar small />
-                  <span className="rounded-full bg-surface-card border border-border px-3 py-2 shadow-sm text-foreground dark:text-ink-on-dark">
+                  <span className="rounded-sm border border-border bg-surface-card px-3 py-2 text-foreground dark:text-ink-on-dark">
                     <DataPoint as="span" name="walle.checking" initialData={dataPoints}>
                       WALL-E is checking the site…
                     </DataPoint>
@@ -444,12 +452,12 @@ export function WallEChatWidget() {
                 maxLength={600}
                 placeholder={dataPoints['walle.input_placeholder'] || 'Ask WALL-E…'}
                 aria-label="Message WALL-E"
-                className="min-w-0 flex-1 rounded-full border border-border dark:border-white/10 bg-surface-muted text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-ink-muted-on-dark px-4 py-2.5 text-sm outline-none transition-colors duration-300 ease-out focus:border-primary dark:focus:border-primary-bright focus:bg-surface-card dark:focus:bg-secondary/90 focus:ring-2 focus:ring-primary/15"
+                className="min-w-0 flex-1 rounded-sm border border-border bg-surface-muted px-4 py-2.5 text-sm text-foreground outline-none transition-colors duration-300 ease-out placeholder:text-muted-foreground focus:border-primary focus:bg-surface-card focus:ring-2 focus:ring-primary/15 dark:border-white/10 dark:bg-secondary/90 dark:text-white dark:placeholder:text-ink-muted-on-dark dark:focus:border-primary-bright"
               />
               <button
                 type="submit"
                 disabled={loading || !input.trim()}
-                className="rounded-full bg-primary dark:bg-primary-bright px-4 py-2.5 text-sm font-bold text-white shadow-raised transition-all duration-300 ease-out hover:bg-primary-dark dark:hover:bg-primary hover:shadow-float active:scale-95 disabled:opacity-40 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                className="rounded-sm bg-primary px-4 py-2.5 text-sm font-bold text-white transition-colors duration-300 ease-out hover:bg-primary-dark disabled:pointer-events-none disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 dark:bg-primary-bright dark:hover:bg-primary"
               >
                 <DataPoint as="span" name="walle.btn.send" initialData={dataPoints}>
                   Send
@@ -473,13 +481,8 @@ export function WallEChatWidget() {
                 setOpen(false);
               }
             }}
-            className="group relative ml-auto flex size-14 items-center justify-center rounded-full bg-gradient-to-tr from-primary to-primary-bright dark:from-blue-950 dark:via-blue-900 dark:to-primary-bright shadow-float shadow-primary/35 ring-2 ring-white/90 dark:ring-white/30 transition-all duration-300 ease-out hover:scale-105 hover:shadow-2xl active:scale-95 cursor-pointer motion-reduce:hover:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold focus-visible:ring-offset-2"
+            className="group relative ml-auto flex size-14 cursor-pointer items-center justify-center rounded-full border border-primary bg-primary text-white shadow-float transition-colors duration-300 ease-out hover:bg-primary-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold focus-visible:ring-offset-2 dark:border-primary-bright dark:bg-primary-bright dark:hover:bg-primary"
           >
-            {/* Ambient hover glow */}
-            <span
-              aria-hidden="true"
-              className="absolute -inset-1 rounded-full bg-primary-bright/25 blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
-            />
             {open ? (
               <span
                 className="relative flex items-center justify-center text-white transition-transform duration-300 group-hover:rotate-90 animate-in fade-in zoom-in-75 duration-200"
@@ -504,7 +507,7 @@ export function WallEChatWidget() {
               </span>
             )}
             {/* Tooltip */}
-            <span className="pointer-events-none absolute right-full mr-3 whitespace-nowrap rounded-full bg-secondary/95 dark:bg-white/5/95 backdrop-blur-md border border-white/10 px-3 py-1.5 text-xs font-bold text-white dark:text-slate-100 opacity-0 shadow-lg transition-opacity duration-300 ease-out hover-capable:group-hover:opacity-100 group-focus-visible:opacity-100">
+            <span className="pointer-events-none absolute right-full mr-3 whitespace-nowrap rounded-sm border border-white/10 bg-secondary px-3 py-1.5 text-xs font-bold text-white opacity-0 transition-opacity duration-300 ease-out hover-capable:group-hover:opacity-100 group-focus-visible:opacity-100 dark:bg-white/5 dark:text-slate-100">
               {open ? (
                 <DataPoint as="span" name="walle.tooltip.close" initialData={dataPoints}>
                   Close

@@ -12,9 +12,9 @@ import { APP_URL } from './helpers/ports';
  * streams behind Suspense by design and must never be asserted here.
  */
 
-// The horizontal nav row only renders from 2xl; below that the drawer serves it.
-// These assertions are about the *shell* painting instantly, so the viewport has
-// to be one where the nav is part of the shell at all.
+// The horizontal nav row renders from md; below that the drawer serves it.
+// These assertions are about the *shell* painting instantly, so the viewport
+// has to be one where the nav is part of the shell at all.
 const DESKTOP_VIEWPORT = { width: 1600, height: 900 };
 
 const shellAssertions = async (page: import('@playwright/test').Page) => {

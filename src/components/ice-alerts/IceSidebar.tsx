@@ -2,25 +2,32 @@ import { Database, ExternalLink, MapPin, X } from 'lucide-react';
 import { IceCaseBrief } from './IceCaseBrief';
 import { TOP_CITY_LIMIT } from './constants';
 import {
-  DATA,
   cityKey,
   cityRank,
   citySharePercent,
   formatDateLabel,
   formatNumber,
 } from './data';
-import type { CityPoint } from './types';
+import type { CityPoint, HeatmapSnapshot } from './types';
 
 type IceSidebarProps = {
+  snapshot: HeatmapSnapshot;
   selectedCity: CityPoint | null;
   onSelectCity: (city: CityPoint) => void;
   onClearSelectedCity: () => void;
 };
 
-export function IceSidebar({ selectedCity, onSelectCity, onClearSelectedCity }: IceSidebarProps) {
-  const topCities = DATA.cities.slice(0, TOP_CITY_LIMIT);
-  const selectedRank = selectedCity ? cityRank(selectedCity) : null;
-  const selectedShare = selectedCity ? citySharePercent(selectedCity) : null;
+export function IceSidebar({
+  snapshot,
+  selectedCity,
+  onSelectCity,
+  onClearSelectedCity,
+}: IceSidebarProps) {
+  const topCities = snapshot.cities.slice(0, TOP_CITY_LIMIT);
+  const selectedRank = selectedCity ? cityRank(selectedCity, snapshot.cities) : null;
+  const selectedShare = selectedCity
+    ? citySharePercent(selectedCity, snapshot.meta.mappedRecords)
+    : null;
 
   return (
     <div className="min-w-0 space-y-5">
@@ -46,7 +53,7 @@ export function IceSidebar({ selectedCity, onSelectCity, onClearSelectedCity }: 
               Mapped records
             </p>
             <p className="mt-1 font-display text-2xl font-semibold tracking-[-0.03em] text-foreground">
-              {formatNumber(DATA.meta.mappedRecords)}
+              {formatNumber(snapshot.meta.mappedRecords)}
             </p>
           </div>
           <div className="bg-surface-muted p-3">
@@ -54,7 +61,7 @@ export function IceSidebar({ selectedCity, onSelectCity, onClearSelectedCity }: 
               City points
             </p>
             <p className="mt-1 font-display text-2xl font-semibold tracking-[-0.03em] text-foreground">
-              {formatNumber(DATA.meta.mappedCities)}
+              {formatNumber(snapshot.meta.mappedCities)}
             </p>
           </div>
           <div className="bg-surface-muted p-3">
@@ -62,7 +69,7 @@ export function IceSidebar({ selectedCity, onSelectCity, onClearSelectedCity }: 
               Coverage
             </p>
             <p className="mt-1 font-display text-2xl font-semibold tracking-[-0.03em] text-foreground">
-              {(DATA.meta.mappedShareOfAll * 100).toFixed(1)}%
+              {(snapshot.meta.mappedShareOfAll * 100).toFixed(1)}%
             </p>
           </div>
           <div className="bg-surface-muted p-3">
@@ -70,7 +77,7 @@ export function IceSidebar({ selectedCity, onSelectCity, onClearSelectedCity }: 
               Highest city total
             </p>
             <p className="mt-1 font-display text-2xl font-semibold tracking-[-0.03em] text-foreground">
-              {formatNumber(DATA.meta.maxCityCount)}
+              {formatNumber(snapshot.meta.maxCityCount)}
             </p>
           </div>
         </div>
@@ -200,23 +207,22 @@ export function IceSidebar({ selectedCity, onSelectCity, onClearSelectedCity }: 
           <div className="min-w-0">
             <p className="civic-section-index">Source &amp; release</p>
             <h2 className="mt-1.5 font-display text-xl font-semibold leading-tight tracking-[-0.02em]">
-              Latest FOIA release: {formatDateLabel(DATA.meta.periodEnd)}.
+              Latest FOIA release: {formatDateLabel(snapshot.meta.periodEnd)}.
             </h2>
             <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-              {DATA.meta.sourceRelease} {DATA.meta.sourceName} is a processed release of
+              {snapshot.meta.sourceRelease} {snapshot.meta.sourceName} is a processed release of
               government records provided to the Deportation Data Project through FOIA
               litigation.
             </p>
             <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
-              Checked {formatDateLabel(DATA.meta.releaseCheckedAt)}; no newer ICE release was
+              Checked {formatDateLabel(snapshot.meta.releaseCheckedAt)}; no newer ICE release was
               available. The page does not present the snapshot as a current live feed.
             </p>
             <p className="mt-2 break-words text-[10px] leading-relaxed text-muted-foreground">
-              {DATA.meta.sourceCitation} Coordinates are U.S. Census Bureau 2025 place
-              internal points, with manual coordinates for selected cities and neighborhoods.
+              {snapshot.meta.sourceCitation} {snapshot.meta.coordinateSource}
             </p>
             <a
-              href={DATA.meta.sourceUrl}
+              href={snapshot.meta.sourceUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="mt-3 inline-flex min-h-9 items-center gap-1.5 border border-border bg-background px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-[0.1em] text-foreground transition-colors hover:border-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"

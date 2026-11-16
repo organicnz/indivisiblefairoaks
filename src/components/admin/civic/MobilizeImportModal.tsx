@@ -66,9 +66,7 @@ export function MobilizeImportModal({ isOpen, onClose, onSuccess }: MobilizeImpo
             <div className="size-8 rounded-lg bg-primary/10 text-primary-bright dark:bg-primary-bright/15 dark:text-accent-gold flex items-center justify-center">
               <Download size={16} />
             </div>
-            <DialogTitle className="text-xl font-black text-foreground dark:text-white">
-              Import Mobilize Event
-            </DialogTitle>
+            <DialogTitle>Import Mobilize Event</DialogTitle>
           </div>
           <DialogDescription className="text-xs text-muted-foreground dark:text-ink-on-dark leading-relaxed">
             Paste the link to any Mobilize event (e.g. posted by Christiana, national Indivisible,

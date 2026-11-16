@@ -1,6 +1,7 @@
-import { DATA, formatDateLabel, formatNumber } from './data';
+import { formatDateLabel, formatNumber } from './data';
+import type { HeatmapMeta } from './types';
 
-export function IceCaseDocumentation() {
+export function IceCaseDocumentation({ meta }: { meta: HeatmapMeta }) {
   return (
     <section
       id="ice-case-documentation"
@@ -18,7 +19,7 @@ export function IceCaseDocumentation() {
 
         <div className="mt-4 grid gap-5 text-sm leading-relaxed text-muted-foreground lg:grid-cols-2 lg:gap-10">
           <p>
-            The map counts {formatNumber(DATA.meta.mappedRecords)} de-duplicated ICE arrest
+            The map counts {formatNumber(meta.mappedRecords)} de-duplicated ICE arrest
             records assigned to U.S. cities. Each one represents a person. Many are our
             neighbors; all deserve dignity.
           </p>
@@ -36,7 +37,7 @@ export function IceCaseDocumentation() {
               What is documented
             </p>
             <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-              De-duplicated records through {formatDateLabel(DATA.meta.periodEnd)}, grouped by
+              De-duplicated records through {formatDateLabel(meta.periodEnd)}, grouped by
               the city named in the apprehension field and matched to a Census place point.
               The source, method, and known gaps are documented in the source panel and
               reading guide above.
@@ -78,8 +79,8 @@ export function IceCaseDocumentation() {
             tells us more than it does.
           </p>
           <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-            Latest available release: {formatDateLabel(DATA.meta.periodEnd)}.{' '}
-            {DATA.meta.releaseNote}
+            Latest available release: {formatDateLabel(meta.periodEnd)}.{' '}
+            {meta.releaseNote}
           </p>
         </div>
       </div>

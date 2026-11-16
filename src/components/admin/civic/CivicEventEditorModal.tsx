@@ -197,12 +197,10 @@ export function CivicEventEditorModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] bg-surface-card text-foreground p-0 overflow-hidden flex flex-col rounded-3xl border border-border shadow-float">
+      <DialogContent className="max-w-2xl max-h-[90vh] bg-surface-card text-foreground p-0 overflow-hidden flex flex-col border border-border">
         <DialogHeader className="p-5 border-b border-border bg-surface-muted/50 flex flex-row items-center justify-between">
           <div>
-            <DialogTitle className="text-lg font-black uppercase tracking-tight">
-              {event ? 'Edit Event' : 'Create Civic Event'}
-            </DialogTitle>
+            <DialogTitle>{event ? 'Edit Event' : 'Create Civic Event'}</DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground mt-0.5">
               Configure event details, date labels, venue information, and RSVP links.
             </DialogDescription>

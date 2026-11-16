@@ -44,7 +44,7 @@ export function CRMSubNav() {
           // distinguished only by its background, so a screen-reader user
           // navigating the three sections got no indication of where they were.
           aria-current={isActive(href) ? 'page' : undefined}
-          className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-colors ${
+          className={`inline-flex items-center gap-1.5 rounded-sm px-3.5 py-1.5 text-[11px] font-black uppercase tracking-widest transition-colors ${
             isActive(href)
               ? 'bg-secondary text-white'
               : 'bg-surface-muted text-muted-foreground hover:bg-surface-muted hover:text-foreground'

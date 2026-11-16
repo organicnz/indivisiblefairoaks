@@ -128,7 +128,7 @@ export function CivicNewsletterEditorModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] bg-surface-card text-foreground p-0 overflow-hidden flex flex-col rounded-3xl border border-border shadow-float">
+      <DialogContent className="max-w-2xl max-h-[90vh] bg-surface-card text-foreground p-0 overflow-hidden flex flex-col border border-border">
         <DialogHeader className="p-5 border-b border-border bg-surface-muted/50 flex flex-row items-center justify-between">
           <div>
             <DialogTitle>{newsletter ? 'Edit Bulletin' : 'Create Bulletin'}</DialogTitle>
@@ -263,7 +263,7 @@ export function CivicNewsletterEditorModal({
                       <button
                         type="button"
                         onClick={() => handleRemoveTopic(t)}
-                        className="p-0.5 hover:bg-black/10 dark:hover:bg-white/20 rounded-full"
+                        className="rounded-sm p-0.5 hover:bg-black/10 dark:hover:bg-white/20"
                         aria-label={`Remove topic ${t}`}
                       >
                         <X size={10} />

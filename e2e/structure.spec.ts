@@ -27,7 +27,10 @@ const ROUTES = [
   { path: '/partners', name: 'Partners' },
   { path: '/privacy-policy', name: 'Privacy' },
   { path: '/terms-and-conditions', name: 'Terms' },
-  { path: '/search?q=democracy', name: 'Search' },
+  // Structure and reflow are independent of a live full-text result set;
+  // query rendering is covered by search.spec.ts. The empty state keeps this
+  // gate from failing on request-time Supabase latency.
+  { path: '/search', name: 'Search' },
   { path: '/login', name: 'Login' },
   { path: '/ice-alerts', name: 'ICE arrest heat map' },
   { path: '/this-page-does-not-exist', name: '404' },

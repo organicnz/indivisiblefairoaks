@@ -8,6 +8,7 @@ import {
   FileText,
   Heart,
   Mail,
+  MapPin,
   Monitor,
   Moon,
   Music,
@@ -67,6 +68,26 @@ const PALETTE_ITEMS: PaletteItem[] = [
     category: 'Civic Resources',
     href: '/voter-info',
     icon: Vote,
+  },
+  {
+    id: 'ice-alerts',
+    title: 'ICE Arrest Heat Map',
+    description: 'Historical city-level ICE arrest totals from the latest verified FOIA release',
+    category: 'Civic Resources',
+    href: '/ice-alerts',
+    icon: MapPin,
+    keywords: [
+      'ice',
+      'alert',
+      'alerts',
+      'immigration',
+      'deportation',
+      'heat map',
+      'heatmap',
+      'map',
+      'foia',
+      'enforcement',
+    ],
   },
   {
     id: 'choir',
@@ -391,7 +412,7 @@ export function CivicCommandPalette({
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 z-[120] bg-secondary/80 backdrop-blur-md data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0" />
           <Dialog.Content
-            className="fixed left-1/2 top-20 sm:top-28 z-[130] w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 bg-secondary border border-white/10 rounded-2xl shadow-float overflow-hidden data-[state=open]:animate-in data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:zoom-out-95 data-[state=open]:duration-200 data-[state=closed]:duration-150"
+            className="fixed left-1/2 top-20 z-[130] w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 overflow-hidden rounded-sm border border-white/10 bg-secondary shadow-float data-[state=open]:animate-in data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:zoom-out-95 data-[state=open]:duration-200 data-[state=closed]:duration-150 sm:top-28"
             aria-describedby={undefined}
           >
             <Dialog.Title className="sr-only">Civic quick search</Dialog.Title>
@@ -419,7 +440,7 @@ export function CivicCommandPalette({
                 className="w-full bg-transparent text-white placeholder-ink-muted-on-dark text-sm focus:outline-none"
               />
               <Dialog.Close
-                className={`inline-flex items-center justify-center size-9 rounded-md text-ink-muted-on-dark hover:text-white hover:bg-white/10 transition-colors duration-300 ease-out ${FOCUS_RING}`}
+                className={`inline-flex size-9 items-center justify-center rounded-sm text-ink-muted-on-dark transition-colors duration-300 ease-out hover:bg-white/10 hover:text-white ${FOCUS_RING}`}
                 aria-label="Close search dialog"
               >
                 <X size={16} aria-hidden="true" />
@@ -438,7 +459,7 @@ export function CivicCommandPalette({
               id={listboxId}
               role="listbox"
               aria-label="Search results"
-              className="max-h-80 overflow-y-auto p-2 divide-y divide-white/5 list-none"
+              className="max-h-[min(28rem,55vh)] overflow-y-auto overscroll-contain p-2 divide-y divide-white/5 list-none sm:max-h-80"
             >
               {filteredItems.length === 0 ? (
                 <li className="py-8 text-center text-ink-muted-on-dark text-xs space-y-1">
@@ -471,7 +492,7 @@ export function CivicCommandPalette({
                         handleSelect(item);
                       }}
                       onMouseEnter={() => setSelectedIndex(index)}
-                      className={`flex items-center justify-between p-3 rounded-xl cursor-pointer transition-colors duration-300 ease-out list-none ${
+                      className={`flex cursor-pointer list-none items-center justify-between rounded-sm p-3 transition-colors duration-300 ease-out ${
                         isSelected
                           ? 'bg-primary/20 text-white border border-primary-light/30'
                           : 'text-ink-on-dark border border-transparent'
@@ -480,7 +501,7 @@ export function CivicCommandPalette({
                       <div className="flex items-center gap-3">
                         <div
                           aria-hidden="true"
-                          className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                          className={`flex size-8 shrink-0 items-center justify-center rounded-sm ${
                             isSelected
                               ? 'bg-primary text-white'
                               : 'bg-white/10 text-ink-muted-on-dark'
@@ -492,27 +513,27 @@ export function CivicCommandPalette({
                           <div className="text-sm font-semibold text-white flex items-center gap-2">
                             <span>{item.title}</span>
                             {item.isExternal && (
-                              <span className="text-xs px-1.5 py-0.5 rounded bg-white/10 text-ink-muted-on-dark font-mono">
+                              <span className="rounded-sm bg-white/10 px-1.5 py-0.5 font-mono text-xs text-ink-muted-on-dark">
                                 external
                               </span>
                             )}
                             {item.action === 'theme-light' && mode === 'light' && (
-                              <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/40">
+                              <span className="border border-amber-400/40 bg-amber-400/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-300">
                                 Active
                               </span>
                             )}
                             {item.action === 'theme-dark' && mode === 'dark' && (
-                              <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-sky-400/20 text-sky-300 border border-sky-400/40">
+                              <span className="border border-sky-400/40 bg-sky-400/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-sky-300">
                                 Active
                               </span>
                             )}
                             {item.action === 'theme-system' && mode === 'system' && (
-                              <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-400/20 text-emerald-300 border border-emerald-400/40">
+                              <span className="border border-emerald-400/40 bg-emerald-400/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-300">
                                 Active · {effective === 'dark' ? 'Dark' : 'Light'}
                               </span>
                             )}
                             {item.action === 'theme-cycle' && (
-                              <span className="text-[10px] font-mono text-ink-muted-on-dark px-1.5 py-0.2 rounded bg-white/10">
+                              <span className="rounded-sm bg-white/10 px-1.5 py-0.5 font-mono text-[10px] text-ink-muted-on-dark">
                                 {themeModeLabel(mode)}
                               </span>
                             )}
@@ -520,7 +541,7 @@ export function CivicCommandPalette({
                           <div className="text-xs text-ink-muted-on-dark">{item.description}</div>
                         </div>
                       </div>
-                      <span className="text-xs font-mono text-ink-muted-on-dark px-2 py-0.5 rounded bg-white/5">
+                      <span className="rounded-sm bg-white/5 px-2 py-0.5 font-mono text-xs text-ink-muted-on-dark">
                         {item.category}
                       </span>
                     </li>

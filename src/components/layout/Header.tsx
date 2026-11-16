@@ -5,14 +5,14 @@ import { ArrowUpRight, Heart, Menu, Search, X } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Fragment, Suspense, useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { AccountButton } from '@/components/layout/AccountButton';
 import { EditorialButton, EditorialDrawerRow } from '@/components/layout/EditorialButton';
 import { NavDropdown } from '@/components/layout/NavDropdown';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
 import { CivicCommandPalette } from '@/components/ui/CivicCommandPalette';
 import { DataPoint } from '@/components/ui/DataPoint';
-import { isActiveRoute, NAV_GROUPS, ROUTES } from '@/config/routes';
+import { isActiveRoute, ROUTES } from '@/config/routes';
 import { SITE_CONTACT } from '@/config/site';
 import { useDataPoints } from '@/hooks/useDataPoints';
 
@@ -47,7 +47,7 @@ function HeaderFallback() {
       aria-hidden="true"
       className="fixed inset-x-0 top-0 z-50 border-b border-foreground/20 bg-background"
     >
-      <div className="mx-auto flex h-16 max-w-[88rem] items-center justify-between px-4 sm:px-6 md:h-[4.25rem] lg:px-8">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 md:h-[4.25rem] lg:px-8">
         <div className="flex items-center gap-3">
           <div className="relative size-10 shrink-0">
             <Image
@@ -127,7 +127,7 @@ function HeaderInner() {
           isScrolled ? 'shadow-header' : ''
         }`}
       >
-        <div className="mx-auto max-w-[88rem] px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           {/* Tier one: identity and actions. */}
           <div className="flex h-16 items-center justify-between gap-4 md:h-[4.25rem]">
             <Link
@@ -339,27 +339,15 @@ function HeaderInner() {
               </Dialog.Close>
             </div>
 
-            <nav aria-label="Mobile" className="flex flex-col gap-1 py-6 overflow-y-auto">
+            <nav aria-label="Mobile" className="flex min-h-0 flex-col gap-1 overflow-y-auto py-6">
               {/* Primary Route Navigation Links First */}
-              {ROUTES.map((link, index) => {
+              {ROUTES.map((link) => {
                 const isActive = isActiveRoute(pathname, link);
-                const groupLabel =
-                  link.group !== 'more' &&
-                  link.group &&
-                  !ROUTES.slice(0, index).some((previous) => previous.group === link.group)
-                    ? NAV_GROUPS.find((group) => group.id === link.group)?.label
-                    : null;
                 // Dropdown parents expand inline: drawer users must reach every
                 // child, and an always-visible group needs no accordion state.
                 if (link.children) {
                   return (
-                    <Fragment key={link.href}>
-                      {groupLabel ? (
-                        <p className="pt-4 pb-1 text-[10px] font-bold uppercase tracking-[0.2em] text-ink-muted-on-dark">
-                          {groupLabel}
-                        </p>
-                      ) : null}
-                    <div className="py-2">
+                    <div key={link.href} className="py-2">
                       <Link
                         href={link.href}
                         onClick={() => setIsMenuOpen(false)}
@@ -406,27 +394,20 @@ function HeaderInner() {
                         ))}
                       </ul>
                     </div>
-                    </Fragment>
                   );
                 }
                 return (
-                  <Fragment key={link.href}>
-                    {groupLabel ? (
-                      <p className="pt-4 pb-1 text-[10px] font-bold uppercase tracking-[0.2em] text-ink-muted-on-dark">
-                        {groupLabel}
-                      </p>
-                    ) : null}
-                    <Link
-                      href={link.href}
-                      onClick={() => setIsMenuOpen(false)}
-                      aria-current={isActive ? 'page' : undefined}
-                      className={`rounded-sm py-2 font-display text-2xl font-semibold tracking-[-0.02em] transition-colors duration-300 ease-out ${FOCUS_RING} ${
-                        isActive ? 'text-accent-gold' : 'text-ink-on-dark hover:text-white'
-                      }`}
-                    >
-                      {link.label}
-                    </Link>
-                  </Fragment>
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    onClick={() => setIsMenuOpen(false)}
+                    aria-current={isActive ? 'page' : undefined}
+                    className={`rounded-sm py-2 font-display text-2xl font-semibold tracking-[-0.02em] transition-colors duration-300 ease-out ${FOCUS_RING} ${
+                      isActive ? 'text-accent-gold' : 'text-ink-on-dark hover:text-white'
+                    }`}
+                  >
+                    {link.label}
+                  </Link>
                 );
               })}
 
@@ -456,7 +437,7 @@ function HeaderInner() {
               <ThemeToggle variant="block" />
             </nav>
 
-            <div className="mt-auto pt-6 border-t border-white/10 flex flex-col gap-4">
+            <div className="mt-auto flex shrink-0 flex-col gap-4 border-t border-white/10 pt-6">
               <AccountButton variant="block" onNavigate={() => setIsMenuOpen(false)} />
               <Link
                 href="/donate"

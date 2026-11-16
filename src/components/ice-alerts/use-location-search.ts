@@ -4,6 +4,7 @@ import type { Map as LeafletMap } from 'leaflet';
 import { useEffect, useRef, useState } from 'react';
 import type { Dispatch, FormEvent, RefObject, SetStateAction } from 'react';
 import { isUsPoint } from '@/lib/geo/us-boundary';
+import { fetchWithTimeout } from '@/lib/service-fetch';
 import { LOCATION_CACHE_LIMIT, LOCATION_SEARCH_ZOOM, NOMINATIM_SEARCH_URL } from './constants';
 import type {
   CityPoint,
@@ -16,10 +17,12 @@ import type {
 type UseLocationSearchOptions = {
   mapRef: RefObject<LeafletMap | null>;
   searchTarget: SearchTarget | null;
-  setMapView: Dispatch<SetStateAction<MapView>>;
-  setSelectedCity: Dispatch<SetStateAction<CityPoint | null>>;
+  initialInput?: string;
+  initialTarget?: SearchTarget | null;
+  setMapView?: Dispatch<SetStateAction<MapView>>;
+  setSelectedCity?: Dispatch<SetStateAction<CityPoint | null>>;
   setSearchTarget: Dispatch<SetStateAction<SearchTarget | null>>;
-  shouldFocusUser: RefObject<boolean>;
+  shouldFocusUser?: RefObject<boolean>;
 };
 
 /**
@@ -32,13 +35,17 @@ type UseLocationSearchOptions = {
 export function useLocationSearch({
   mapRef,
   searchTarget,
+  initialInput = '',
+  initialTarget = null,
   setMapView,
   setSelectedCity,
   setSearchTarget,
   shouldFocusUser,
 }: UseLocationSearchOptions) {
-  const [locationInput, setLocationInput] = useState('');
-  const [locationSearch, setLocationSearch] = useState<LocationSearchState>({ kind: 'idle' });
+  const [locationInput, setLocationInput] = useState(initialInput);
+  const [locationSearch, setLocationSearch] = useState<LocationSearchState>(
+    initialTarget ? { kind: 'found', label: initialTarget.label } : { kind: 'idle' }
+  );
   const locationAbortRef = useRef<AbortController | null>(null);
   const locationCacheRef = useRef<Map<string, SearchTarget | null>>(new Map());
 
@@ -102,10 +109,14 @@ export function useLocationSearch({
           addressdetails: '0',
           'accept-language': 'en',
         });
-        const response = await fetch(`${NOMINATIM_SEARCH_URL}?${params.toString()}`, {
-          signal: controller.signal,
-          headers: { Accept: 'application/json' },
-        });
+        const response = await fetchWithTimeout(
+          `${NOMINATIM_SEARCH_URL}?${params.toString()}`,
+          {
+            signal: controller.signal,
+            headers: { Accept: 'application/json' },
+          },
+          10_000
+        );
         if (!response.ok) throw new Error(`Geocoder returned ${response.status}`);
 
         const payload: unknown = await response.json();
@@ -149,12 +160,12 @@ export function useLocationSearch({
         return;
       }
 
-      shouldFocusUser.current = false;
+      if (shouldFocusUser) shouldFocusUser.current = false;
       map.closePopup();
-      setSelectedCity(null);
+      setSelectedCity?.(null);
       setSearchTarget(target);
       setLocationSearch({ kind: 'found', label: target.label });
-      setMapView('free');
+      setMapView?.('free');
       map.flyTo([target.lat, target.lng], LOCATION_SEARCH_ZOOM, { duration: 0.6 });
     } catch {
       if (controller.signal.aborted) return;

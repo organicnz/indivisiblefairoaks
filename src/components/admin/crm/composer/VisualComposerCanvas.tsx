@@ -534,7 +534,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="compose-canvas space-y-4">
       {/* Top Composer Control Toolbar: Undo/Redo & View Mode Toggles */}
       <div className="flex flex-wrap items-center justify-between gap-2.5 px-3 py-2 bg-surface-muted border border-border rounded-2xl">
         <div className="flex items-center gap-1.5 flex-wrap">

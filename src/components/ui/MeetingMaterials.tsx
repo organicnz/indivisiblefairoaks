@@ -158,26 +158,24 @@ export function MeetingMaterials() {
       {/* Section Header & View Switcher */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-4 border-b border-border">
         <div>
-          <h2 className="text-2xl font-black text-foreground dark:text-white tracking-tight flex items-center gap-2">
-            <span className="text-primary-ink dark:text-primary-on-dark-muted font-mono text-xl">
-              ✦
-            </span>
-            <span>Meeting Reviews &amp; Printable Handouts</span>
+          <p className="civic-section-index">Chapter records</p>
+          <h2 className="mt-2 font-display text-3xl font-semibold tracking-[-0.03em]">
+            Meeting Reviews &amp; Printable Handouts
           </h2>
-          <p className="text-sm text-muted-foreground dark:text-ink-on-dark mt-1">
+          <p className="mt-2 max-w-2xl text-sm text-muted-foreground dark:text-ink-on-dark">
             Official monthly meeting summaries, steering committee recaps, and downloadable materials
             distributed at chapter gatherings.
           </p>
         </div>
 
         {/* Tab Controls */}
-        <div className="inline-flex rounded-xl bg-surface-muted p-1 border border-border shrink-0">
+        <div className="inline-flex shrink-0 border border-border bg-surface-muted p-1">
           <button
             type="button"
             onClick={() => setActiveTab('reviews')}
-            className={`px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
+            className={`min-h-11 px-4 py-2 text-[11px] font-bold uppercase tracking-[0.12em] transition-colors ${
               activeTab === 'reviews'
-                ? 'bg-surface-card text-foreground dark:text-white shadow-xs'
+                ? 'bg-primary text-white'
                 : 'text-muted-foreground dark:text-ink-on-dark hover:text-foreground'
             }`}
             aria-pressed={activeTab === 'reviews'}
@@ -187,9 +185,9 @@ export function MeetingMaterials() {
           <button
             type="button"
             onClick={() => setActiveTab('handouts')}
-            className={`px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
+            className={`min-h-11 px-4 py-2 text-[11px] font-bold uppercase tracking-[0.12em] transition-colors ${
               activeTab === 'handouts'
-                ? 'bg-surface-card text-foreground dark:text-white shadow-xs'
+                ? 'bg-primary text-white'
                 : 'text-muted-foreground dark:text-ink-on-dark hover:text-foreground'
             }`}
             aria-pressed={activeTab === 'handouts'}
@@ -204,7 +202,7 @@ export function MeetingMaterials() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           {/* Left: Meeting list selector */}
           <div className="lg:col-span-5 space-y-3">
-            <p className="text-xs font-black uppercase tracking-wider text-muted-foreground dark:text-ink-muted-on-dark px-1">
+            <p className="civic-section-index px-1">
               Select Chapter Meeting
             </p>
             {MEETING_REVIEWS.map((review) => {
@@ -214,10 +212,10 @@ export function MeetingMaterials() {
                   key={review.id}
                   type="button"
                   onClick={() => setSelectedReview(review)}
-                  className={`w-full text-left p-4 rounded-xl border transition-all cursor-pointer ${
+                  className={`w-full cursor-pointer border p-4 text-left transition-colors ${
                     isSelected
-                      ? 'bg-primary/10 border-primary text-foreground dark:bg-primary-bright/15 dark:border-primary-on-dark-muted shadow-xs'
-                      : 'bg-surface-card border-border text-foreground hover:bg-surface-muted/60'
+                      ? 'border-primary bg-primary/10 text-foreground'
+                      : 'border-border bg-surface-card text-foreground hover:bg-surface-muted/60'
                   }`}
                 >
                   <div className="flex items-center justify-between text-xs font-bold text-muted-foreground dark:text-ink-on-dark mb-1">
@@ -225,7 +223,7 @@ export function MeetingMaterials() {
                       <Calendar size={13} className="text-accent-gold" />
                       {review.date}
                     </span>
-                    <span className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-surface-muted border border-border">
+                    <span className="border border-border bg-surface-muted px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em]">
                       Recap
                     </span>
                   </div>
@@ -242,7 +240,7 @@ export function MeetingMaterials() {
             {/* Legacy archive link */}
             <a
               href={ARCHIVE_HREF}
-              className="mt-4 flex items-center justify-between p-3.5 rounded-xl border border-dashed border-border hover:border-primary/50 bg-surface-card hover:bg-surface-muted/40 text-xs font-bold text-foreground transition-all group"
+              className="group mt-4 flex items-center justify-between border border-border bg-surface-card p-4 text-xs font-bold text-foreground transition-colors hover:border-primary/50 hover:bg-surface-muted/40"
             >
               <div className="flex items-center gap-2.5">
                 <FolderOpen size={16} className="text-accent-gold" />
@@ -256,7 +254,7 @@ export function MeetingMaterials() {
           </div>
 
           {/* Right: Selected Meeting Deep Dive */}
-          <div className="lg:col-span-7 p-6 rounded-2xl bg-surface-card border border-border shadow-xs space-y-6">
+          <div className="civic-panel space-y-6 p-6 lg:col-span-7">
             <div className="border-b border-border pb-4">
               <div className="flex items-center gap-2 text-xs font-bold text-primary-ink dark:text-primary-on-dark-muted uppercase tracking-wider mb-2">
                 <Calendar size={14} />
@@ -264,7 +262,7 @@ export function MeetingMaterials() {
                 <span>•</span>
                 <span>{selectedReview.location}</span>
               </div>
-              <h3 className="text-xl font-black text-foreground dark:text-white tracking-tight">
+              <h3 className="font-display text-2xl font-semibold tracking-[-0.02em]">
                 {selectedReview.title}
               </h3>
               <p className="text-sm text-muted-foreground dark:text-ink-on-dark mt-2 leading-relaxed">
@@ -274,10 +272,10 @@ export function MeetingMaterials() {
 
             {/* Key Discussion Points */}
             <div className="space-y-3">
-              <h4 className="text-xs font-black uppercase tracking-wider text-primary-ink dark:text-accent-gold flex items-center gap-1.5">
+              <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-primary-ink dark:text-accent-gold">
                 <CheckCircle2 size={14} />
                 Key Motions &amp; Discussion Points
-              </h4>
+              </p>
               <ul className="space-y-2">
                 {selectedReview.keyPoints.map((point) => (
                   <li
@@ -293,10 +291,10 @@ export function MeetingMaterials() {
 
             {/* Action Items */}
             <div className="space-y-3 pt-2">
-              <h4 className="text-xs font-black uppercase tracking-wider text-secondary-ink dark:text-primary-on-dark-muted flex items-center gap-1.5">
+              <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-secondary-ink dark:text-primary-on-dark-muted">
                 <FileSpreadsheet size={14} />
                 Next Steps &amp; Member Action Items
-              </h4>
+              </p>
               <ul className="space-y-2">
                 {selectedReview.actionItems.map((item) => (
                   <li
@@ -317,7 +315,7 @@ export function MeetingMaterials() {
               </span>
               <a
                 href={ARCHIVE_HREF}
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-primary hover:bg-primary-dark text-white font-bold text-xs uppercase tracking-wider transition-colors"
+                className="inline-flex min-h-11 items-center gap-1.5 border border-primary bg-primary px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.12em] text-white transition-colors hover:bg-primary-dark"
               >
                 <FolderOpen size={14} />
                 <span>Browse Archive</span>
@@ -330,7 +328,7 @@ export function MeetingMaterials() {
       {/* TAB 2: Printable Handouts */}
       {activeTab === 'handouts' && (
         <div className="space-y-6">
-          <div className="p-4 rounded-xl bg-primary/10 border border-primary/20 text-xs text-foreground dark:text-ink-on-dark flex items-start gap-3">
+          <div className="flex items-start gap-3 border border-primary/20 bg-primary/5 p-4 text-xs text-foreground dark:text-ink-on-dark">
             <Printer className="text-accent-gold shrink-0 mt-0.5" size={18} />
             <p className="leading-relaxed">
               These materials are formatted for standard 8.5&quot; × 11&quot; letter printing. Use
@@ -344,24 +342,24 @@ export function MeetingMaterials() {
             {PRINTABLE_HANDOUTS.map((handout) => (
               <div
                 key={handout.id}
-                className="p-6 rounded-2xl bg-surface-card border border-border shadow-xs hover:border-primary/40 transition-all flex flex-col justify-between"
+                className="civic-panel flex flex-col justify-between p-6 transition-colors hover:border-primary/40"
               >
                 <div className="space-y-3">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      <div className="p-2 rounded-lg bg-surface-muted border border-border">
+                      <div className="border border-border bg-surface-muted p-2">
                         {renderIcon(handout.iconName)}
                       </div>
                       <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground dark:text-ink-on-dark">
                         {handout.category}
                       </span>
                     </div>
-                    <span className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-surface-muted border border-border text-muted-foreground dark:text-ink-on-dark">
+                    <span className="border border-border bg-surface-muted px-2 py-0.5 font-mono text-[10px] text-muted-foreground dark:text-ink-on-dark">
                       {handout.pages} • {handout.format}
                     </span>
                   </div>
 
-                  <h3 className="font-bold text-base text-foreground dark:text-white">
+                  <h3 className="font-display text-xl font-semibold tracking-[-0.02em]">
                     {handout.title}
                   </h3>
                   <p className="text-xs sm:text-sm text-muted-foreground dark:text-ink-on-dark leading-relaxed">
@@ -375,7 +373,7 @@ export function MeetingMaterials() {
                   </span>
                   <a
                     href={ARCHIVE_HREF}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-primary hover:bg-primary-dark text-white font-bold text-xs uppercase tracking-wider transition-colors"
+                    className="inline-flex min-h-11 items-center gap-1.5 border border-primary bg-primary px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.12em] text-white transition-colors hover:bg-primary-dark"
                   >
                     <FolderOpen size={14} />
                     <span>Browse Archive</span>
@@ -386,7 +384,7 @@ export function MeetingMaterials() {
           </div>
 
           {/* Archive repository card */}
-          <div className="p-6 rounded-2xl bg-surface-muted border border-dashed border-border flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex flex-col items-center justify-between gap-4 border border-border bg-surface-muted p-6 sm:flex-row">
             <div className="flex items-center gap-3">
               <FolderOpen size={24} className="text-accent-gold shrink-0" />
               <div>
@@ -400,7 +398,7 @@ export function MeetingMaterials() {
             </div>
             <a
               href={ARCHIVE_HREF}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-surface-card hover:bg-surface-card/80 border border-border text-foreground font-bold text-xs uppercase tracking-wider transition-all shrink-0 shadow-xs"
+              className="inline-flex min-h-11 shrink-0 items-center gap-1.5 border border-border bg-surface-card px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.12em] text-foreground transition-colors hover:border-primary/40"
             >
               <span>Browse Archive</span>
               <ChevronRight size={14} />

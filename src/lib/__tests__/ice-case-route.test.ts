@@ -1,7 +1,54 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { POST } from '@/app/api/ice-case/route';
+import type { HeatmapSnapshot } from '@/components/ice-alerts/types';
+import { getIceHeatmapSnapshot } from '@/lib/queries/ice-heatmap';
 import { installFetchMock } from './fetch-mock';
+
+vi.mock('@/lib/queries/ice-heatmap', () => ({
+  getIceHeatmapSnapshot: vi.fn(),
+}));
+
+const SNAPSHOT = {
+  meta: {
+    generatedAt: '2026-11-14',
+    releaseCheckedAt: '2026-11-15',
+    releaseNote: 'Latest available release.',
+    periodStart: '2022-10-01',
+    periodEnd: '2026-08-06',
+    sourceName: 'Deportation Data Project',
+    sourceUrl: 'https://deportationdata.org/data/processed/ice.html',
+    sourceDataUrl: 'https://github.com/deportationdata/ice',
+    sourceRelease: 'Latest available ICE release.',
+    sourceCitation: 'ICE FOIA data.',
+    license: 'CC0 1.0',
+    coordinateSource: 'Census place points.',
+    coordinateUrl: 'https://www.census.gov/',
+    rawRecords: 896_393,
+    duplicateRowsRemoved: 10_024,
+    records: 886_369,
+    recordsWithUsCity: 778_367,
+    mappedRecords: 760_248,
+    unmappedCityRecords: 18_119,
+    recordsWithoutUsableCity: 108_002,
+    mappedCities: 1,
+    mappedShareOfCityTagged: 0.9767,
+    mappedShareOfAll: 0.8577,
+    maxCityCount: 29_537,
+    sha256: '9aa0d48232805380057475c48d5953277c14307c6ddaef79b2ad28fb4d84a8a5',
+    method: 'Grouped by city.',
+  },
+  cities: [
+    {
+      city: 'Conroe',
+      state: 'TEXAS',
+      stateCode: 'TX',
+      lat: 30.32872,
+      lng: -95.4846,
+      count: 29_537,
+    },
+  ],
+} satisfies HeatmapSnapshot;
 
 const env = {
   url: process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -21,6 +68,7 @@ describe('POST /api/ice-case', () => {
   beforeEach(() => {
     process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://project.supabase.co';
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = 'test-publishable-key';
+    vi.mocked(getIceHeatmapSnapshot).mockResolvedValue(SNAPSHOT);
   });
 
   afterEach(() => {

@@ -4,8 +4,13 @@ import {
   buildGoogleCalendarUrl,
   buildIcsCalendar,
   type CardEvent,
+  DEFAULT_UPCOMING_MEETING,
+  filterUpcomingEvents,
   gatheringCard,
+  isEventUpcoming,
+  isRecurringEvent,
   selectMeetingEvent,
+  selectUpcomingMeetingEvent,
 } from '@/lib/civic-events';
 
 // `isoDateStart`/`isoDateEnd` are Pacific wall stamps (issue #149) — no `Z`,
@@ -41,6 +46,43 @@ const RALLY: CardEvent = {
   highlight: true,
 };
 
+const NOW = new Date('2026-11-16T20:00:00Z'); // noon Pacific
+
+const ONGOING: CardEvent = {
+  ...MEETING,
+  id: 'singing-protest-ongoing',
+  title: 'Carmichael Resistance Choir: Street Corner Singing Protest',
+  dateLabel: 'Ongoing Every Saturday Afternoon',
+};
+
+const UPCOMING_MEETING: CardEvent = {
+  ...MEETING,
+  id: 'monthly-gathering-dec',
+  title: 'Monthly Chapter Meeting & Food Drive',
+  dateLabel: 'Tuesday, December 1, 2026',
+  isoDateStart: '20261201T183000',
+  isoDateEnd: '20261201T200000',
+};
+
+describe('event visibility', () => {
+  it('hides one-off events after their Pacific end time', () => {
+    expect(isEventUpcoming(MEETING, NOW)).toBe(false);
+    expect(isEventUpcoming(UPCOMING_MEETING, NOW)).toBe(true);
+  });
+
+  it('keeps recurring activity visible after its first occurrence', () => {
+    expect(isRecurringEvent(ONGOING)).toBe(true);
+    expect(isEventUpcoming(ONGOING, NOW)).toBe(true);
+  });
+
+  it('filters the public list without dropping recurring events', () => {
+    expect(filterUpcomingEvents([MEETING, ONGOING, UPCOMING_MEETING], NOW)).toEqual([
+      ONGOING,
+      UPCOMING_MEETING,
+    ]);
+  });
+});
+
 describe('selectMeetingEvent', () => {
   it('prefers the Meetings row even when a rally sorts first and is highlighted', () => {
     // The card carries the food-drive note, which is meeting-specific: a
@@ -62,15 +104,35 @@ describe('selectMeetingEvent', () => {
   });
 });
 
+describe('selectUpcomingMeetingEvent', () => {
+  it('selects the next highlighted chapter meeting by date, not array order', () => {
+    expect(selectUpcomingMeetingEvent([MEETING, ONGOING, UPCOMING_MEETING], NOW)).toBe(
+      UPCOMING_MEETING
+    );
+  });
+
+  it('does not let a future rehearsal or coffee klatch inherit the chapter-meeting card', () => {
+    const rehearsal: CardEvent = {
+      ...UPCOMING_MEETING,
+      id: 'choir-rehearsal',
+      title: 'Carmichael Resistance Choir Bi-Weekly Rehearsal',
+      highlight: false,
+    };
+    const coffee: CardEvent = {
+      ...UPCOMING_MEETING,
+      id: 'coffee-klatch',
+      title: 'Fair Oaks Indivisible Monthly Coffee Klatch',
+      highlight: false,
+    };
+    expect(selectUpcomingMeetingEvent([rehearsal, coffee], NOW)).toBeUndefined();
+  });
+});
+
 describe('gatheringCard', () => {
   it('maps the row onto the card fields', () => {
     const card = gatheringCard(MEETING);
     expect(card.title).toBe('Monthly Chapter Gathering & Food Bank Drive');
     expect(card.dateLine).toBe('Tuesday, October 6, 2026 • 6:30 PM – 8:00 PM');
-    expect(card.timeLine).toBe('6:30 PM – 8:00 PM');
-    expect(card.startWeekday).toBe('Tue');
-    expect(card.startMonth).toBe('Oct');
-    expect(card.startDay).toBe('6');
     expect(card.locationLine).toBe(
       "St. Michael's Episcopal Church, 2140 Mission Avenue, Carmichael, CA 95608"
     );
@@ -78,17 +140,13 @@ describe('gatheringCard', () => {
     expect(card.calendarUrl).toBe(buildGoogleCalendarUrl(MEETING));
   });
 
-  it('renders the static fallback when the table holds no meeting', () => {
+  it('renders the confirmed December 1 fallback when the table holds no future meeting', () => {
     const card = gatheringCard(undefined);
     expect(card.title).toContain('Monthly Chapter Meeting');
-    expect(card.dateLine).toBe('Tuesday, November 10, 2026 • 6:30 PM – 8:00 PM');
-    expect(card.timeLine).toBe('6:30 PM – 8:00 PM');
-    expect(card.startWeekday).toBe('Tue');
-    expect(card.startMonth).toBe('Nov');
-    expect(card.startDay).toBe('10');
-    expect(card.rsvpUrl).toBe('https://www.mobilize.us/indivisible/');
+    expect(card.dateLine).toBe('Tuesday, December 1, 2026 • 6:30 PM – 8:00 PM');
+    expect(card.rsvpUrl).toBe(DEFAULT_UPCOMING_MEETING.rsvpUrl);
     expect(card.calendarUrl).toContain('calendar.google.com/calendar/render');
-    expect(card.calendarUrl).toContain('20261110T183000');
+    expect(card.calendarUrl).toContain('20261201T183000');
     expect(card.calendarUrl).toContain('ctz=America%2FLos_Angeles');
   });
 });

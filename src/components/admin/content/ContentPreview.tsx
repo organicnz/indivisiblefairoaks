@@ -69,7 +69,7 @@ export function ContentPreview({
           // and a modal layer clears every non-modal one. 130 is the top of the
           // scale, shared with the command palette, which cannot be open at the
           // same time as this.
-          className="fixed inset-0 z-[130] overflow-y-auto bg-surface-card focus:outline-none"
+          className="admin-surface fixed inset-0 z-[130] overflow-y-auto bg-surface-card focus:outline-none"
         >
           <Dialog.Title className="sr-only">Preview of {title || 'Untitled page'}</Dialog.Title>
 
@@ -88,7 +88,7 @@ export function ContentPreview({
 
           <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
             <div className="mb-12 flex flex-col">
-              <h1 className="mb-4 text-4xl font-black uppercase leading-tight tracking-tight text-foreground md:text-5xl">
+              <h1 className="mb-4 font-display text-4xl font-semibold leading-tight tracking-[-0.03em] text-foreground md:text-5xl">
                 {title || 'Untitled page'}
               </h1>
               <div className="h-2 w-24 bg-primary" />
@@ -121,7 +121,7 @@ export function ContentPreview({
 
             <div
               className="cw prose prose-slate prose-lg max-w-none
-                prose-headings:text-foreground prose-headings:uppercase prose-headings:font-black
+                prose-headings:text-foreground prose-headings:font-display prose-headings:font-semibold
                 prose-p:text-muted-foreground prose-p:leading-relaxed
                 prose-a:text-primary dark:text-primary-on-dark prose-a:font-bold prose-a:no-underline hover:prose-a:underline
                 prose-strong:text-foreground prose-strong:font-black

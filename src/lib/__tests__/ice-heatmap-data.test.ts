@@ -5,12 +5,14 @@ import { describe, expect, it } from 'vitest';
 import heatmap from '@/data/ice-arrest-heatmap.json';
 
 /**
- * The /ice-alerts map is a static import, so nothing forces the JSON to agree
- * with its own metadata. These assertions pin the published release totals and
- * the invariants the map depends on: every city key is unique, every point is
- * a real coordinate, and the 8,599 city totals add up to all 760,248 mapped
- * arrest records. The Supabase migration is checked for the same row count and
- * source hash so the queryable backend copy cannot drift from the map.
+ * The /ice-alerts map reads Supabase at runtime. This JSON is the release
+ * fixture used to seed and verify that backend copy, so nothing else forces it
+ * to agree with its own metadata. These assertions pin the published release
+ * totals and the invariants the map depends on: every city key is unique, every
+ * point is a real coordinate, and the 8,599 city totals add up to all 760,248
+ * mapped arrest records. The Supabase migration is checked for the same row
+ * count and source hash so the queryable backend copy cannot drift from the
+ * fixture.
  */
 describe('verified ICE heat-map snapshot', () => {
   const { meta, cities } = heatmap;

@@ -260,10 +260,7 @@ export function ChoirAudioPlayer() {
     : activeTrack.defaultNotes;
 
   return (
-    <div className="relative overflow-hidden rounded-3xl bg-surface-card border border-border text-foreground dark:bg-secondary/95 dark:border-white/10 dark:text-white p-5 sm:p-7 md:p-8 backdrop-blur-2xl shadow-card dark:shadow-float">
-      {/* Background ambient lighting */}
-      <div className="pointer-events-none absolute -right-20 -top-20 size-72 rounded-full bg-primary/10 dark:bg-primary-bright/15 blur-3xl" />
-      <div className="pointer-events-none absolute -left-20 -bottom-20 size-64 rounded-full bg-indigo-500/10 dark:bg-indigo-600/10 blur-3xl" />
+    <div className="relative overflow-hidden border border-border bg-surface-card p-5 text-foreground sm:p-7 md:p-8 dark:border-white/10 dark:bg-secondary/95 dark:text-white">
 
       <audio
         ref={audioElRef}
@@ -301,7 +298,7 @@ export function ChoirAudioPlayer() {
                   Resistance Radio
                 </DataPoint>
               </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] text-emerald-900 dark:text-emerald-300 font-semibold">
+              <span className="inline-flex items-center gap-1.5 border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-900 dark:text-emerald-300">
                 <span
                   aria-hidden="true"
                   className="size-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-ping motion-reduce:animate-none"
@@ -311,7 +308,7 @@ export function ChoirAudioPlayer() {
                 </DataPoint>
               </span>
             </div>
-            <h3 className="text-base sm:text-xl font-black text-foreground dark:text-white tracking-tight truncate leading-snug mt-0.5">
+            <h3 className="mt-0.5 truncate font-display text-xl font-semibold leading-snug tracking-[-0.02em] text-foreground dark:text-white sm:text-2xl">
               {activeTitle}
             </h3>
           </div>
@@ -321,7 +318,7 @@ export function ChoirAudioPlayer() {
         <button
           type="button"
           onClick={togglePlay}
-          className="size-13 rounded-full bg-primary hover:bg-primary-dark dark:bg-gradient-to-tr dark:from-primary-bright dark:to-indigo-600 dark:hover:from-blue-500 dark:hover:to-indigo-500 text-white flex items-center justify-center shadow-lg dark:shadow-float dark:shadow-primary/30 hover:scale-105 active:scale-95 transition-all duration-300 ease-out shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold"
+          className="flex size-13 shrink-0 items-center justify-center rounded-sm border border-primary bg-primary text-white transition-colors duration-300 ease-out hover:bg-primary-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold"
           aria-label={
             isPlaying
               ? dataPoints['choir.player.pause_label'] || 'Pause audio broadcast'
@@ -377,7 +374,7 @@ export function ChoirAudioPlayer() {
       )}
 
       {/* Visualizer & Progress */}
-      <div className="mb-6 rounded-2xl border border-border bg-surface-muted dark:border-white/10 dark:bg-secondary/70 p-4 sm:p-5 backdrop-blur-md">
+      <div className="mb-6 border border-border bg-surface-muted p-4 sm:p-5 dark:border-white/10 dark:bg-secondary/70">
         <div className="flex items-end justify-between gap-1.5 h-14 px-2 py-1 bg-slate-200/50 dark:bg-black/30 rounded-xl border border-border dark:border-white/5">
           {visualizerBars.map((bar) => (
             <div

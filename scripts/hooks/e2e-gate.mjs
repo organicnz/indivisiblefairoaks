@@ -3,7 +3,9 @@
  * Playwright e2e delivery gate.
  *
  * Runs last so build-check has already produced a warm .next; Playwright's
- * webServer starts `next start` against that build (reuseExistingServer).
+ * webServer starts `next start` against that build on a verified-free port and
+ * never reuses a server it did not start. If the gate is run directly on a
+ * fresh checkout, it builds first with the same self-contained e2e settings.
  * Change-aware: full suite only when the push range can affect runtime.
  * Bypass (emergency only): LEFTHOOK_EXCLUDE=e2e git push
  */
@@ -56,11 +58,21 @@ if (!touchesRuntime) {
 }
 
 if (!(await Bun.file('.next/BUILD_ID').exists())) {
-  console.log('');
-  console.log('✖  No production build at .next/BUILD_ID — e2e cannot run.');
-  console.log('   Run: NEXT_SKIP_ENV_VALIDATION=1 bun run build');
-  console.log('');
-  process.exit(1);
+  // A direct `bun scripts/hooks/e2e-gate.mjs` should not need the caller to
+  // know the build switches. `scripts/build.mjs` supplies the same placeholder
+  // environment and free-port handoff used by the pre-push build-check.
+  console.log('ℹ️   No production build — building the e2e bundle first...');
+  const build = run(['bun', 'run', 'build'], {
+    env: { ...process.env, NEXT_E2E_BUILD: 'true' },
+    stdout: 'inherit',
+    stderr: 'inherit',
+  });
+  if (build.exitCode !== 0) {
+    console.log('');
+    console.log('✖  The e2e build failed — the suite cannot run.');
+    console.log('');
+    process.exit(1);
+  }
 }
 
 // The local counterpart of CI's browser install. An evicted browser cache

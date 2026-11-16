@@ -4,7 +4,6 @@ import type { RequestOptions } from 'node:https';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   MAX_PUSH_RESPONSE_BYTES,
-  PUSH_TIMEOUT_MS,
   sendPushRequest,
   type PushTransportRequest,
 } from '@/lib/push-transport';
@@ -66,7 +65,7 @@ describe('sendPushRequest', () => {
     requestMock.mockReset();
   });
 
-  it('posts to the fixed endpoint with a total timeout and a signal', async () => {
+  it('posts to the fixed endpoint with a total timeout signal', async () => {
     mockResponse();
     const result = await sendPushRequest(input);
 
@@ -78,7 +77,7 @@ describe('sendPushRequest', () => {
       path: '/fcm/send/abc?token=1',
       method: 'POST',
       headers: input.headers,
-      timeout: PUSH_TIMEOUT_MS,
+      agent: false,
     });
     expect(options.signal).toBeInstanceOf(AbortSignal);
     expect(typeof options.lookup).toBe('function');
@@ -121,21 +120,6 @@ describe('sendPushRequest', () => {
       status: 410,
       error: 'push-http-410',
     });
-  });
-
-  it('times out when the request emits a timeout', async () => {
-    const request = makeRequest();
-    requestMock.mockReturnValue(request);
-
-    const result = sendPushRequest(input);
-    request.emit('timeout');
-
-    await expect(result).resolves.toEqual({
-      ok: false,
-      status: 0,
-      error: 'push-timeout',
-    });
-    expect(request.destroy).toHaveBeenCalled();
   });
 
   it('maps an abort signal to the timeout result', async () => {

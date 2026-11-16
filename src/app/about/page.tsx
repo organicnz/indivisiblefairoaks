@@ -178,7 +178,7 @@ export default async function AboutPage() {
             <span>Who We Are</span>
           </DataPoint>
           <CopyRegion id="about-who">
-            <div className="text-muted-foreground dark:text-ink-on-dark space-y-4 leading-relaxed">
+            <div className="civic-prose space-y-4">
               <DataPoint name="about.who.p1" as="p" initialData={dataPoints}>
                 We are neighbors, retirees, workers, students, educators, and community members in
                 Sacramento County who believe that true democracy requires active, ongoing
@@ -212,7 +212,7 @@ export default async function AboutPage() {
               name="about.nonviolence.body"
               as="p"
               initialData={dataPoints}
-              className="text-muted-foreground dark:text-ink-on-dark text-sm leading-relaxed"
+              className="civic-prose text-sm"
             >
               A foundational pillar behind all Indivisible Fair Oaks-Carmichael events is a strict
               commitment to nonviolence. We expect all attendees to act lawfully, treat fellow
@@ -237,7 +237,7 @@ export default async function AboutPage() {
             name="about.foodbank.body"
             as="p"
             initialData={dataPoints}
-            className="text-muted-foreground dark:text-ink-on-dark leading-relaxed"
+            className="civic-prose"
           >
             We believe that civic justice begins with community care. At every in-person monthly
             gathering, our members bring non-perishable canned goods and staple foods to donate to

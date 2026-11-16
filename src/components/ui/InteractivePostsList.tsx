@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowRight, Calendar, FileText, PenLine, Plus } from 'lucide-react';
+import { ArrowRight, BookOpen, Calendar, FileText, Mail, PenLine, Plus } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEditContext } from '@/components/layout/useEditContext';
@@ -190,15 +190,33 @@ export function InteractivePostsList({ initialPosts }: InteractivePostsListProps
           </p>
         </div>
 
-        {isAdmin ? (
-          <Link
-            href="/admin/content/new?type=post"
-            className="inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 border border-primary bg-primary px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.12em] text-white transition-colors hover:bg-primary-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+          <a
+            href="mailto:contact@indivisiblefairoaks.org?subject=Chapter%20news%20submission"
+            className="inline-flex min-h-11 items-center justify-center gap-1.5 border border-border bg-surface-card px-3 py-2.5 text-[11px] font-bold uppercase tracking-[0.12em] text-foreground transition-colors hover:border-primary hover:text-primary-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
-            <Plus size={15} aria-hidden="true" />
-            <span>Add News</span>
-          </Link>
-        ) : null}
+            <Mail size={14} aria-hidden="true" />
+            <span>Submit chapter news</span>
+          </a>
+          {isAdmin ? (
+            <>
+              <Link
+                href="/admin/news#news-publishing-guide"
+                className="inline-flex min-h-11 items-center justify-center gap-1.5 border border-border bg-surface-card px-3 py-2.5 text-[11px] font-bold uppercase tracking-[0.12em] text-foreground transition-colors hover:border-primary hover:text-primary-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                <BookOpen size={14} aria-hidden="true" />
+                <span>How to publish</span>
+              </Link>
+              <Link
+                href="/admin/content/new?type=post"
+                className="inline-flex min-h-11 items-center justify-center gap-1.5 border border-primary bg-primary px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.12em] text-white transition-colors hover:bg-primary-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                <Plus size={15} aria-hidden="true" />
+                <span>Add News</span>
+              </Link>
+            </>
+          ) : null}
+        </div>
       </div>
 
       {!leadPost ? (

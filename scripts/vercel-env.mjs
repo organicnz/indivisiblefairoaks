@@ -97,6 +97,21 @@ export const VARS = {
     example: '3',
     note: 'Contact submissions per window, per IP. Defaults in code.',
   },
+  NEXT_PUBLIC_VAPID_PUBLIC_KEY: {
+    required: false,
+    example: 'B…',
+    note:
+      'Web Push public key for ICE surge alerts. Public by construction — it is ' +
+      'the applicationServerKey given to PushManager. Absent, the phone-alert ' +
+      'control reports that push is unconfigured; email alerts still work.',
+  },
+  VAPID_SUBJECT: {
+    required: false,
+    example: 'mailto:contact@indivisiblefairoaks.org',
+    note:
+      'VAPID contact subject. An address, not a credential; it is sent in the ' +
+      'JWT, so it belongs in Vercel Plain rather than Secret.',
+  },
 }
 
 export const SECRETS = {
@@ -121,6 +136,23 @@ export const SECRETS = {
       'Verifies Resend webhook signatures on /api/webhooks/resend. ' +
       'Absent, every delivery event is rejected with 400 and bounces never ' +
       'suppress — read via env.RESEND_WEBHOOK_SECRET, never Bun.env.',
+  },
+  VAPID_PRIVATE_KEY: {
+    required: false,
+    example: '…',
+    note:
+      'Web Push private key for ICE surge alerts. Must pair with ' +
+      'NEXT_PUBLIC_VAPID_PUBLIC_KEY; absent, the notify route skips push and ' +
+      'email delivery continues.',
+  },
+  CRON_SECRET: {
+    required: false,
+    example: '64-hex-character-secret',
+    note:
+      'Bearer token for the pg_cron -> /api/ice-rapid/notify request. Read from ' +
+      'env by the route and stored in Supabase Vault by ' +
+      'scripts/seed-ice-alert-cron.mjs. Absent, the route answers 503 rather ' +
+      'than accepting unauthenticated sends.',
   },
   SENTRY_AUTH_TOKEN: {
     required: true,

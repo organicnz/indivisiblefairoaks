@@ -83,7 +83,7 @@ export default async function AdminDashboardPage() {
             </DataPoint>
           </span>
         </div>
-        <h1 className="text-4xl font-black tracking-tight text-foreground uppercase">
+        <h1 className="font-display text-4xl font-semibold tracking-[-0.03em] text-foreground">
           <DataPoint as="span" name="admin.dashboard.title" initialData={dataPoints}>
             Dashboard
           </DataPoint>
@@ -94,8 +94,8 @@ export default async function AdminDashboardPage() {
       {/* Quick Publishing & Civic Management Bar */}
       <div className="bg-surface-card border border-border rounded-3xl p-6 shadow-xs mb-8">
         <div className="mb-4">
-          <h2 className="text-sm font-black text-foreground uppercase tracking-wider">
-            Civic Publishing &amp; Content
+          <h2 className="font-display text-sm font-semibold tracking-[-0.01em] text-foreground">
+            Civic publishing &amp; content
           </h2>
           <p className="text-xs text-muted-foreground mt-0.5">
             Publish new dispatches, update chapter events, issue bulletins, and maintain coalition
@@ -201,7 +201,7 @@ export default async function AdminDashboardPage() {
         {/* Recent content */}
         <section className="bg-surface-card border border-border rounded-3xl p-6 shadow-sm lg:col-span-2">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-[11px] font-black text-muted-foreground uppercase tracking-[0.25em]">
+            <h2 className="font-display text-[11px] font-semibold tracking-[-0.01em] text-muted-foreground">
               <DataPoint as="span" name="admin.dashboard.recent_title" initialData={dataPoints}>
                 Recently edited
               </DataPoint>
@@ -269,9 +269,9 @@ export default async function AdminDashboardPage() {
         {/* Upcoming events / actions */}
         <section className="bg-surface-card border border-border rounded-3xl p-6 shadow-sm">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-[11px] font-black text-muted-foreground uppercase tracking-[0.25em]">
+            <h2 className="font-display text-[11px] font-semibold tracking-[-0.01em] text-muted-foreground">
               <DataPoint as="span" name="admin.dashboard.events_title" initialData={dataPoints}>
-                Upcoming Actions
+                Upcoming actions
               </DataPoint>
             </h2>
             <Link

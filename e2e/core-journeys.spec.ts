@@ -8,6 +8,12 @@ import { expect, test } from '@playwright/test';
  * that need a browser keep their own contexts.
  */
 
+// A fresh checkout has no Supabase project, so `/api/gallery` cannot replace
+// the checked-in fallback archive. The gallery journey still exercises the
+// hero, filters and lightbox; only the wait for server-owned photo ids is
+// meaningless in that state.
+const PLACEHOLDER_ENV = Bun.env.E2E_PLACEHOLDER_ENV === '1';
+
 const STATIC_PAGES = [
   '/events',
   '/news',
@@ -119,18 +125,21 @@ test.describe('gallery journey', () => {
     // server's set when `/api/gallery` answers. The two sets use different ids,
     // so a click during that swap selects a `fallback-*` plate the server set
     // does not contain, and the lightbox closes itself a moment after opening.
-    // Wait for the archive this journey is actually about before selecting.
-    await expect
-      .poll(
-        () =>
-          photos.evaluateAll((plates) =>
-            plates.every(
-              (plate) => !plate.getAttribute('data-gallery-photo')?.startsWith('fallback-')
-            )
-          ),
-        { timeout: 10_000 }
-      )
-      .toBe(true);
+    // Wait for the archive this journey is actually about before selecting —
+    // unless this is a no-env build, where the fallback is the only set.
+    if (!PLACEHOLDER_ENV) {
+      await expect
+        .poll(
+          () =>
+            photos.evaluateAll((plates) =>
+              plates.every(
+                (plate) => !plate.getAttribute('data-gallery-photo')?.startsWith('fallback-')
+              )
+            ),
+          { timeout: 10_000 }
+        )
+        .toBe(true);
+    }
     await photos.first().click();
     await expect(page.getByRole('dialog')).toBeVisible();
     await page.getByRole('button', { name: 'Close image viewer' }).click();

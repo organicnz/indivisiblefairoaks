@@ -6,8 +6,6 @@
 // the colour. Deriving both surfaces from one list makes the active state a
 // property of the data rather than something each render has to remember.
 
-export type NavGroup = 'act' | 'community' | 'chapter' | 'more';
-
 export type NavLink = {
   label: string;
   /**
@@ -16,12 +14,6 @@ export type NavLink = {
    */
   short?: string;
   href: string;
-  /**
-   * Task group used by the drawer and by the desktop ordering. Main is the
-   * explicit Home tab (the logo also links home); eight primary entries plus
-   * the alert link and Donate is the readable limit.
-   */
-  group?: NavGroup;
   /**
    * Extra path prefixes that should also mark this link active. A link is active
    * when the current path is the href itself or sits under one of these prefixes.
@@ -46,13 +38,6 @@ export type NavChild = {
   external?: boolean;
 };
 
-export const NAV_GROUPS: readonly { id: NavGroup; label: string }[] = [
-  { id: 'act', label: 'Take Action' },
-  { id: 'community', label: 'Community' },
-  { id: 'chapter', label: 'The Chapter' },
-  { id: 'more', label: 'Explore' },
-] as const;
-
 export const ROUTES: readonly NavLink[] = [
   // The explicit Home tab. The logo still links home, but the primary row
   // starts with a readable Main entry so the landing page is discoverable.
@@ -65,25 +50,21 @@ export const ROUTES: readonly NavLink[] = [
     label: 'About',
     short: 'About',
     href: '/about',
-    group: 'chapter',
   },
   {
     label: 'Events & Actions',
     short: 'Events',
     href: '/events',
-    group: 'act',
   },
   {
     label: 'ICE Alert',
     short: 'ICE Alert',
     href: '/ice-alerts',
-    group: 'act',
   },
   {
     label: 'Voter Info',
     short: 'Voter Info',
     href: '/voter-info',
-    group: 'act',
     // First entry is the overview page itself so every existing link to
     // `/voter-info` keeps working; anchors below match `id`s in the page.
     children: [
@@ -104,13 +85,11 @@ export const ROUTES: readonly NavLink[] = [
     label: 'Resistance Choir',
     short: 'Choir',
     href: '/choir',
-    group: 'community',
   },
   {
     label: 'News & Updates',
     short: 'News',
     href: '/news',
-    group: 'community',
     matchPrefixes: ['/newsletters'],
     children: [
       { label: 'News & Updates', href: '/news' },
@@ -121,13 +100,11 @@ export const ROUTES: readonly NavLink[] = [
     label: 'Contact',
     short: 'Contact',
     href: '/contact',
-    group: 'chapter',
   },
   {
     label: 'Explore',
     short: 'Explore',
     href: '/gallery',
-    group: 'more',
     matchPrefixes: ['/gallery', '/links', '/archive', '/faqs', '/partners'],
     children: [
       { label: 'Gallery', href: '/gallery' },

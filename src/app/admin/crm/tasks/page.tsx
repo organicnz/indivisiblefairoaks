@@ -44,7 +44,7 @@ export default async function AdminCRMTasksPage({
               Admin Panel · Grassroots CRM
             </span>
           </div>
-          <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-foreground uppercase">
+          <h1 className="font-display text-3xl font-semibold tracking-[-0.03em] text-foreground sm:text-4xl">
             Follow-ups
           </h1>
           <div className="h-1.5 w-24 bg-primary mt-3" />

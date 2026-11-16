@@ -11,7 +11,11 @@
 // prefers the Meetings category over the generic highlight flag: a highlighted
 // rally must not inherit a food-drive note.
 
-import { PACIFIC_TZ, PACIFIC_VTIMEZONE_LINES } from '@/lib/calendar-time';
+import {
+  instantToPacificBasic,
+  PACIFIC_TZ,
+  PACIFIC_VTIMEZONE_LINES,
+} from '@/lib/calendar-time';
 
 /** Minimal shape the card and calendar links need. `CivicEvent` satisfies it. */
 export interface CardEvent {
@@ -32,6 +36,67 @@ export interface CardEvent {
 }
 
 /**
+ * Issue #175: "Ongoing" and "Every …" rows describe recurring activity, not
+ * a single dated event. Their stored start instant is the first occurrence,
+ * so treating it as an expiry date would hide the choir's standing protest
+ * and rehearsal from the public calendar. One-off events are different: once
+ * their end instant has passed they belong in the archive, not the upcoming
+ * list.
+ */
+const RECURRING_DATE_LABEL = /^\s*(?:ongoing|every)\b/i;
+
+export function isRecurringEvent(event: Pick<CardEvent, 'dateLabel'>): boolean {
+  return RECURRING_DATE_LABEL.test(event.dateLabel);
+}
+
+/**
+ * Is this event still current for the public "Upcoming events" surface?
+ *
+ * The comparison uses Pacific wall stamps because the event rows are authored
+ * and displayed in the chapter's timezone; comparing a Pacific wall clock to
+ * the server's local clock would shift the cutoff by the host's offset. An
+ * undated row is kept because it cannot be proven past.
+ */
+export function isEventUpcoming(
+  event: Pick<CardEvent, 'dateLabel' | 'isoDateStart' | 'isoDateEnd'>,
+  now: Date = new Date()
+): boolean {
+  if (isRecurringEvent(event) || !event.isoDateStart) return true;
+  const endStamp = event.isoDateEnd || event.isoDateStart;
+  const nowStamp = instantToPacificBasic(now.toISOString());
+  return endStamp >= nowStamp;
+}
+
+export function filterUpcomingEvents<T extends Pick<CardEvent, 'dateLabel' | 'isoDateStart' | 'isoDateEnd'>>(
+  events: readonly T[],
+  now: Date = new Date()
+): T[] {
+  return events.filter((event) => isEventUpcoming(event, now));
+}
+
+/**
+ * The confirmed next chapter meeting, used when the database has no future
+ * highlighted meeting. Erin gave the date (December 1); the recurring monthly
+ * time and venue are the chapter's established pattern and remain editable
+ * through `/admin/events`.
+ */
+export const DEFAULT_UPCOMING_MEETING: CardEvent = {
+  id: 'monthly-gathering-dec',
+  title: 'Monthly Chapter Meeting & Food Drive',
+  category: 'Meetings',
+  dateLabel: 'Tuesday, December 1, 2026',
+  timeLabel: '6:30 PM – 8:00 PM',
+  isoDateStart: '20261201T183000',
+  isoDateEnd: '20261201T200000',
+  locationName: "St. Michael's Episcopal Church",
+  address: '2140 Mission Avenue, Carmichael, CA 95608',
+  description:
+    'Our next monthly community gathering. Bring a can or box of non-perishable food for our neighborhood pantry; agenda and updates will be shared at the meeting.',
+  rsvpUrl: 'https://www.mobilize.us/indivisible/',
+  highlight: true,
+};
+
+/**
  * The meeting the homepage card announces: first Meetings-category row in
  * `sort_order`, else the highlighted row, else the first row. `undefined` when
  * the table is empty — the call site renders its static fallback then, the
@@ -43,6 +108,30 @@ export function selectMeetingEvent(events: readonly CardEvent[]): CardEvent | un
     events.find((event) => event.highlight) ??
     events[0]
   );
+}
+
+/**
+ * The homepage's next-meeting choice. Unlike `selectMeetingEvent`, this is
+ * date-aware: a past meeting is never announced merely because it has the
+ * lowest sort order. A future row must be highlighted or look like the
+ * chapter meeting, so a future choir rehearsal or coffee klatch cannot inherit
+ * the food-drive card. When there is no future meeting, the caller renders
+ * `DEFAULT_UPCOMING_MEETING`.
+ */
+export function selectUpcomingMeetingEvent(
+  events: readonly CardEvent[],
+  now: Date = new Date()
+): CardEvent | undefined {
+  return events
+    .filter(
+      (event) =>
+        event.category === 'Meetings' &&
+        !isRecurringEvent(event) &&
+        Boolean(event.isoDateStart) &&
+        isEventUpcoming(event, now) &&
+        (event.highlight || /\bchapter\b/i.test(event.title))
+    )
+    .sort((a, b) => a.isoDateStart.localeCompare(b.isoDateStart))[0];
 }
 
 /**
@@ -99,51 +188,9 @@ export function buildIcsCalendar(event: CardEvent, stamp: Date = new Date()): st
 export interface GatheringCard {
   title: string;
   dateLine: string;
-  timeLine: string;
-  startWeekday: string;
-  startMonth: string;
-  startDay: string;
   locationLine: string;
   rsvpUrl: string;
   calendarUrl: string;
-}
-
-const WEEKDAY_FORMAT = new Intl.DateTimeFormat('en-US', {
-  weekday: 'short',
-  timeZone: 'UTC',
-});
-const MONTH_FORMAT = new Intl.DateTimeFormat('en-US', {
-  month: 'short',
-  timeZone: 'UTC',
-});
-const DAY_FORMAT = new Intl.DateTimeFormat('en-US', {
-  day: 'numeric',
-  timeZone: 'UTC',
-});
-
-/**
- * Calendar parts for the printed date block. `isoDateStart` is a Pacific wall
- * stamp, so it is split and formatted in UTC — converting it through the local
- * timezone would move the date backwards for anyone west of Greenwich.
- */
-function dateBlockFromStamp(stamp: string): Pick<
-  GatheringCard,
-  'startWeekday' | 'startMonth' | 'startDay'
-> {
-  const year = Number(stamp.slice(0, 4));
-  const month = Number(stamp.slice(4, 6));
-  const day = Number(stamp.slice(6, 8));
-  const date = new Date(Date.UTC(year, month - 1, day));
-
-  if (Number.isNaN(date.getTime())) {
-    return { startWeekday: '', startMonth: '', startDay: '' };
-  }
-
-  return {
-    startWeekday: WEEKDAY_FORMAT.format(date),
-    startMonth: MONTH_FORMAT.format(date),
-    startDay: DAY_FORMAT.format(date),
-  };
 }
 
 /**
@@ -155,22 +202,18 @@ function dateBlockFromStamp(stamp: string): Pick<
  */
 export function gatheringCard(event: CardEvent | undefined): GatheringCard {
   if (!event) {
+    const fallback = DEFAULT_UPCOMING_MEETING;
     return {
-      title: 'Monthly Chapter Meeting & Food Drive',
-      dateLine: 'Tuesday, November 10, 2026 • 6:30 PM – 8:00 PM',
-      timeLine: '6:30 PM – 8:00 PM',
-      ...dateBlockFromStamp('20261110T183000'),
-      locationLine: "St. Michael's Episcopal Church, 2140 Mission Ave, Carmichael",
-      rsvpUrl: 'https://www.mobilize.us/indivisible/',
-      calendarUrl:
-        'https://calendar.google.com/calendar/render?action=TEMPLATE&text=Indivisible+Fair+Oaks-Carmichael+Monthly+Meeting&dates=20261110T183000/20261110T200000&ctz=America%2FLos_Angeles&details=Monthly+community+gathering+and+food+drive.+Bring+non-perishable+food+for+the+local+food+bank.&location=St.+Michael%27s+Episcopal+Church%2C+2140+Mission+Ave%2C+Carmichael%2C+CA',
+      title: fallback.title,
+      dateLine: `${fallback.dateLabel} • ${fallback.timeLabel}`,
+      locationLine: `${fallback.locationName}, ${fallback.address}`,
+      rsvpUrl: fallback.rsvpUrl,
+      calendarUrl: buildGoogleCalendarUrl(fallback),
     };
   }
   return {
     title: event.title,
     dateLine: `${event.dateLabel} • ${event.timeLabel}`,
-    timeLine: event.timeLabel,
-    ...dateBlockFromStamp(event.isoDateStart),
     locationLine: `${event.locationName}, ${event.address}`,
     rsvpUrl: event.rsvpUrl,
     calendarUrl: buildGoogleCalendarUrl(event),

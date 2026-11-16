@@ -154,10 +154,14 @@ function LoginForm() {
   };
 
   return (
-    <div className="civic-page relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-background px-4 py-32 selection:bg-primary selection:text-white">
+    <div className="civic-page relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-background px-4 pt-[calc(var(--header-clearance)+2rem)] pb-20 selection:bg-primary selection:text-white">
+      <div
+        aria-hidden="true"
+        className="paper-grid pointer-events-none absolute inset-0 opacity-30 [mask-image:radial-gradient(ellipse_at_center,black,transparent_72%)]"
+      />
       <div className="relative z-10 w-full max-w-xl">
         {/* Header */}
-        <div className="text-center mb-12 animate-in fade-in slide-in-from-top-8 duration-300 ease-out">
+        <div className="mb-10 text-center animate-in fade-in slide-in-from-top-8 duration-300 ease-out">
           <div className="mb-8 inline-flex items-center gap-3 border border-border px-6 py-2.5">
             <Shield className="h-3.5 w-3.5 text-foreground" />
             <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-foreground">
@@ -169,14 +173,13 @@ function LoginForm() {
               </DataPoint>
             </span>
           </div>
-          <h1 className="mb-6 font-display text-6xl font-semibold leading-[0.9] tracking-[-0.05em] text-foreground md:text-8xl">
+          <h1 className="mb-5 text-balance font-display text-6xl font-semibold leading-[0.92] tracking-[-0.05em] text-foreground md:text-7xl">
             <DataPoint
               initialData={dataPoints}
               name={isSignUp ? 'login.title.join' : 'login.title.welcome'}
             >
               {isSignUp ? 'Join' : 'Welcome'}
             </DataPoint>{' '}
-            <br />
             <span className="text-primary dark:text-primary-on-dark italic">
               <DataPoint
                 initialData={dataPoints}
@@ -224,7 +227,7 @@ function LoginForm() {
           </div>
         )}
 
-        <div className="bg-surface-card border border-border rounded-[4rem] shadow-[0_40px_100px_-20px_rgba(15,23,42,0.1)] overflow-hidden animate-in fade-in zoom-in-95 duration-300 ease-out">
+        <div className="civic-panel overflow-hidden animate-in fade-in zoom-in-95 duration-300 ease-out">
           {/*
             These were two plain buttons with no role and no selected state, so
             the active auth method was conveyed by background colour alone. They
@@ -279,7 +282,7 @@ function LoginForm() {
             id="auth-panel"
             role="tabpanel"
             aria-labelledby={authMethod === 'otp' ? 'auth-tab-otp' : 'auth-tab-password'}
-            className="p-10 md:p-16"
+            className="p-8 md:p-12"
           >
             <form onSubmit={handleAuth} className="space-y-8">
               <div className="space-y-6">
@@ -390,7 +393,7 @@ function LoginForm() {
             {message && (
               <div
                 role={message.type === 'success' ? 'status' : 'alert'}
-                className={`mt-10 p-6 rounded-xl border text-sm font-medium text-center leading-relaxed motion-safe:animate-in motion-safe:zoom-in-95 motion-safe:duration-300 motion-safe:ease-out ${
+                className={`mt-10 border p-6 text-center text-sm font-medium leading-relaxed motion-safe:animate-in motion-safe:zoom-in-95 motion-safe:duration-300 motion-safe:ease-out ${
                   message.type === 'success'
                     ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/60 text-emerald-800 dark:text-emerald-400'
                     : 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800/60 text-accent-red dark:text-rose-400'

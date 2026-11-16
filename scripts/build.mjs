@@ -13,9 +13,50 @@
  *
  * The actual build is still `bun --bun next build`; this is a guard around it,
  * not a second build implementation.
+ *
+ * ## E2E builds are self-contained
+ *
+ * The browser suite is built with `NEXT_E2E_BUILD=true` on a machine that may
+ * be a fresh checkout with no `.env.local`. A real local environment wins when
+ * it exists; otherwise the build gets loopback/placeholder public values so
+ * `/sitemap.xml` can construct a client and the build can finish. The app and
+ * mock ports are chosen here as a free pair, and the chosen app port is written
+ * to `.next/e2e-port` so `playwright.config.ts` starts the server on the same
+ * origin. Keeping this here rather than in `lefthook.yml` means the same rules
+ * apply when the build is run directly.
  */
 
+import { loadEnvLocal } from './load-env-local.mjs';
 import { findPrerenderWarnings } from './prerender-warnings.mjs';
+
+const isE2E = process.env.NEXT_E2E_BUILD === 'true';
+let e2ePort;
+
+if (isE2E) {
+  // Bun normally loads this at startup, but a shell with NODE_ENV=test does
+  // not. The loader is the same one the scripts use: shell values win, and the
+  // file is simply absent on a fresh checkout.
+  await loadEnvLocal();
+
+  const ports = await import('../e2e/helpers/ports.ts');
+  e2ePort = ports.E2E_PORT;
+
+  if (!process.env.NEXT_PUBLIC_SITE_URL) {
+    process.env.NEXT_PUBLIC_SITE_URL = `http://localhost:${e2ePort}`;
+  }
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = 'http://127.0.0.1:9';
+  }
+  if (!process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) {
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = 'placeholder';
+  }
+  // The public values above make the schema parseable, but the build has
+  // historically used the skip as well: it is a throwaway browser-test bundle,
+  // not a deployment, and a half-filled local environment should not stop it.
+  if (!process.env.NEXT_SKIP_ENV_VALIDATION) {
+    process.env.NEXT_SKIP_ENV_VALIDATION = '1';
+  }
+}
 
 const output = [];
 
@@ -43,6 +84,11 @@ async function forward(stream, target) {
 }
 
 const proc = Bun.spawn([process.execPath, '--bun', 'next', 'build'], {
+  // `Bun.spawn` inherits the environment **as it was at process start**, not
+  // mutations made since. The e2e defaults above are exactly such mutations;
+  // without this, the build worker sees an empty Supabase configuration and
+  // `/search` fails during prerendering. Pass the current environment through.
+  env: process.env,
   stdin: 'ignore',
   stdout: 'pipe',
   stderr: 'pipe',
@@ -70,4 +116,15 @@ if (warnings.length > 0) {
   process.exitCode = 1;
 } else {
   process.exitCode = exitCode ?? 1;
+}
+
+// The suite is about to test this exact build; hand it the same port the build
+// baked into `NEXT_PUBLIC_SITE_URL` (or the fallback above). Writing after the
+// build is deliberate: Next may replace `.next` while it is working.
+if (process.exitCode === 0 && isE2E && e2ePort !== undefined) {
+  try {
+    await Bun.write('.next/e2e-port', `${e2ePort}\n`);
+  } catch {
+    // Playwright will probe for a free pair when the handoff is unavailable.
+  }
 }

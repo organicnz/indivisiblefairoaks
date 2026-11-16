@@ -4,6 +4,7 @@
  * Content fetchers safe to call from Client Components (useEffect, etc.).
  * Fetches directly through Edge API routes without exposing database clients to the browser.
  */
+import { fetchWithTimeout } from '@/lib/service-fetch';
 import type { Database } from '@/types/supabase';
 
 /** Raw DB row — the canonical `gallery_photos` row (has `id: number` + `slug`). */
@@ -42,7 +43,7 @@ export interface GalleryPhoto {
  */
 export async function getGalleryPhotos(): Promise<GalleryPhoto[]> {
   try {
-    const res = await fetch('/api/gallery');
+    const res = await fetchWithTimeout('/api/gallery');
     if (res.ok) {
       const json = await res.json();
       if (Array.isArray(json.photos)) {

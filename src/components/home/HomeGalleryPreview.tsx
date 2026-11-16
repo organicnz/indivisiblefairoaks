@@ -1,13 +1,13 @@
 'use client';
 
-import { ArrowRight, Camera, Filter, MapPin } from 'lucide-react';
+import { ArrowRight, Camera, MapPin } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 import { FALLBACK_GALLERY_PHOTOS } from '@/config/gallery-fallback';
 import { GalleryImage } from '@/components/gallery/GalleryImage';
 import { DataPoint } from '@/components/ui/DataPoint';
-import { galleryAltText } from '@/lib/gallery-alt';
+import { galleryAltText, galleryCaption } from '@/lib/gallery-alt';
 import { getGalleryPhotos, type GalleryPhoto } from '@/lib/queries/content-client';
 import type { GalleryPhotoView } from '@/types/gallery';
 
@@ -16,27 +16,17 @@ interface PreviewPhoto {
   alt: string;
   title: string;
   location: string;
-  category:
-    | 'No Kings Sacramento'
-    | 'NorCal Resist'
-    | 'Sacramento Unity'
-    | 'Witty Signs'
-    | 'Resistance Choir'
-    | 'Legacy Archives';
+  category: string;
   image: string;
-  signQuote?: string;
-  date: string;
 }
 
 const toPreviewPhoto = (photo: GalleryPhotoView | GalleryPhoto): PreviewPhoto => ({
   id: photo.id,
   alt: galleryAltText(photo),
-  title: photo.caption || photo.alt || '',
+  title: galleryCaption(photo),
   location: photo.location || '',
-  category: (photo.category as PreviewPhoto['category']) || 'No Kings Sacramento',
+  category: photo.category || '',
   image: photo.url || '',
-  signQuote: photo.signQuote ?? undefined,
-  date: photo.date || '',
 });
 
 const FALLBACK_PREVIEW_PHOTOS = FALLBACK_GALLERY_PHOTOS.map(toPreviewPhoto);
@@ -48,7 +38,6 @@ export function HomeGalleryPreview({
   photos?: GalleryPhotoView[];
   dataPoints?: Record<string, string>;
 } = {}) {
-  const [selectedFilter, setSelectedFilter] = useState<string>('All');
   const [previewPhotos, setPreviewPhotos] = useState<PreviewPhoto[]>(() => {
     if (initialPhotos && initialPhotos.length > 0) {
       return initialPhotos.map(toPreviewPhoto);
@@ -71,44 +60,7 @@ export function HomeGalleryPreview({
     });
   }, [initialPhotos]);
 
-  const filterOptions = [
-    { id: 'All', key: 'home.gallery.filter.all', defaultLabel: 'All' },
-    {
-      id: 'No Kings Sacramento',
-      key: 'home.gallery.filter.no_kings',
-      defaultLabel: 'No Kings Sacramento',
-    },
-    {
-      id: 'NorCal Resist',
-      key: 'home.gallery.filter.norcal_resist',
-      defaultLabel: 'NorCal Resist',
-    },
-    { id: 'Sacramento Unity', key: 'home.gallery.filter.unity', defaultLabel: 'Sacramento Unity' },
-    { id: 'Witty Signs', key: 'home.gallery.filter.witty', defaultLabel: 'Witty Signs' },
-    { id: 'Resistance Choir', key: 'home.gallery.filter.choir', defaultLabel: 'Resistance Choir' },
-    { id: 'Legacy Archives', key: 'home.gallery.filter.legacy', defaultLabel: 'Legacy Archives' },
-  ];
-
-  const availableFilterOptions = filterOptions.filter(
-    (option) => option.id === 'All' || previewPhotos.some((photo) => photo.category === option.id)
-  );
-
-  // A filter that disappears when the archive changes must not leave the
-  // reader on an empty grid with no way back. This is a state correction, not
-  // a render-time guess.
-  useEffect(() => {
-    if (
-      selectedFilter !== 'All' &&
-      !previewPhotos.some((photo) => photo.category === selectedFilter)
-    ) {
-      setSelectedFilter('All');
-    }
-  }, [previewPhotos, selectedFilter]);
-
-  const displayedPhotos =
-    selectedFilter === 'All'
-      ? previewPhotos.slice(0, 6)
-      : previewPhotos.filter((p) => p.category === selectedFilter);
+  const displayedPhotos = previewPhotos.slice(0, 6);
 
   return (
     <section className="border-t border-border bg-surface-muted py-16 text-foreground md:py-24">
@@ -130,16 +82,6 @@ export function HomeGalleryPreview({
             >
               Moments of Peaceful Resistance
             </DataPoint>
-            <DataPoint
-              name="home.gallery.intro"
-              as="p"
-              initialData={dataPoints}
-              className="mt-4 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base"
-            >
-              Snapshots of our neighbors gathering, singing, holding signs, and speaking truth to
-              power across Sacramento County. Strictly 100% grassroots — zero politicians, zero
-              corporate branding.
-            </DataPoint>
           </div>
 
           <Link
@@ -153,40 +95,13 @@ export function HomeGalleryPreview({
           </Link>
         </div>
 
-        {/* Filters stay compact so they read as a toolbar, not another card row. */}
-        <div
-          role="group"
-          aria-label="Filter photographs by collection"
-          className="mb-8 flex items-center gap-2 overflow-x-auto border-t border-foreground/15 pb-2 pt-4 sm:flex-wrap sm:overflow-visible sm:pb-0"
-        >
-          <Filter size={14} className="mr-1 hidden text-muted-foreground sm:inline-block" />
-          {availableFilterOptions.map((option) => (
-            <button
-              key={option.id}
-              type="button"
-              aria-pressed={selectedFilter === option.id}
-              onClick={() => setSelectedFilter(option.id)}
-              className={`shrink-0 cursor-pointer border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.08em] transition-colors ${
-                selectedFilter === option.id
-                  ? 'border-secondary bg-secondary text-white'
-                  : 'border-border bg-transparent text-muted-foreground hover:border-foreground/40 hover:text-foreground'
-              }`}
-            >
-              <DataPoint as="span" name={option.key} initialData={dataPoints}>
-                {option.defaultLabel}
-              </DataPoint>
-            </button>
-          ))}
-        </div>
-
         {/* One horizontal, snap-scrolling strip on phones; a two-up grid from sm,
             with a featured lead frame from lg. */}
-        <div className="-mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-4 sm:mx-0 sm:grid sm:grid-cols-2 sm:px-0 lg:auto-rows-[20rem] lg:grid-cols-3">
+        <div className="-mx-4 flex snap-x snap-mandatory scroll-pl-4 gap-4 overflow-x-auto px-4 pb-4 sm:mx-0 sm:grid sm:grid-cols-2 sm:px-0 lg:auto-rows-[20rem] lg:grid-cols-3">
           {displayedPhotos.map((photo, index) => {
-            // The first frame becomes a magazine feature on large screens while
-            // the rest keep the compact three-up rhythm. Filters with only a few
-            // results fall back to equal cards rather than leaving a hole.
-            const isFeature = index === 0 && displayedPhotos.length >= 5;
+            // A full set of six makes a complete magazine grid: the lead frame
+            // spans two rows while the other five fill the remaining cells.
+            const isFeature = index === 0 && displayedPhotos.length === 6;
             return (
               <Link
                 key={photo.id}
@@ -200,7 +115,7 @@ export function HomeGalleryPreview({
                   alt={photo.alt}
                   sizes={
                     isFeature
-                      ? '(min-width: 1024px) 66vw, (min-width: 640px) 100vw, 82vw'
+                      ? '(min-width: 1024px) 66vw, (min-width: 640px) 50vw, 82vw'
                       : '(max-width: 768px) 82vw, (max-width: 1024px) 50vw, 33vw'
                   }
                   className="object-cover group-hover:scale-105 transition-transform duration-300 brightness-95 group-hover:brightness-100"
@@ -209,20 +124,14 @@ export function HomeGalleryPreview({
                 {/* Gradient Scrim */}
                 <div className="absolute inset-0 bg-gradient-to-t from-secondary via-secondary/35 to-transparent opacity-90 transition-opacity group-hover:opacity-80" />
 
-                {/* Top Badges */}
-                <div className="absolute left-4 top-4 z-10 flex max-w-[85%] flex-col items-start gap-1.5">
-                  <span className="border border-white/20 bg-secondary/85 px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-accent-gold backdrop-blur-md">
+                {photo.category ? (
+                  <span className="absolute left-4 top-4 z-10 block max-w-[calc(100%-2rem)] truncate border border-white/20 bg-secondary/85 px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-accent-gold backdrop-blur-md">
                     {photo.category}
                   </span>
-                  {photo.signQuote && (
-                    <span className="max-w-full truncate bg-accent-gold px-2 py-0.5 text-[10px] font-bold text-ink-strong">
-                      “{photo.signQuote}”
-                    </span>
-                  )}
-                </div>
+                ) : null}
 
                 {/* Bottom Metadata */}
-                <div className="absolute bottom-0 inset-x-0 p-5 z-10 space-y-1.5">
+                <div className="absolute bottom-0 inset-x-0 p-5 z-10">
                   <h3
                     className={`font-display text-xl font-semibold leading-snug text-white transition-colors group-hover:text-accent-gold ${
                       isFeature ? 'lg:text-3xl' : ''
@@ -230,15 +139,16 @@ export function HomeGalleryPreview({
                   >
                     {photo.title}
                   </h3>
-                  <div className="flex items-center justify-between text-xs text-ink-muted-on-dark">
-                    <span className="flex items-center gap-1 truncate max-w-[70%]">
-                      <MapPin size={12} className="text-accent-gold shrink-0" />
-                      <span className="truncate">{photo.location}</span>
-                    </span>
-                    <span className="font-mono text-[10px] text-ink-muted-on-dark shrink-0">
-                      {photo.date}
-                    </span>
-                  </div>
+                  {photo.location ? (
+                    <div className="mt-1.5 flex items-start gap-1 text-xs text-ink-muted-on-dark">
+                      <MapPin
+                        size={12}
+                        className="mt-0.5 shrink-0 text-accent-gold"
+                        aria-hidden="true"
+                      />
+                      <span className="line-clamp-2 min-w-0 break-words">{photo.location}</span>
+                    </div>
+                  ) : null}
                 </div>
               </Link>
             );

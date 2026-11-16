@@ -140,7 +140,7 @@ export default function UpdatePasswordPage() {
 
   if (!sessionReady || needsStepUp === null) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center text-foreground transition-colors duration-300">
+      <div className="civic-page min-h-screen bg-background flex items-center justify-center text-foreground transition-colors duration-300">
         <Loader2 className="w-8 h-8 text-primary dark:text-primary-on-dark animate-spin" />
       </div>
     );
@@ -148,12 +148,12 @@ export default function UpdatePasswordPage() {
 
   if (needsStepUp) {
     return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 pt-(--header-h) pb-16 text-foreground transition-colors duration-300">
-        <div className="max-w-md w-full bg-surface-card p-10 rounded-3xl shadow-raised text-center border border-border">
-          <div className="p-4 bg-primary/10 text-primary dark:text-primary-on-dark rounded-2xl mb-6 inline-flex">
+      <div className="civic-page min-h-screen bg-background flex flex-col items-center justify-center px-4 pt-(--header-clearance) pb-16 text-foreground transition-colors duration-300">
+        <div className="civic-panel w-full max-w-md p-10 text-center">
+          <div className="p-4 bg-primary/10 text-primary dark:text-primary-on-dark rounded-sm mb-6 inline-flex">
             <ShieldCheck size={28} aria-hidden="true" />
           </div>
-          <h1 className="text-2xl font-black text-foreground uppercase tracking-tight mb-3">
+          <h1 className="mb-3 font-display text-2xl font-semibold tracking-[-0.02em] text-foreground">
             <DataPoint name="account.security.confirm_title" initialData={dataPoints}>
               Confirm it&apos;s you
             </DataPoint>
@@ -167,7 +167,7 @@ export default function UpdatePasswordPage() {
           <button
             type="button"
             onClick={() => router.push('/auth/mfa?next=/account/update-password')}
-            className="w-full bg-primary dark:bg-primary-bright text-white font-black rounded-full py-5 hover:bg-primary-light transition-all uppercase tracking-[0.2em] text-sm shadow-xl shadow-primary/20"
+            className="w-full bg-primary dark:bg-primary-bright text-white font-bold rounded-sm py-5 hover:bg-primary-light transition-all uppercase tracking-[0.2em] text-sm"
           >
             <DataPoint name="account.security.confirm_btn" as="span" initialData={dataPoints}>
               Enter verification code
@@ -180,17 +180,17 @@ export default function UpdatePasswordPage() {
 
   if (status === 'success') {
     return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 pt-(--header-h) pb-16 text-foreground transition-colors duration-300">
-        <div className="max-w-md w-full bg-surface-card p-10 rounded-3xl shadow-raised text-center border border-border">
-          <div className="bg-emerald-100 dark:bg-emerald-950/60 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
+      <div className="civic-page min-h-screen bg-background flex flex-col items-center justify-center px-4 pt-(--header-clearance) pb-16 text-foreground transition-colors duration-300">
+        <div className="civic-panel w-full max-w-md p-10 text-center">
+          <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950/60">
             <CheckCircle
               className="w-10 h-10 text-emerald-600 dark:text-emerald-400"
               strokeWidth={2.5}
             />
           </div>
-          <h1 className="text-2xl font-black text-foreground uppercase tracking-tight mb-3">
+          <h1 className="mb-3 font-display text-2xl font-semibold tracking-[-0.02em] text-foreground">
             <DataPoint name="account.password.updated_title" initialData={dataPoints}>
-              Password Updated
+              Password updated
             </DataPoint>
           </h1>
           <p className="text-muted-foreground font-medium mb-8 leading-relaxed">
@@ -202,7 +202,7 @@ export default function UpdatePasswordPage() {
           <button
             type="button"
             onClick={() => router.push('/account')}
-            className="w-full bg-primary dark:bg-primary-bright text-white font-black rounded-full py-5 hover:bg-primary-light transition-all uppercase tracking-[0.2em] text-sm shadow-xl shadow-primary/20"
+            className="w-full bg-primary dark:bg-primary-bright text-white font-bold rounded-sm py-5 hover:bg-primary-light transition-all uppercase tracking-[0.2em] text-sm"
           >
             <DataPoint name="account.password.btn_go_account" as="span" initialData={dataPoints}>
               Go to Account
@@ -214,22 +214,22 @@ export default function UpdatePasswordPage() {
   }
 
   return (
-    <div className="relative overflow-hidden min-h-screen bg-background flex flex-col items-center justify-center px-4 pt-(--header-h) pb-16 text-foreground transition-colors duration-300">
+    <div className="civic-page relative overflow-hidden min-h-screen bg-background flex flex-col items-center justify-center px-4 pt-(--header-clearance) pb-16 text-foreground transition-colors duration-300">
       <VgpuCivicConstellation className="pointer-events-none opacity-25" />
       <div className="relative z-10 max-w-md w-full">
         {/* Header */}
         <div className="text-center mb-10">
-          <div className="inline-flex items-center gap-3 px-5 py-2 bg-primary/10 dark:bg-white/5 rounded-full mb-6 border border-primary/20 dark:border-white/10">
+          <div className="mb-6 inline-flex items-center gap-3 border border-primary/20 bg-primary/5 px-5 py-2.5 dark:border-white/10 dark:bg-white/5">
             <ShieldCheck className="w-3.5 h-3.5 text-primary dark:text-accent-gold" />
-            <span className="text-primary dark:text-accent-gold font-black uppercase tracking-[0.4em] text-[10px]">
+            <span className="text-primary dark:text-accent-gold font-bold uppercase tracking-[0.4em] text-[10px]">
               <DataPoint name="account.password.reset_badge" as="span" initialData={dataPoints}>
                 Secure Reset
               </DataPoint>
             </span>
           </div>
-          <h1 className="text-4xl font-black text-foreground uppercase tracking-tighter leading-none mb-3">
+          <h1 className="mb-3 font-display text-4xl font-semibold leading-none tracking-[-0.03em] text-foreground">
             <DataPoint name="account.password.new_title" initialData={dataPoints}>
-              New <span className="text-primary dark:text-primary-on-dark italic">Password</span>
+              New <span className="text-primary italic dark:text-primary-on-dark">password</span>
             </DataPoint>
           </h1>
           <p className="text-muted-foreground font-bold uppercase tracking-[0.15em] text-[10px]">
@@ -239,13 +239,13 @@ export default function UpdatePasswordPage() {
           </p>
         </div>
 
-        <div className="bg-surface-card border border-border rounded-[3rem] shadow-float overflow-hidden">
+        <div className="civic-panel overflow-hidden">
           <form onSubmit={handleSubmit} className="p-10 space-y-6">
             {/* New Password */}
             <div className="group">
               <label
                 htmlFor="new-password"
-                className="block text-[10px] font-black text-muted-foreground dark:text-ink-muted-on-dark uppercase tracking-[0.3em] ml-1 mb-3 group-focus-within:text-primary dark:group-focus-within:text-primary-on-dark transition-colors"
+                className="ml-1 mb-3 block text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground transition-colors group-focus-within:text-primary dark:text-ink-muted-on-dark dark:group-focus-within:text-primary-on-dark"
               >
                 <DataPoint name="account.password.new_label" as="span" initialData={dataPoints}>
                   New Password
@@ -266,7 +266,7 @@ export default function UpdatePasswordPage() {
                   placeholder={
                     dataPoints['account.password.new_placeholder'] || 'Min. 8 characters'
                   }
-                  className="w-full pl-12 pr-12 py-5 bg-surface-muted border border-border rounded-3xl focus:ring-4 focus:ring-primary/20 focus:bg-surface-card focus:border-primary dark:focus:border-primary-bright outline-none transition-all font-bold text-foreground text-sm placeholder:text-muted-foreground"
+                  className="w-full pl-12 pr-12 py-5 bg-surface-muted border border-border rounded-sm focus:ring-4 focus:ring-primary/20 focus:bg-surface-card focus:border-primary dark:focus:border-primary-bright outline-none transition-all font-bold text-foreground text-sm placeholder:text-muted-foreground"
                 />
                 <button
                   type="button"
@@ -283,7 +283,7 @@ export default function UpdatePasswordPage() {
             <div className="group">
               <label
                 htmlFor="confirm-password"
-                className="block text-[10px] font-black text-muted-foreground dark:text-ink-muted-on-dark uppercase tracking-[0.3em] ml-1 mb-3 group-focus-within:text-primary dark:group-focus-within:text-primary-on-dark transition-colors"
+                className="ml-1 mb-3 block text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground transition-colors group-focus-within:text-primary dark:text-ink-muted-on-dark dark:group-focus-within:text-primary-on-dark"
               >
                 <DataPoint name="account.password.confirm_label" as="span" initialData={dataPoints}>
                   Confirm Password
@@ -303,7 +303,7 @@ export default function UpdatePasswordPage() {
                   placeholder={
                     dataPoints['account.password.confirm_placeholder'] || 'Repeat your password'
                   }
-                  className="w-full pl-12 pr-12 py-5 bg-surface-muted border border-border rounded-3xl focus:ring-4 focus:ring-primary/20 focus:bg-surface-card focus:border-primary dark:focus:border-primary-bright outline-none transition-all font-bold text-foreground text-sm placeholder:text-muted-foreground"
+                  className="w-full pl-12 pr-12 py-5 bg-surface-muted border border-border rounded-sm focus:ring-4 focus:ring-primary/20 focus:bg-surface-card focus:border-primary dark:focus:border-primary-bright outline-none transition-all font-bold text-foreground text-sm placeholder:text-muted-foreground"
                 />
                 <button
                   type="button"
@@ -319,7 +319,7 @@ export default function UpdatePasswordPage() {
               {/* Match indicator */}
               {confirm.length > 0 && (
                 <p
-                  className={`mt-2 ml-1 text-[10px] font-black uppercase tracking-widest ${password === confirm ? 'text-emerald-500' : 'text-rose-500'}`}
+                  className={`mt-2 ml-1 text-[10px] font-bold uppercase tracking-widest ${password === confirm ? 'text-emerald-500' : 'text-rose-500'}`}
                 >
                   {password === confirm ? (
                     <DataPoint
@@ -346,7 +346,7 @@ export default function UpdatePasswordPage() {
             {status === 'error' && (
               <div
                 role="alert"
-                className="p-4 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900 text-rose-600 dark:text-rose-400 rounded-2xl text-[10px] font-black uppercase tracking-widest text-center"
+                className="p-4 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900 text-rose-600 dark:text-rose-400 rounded-sm text-[10px] font-bold uppercase tracking-widest text-center"
               >
                 ❌ {message}
               </div>
@@ -355,7 +355,7 @@ export default function UpdatePasswordPage() {
             <button
               type="submit"
               disabled={status === 'loading'}
-              className="w-full bg-primary dark:bg-primary-bright text-white font-black rounded-full py-5 hover:bg-primary-light transition-all uppercase tracking-[0.3em] text-xs shadow-xl shadow-primary/20 flex items-center justify-center gap-3 disabled:opacity-50 active:scale-[0.98]"
+              className="w-full bg-primary dark:bg-primary-bright text-white font-bold rounded-sm py-5 hover:bg-primary-light transition-all uppercase tracking-[0.3em] text-xs flex items-center justify-center gap-3 disabled:opacity-50 active:scale-[0.98]"
             >
               {status === 'loading' ? (
                 <Loader2 className="animate-spin" size={18} />

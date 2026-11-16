@@ -59,15 +59,34 @@ try {
 // need these numbers, and three hard-coded copies of a port is three places
 // to keep in step.
 //
-// `E2E_PORT` overrides it. The reason is a collision this repository
-// actually hit: another application on this machine was already listening on
-// 3100, so Playwright's `reuseExistingServer` reused *it* and the suite
-// drove the wrong product — reporting a locator timeout for an element the
-// other application does not have, and saying nothing about the real cause.
-//
-// A configurable port makes a collision *avoidable*; the global setup below
-// makes one *loud* when it happens anyway.
+// The helper chooses a free adjacent pair unless `E2E_PORT` is set, and the
+// e2e build records its choice for this process. The suite therefore does not
+// need a custom port to avoid the collision this repository actually hit:
+// another application on this machine held 3100, Playwright reused it, and
+// the suite drove the wrong product. It also no longer reuses a server at all
+// (see `webServer` below), so a collision cannot silently become the target.
 const { E2E_PORT: PORT, MOCK_PORT } = ports;
+
+// A fresh checkout has no `.env.local`, and the e2e server runs `next start`
+// without the placeholder values the build used (they are inlined for the
+// client, not inherited by this process). Fill only the public values that are
+// genuinely absent: a real `.env.local` or CI injection always wins. The
+// loopback Supabase URL makes an unconfigured checkout fail fast instead of
+// waiting on DNS, and the explicit marker lets live-only specs skip rather
+// than treating a placeholder as a real deployment.
+const placeholderEnv =
+  !process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+const e2eDefaults: Record<string, string> = {
+  NEXT_E2E_BUILD: 'true',
+  NEXT_PUBLIC_SITE_URL: `http://localhost:${PORT}`,
+  NEXT_PUBLIC_SUPABASE_URL: 'http://127.0.0.1:9',
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: 'placeholder',
+};
+for (const [key, value] of Object.entries(e2eDefaults)) {
+  if (!process.env[key]) process.env[key] = value;
+}
+if (placeholderEnv) process.env.E2E_PLACEHOLDER_ENV = '1';
+
 const includeOptionalMobileBrowsers = Bun.env.PW_MOBILE_BROWSERS === '1';
 
 export default defineConfig({
@@ -92,12 +111,10 @@ export default defineConfig({
   // Prove the server under test is *this repository's* build before any spec
   // runs.
   //
-  // `reuseExistingServer` below means a local run reuses whatever is
-  // listening on the port. That is a convenience, and it is also a way for
-  // the suite to drive the wrong application without saying so — which
-  // happened here: another Next.js app on the same machine held the port,
-  // and the suite reported a locator timeout for an element that app does
-  // not have.
+  // A local run starts the server from the build in `.next` on a port the
+  // helper verified is free; it never reuses whatever happens to be listening.
+  // That removes the convenience that once let the suite drive a different
+  // application, without requiring the caller to know a custom port.
   //
   // The check reads the build id out of `.next/BUILD_ID` and looks for it in
   // the served HTML, where Next writes it as `"b":"<id>"`. One marker answers
@@ -126,7 +143,7 @@ export default defineConfig({
     {
       command: `bun --bun next start -p ${PORT}`,
       url: `http://localhost:${PORT}/robots.txt`,
-      reuseExistingServer: !Bun.env.CI,
+      reuseExistingServer: false,
       timeout: 120_000,
       env: {
         // Route contact notifications at the controllable mock so e2e can
@@ -134,6 +151,14 @@ export default defineConfig({
         CONTACT_FUNCTION_URL: `http://127.0.0.1:${MOCK_PORT}/notify-contact`,
         CONTACT_SUBMISSION_TEST_MODE: '1',
         NEXT_E2E_BUILD: 'true',
+        // Pass the defaults into the server explicitly. `next start` is a
+        // child process; relying on a parent-process mutation is an unnecessary
+        // assumption when the values are already in hand.
+        NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL ?? '',
+        NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
+        NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:
+          process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? '',
+        E2E_PLACEHOLDER_ENV: process.env.E2E_PLACEHOLDER_ENV ?? '',
         // The suite submits the form many times from one IP; keep prod's 3/10min out of the way.
         CONTACT_RATE_LIMIT_MAX: '1000',
       },
@@ -144,7 +169,7 @@ export default defineConfig({
       // would spawn a missing binary and the webServer would never come up.
       command: `bun scripts/mock-notify-contact.mjs ${MOCK_PORT}`,
       url: `http://127.0.0.1:${MOCK_PORT}/__health`,
-      reuseExistingServer: !Bun.env.CI,
+      reuseExistingServer: false,
       timeout: 30_000,
     },
   ],

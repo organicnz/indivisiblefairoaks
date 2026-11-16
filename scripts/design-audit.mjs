@@ -1,23 +1,26 @@
 #!/usr/bin/env bun
 /**
- * Static design gate for the public civic-broadsheet surfaces.
+ * Static design gate for the public civic-broadsheet surfaces and the admin
+ * surface opt-in.
  *
- * This is deliberately narrow: it checks the page files and shared public
- * components that render the public site, and it bans the legacy SaaS card
- * vocabulary that the redesign replaced. Admin/account/editor surfaces are
- * denser by design and are out of scope.
+ * Public and member-facing pages are checked for the legacy SaaS card
+ * vocabulary that the redesign replaced. Account/auth pages opt into the same
+ * `.civic-page` surface as public pages; admin/editor surfaces are denser by
+ * design. Admin body content opts into `.admin-surface`, while the shared
+ * Dialog primitive owns dialog plates and titles. This gate keeps those
+ * opt-ins from silently disappearing.
  *
- * Media overlays are the one exception. A gradient scrim over a photograph is
- * part of the image treatment, not a decorative page background, so the files
- * that own those scrims are listed explicitly rather than silently exempting
- * every gradient.
+ * Media overlays are the one public exception. A gradient scrim over a
+ * photograph is part of the image treatment, not a decorative page background,
+ * so the files that own those scrims are listed explicitly rather than
+ * silently exempting every gradient.
  *
  * Bun-native on purpose: this script is part of the Bun toolchain and does not
  * need a Node runtime or Node filesystem shims.
  */
 
 const ROOT = process.cwd();
-const EXCLUDED_APP_SEGMENTS = new Set(['admin', 'account', 'auth', 'compose']);
+const EXCLUDED_APP_SEGMENTS = new Set(['admin', 'compose']);
 
 const PUBLIC_COMPONENTS = [
   'src/components/layout/Header.tsx',
@@ -25,6 +28,12 @@ const PUBLIC_COMPONENTS = [
   'src/components/layout/NavDropdown.tsx',
   'src/components/layout/PageMasthead.tsx',
   'src/components/ui/Button.tsx',
+  'src/components/ui/Dialog.tsx',
+  'src/components/ui/MeetingMaterials.tsx',
+  'src/components/ui/InteractivePostsList.tsx',
+  'src/components/ui/InteractiveNewslettersList.tsx',
+  'src/components/ui/CivicCommandPalette.tsx',
+  'src/components/ui/WallEChatWidget.tsx',
   'src/components/ui/ActBlueDonationCalculator.tsx',
   'src/components/ui/InteractiveLinksDirectory.tsx',
   'src/components/ui/InteractiveEventsCalendar.tsx',
@@ -34,7 +43,6 @@ const PUBLIC_COMPONENTS = [
   'src/components/archive/LegacyDocumentArchive.tsx',
   'src/components/home/HomeGalleryPreview.tsx',
   'src/components/home/HeroPhotoFrame.tsx',
-  'src/components/ice-alerts/IceAlertDemo.tsx',
 ];
 
 const MEDIA_OVERLAY_ALLOWLIST = new Set([
@@ -43,20 +51,25 @@ const MEDIA_OVERLAY_ALLOWLIST = new Set([
   'src/components/home/HeroPhotoFrame.tsx',
 ]);
 
+const ADMIN_LAYOUT = 'src/app/admin/layout.tsx';
+
 async function exists(path) {
   return Bun.file(`${ROOT}/${path}`).exists();
 }
 
-function appPageIsPublic(path) {
-  const segment = path.split('/')[2];
-  return !EXCLUDED_APP_SEGMENTS.has(segment);
+function appPageSegment(path) {
+  return path.split('/')[2];
+}
+
+function appPageIsRoutedSurface(path) {
+  return !EXCLUDED_APP_SEGMENTS.has(appPageSegment(path));
 }
 
 async function collectPages() {
   const pages = [];
   const glob = new Bun.Glob('src/app/**/page.tsx');
   for await (const path of glob.scan({ cwd: ROOT })) {
-    if (appPageIsPublic(path)) pages.push(path);
+    if (appPageIsRoutedSurface(path)) pages.push(path);
   }
   return pages;
 }
@@ -147,8 +160,21 @@ for (const file of targets) {
   }
 }
 
+const adminLayout = (await exists(ADMIN_LAYOUT))
+  ? await Bun.file(`${ROOT}/${ADMIN_LAYOUT}`).text()
+  : '';
+if (!/\badmin-surface\b/.test(adminLayout)) {
+  failures.push({
+    file: ADMIN_LAYOUT,
+    line: 1,
+    rule: 'missing-admin-surface',
+    excerpt: '',
+    message: 'admin root layout must opt into .admin-surface so admin body content inherits the civic rules',
+  });
+}
+
 if (failures.length > 0) {
-  console.error(`\ndesign:audit failed with ${failures.length} public-pattern finding(s):\n`);
+  console.error(`\ndesign:audit failed with ${failures.length} design-pattern finding(s):\n`);
   for (const failure of failures) {
     console.error(`  ${failure.file}:${failure.line}  [${failure.rule}]`);
     console.error(`    ${failure.message}`);
@@ -159,5 +185,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `design:audit: ${targets.length} public files checked; no banned legacy patterns.\n`
+  `design:audit: ${targets.length} public/member files checked; admin surface opt-in present; no banned legacy patterns.\n`
 );

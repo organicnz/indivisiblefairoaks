@@ -9,6 +9,7 @@ import { useEditContext } from '@/components/layout/useEditContext';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { useDataPoints } from '@/hooks/useDataPoints';
 import { type CivicNewsletterRecord, deleteCivicNewsletter } from '@/lib/actions/civic';
+import { fetchWithTimeout } from '@/lib/service-fetch';
 import type { NewsletterRow } from '@/lib/queries/civic';
 
 export function InteractiveNewslettersList({
@@ -32,7 +33,7 @@ export function InteractiveNewslettersList({
     let cancelled = false;
     async function loadNewslettersFromApi() {
       try {
-        const res = await fetch('/api/civic/newsletters');
+        const res = await fetchWithTimeout('/api/civic/newsletters');
         if (res.ok) {
           const data = await res.json();
           if (!cancelled && Array.isArray(data.newsletters)) {
@@ -98,9 +99,10 @@ export function InteractiveNewslettersList({
 
   const handleDeleteNewsletter = async (slug: string, title: string) => {
     try {
-      const res = await fetch(`/api/civic/newsletters?slug=${encodeURIComponent(slug)}`, {
-        method: 'DELETE',
-      });
+      const res = await fetchWithTimeout(
+        `/api/civic/newsletters?slug=${encodeURIComponent(slug)}`,
+        { method: 'DELETE' }
+      );
       if (res.ok) {
         setNewslettersList((prev) => prev.filter((item) => item.slug !== slug));
         toast.success(`Bulletin "${title}" deleted`);

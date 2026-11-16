@@ -1132,7 +1132,7 @@ export function ContentEditor({ initial, siteHost }: Props) {
               value={title}
               onChange={(e) => onTitleChange(e.target.value)}
               placeholder="Page title"
-              className="mt-1.5 w-full border-0 p-0 font-heading text-2xl font-black uppercase tracking-tight text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-0"
+              className="mt-1.5 w-full border-0 p-0 font-display text-2xl font-semibold tracking-[-0.03em] text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-0"
             />
           </div>
 
@@ -1172,7 +1172,7 @@ export function ContentEditor({ initial, siteHost }: Props) {
 
         <aside className="space-y-4">
           <div className="space-y-3 rounded-2xl border border-border bg-surface-card p-5 shadow-xs">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            <h2 className="font-display text-xs font-semibold tracking-[-0.01em] text-muted-foreground">
               Page settings
             </h2>
 
@@ -1254,7 +1254,7 @@ export function ContentEditor({ initial, siteHost }: Props) {
             the results, a description past ~155 is cut mid-sentence.
           */}
           <div className="space-y-3 rounded-2xl border border-border bg-surface-card p-5 shadow-xs">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            <h2 className="font-display text-xs font-semibold tracking-[-0.01em] text-muted-foreground">
               SEO
             </h2>
             <label className="block text-xs font-medium text-muted-foreground">
@@ -1312,7 +1312,7 @@ export function ContentEditor({ initial, siteHost }: Props) {
           */}
           <div className="space-y-2 rounded-2xl border border-border bg-surface-card p-5 shadow-xs">
             <div className="flex items-center justify-between">
-              <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              <h2 className="font-display text-xs font-semibold tracking-[-0.01em] text-muted-foreground">
                 Search preview
               </h2>
               <Eye size={14} className="text-muted-foreground" aria-hidden="true" />
@@ -1433,7 +1433,7 @@ function RevisionsPanel({
       aria-label="Version history"
       className="rounded-2xl border border-border bg-surface-card p-5 shadow-xs"
     >
-      <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+      <h2 className="mb-3 font-display text-xs font-semibold tracking-[-0.01em] text-muted-foreground">
         Version history
       </h2>
       {revisions.length === 0 ? (

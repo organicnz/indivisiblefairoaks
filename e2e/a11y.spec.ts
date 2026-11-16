@@ -34,7 +34,10 @@ const PAGES: { path: string; name?: string }[] = [
   { path: '/partners' },
   { path: '/privacy-policy', name: 'Privacy' },
   { path: '/terms-and-conditions', name: 'Terms' },
-  { path: '/search?q=democracy', name: 'Search' },
+  // The empty state exercises the search page's shell (masthead, form, heading)
+  // without coupling this CPU-bound accessibility gate to a request-time
+  // Supabase full-text query. Query rendering is covered by search.spec.ts.
+  { path: '/search', name: 'Search' },
   { path: '/login', name: 'Login' },
   { path: '/ice-alerts', name: 'ICE arrest heat map' },
   { path: '/this-page-does-not-exist', name: '404' },
@@ -49,12 +52,17 @@ test('a11y: all public pages pass axe WCAG 2.1 A/AA in both themes', async ({ pa
   for (const theme of THEMES) {
     for (const { path, name } of PAGES) {
       await page.emulateMedia({ colorScheme: theme, reducedMotion: 'reduce' });
-      await page.goto(path, { waitUntil: 'load' });
+      // Bound each navigation independently: one slow route must not consume
+      // the whole test budget and hide the remaining pages' results.
+      await page.goto(path, { waitUntil: 'load', timeout: 30_000 });
       await page.waitForTimeout(250);
 
       // The theme provider reacts to the emulated system scheme. Assert the
-      // rendered surface actually switched before measuring contrast.
+      // rendered surface actually switched before measuring contrast. The
+      // native `color-scheme` must move with the attribute, or the browser
+      // chrome and form controls can stay in the previous palette.
       await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+      await expect(page.locator('html')).toHaveCSS('color-scheme', theme);
 
       const results = await new AxeBuilder({ page })
         .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])

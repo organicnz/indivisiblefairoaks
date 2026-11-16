@@ -159,7 +159,7 @@ export default async function FAQPage() {
         }
       />
 
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:px-8">
         <div className="space-y-12">
           {faqs.map((group) => {
             const categoryId = `faq-category-${group.category

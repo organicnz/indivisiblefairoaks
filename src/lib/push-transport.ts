@@ -2,7 +2,7 @@ import type { ClientRequest } from 'node:http';
 import * as https from 'node:https';
 import type { PushEndpointAddress } from './push-endpoint';
 
-/** The whole request, including DNS redirects and response reading, is bounded. */
+/** Bounds connection setup, TLS negotiation, and response reading. */
 export const PUSH_TIMEOUT_MS = 5_000;
 
 /** Push services return tiny status bodies; anything larger is discarded. */
@@ -65,7 +65,9 @@ export function sendPushRequest(
           method: 'POST',
           headers: input.headers,
           lookup,
-          timeout: PUSH_TIMEOUT_MS,
+          // A fresh connection guarantees the pinned lookup is used, rather
+          // than a keep-alive socket opened by an earlier request.
+          agent: false,
           signal: AbortSignal.timeout(PUSH_TIMEOUT_MS),
         },
         (response) => {
@@ -100,11 +102,6 @@ export function sendPushRequest(
       resolve({ ok: false, status: 0, error: 'push-transport-error' });
       return;
     }
-
-    request.on('timeout', () => {
-      finish({ ok: false, status: 0, error: 'push-timeout' });
-      request.destroy();
-    });
 
     request.on('error', (error: Error) => {
       finish({

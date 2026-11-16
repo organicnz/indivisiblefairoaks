@@ -1,5 +1,6 @@
 import {
   ArrowRight,
+  CalendarDays,
   CheckCircle2,
   FileText,
   Heart,
@@ -15,6 +16,7 @@ import {
 } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { connection } from 'next/server';
 import { CopyRegion } from '@/components/cms/CopyRegion';
 import { HeroPhotoFrame } from '@/components/home/HeroPhotoFrame';
 import { HomeGalleryPreview } from '@/components/home/HomeGalleryPreview';
@@ -22,7 +24,11 @@ import { LiteYouTube } from '@/components/ui/LiteYouTube';
 import type { TickerItem } from '@/components/ui/CivicActionTicker';
 import { CivicActionTicker } from '@/components/ui/CivicActionTicker';
 import { DataPoint } from '@/components/ui/DataPoint';
-import { gatheringCard, selectMeetingEvent } from '@/lib/civic-events';
+import {
+  filterUpcomingEvents,
+  gatheringCard,
+  selectUpcomingMeetingEvent,
+} from '@/lib/civic-events';
 import { getDataPoints, getEvents, getGalleryPhotos } from '@/lib/queries/civic';
 import { getStorageUrl } from '@/lib/supabase';
 import type { GalleryPhotoView } from '@/types/gallery';
@@ -30,6 +36,10 @@ import type { GalleryPhotoView } from '@/types/gallery';
 // NOTE: `page.tsx` and the root `layout.tsx` are the *same* App Router segment,
 // and Next does not apply a segment's own `title.template` to that segment. The
 // homepage therefore supplies an absolute title rather than a bare one.
+// Date-aware gathering card and ticker: render at request time and allow the
+// blocking data access used above.
+export const instant = false;
+
 export const metadata: Metadata = pageMetadata({
   title: 'Indivisible Fair Oaks-Carmichael | Grassroots Democracy in Action',
   description:
@@ -38,6 +48,10 @@ export const metadata: Metadata = pageMetadata({
 });
 
 export default async function HomePage() {
+  // The upcoming-event cutoff and next-meeting selection are request-time
+  // values. Cache the data fetches, but render the date-aware surfaces per
+  // request rather than baking today's date into a static page.
+  await connection();
   // Server-side fetches cached via cacheTag and cacheLife('hours') in queries/civic.ts
   const [galleryRows, events, dataPoints] = await Promise.all([
     getGalleryPhotos(),
@@ -60,10 +74,13 @@ export default async function HomePage() {
     is_pair: row.is_pair,
   }));
 
-  // Map upcoming events → ticker items. Show all events (date filtering is done
-  // in the query; no runtime Date needed, keeping this page statically prerenderable).
+  // Issue #175: past one-off events belong in the archive. Recurring activity
+  // stays visible, and the next meeting is selected by date rather than by the
+  // first Meetings row in sort order. The static December 1 fallback covers a
+  // stale database until the next meeting is inserted through the admin UI.
+  const upcomingEvents = filterUpcomingEvents(events);
   // Cap at 5 so the ticker doesn't overflow on small screens.
-  const tickerItems: TickerItem[] = events.slice(0, 5).map((e) => ({
+  const tickerItems: TickerItem[] = upcomingEvents.slice(0, 5).map((e) => ({
     label: e.title,
     detail: `${e.dateLabel} • ${e.timeLabel}`,
     href: '/events',
@@ -72,7 +89,7 @@ export default async function HomePage() {
 
   // Dynamic gathering card (issue #37): the meeting row drives the alert card,
   // so the events table — not JSX — is where the next meeting gets updated.
-  const card = gatheringCard(selectMeetingEvent(events));
+  const card = gatheringCard(selectUpcomingMeetingEvent(upcomingEvents));
 
   return (
     <div className="civic-page flex w-full flex-col">
@@ -97,7 +114,14 @@ export default async function HomePage() {
                       Sacramento County Grassroots Action
                     </DataPoint>
                   </div>
-                  <span className="civic-stamp hidden sm:inline-flex">Fair Oaks · Carmichael, CA</span>
+                  <DataPoint
+                    as="span"
+                    name="home.hero.location_stamp"
+                    initialData={dataPoints}
+                    className="civic-stamp hidden sm:inline-flex"
+                  >
+                    Fair Oaks · Carmichael, CA
+                  </DataPoint>
                 </div>
 
                 <DataPoint
@@ -246,24 +270,12 @@ export default async function HomePage() {
           the house rule for light sections, so contrast needs no re-measuring.
           Content is dynamic (issue #37): title, date, location and links come
           from the `events` table via `gatheringCard`, so updating the row moves
-          this card with no deploy. The food-drive note stays static — it is
-          meeting policy, not event data. */}
+          this card with no deploy. The food-drive label and note stay data
+          points — they are meeting policy, not event data. */}
       <section aria-labelledby="next-gathering-title" className="border-b border-border bg-background py-8 md:py-10">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="grid overflow-hidden border border-border border-l-4 border-l-accent bg-surface-card lg:grid-cols-[8.5rem_minmax(0,1fr)_15rem]">
-            <div className="flex items-center justify-between gap-3 border-b border-border bg-surface-muted px-5 py-4 lg:flex-col lg:justify-center lg:gap-1 lg:border-b-0 lg:border-r lg:px-4 lg:py-6">
-              <span className="font-mono text-[9px] font-bold uppercase tracking-[0.16em] text-accent">
-                {card.startWeekday}
-              </span>
-              <span className="font-display text-[3rem] leading-none tracking-[-0.05em] text-foreground lg:text-[3.6rem]">
-                {card.startDay}
-              </span>
-              <span className="font-mono text-[9px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
-                {card.startMonth}
-              </span>
-            </div>
-
-            <div className="min-w-0 px-5 py-5 lg:px-7 lg:py-6">
+          <div className="grid overflow-hidden border border-border border-l-4 border-l-accent bg-surface-card md:grid-cols-[minmax(0,1fr)_15rem]">
+            <div className="min-w-0 px-5 py-5 md:px-7 md:py-6">
               <div className="inline-flex items-center gap-2 border-b border-accent pb-1 text-[10px] font-bold uppercase tracking-[0.16em] text-accent">
                 <DataPoint as="span" name="home.gathering.badge" initialData={dataPoints}>
                   Next Community Gathering
@@ -275,20 +287,24 @@ export default async function HomePage() {
               >
                 {card.title}
               </h2>
-              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
-                <span className="inline-flex items-center gap-1.5 border border-border px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-foreground">
-                  <span className="size-1.5 bg-accent" aria-hidden="true" />
-                  {card.timeLine}
-                </span>
-                <span className="flex items-center gap-1.5 leading-snug">
-                  <MapPin size={14} className="shrink-0 text-accent" aria-hidden="true" />
-                  {card.locationLine}
-                </span>
+              <div className="mt-3 space-y-2 text-sm leading-snug text-muted-foreground">
+                <div className="flex items-start gap-1.5">
+                  <CalendarDays size={14} className="mt-0.5 shrink-0 text-accent" aria-hidden="true" />
+                  <span>{card.dateLine}</span>
+                </div>
+                <div className="flex items-start gap-1.5">
+                  <MapPin size={14} className="mt-0.5 shrink-0 text-accent" aria-hidden="true" />
+                  <span>{card.locationLine}</span>
+                </div>
               </div>
               <p className="mt-4 flex items-start gap-1.5 border-t border-border pt-3 text-xs leading-relaxed text-muted-foreground">
                 <Soup size={13} className="mt-0.5 shrink-0 text-accent" aria-hidden="true" />
                 <span>
-                  <strong className="text-foreground">Food Bank Drive:</strong>{' '}
+                  <strong className="text-foreground">
+                    <DataPoint name="home.gathering.food_bank_label" initialData={dataPoints}>
+                      Food Bank Drive:
+                    </DataPoint>
+                  </strong>{' '}
                   <DataPoint name="home.gathering.food_bank" initialData={dataPoints}>
                     Please bring a can or box of non-perishable food to support our local community
                     food pantry.
@@ -297,7 +313,7 @@ export default async function HomePage() {
               </p>
             </div>
 
-            <div className="flex flex-col justify-center gap-2 border-t border-border px-5 py-5 lg:border-l lg:border-t-0 lg:px-5">
+            <div className="flex flex-col justify-center gap-2 border-t border-border px-5 py-5 md:border-l md:border-t-0 md:px-5">
               <a
                 href={card.calendarUrl}
                 target="_blank"
@@ -789,9 +805,8 @@ export default async function HomePage() {
 
       {/* Support & Donation CTA. A solid civic-blue field closes the page; the
           previous pastel gradient was the most generic surface on the site. */}
-      <section className="relative overflow-hidden border-y border-primary-dark bg-primary py-16 text-white md:py-20">
-        <span aria-hidden="true" className="civic-cta-halftone pointer-events-none absolute inset-0" />
-        <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <section className="border-y border-primary-dark bg-primary py-16 text-white md:py-20">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="grid gap-10 lg:grid-cols-12 lg:items-end lg:gap-12">
             <div className="lg:col-span-8">
               <DataPoint

@@ -148,16 +148,14 @@ export function CRMMediaLibraryModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-6 sm:p-8 overflow-hidden rounded-[2rem]">
+      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-6 sm:p-8 overflow-hidden">
         <DialogHeader className="pb-3 border-b border-border flex flex-col gap-1">
           <div className="flex items-center gap-2">
             <div className="p-2 rounded-xl bg-blue-50 text-primary dark:text-primary-on-dark">
               <ImageIcon className="h-5 w-5" />
             </div>
             <div>
-              <DialogTitle className="text-lg font-black text-foreground">
-                Supabase S3 Media Library
-              </DialogTitle>
+              <DialogTitle>Supabase S3 Media Library</DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground font-medium">
                 Browse, upload, and select assets stored in your Supabase S3 bucket.
               </DialogDescription>

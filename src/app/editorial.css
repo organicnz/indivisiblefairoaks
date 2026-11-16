@@ -8,8 +8,11 @@
    guardrail for public page roots: it normalises those leftovers in one place
    instead of letting every page invent a fifth card style.
 
-   It is deliberately scoped to `.civic-page`. Admin, account and editor
-   surfaces keep their denser operational styling.
+   It is deliberately scoped to `.civic-page`. Public pages and the member-facing
+   auth and account surfaces opt in. Admin body content opts into `.admin-surface`
+   and shared dialogs into `.dialog-surface`, which normalise the same tokens
+   without imposing the public page rhythm; the compose editor keeps its own
+   canvas styling.
 ───────────────────────────────────────────────────────────────────────────── */
 
 .civic-page {
@@ -20,9 +23,9 @@
 
 .civic-page :is(h1, h2, h3, h4) {
   font-family: var(--font-fraunces), Georgia, serif;
-  font-weight: 600 !important;
+  font-weight: 600;
   letter-spacing: -0.03em;
-  text-transform: none !important;
+  text-transform: none;
 }
 
 .civic-page :is(.font-black) {
@@ -37,7 +40,7 @@
   box-shadow: none;
 }
 
-.civic-page :is(button, a).rounded-full {
+.civic-page :is(button, a).rounded-full:not([role='switch']):not([role='checkbox']) {
   border-radius: var(--radius-sm);
 }
 
@@ -77,6 +80,38 @@
     align-items: end;
     gap: 2rem;
   }
+}
+
+/* Admin is an operational surface, not a separate SaaS design system. The
+   global base already supplies Fraunces; this removes the legacy weight,
+   uppercase and wide tracking that individual admin headings still carry.
+   Sizes stay with the components, so the denser admin rhythm is preserved.
+   Dialog roots are portaled, so the shared Dialog primitive opts into
+   `.dialog-surface`; that keeps every dialog title, plate, and control
+   consistent without per-dialog admin markers. */
+:is(.admin-surface, .dialog-surface) :is(h1, h2, h3, h4):not(.compose-canvas *):not(.cw-editor-canvas *) {
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  text-transform: none;
+}
+
+.dialog-surface {
+  border-radius: var(--radius-sm);
+}
+
+/* Admin plates and controls use the civic 2px radius and flat elevation. The
+   email composer is authored output, not admin chrome, so its device frame and
+   block surfaces opt out. */
+:is(.admin-surface, .dialog-surface) :is(.rounded-lg, .rounded-xl, .rounded-2xl, .rounded-3xl):not(.compose-canvas *) {
+  border-radius: var(--radius-sm);
+}
+
+:is(.admin-surface, .dialog-surface) :is(.shadow, .shadow-2xs, .shadow-xs, .shadow-sm, .shadow-md, .shadow-lg, .shadow-xl, .shadow-2xl):not(.compose-canvas *) {
+  box-shadow: none;
+}
+
+:is(.admin-surface, .dialog-surface) :is(button, a).rounded-full:not([role='switch']):not([role='checkbox']):not(.compose-canvas *) {
+  border-radius: var(--radius-sm);
 }
 
 .civic-page .civic-section-index {
@@ -182,6 +217,10 @@
   letter-spacing: 0.12em;
   line-height: 1.4;
   text-transform: uppercase;
+}
+
+.civic-page .civic-meta.text-foreground {
+  color: var(--foreground);
 }
 
 .civic-page .civic-link-arrow {
@@ -627,6 +666,140 @@
 .civic-page .ice-map-popup__link:focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
+}
+
+/* Rapid-response map pins. A pin is grouped by city, not by report, so one
+   marker can carry several reports without stacking clickable dots. Live pins
+   pulse only while the report is inside the four-hour active window. */
+.civic-page .ice-rapid-marker-shell {
+  border: 0;
+  background: transparent;
+}
+
+.civic-page .ice-rapid-marker {
+  position: relative;
+  display: flex;
+  width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+}
+
+.civic-page .ice-rapid-marker__pulse {
+  position: absolute;
+  inset: 7px;
+  border: 2px solid var(--accent);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.civic-page .ice-rapid-marker.is-live .ice-rapid-marker__pulse {
+  animation: ice-rapid-pulse 2.4s ease-out infinite;
+}
+
+.civic-page .ice-rapid-marker__dot {
+  position: relative;
+  z-index: 1;
+  width: 15px;
+  height: 15px;
+  border: 2px solid var(--background);
+  border-radius: 50%;
+  background: var(--accent-gold);
+  box-shadow:
+    0 0 0 1px var(--accent-gold),
+    0 1px 5px color-mix(in srgb, var(--foreground) 35%, transparent);
+}
+
+.civic-page .ice-rapid-marker--confirmed .ice-rapid-marker__dot {
+  background: var(--accent);
+  box-shadow:
+    0 0 0 1px var(--accent),
+    0 1px 5px color-mix(in srgb, var(--foreground) 35%, transparent);
+}
+
+.civic-page .ice-rapid-marker--confirmed .ice-rapid-marker__pulse {
+  border-color: var(--accent);
+}
+
+.civic-page .ice-rapid-marker__count {
+  position: absolute;
+  right: 1px;
+  top: 1px;
+  z-index: 2;
+  display: flex;
+  min-width: 16px;
+  height: 16px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-mono), monospace;
+  font-size: 8px;
+  font-weight: 800;
+  line-height: 1;
+  padding: 0 2px;
+}
+
+.civic-page .ice-rapid-marker.is-earlier .ice-rapid-marker__dot {
+  opacity: 0.55;
+}
+
+.civic-page .ice-rapid-marker.is-earlier .ice-rapid-marker__count {
+  opacity: 0.7;
+}
+
+.civic-page .ice-rapid-marker.is-selected .ice-rapid-marker__dot {
+  box-shadow:
+    0 0 0 3px var(--background),
+    0 0 0 5px var(--foreground),
+    0 1px 5px color-mix(in srgb, var(--foreground) 35%, transparent);
+}
+
+.civic-page .ice-rapid-marker-shell:focus-visible {
+  outline: none;
+}
+
+.civic-page .ice-rapid-marker-shell:focus-visible .ice-rapid-marker__dot {
+  box-shadow:
+    0 0 0 3px var(--background),
+    0 0 0 5px var(--primary),
+    0 1px 5px color-mix(in srgb, var(--foreground) 35%, transparent);
+}
+
+@keyframes ice-rapid-pulse {
+  0% {
+    opacity: 0.8;
+    transform: scale(0.55);
+  }
+  70% {
+    opacity: 0;
+    transform: scale(1.75);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.75);
+  }
+}
+
+@keyframes ice-live-dot-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.72);
+  }
+}
+
+.civic-page .ice-live-dot {
+  animation: ice-live-dot-pulse 1.8s ease-in-out infinite;
 }
 
 .civic-page .ice-map-pin {

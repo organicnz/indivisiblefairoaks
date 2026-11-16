@@ -6726,9 +6726,7 @@ export function VisualEditOverlay() {
         <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
           <DialogContent className="max-w-lg bg-surface-card text-foreground p-6 rounded-3xl">
             <DialogHeader>
-              <DialogTitle className="text-xl font-black uppercase tracking-tight text-foreground">
-                Page Settings &amp; Metadata
-              </DialogTitle>
+              <DialogTitle>Page Settings &amp; Metadata</DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground">
                 Update document metadata and the featured hero image stored in Supabase S3 storage.
               </DialogDescription>
@@ -7118,7 +7116,7 @@ export function VisualEditOverlay() {
         >
           <DialogContent className="max-w-xl bg-surface-card text-foreground p-6 rounded-3xl">
             <DialogHeader>
-              <DialogTitle className="text-xl font-black uppercase tracking-tight text-foreground flex items-center gap-2">
+              <DialogTitle className="flex items-center gap-2">
                 <History size={20} className="text-accent-gold" />
                 <span>Page Revision History</span>
               </DialogTitle>
@@ -7466,7 +7464,7 @@ export function VisualEditOverlay() {
             <DialogHeader>
               <div className="flex items-center justify-between">
                 <div>
-                  <DialogTitle className="text-lg font-black uppercase tracking-tight flex items-center gap-2">
+                  <DialogTitle className="flex items-center gap-2">
                     <Activity className="text-accent-gold" size={18} />
                     System &amp; Edge Diagnostics
                   </DialogTitle>
@@ -7644,9 +7642,7 @@ export function VisualEditOverlay() {
         >
           <DialogContent className="max-w-md bg-surface-card text-foreground p-6 rounded-3xl">
             <DialogHeader>
-              <DialogTitle className="text-lg font-black text-foreground">
-                {linkModal.editAnchor ? 'Edit link' : 'Insert link'}
-              </DialogTitle>
+              <DialogTitle>{linkModal.editAnchor ? 'Edit link' : 'Insert link'}</DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground">
                 {linkModal.editAnchor
                   ? 'Change the destination URL for this link.'
@@ -7822,9 +7818,7 @@ export function VisualEditOverlay() {
         >
           <DialogContent className="max-w-md bg-surface-card text-foreground p-6 rounded-3xl">
             <DialogHeader>
-              <DialogTitle className="text-lg font-black text-foreground">
-                Edit alt text
-              </DialogTitle>
+              <DialogTitle>Edit alt text</DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground">
                 Describe the image for screen readers and search engines.
               </DialogDescription>

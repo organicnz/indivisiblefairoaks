@@ -324,9 +324,7 @@ export function CRMTasksClient({ tasks, scope, page, pageSize, totalCount }: Pro
       <Dialog open={Boolean(editingTask)} onOpenChange={(open) => !open && setEditingTask(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-xl font-black uppercase tracking-tight text-foreground">
-              Edit Follow-up
-            </DialogTitle>
+            <DialogTitle>Edit Follow-up</DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
               Update commitment details, due date, or task status.
             </DialogDescription>

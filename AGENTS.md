@@ -1470,7 +1470,7 @@ pre-commit gate, so drift fails at commit time rather than at 3am.
      against Next.js (`next start`) and the mock server for memory.
 - **The local lefthook gates are therefore the real gates**, and they do run on
   every push: 33 pre-commit guards, then lint → unit → coverage → types → build →
-  peer-deps → 95 Playwright specs (95 + no running tests). Migrations and Edge Functions are **not**
+  peer-deps → 107 Playwright specs (107 + no running tests). Migrations and Edge Functions are **not**
   deployed by hand: `supabase.yml` is the only delivery path and a push touching
   `supabase/**` is its trigger, so the fix and the deploy are one action. It pushed
   migrations to the hosted project at 20:56 on 2026-10-04 while its sibling
@@ -1618,7 +1618,7 @@ deployed green and broke silently.
 ## Delivery Gates (lefthook)
 
 - **pre-commit**: secrets, migration guards, RLS/SECURITY DEFINER, Biome, oxlint, typecheck, env contracts (local `.env`, the GitHub Actions inventory, and the secrets registry in `--offline` mode — no network, because a hook that needs a token is a hook that gets bypassed), lockfile pairing, data-points seed↔reader↔fallback consistency (`scripts/check-data-points.mjs` — a seed nobody reads, a read nobody seeds, and a wired fallback that disagrees with its seed all fail, with accepted findings annotated in `scripts/data-points-baseline.json`, and that ratchet only shrinks), documentation numeric claims (`scripts/check-doc-claims.mjs` re-derives guard counts, the suppression baseline, `lefthook.yml`'s length, spec totals and the two coverage floors from their sources of truth), the no-Node-runtime guard (`scripts/hooks/no-node-runtime.mjs` — a Node shebang, a second package manager or a `setup-node` step works on a laptop with Node installed and breaks on every runner this project has; and a local binary invoked as `bun <bin>` rather than `bun --bun <bin>`, which hands the program to Node.js wherever Node.js is installed and to Bun only where it is not — the same divergence, wearing a different hat. The rule reads the local bin set out of `node_modules/.bin`, so a dependency that arrives tomorrow is covered without the guard being edited. CI runs it over the **whole tree** with `--all`, not just the staged subset, so a violation that arrived by a merge is caught too), the test-environment guard (`scripts/hooks/vitest-environment.mjs` — **every** test file must declare its Vitest environment on its first line, because Vitest constructs an environment per file and jsdom's construction was 63% of the unit suite's time; the guard also requires the `node` environment on any test that reaches for `Bun.*`, directly or through an imported script, because Vitest's `jsdom` environment replaces the worker's global with the jsdom window's and the `Bun` global does not survive that swap on every platform), and `playwright test --list` when `e2e/**` changes (spec parse only — no browser launch).
-- **`lefthook.yml` is 644 lines of wiring; the logic is in `scripts/hooks/*.mjs`.** Every
+- **`lefthook.yml` is 633 lines of wiring; the logic is in `scripts/hooks/*.mjs`.** Every
   guard that was a `run: |` bash block is now a `bun scripts/hooks/<name>.mjs` call, and
   its rationale comment moved into that file's header — where it sits beside the code it
   explains rather than four hundred lines above it. `lefthook.yml` keeps what only it can
@@ -1630,12 +1630,11 @@ deployed green and broke silently.
   under `scripts/hooks/`, not writing bash in YAML.**
 - **pre-push**: lint → unit → typecheck → production build → peer-deps → **Playwright e2e delivery gate** (full suite, `workers=2`) when the push range touches `src/`, `e2e/`, `public/`, `supabase/`, app configs, or the lockfile. Docs-only pushes skip e2e with an explicit note.
 
-### The e2e suite must be pointed at *this* build — and it now proves it
+### The e2e gate is self-contained — and it proves it tests this build
 
-`reuseExistingServer` means a local run reuses whatever is already listening
-on the port instead of starting its own. That is a reasonable convenience,
-and it is also a way for the suite to drive **the wrong application** without
-saying so.
+`reuseExistingServer` used to mean a local run adopted whatever was already
+listening on the port. That is a reasonable convenience, and it is also how
+the suite came to drive **the wrong application** without saying so.
 
 **It happened here.** Another Next.js app on the same machine was listening on
 the e2e port; Playwright reused it; the suite drove it; and the first thing
@@ -1647,17 +1646,21 @@ regression.
 
 The page snapshot gave it away: the other app's name, in the header.
 
-Three things now prevent it:
+Four things now prevent it, and none of them require the caller to supply a
+placeholder environment or a port:
 
 | Change | What it does |
 |---|---|
+| `scripts/build.mjs` | **Makes the e2e build self-contained.** With `NEXT_E2E_BUILD=true` it loads `.env.local` when present, fills only genuinely absent public values with loopback placeholders, and writes the selected app port to `.next/e2e-port`. A fresh checkout builds without a real Supabase project. |
+| `e2e/helpers/ports.ts` | **One source of truth for the ports, chosen rather than hard-coded.** It probes for a free adjacent app/mock pair, honors an explicit `E2E_PORT`, and reuses the port recorded by the build. No custom port is needed to avoid a busy 3100. |
+| `playwright.config.ts` | **Never reuses a server, and supplies the runtime fallbacks.** It starts `next start` from `.next` on the chosen port with `reuseExistingServer: false`; if `.env.local` is absent it gives the server the same loopback placeholders the build used, including a marker that keeps live-only specs skipped. |
 | `e2e/global-setup.ts` | **Proves the server under test is this build.** Next writes the build id into the RSC flight payload as the segment's `b` field, so one marker answers both questions that matter: *which* application is answering, and *which* build of it. A stale server fails the same way a foreign one does. |
-| `e2e/helpers/ports.ts` | **One source of truth for the ports.** `playwright.config.ts`, `e2e/contact.spec.ts` and `e2e/instant.spec.ts` all need them, and they each hard-coded `3100`/`3101` — three copies of a port, and the one nobody remembered to move. `E2E_PORT` overrides them together. |
 
-The global setup **fails rather than starting its own server** — it cannot,
-the port is occupied, which is the whole reason the foreign server was
-reached. So the honest outcome is a failure that names the cause, which is
-the difference between a diagnosis and a symptom.
+The gate **starts its own server on a port it verified is free**; the global
+setup is the second guard, not the mechanism that avoids the collision. A
+remaining mismatch means a stale or foreign process won the race for the
+port, and the failure names that cause instead of reporting a locator in the
+wrong product.
 
 **One subtlety worth keeping:** the build id is read from the flight
 payload's `b` field, not by searching the page for the id as a substring. A

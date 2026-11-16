@@ -27,11 +27,18 @@ import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import { CivicEventEditorModal } from '@/components/admin/civic/CivicEventEditorModal';
 import { MobilizeImportModal } from '@/components/admin/civic/MobilizeImportModal';
 import { useEditContext } from '@/components/layout/useEditContext';
+import { fetchWithTimeout } from '@/lib/service-fetch';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { useDataPoints } from '@/hooks/useDataPoints';
 import { type CivicEventRecord, deleteCivicEvent } from '@/lib/actions/civic';
 import { instantToPacificBasic } from '@/lib/calendar-time';
-import { buildGoogleCalendarUrl, buildIcsCalendar } from '@/lib/civic-events';
+import {
+  buildGoogleCalendarUrl,
+  buildIcsCalendar,
+  DEFAULT_UPCOMING_MEETING,
+  filterUpcomingEvents,
+  selectUpcomingMeetingEvent,
+} from '@/lib/civic-events';
 import { captureAnalyticsEvent } from '@/lib/posthog';
 
 export interface CivicEvent {
@@ -124,6 +131,23 @@ const EVENTS: CivicEvent[] = [
   },
 ];
 
+const DEFAULT_EVENT: CivicEvent = {
+  ...DEFAULT_UPCOMING_MEETING,
+  category: 'Meetings',
+};
+
+/**
+ * Keep the public calendar date-aware: past one-off events disappear, recurring
+ * rows stay, and the confirmed December 1 meeting fills the gap while the
+ * database has no future highlighted chapter meeting. The admin pages use a
+ * separate data path, so old rows remain editable and removable there.
+ */
+function withUpcomingFallback(events: CivicEvent[]): CivicEvent[] {
+  const upcoming = filterUpcomingEvents(events);
+  if (selectUpcomingMeetingEvent(upcoming)) return upcoming;
+  return [DEFAULT_EVENT, ...upcoming.filter((event) => event.id !== DEFAULT_EVENT.id)];
+}
+
 const CATEGORIES = [
   'All Actions',
   'Meetings',
@@ -148,8 +172,8 @@ export function InteractiveEventsCalendar({
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const [eventsList, setEventsList] = useState<CivicEvent[]>(
-    initialEvents && initialEvents.length > 0 ? initialEvents : EVENTS
+  const [eventsList, setEventsList] = useState<CivicEvent[]>(() =>
+    withUpcomingFallback(initialEvents && initialEvents.length > 0 ? initialEvents : EVENTS)
   );
   const [selectedEventForEdit, setSelectedEventForEdit] = useState<CivicEventRecord | null>(null);
   const [isEditorModalOpen, setIsEditorModalOpen] = useState(false);
@@ -157,11 +181,11 @@ export function InteractiveEventsCalendar({
 
   const refreshEvents = useCallback(async () => {
     try {
-      const res = await fetch('/api/civic/events');
+      const res = await fetchWithTimeout('/api/civic/events');
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data.events) && data.events.length > 0) {
-          setEventsList(data.events);
+          setEventsList(withUpcomingFallback(data.events));
         }
       }
     } catch {
@@ -173,7 +197,7 @@ export function InteractiveEventsCalendar({
     let cancelled = false;
     async function loadEventsFromApi() {
       try {
-        const res = await fetch('/api/civic/events');
+        const res = await fetchWithTimeout('/api/civic/events');
         if (res.ok) {
           const data = await res.json();
           if (!cancelled && Array.isArray(data.events) && data.events.length > 0) {
@@ -190,7 +214,7 @@ export function InteractiveEventsCalendar({
     };
   }, []);
 
-  const filteredEvents = eventsList.filter((event) => {
+  const filteredEvents = withUpcomingFallback(eventsList).filter((event) => {
     const matchesCategory = activeCategory === 'All Actions' || event.category === activeCategory;
     const matchesSearch =
       event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -225,7 +249,7 @@ export function InteractiveEventsCalendar({
 
   const handleDeleteEvent = async (eventId: string, eventTitle: string) => {
     try {
-      const res = await fetch(`/api/civic/events?slug=${encodeURIComponent(eventId)}`, {
+      const res = await fetchWithTimeout(`/api/civic/events?slug=${encodeURIComponent(eventId)}`, {
         method: 'DELETE',
       });
       if (res.ok) {

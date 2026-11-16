@@ -17,6 +17,7 @@ const ACCEPTED = {
 
 const sendIceAlertConfirmation = vi.hoisted(() => vi.fn());
 const verifyIceAlertProof = vi.hoisted(() => vi.fn());
+const validatePushEndpoint = vi.hoisted(() => vi.fn());
 const storeRef = vi.hoisted(() => ({ current: null as unknown }));
 
 vi.mock('@/lib/env', () => ({
@@ -34,9 +35,7 @@ vi.mock('@/lib/ice-alert-proof', () => ({ verifyIceAlertProof }));
 vi.mock('@/lib/rate-limit', () => ({
   clientIp: () => '203.0.113.7',
 }));
-vi.mock('@/lib/push-endpoint', () => ({
-  validatePushEndpoint: vi.fn().mockResolvedValue(undefined),
-}));
+vi.mock('@/lib/push-endpoint', () => ({ validatePushEndpoint }));
 vi.mock('@/lib/rapid-city-match', () => ({
   US_STATE_CODES: new Set(['CA', 'TX', 'NY']),
 }));
@@ -235,6 +234,7 @@ function request(body: Record<string, unknown>, includeProof = true) {
 beforeEach(() => {
   vi.clearAllMocks();
   verifyIceAlertProof.mockResolvedValue(true);
+  validatePushEndpoint.mockResolvedValue(undefined);
   sendIceAlertConfirmation.mockResolvedValue({ ok: true, id: 'email-1' });
 });
 
@@ -387,6 +387,34 @@ describe('POST /api/ice-rapid/subscribe authorization', () => {
     expect(response.status).toBe(413);
     expect(await response.json()).toMatchObject({ code: 'too-large' });
     expect(store.rpcCalls).toEqual([]);
+  });
+
+  it('rejects an invalid push endpoint before reading or writing the subscriber', async () => {
+    const store = fakeStore([baseRow()]);
+    storeRef.current = store.client;
+    // Use the real policy helper for a literal private endpoint; this keeps
+    // the route's ordering guarantee pinned to the actual rejection path.
+    const actual = await vi.importActual<typeof import('@/lib/push-endpoint')>(
+      '@/lib/push-endpoint'
+    );
+    validatePushEndpoint.mockImplementationOnce(actual.validatePushEndpoint);
+
+    const response = await POST(
+      request({
+        email: 'robin@example.com',
+        pushSubscription: {
+          endpoint: 'https://127.0.0.1/push',
+          keys: { p256dh: 'p'.repeat(24), auth: 'a'.repeat(12) },
+        },
+      })
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ code: 'invalid-push-endpoint' });
+    expect(validatePushEndpoint).toHaveBeenCalledWith('https://127.0.0.1/push');
+    expect(store.lookups).toEqual([]);
+    expect(store.writes).toEqual([]);
+    expect(sendIceAlertConfirmation).not.toHaveBeenCalled();
   });
 
   it('keys the endpoint counter by the push endpoint host', async () => {

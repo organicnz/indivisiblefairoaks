@@ -5,13 +5,17 @@ import { useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 import {
   APPROXIMATE_ZOOM,
+  CITY_FOCUS_ZOOM,
+  MAX_ZOOM,
   MIN_ZOOM,
   NATIONWIDE_BOUNDS,
+  NATIONWIDE_CENTER,
+  NATIONWIDE_ZOOM,
   PRECISE_ZOOM,
   TILE_ATTRIBUTION,
   TILE_URL,
 } from './constants';
-import { DATA, cityRank, citySharePercent, formatNumber, selectedCityLabel } from './data';
+import { cityRank, citySharePercent, formatNumber, selectedCityLabel } from './data';
 import { CITY_CIRCLE_STYLE, cityCircleRadius } from './map-circles';
 import {
   clusterCellSize,
@@ -21,15 +25,28 @@ import {
   MAX_INDIVIDUAL_ZOOM,
   type CityCluster,
 } from './map-clusters';
-import type { CityPoint, HeatStatus, MapView, SearchTarget, UserLocation } from './types';
+import type {
+  CityPoint,
+  HeatStatus,
+  HeatmapSnapshot,
+  MapView,
+  MapViewport,
+  SearchTarget,
+  UserLocation,
+} from './types';
 
 type UseIceMapOptions = {
+  snapshot: HeatmapSnapshot;
   selectedCity: CityPoint | null;
   searchTarget: SearchTarget | null;
   userLocation: UserLocation | null;
   userLocationRef: RefObject<UserLocation | null>;
   shouldFocusUser: RefObject<boolean>;
+  allowAutoFocus: RefObject<boolean>;
+  initialView: MapViewport | null;
+  initialMapView: MapView;
   onCitySelect: (city: CityPoint) => void;
+  onMapInteraction?: () => void;
 };
 
 const POPUP_OPTIONS = {
@@ -68,7 +85,8 @@ function popupDocumentationLink(onClick: () => void) {
 function buildCityPopup(
   city: CityPoint,
   map: LeafletMap,
-  onCitySelect: (city: CityPoint) => void
+  onCitySelect: (city: CityPoint) => void,
+  snapshot: HeatmapSnapshot
 ) {
   const root = document.createElement('div');
   root.className = 'ice-map-popup';
@@ -78,8 +96,11 @@ function buildCityPopup(
     popupText('ice-map-popup__count', `${formatNumber(city.count)} records`),
     popupText(
       'ice-map-popup__rank',
-      `#${formatNumber(Math.max(1, cityRank(city)))} city total · ${citySharePercent(
-        city
+      `#${formatNumber(
+        Math.max(1, cityRank(city, snapshot.cities))
+      )} city total · ${citySharePercent(
+        city,
+        snapshot.meta.mappedRecords
       )}% of mapped records`
     ),
     popupText(
@@ -99,7 +120,8 @@ function buildClusterPopup(
   cluster: CityCluster,
   map: LeafletMap,
   zoom: number,
-  onCitySelect: (city: CityPoint) => void
+  onCitySelect: (city: CityPoint) => void,
+  snapshot: HeatmapSnapshot
 ) {
   const root = document.createElement('div');
   root.className = 'ice-map-popup';
@@ -113,8 +135,11 @@ function buildClusterPopup(
       popupText('ice-map-popup__count', `${formatNumber(singleCity.count)} records`),
       popupText(
         'ice-map-popup__rank',
-        `#${formatNumber(Math.max(1, cityRank(singleCity)))} city total · ${citySharePercent(
-          singleCity
+        `#${formatNumber(
+          Math.max(1, cityRank(singleCity, snapshot.cities))
+        )} city total · ${citySharePercent(
+          singleCity,
+          snapshot.meta.mappedRecords
         )}% of mapped records`
       ),
       popupText(
@@ -159,14 +184,20 @@ function buildClusterPopup(
  * effect reacts to `mapGeneration` so it only touches a map that exists.
  */
 export function useIceMap({
+  snapshot,
   selectedCity,
   searchTarget,
   userLocation,
   userLocationRef,
   shouldFocusUser,
+  allowAutoFocus,
+  initialView,
+  initialMapView,
   onCitySelect,
+  onMapInteraction,
 }: UseIceMapOptions) {
-  const [mapView, setMapView] = useState<MapView>('nationwide');
+  const [mapView, setMapView] = useState<MapView>(initialMapView);
+  const [mapViewport, setMapViewport] = useState<MapViewport | null>(initialView);
   const [mapGeneration, setMapGeneration] = useState(0);
   const [heatStatus, setHeatStatus] = useState<HeatStatus>('loading');
 
@@ -176,9 +207,22 @@ export function useIceMap({
   const selectedLayerRef = useRef<LayerGroup | null>(null);
   const searchLayerRef = useRef<LayerGroup | null>(null);
   const userLayerRef = useRef<LayerGroup | null>(null);
+  const initialViewRef = useRef(initialView);
+  const onMapInteractionRef = useRef(onMapInteraction);
 
   useEffect(() => {
-    if (!userLocation || mapGeneration === 0 || !shouldFocusUser.current) return;
+    onMapInteractionRef.current = onMapInteraction;
+  }, [onMapInteraction]);
+
+  useEffect(() => {
+    if (
+      !allowAutoFocus.current ||
+      !userLocation ||
+      mapGeneration === 0 ||
+      !shouldFocusUser.current
+    ) {
+      return;
+    }
     const map = mapRef.current;
     if (!map) return;
 
@@ -189,7 +233,7 @@ export function useIceMap({
       userLocation.precision === 'precise' ? PRECISE_ZOOM : APPROXIMATE_ZOOM,
       { duration: 0.7 }
     );
-  }, [mapGeneration, userLocation, shouldFocusUser]);
+  }, [allowAutoFocus, mapGeneration, userLocation, shouldFocusUser]);
 
   useEffect(() => {
     let disposed = false;
@@ -200,9 +244,10 @@ export function useIceMap({
       const L = (await import('leaflet')).default;
       if (disposed || !mapContainerRef.current || mapRef.current) return;
 
+      const initialMapViewport = initialViewRef.current;
       map = L.map(mapContainerRef.current, {
-        center: [39.5, -98.35],
-        zoom: 4,
+        center: initialMapViewport?.center ?? NATIONWIDE_CENTER,
+        zoom: initialMapViewport?.zoom ?? NATIONWIDE_ZOOM,
         minZoom: MIN_ZOOM,
         zoomControl: false,
         preferCanvas: true,
@@ -213,7 +258,7 @@ export function useIceMap({
       });
 
       L.tileLayer(TILE_URL, {
-        maxZoom: 19,
+        maxZoom: MAX_ZOOM,
         attribution: TILE_ATTRIBUTION,
       }).addTo(map);
 
@@ -224,7 +269,10 @@ export function useIceMap({
 
       map.on('moveend', () => {
         if (!map) return;
+        const center = map.getCenter();
         const zoom = map.getZoom();
+        setMapViewport({ center: [center.lat, center.lng], zoom });
+
         if (zoom <= 5) {
           setMapView('nationwide');
           return;
@@ -241,14 +289,25 @@ export function useIceMap({
       });
       resizeObserver.observe(mapContainerRef.current);
 
-      map.fitBounds(NATIONWIDE_BOUNDS, { padding: [24, 24], animate: false });
-      map.on('dragstart zoomstart', () => {
+      let interactionReady = false;
+      const handleInteraction = () => {
+        if (!interactionReady) return;
         shouldFocusUser.current = false;
         map?.closePopup();
-      });
+        onMapInteractionRef.current?.();
+      };
+
+      if (!initialMapViewport) {
+        map.fitBounds(NATIONWIDE_BOUNDS, { padding: [24, 24], animate: false });
+      }
+      map.on('dragstart zoomstart', handleInteraction);
       mapRef.current = map;
       setMapGeneration((generation) => generation + 1);
-      requestAnimationFrame(() => map?.invalidateSize());
+      requestAnimationFrame(() => {
+        if (disposed) return;
+        map?.invalidateSize();
+        interactionReady = true;
+      });
     })();
 
     return () => {
@@ -307,7 +366,7 @@ export function useIceMap({
           const bounds = map.getBounds().pad(0.12);
           // Draw larger totals last so an overlapping one-record point cannot
           // steal the click from the city most readers are trying to inspect.
-          const visible = DATA.cities
+          const visible = snapshot.cities
             .filter((city) => bounds.contains([city.lat, city.lng]))
             .sort((a, b) => a.count - b.count);
 
@@ -319,7 +378,7 @@ export function useIceMap({
           const cellSize = clusterCellSize(zoom);
 
           if (cellSize === 0) {
-            const maxCount = DATA.meta.maxCityCount;
+            const maxCount = snapshot.meta.maxCityCount;
             for (const city of visible) {
               const marker = L.circleMarker([city.lat, city.lng], {
                 ...CITY_CIRCLE_STYLE,
@@ -333,7 +392,10 @@ export function useIceMap({
                 `${selectedCityLabel(city)} · ${formatNumber(city.count)} records`,
                 { direction: 'top', offset: [0, -4] }
               );
-              marker.bindPopup(buildCityPopup(city, map, onCitySelect), POPUP_OPTIONS);
+              marker.bindPopup(
+                buildCityPopup(city, map, onCitySelect, snapshot),
+                POPUP_OPTIONS
+              );
               marker.on('popupopen', () => {
                 setMapView('free');
                 onCitySelect(city);
@@ -351,7 +413,7 @@ export function useIceMap({
 
           for (const cluster of clusters) {
             const size = Math.round(
-              clusterIconSize(cluster.records, DATA.meta.mappedRecords)
+              clusterIconSize(cluster.records, snapshot.meta.mappedRecords)
             );
             const marker = L.marker([cluster.lat, cluster.lng], {
               icon: L.divIcon({
@@ -372,7 +434,7 @@ export function useIceMap({
               { direction: 'top', offset: [0, -size / 2] }
             );
             marker.bindPopup(
-              buildClusterPopup(cluster, map, zoom, onCitySelect),
+              buildClusterPopup(cluster, map, zoom, onCitySelect, snapshot),
               POPUP_OPTIONS
             );
             marker.getElement()?.setAttribute('aria-hidden', 'true');
@@ -396,7 +458,7 @@ export function useIceMap({
       removePopupListeners?.();
       cityLayerRef.current?.clearLayers();
     };
-  }, [mapGeneration, onCitySelect]);
+  }, [mapGeneration, onCitySelect, snapshot]);
 
   useEffect(() => {
     if (mapGeneration === 0) return;
@@ -510,6 +572,7 @@ export function useIceMap({
 
   const zoomMap = (direction: 'in' | 'out') => {
     shouldFocusUser.current = false;
+    allowAutoFocus.current = false;
     mapRef.current?.closePopup();
     if (direction === 'in') mapRef.current?.zoomIn();
     else mapRef.current?.zoomOut();
@@ -517,9 +580,12 @@ export function useIceMap({
 
   const flyToCity = (city: CityPoint) => {
     shouldFocusUser.current = false;
+    allowAutoFocus.current = false;
     const map = mapRef.current;
     if (map) {
-      map.flyTo([city.lat, city.lng], Math.max(map.getZoom(), 9), { duration: 0.5 });
+      map.flyTo([city.lat, city.lng], Math.max(map.getZoom(), CITY_FOCUS_ZOOM), {
+        duration: 0.5,
+      });
     }
   };
 
@@ -527,6 +593,7 @@ export function useIceMap({
     const map = mapRef.current;
     if (!map) return;
     shouldFocusUser.current = false;
+    allowAutoFocus.current = false;
     map.fitBounds(NATIONWIDE_BOUNDS, { padding: [24, 24], duration: 0.4 });
   };
 
@@ -534,6 +601,7 @@ export function useIceMap({
     const map = mapRef.current;
     if (!map) return;
     shouldFocusUser.current = false;
+    allowAutoFocus.current = true;
     map.flyTo(
       [location.lat, location.lng],
       location.precision === 'precise' ? PRECISE_ZOOM : APPROXIMATE_ZOOM,
@@ -545,6 +613,7 @@ export function useIceMap({
     mapContainerRef,
     mapRef,
     mapView,
+    mapViewport,
     setMapView,
     heatStatus,
     zoomMap,

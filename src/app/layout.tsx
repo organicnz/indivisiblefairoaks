@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import localFont from 'next/font/local';
 import { connection } from 'next/server';
-import Script from 'next/script';
 import { Suspense } from 'react';
 import './globals.css';
 import { Analytics } from '@vercel/analytics/react';
@@ -175,17 +174,20 @@ export default async function RootLayout({
       <head>
         {/* The palette must be chosen before the first paint. The theme store
             applies its answer after hydration, which would flash the wrong
-            palette on every navigation; this script runs synchronously before
-            anything renders. Its branches are `resolveEffectiveTheme`'s, kept
-            in step by `theme-bootstrap` tests — it cannot import that module,
-            because an inline <script> runs before any bundle exists.
+            palette on every navigation; this literal inline script executes
+            synchronously as the head is parsed. Its branches are
+            `resolveEffectiveTheme`'s, kept in step by `theme-bootstrap` tests
+            — it cannot import that module, because an inline <script> runs
+            before any bundle exists.
 
-            `beforeInteractive` rather than a plain <script>: the App Router
-            serializes a raw head script into the flight payload as *data*, so
-            it reaches the browser without ever executing. */}
-        <Script
+            Do not replace this with `next/script`'s `beforeInteractive`
+            strategy. In the App Router that emits a `self.__next_s` queue
+            entry, which only runs once the client bundle starts; the page
+            therefore paints its default palette before the stored preference
+            is applied. A literal script is emitted as an executable script
+            tag and runs during HTML parsing. */}
+        <script
           id="theme-bootstrap"
-          strategy="beforeInteractive"
           // biome-ignore lint/security/noDangerouslySetInnerHtml: theme bootstrap, emitted from lib/theme.ts, no interpolation
           dangerouslySetInnerHTML={{ __html: themeBootstrapScript() }}
         />
@@ -207,7 +209,7 @@ export default async function RootLayout({
           <DataPointsProvider dataPoints={dataPoints}>
             <a
               href="#main-content"
-              className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[200] focus:bg-primary focus:text-white focus:font-black focus:uppercase focus:tracking-widest focus:text-xs focus:px-4 focus:py-2 focus:rounded-full"
+              className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[200] focus:rounded-sm focus:bg-primary focus:px-4 focus:py-2 focus:text-xs focus:font-bold focus:uppercase focus:tracking-[0.12em] focus:text-white"
             >
               Skip to content
             </a>

@@ -68,12 +68,19 @@ describe('validatePushEndpoint', () => {
     'https://10.0.0.5/push',
     'https://169.254.169.254/push',
     'https://[::1]/push',
+    'https://[::ffff:0:127.0.0.1]/push',
+    'https://[64:ff9b:1::a00:1]/push',
     'https://[fc00::1]/push',
+  ])('rejects a private destination: %s', async (endpoint) => {
+    await expectCode(endpoint, 'private-destination');
+  });
+
+  it.each([
     'https://localhost/push',
     'https://printer.local/push',
     'https://service.internal/push',
-  ])('rejects a private or internal destination: %s', async (endpoint) => {
-    await expectCode(endpoint, 'private-destination');
+  ])('rejects a non-provider hostname: %s', async (endpoint) => {
+    await expectCode(endpoint, 'provider-not-allowed');
   });
 
   it('rejects a provider hostname that resolves to a private address', async () => {
@@ -87,6 +94,16 @@ describe('validatePushEndpoint', () => {
     const resolver = vi.fn(async (): Promise<PushEndpointAddress[]> => [
       PUBLIC_ADDRESS,
       { address: '::1', family: 6 },
+    ]);
+    await expectCode('https://fcm.googleapis.com/push', 'private-destination', resolver);
+  });
+
+  it.each([
+    '::ffff:0:127.0.0.1',
+    '64:ff9b:1::a00:1',
+  ])('rejects a provider hostname that resolves to %s', async (address) => {
+    const resolver = vi.fn(async (): Promise<PushEndpointAddress[]> => [
+      { address, family: 6 },
     ]);
     await expectCode('https://fcm.googleapis.com/push', 'private-destination', resolver);
   });
@@ -113,6 +130,8 @@ describe('isKnownPushProviderHost', () => {
     expect(isKnownPushProviderHost('evilfcm.googleapis.com')).toBe(false);
     expect(isKnownPushProviderHost('evilnotify.windows.com')).toBe(false);
     expect(isKnownPushProviderHost('notify.windows.com.evil.example')).toBe(false);
+    expect(isKnownPushProviderHost('push.services.mozilla.com')).toBe(false);
+    expect(isKnownPushProviderHost('evil.push.services.mozilla.com')).toBe(false);
     expect(isKnownPushProviderHost('example.com')).toBe(false);
   });
 });
@@ -147,7 +166,11 @@ describe('isPrivateOrInternalAddress', () => {
     '2001:0:4136:e378::1',
     '100::1',
     '64:ff9b::7f00:1',
+    '64:ff9b:1::a00:1',
+    '64:ff9b:1::808:808',
     '::ffff:127.0.0.1',
+    '::ffff:0:127.0.0.1',
+    '::ffff:0:8.8.8.8',
     '::ffff:7f00:1',
     'not-an-ip',
   ])('treats %s as non-public', (address) => {

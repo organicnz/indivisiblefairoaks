@@ -33,18 +33,16 @@ describe('InteractiveEventsCalendar', () => {
     container.remove();
   });
 
-  it('renders November 10 chapter meeting, No Kings 4, and ongoing singing protest by default', async () => {
+  it('renders the next chapter meeting and recurring activity, not past one-off events', async () => {
     await act(async () => {
       root.render(<InteractiveEventsCalendar />);
     });
 
-    expect(container.textContent).toContain('Monthly Chapter Gathering & Food Bank Drive');
-    expect(container.textContent).toContain('Tuesday, November 10, 2026');
+    expect(container.textContent).toContain('Monthly Chapter Meeting & Food Drive');
+    expect(container.textContent).toContain('Tuesday, December 1, 2026');
     expect(container.textContent).toContain("St. Michael's Episcopal Church");
-
-    expect(container.textContent).toContain('No Kings 4: Peaceful Protest & Stand-Out');
-    expect(container.textContent).toContain('Saturday, October 17, 2026');
-    expect(container.textContent).toContain('Fair Oaks Blvd & Sunrise Blvd');
+    expect(container.textContent).not.toContain('Tuesday, November 10, 2026');
+    expect(container.textContent).not.toContain('No Kings 4');
 
     expect(container.textContent).toContain(
       'Carmichael Resistance Choir: Street Corner Singing Protest'
@@ -65,19 +63,20 @@ describe('InteractiveEventsCalendar', () => {
       meetingsButton?.click();
     });
 
-    expect(container.textContent).toContain('Monthly Chapter Gathering & Food Bank Drive');
-    expect(container.textContent).not.toContain('No Kings 4');
+    expect(container.textContent).toContain('Monthly Chapter Meeting & Food Drive');
     expect(container.textContent).not.toContain(
       'Carmichael Resistance Choir: Street Corner Singing Protest'
     );
 
-    const ralliesButton = buttons.find((b) => b.textContent?.trim() === 'Rallies & Street Action');
+    const choirButton = buttons.find((b) => b.textContent?.trim() === 'Resistance Choir');
     await act(async () => {
-      ralliesButton?.click();
+      choirButton?.click();
     });
 
-    expect(container.textContent).toContain('No Kings 4');
-    expect(container.textContent).not.toContain('Monthly Chapter Gathering');
+    expect(container.textContent).toContain(
+      'Carmichael Resistance Choir: Street Corner Singing Protest'
+    );
+    expect(container.textContent).not.toContain('Monthly Chapter Meeting');
   });
 
   it('filters events by search query in real time', async () => {
@@ -117,7 +116,7 @@ describe('InteractiveEventsCalendar', () => {
       container.querySelectorAll<HTMLAnchorElement>('a[title*="Google Calendar"]')
     );
     expect(calLinks.length).toBeGreaterThan(0);
-    const meetingCalLink = calLinks.find((a) => a.href.includes('20261110T183000'));
+    const meetingCalLink = calLinks.find((a) => a.href.includes('20261201T183000'));
     expect(meetingCalLink).toBeDefined();
 
     const icsButtons = Array.from(

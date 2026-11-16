@@ -88,7 +88,7 @@ export function CRMTaskForm({ contactId, contactName, onDone }: Props) {
       className="rounded-2xl border border-border bg-surface-card p-4 shadow-xs space-y-3"
     >
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-black text-foreground">
+        <h2 className="font-display text-sm font-semibold tracking-[-0.01em] text-foreground">
           {contactName ? `New follow-up for ${contactName}` : 'New follow-up'}
         </h2>
         <button

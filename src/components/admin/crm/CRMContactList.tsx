@@ -1276,7 +1276,7 @@ export function CRMContactList({
                             value={contact.status}
                             disabled={updatingStatusId === contact.id}
                             onChange={(e) => void handleInlineStatusChange(contact, e.target.value)}
-                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border cursor-pointer appearance-none pr-5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${statusClass} ${
+                            className={`cursor-pointer appearance-none rounded-sm border px-2.5 py-0.5 pr-5 text-[10px] font-black uppercase tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${statusClass} ${
                               updatingStatusId === contact.id ? 'opacity-50' : ''
                             }`}
                             title="Click to quick change status"

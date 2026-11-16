@@ -2,10 +2,11 @@ import { CalendarDays, Globe2, Layers3, LoaderCircle, LocateFixed, Search } from
 import type { FormEvent } from 'react';
 import { Button } from '@/components/ui/Button';
 import { MAP_VIEW_COPY } from './constants';
-import { DATA, formatDateLabel, formatNumber } from './data';
-import type { LocationSearchState, MapView, UserLocation } from './types';
+import { formatDateLabel, formatNumber } from './data';
+import type { HeatmapMeta, LocationSearchState, MapView, UserLocation } from './types';
 
 type IceMapToolbarProps = {
+  meta: HeatmapMeta;
   mapView: MapView;
   locationInput: string;
   locationSearch: LocationSearchState;
@@ -21,6 +22,7 @@ type IceMapToolbarProps = {
 };
 
 export function IceMapToolbar({
+  meta,
   mapView,
   locationInput,
   locationSearch,
@@ -54,12 +56,12 @@ export function IceMapToolbar({
           <div className="flex flex-col items-end gap-1.5 text-right">
             <span className="inline-flex items-center gap-1.5 border border-border bg-surface-muted px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-foreground">
               <CalendarDays className="size-3" aria-hidden="true" />
-              Latest release: {formatDateLabel(DATA.meta.periodEnd)}
+              Latest release: {formatDateLabel(meta.periodEnd)}
             </span>
             <p className="font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
-              Checked {formatDateLabel(DATA.meta.releaseCheckedAt)} ·{' '}
-              {formatNumber(DATA.meta.mappedCities)} city points ·{' '}
-              {formatNumber(DATA.meta.mappedRecords)} records
+              Checked {formatDateLabel(meta.releaseCheckedAt)} ·{' '}
+              {formatNumber(meta.mappedCities)} city points ·{' '}
+              {formatNumber(meta.mappedRecords)} records
             </p>
           </div>
         </div>
@@ -101,14 +103,15 @@ export function IceMapToolbar({
             id="ice-map-location-help"
             className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground"
           >
-            Search moves the map only. Your search text is sent to{' '}
+            Search moves the map only. The address bar holds a view-only link that never
+            changes the snapshot. Search text is sent to{' '}
             <a
               href="https://www.openstreetmap.org/copyright"
               className="font-semibold underline underline-offset-2 hover:text-foreground"
             >
               OpenStreetMap
             </a>
-            ; it never changes the data.
+            .
           </p>
           <div
             id="ice-map-location-status"

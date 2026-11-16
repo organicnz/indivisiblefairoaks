@@ -79,7 +79,7 @@ export function UserSettings() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {/* Notifications */}
-        <div className="bg-surface-card border border-border rounded-[2.5rem] p-8 shadow-sm hover:shadow-md transition-shadow">
+        <div className="civic-panel p-8">
           <div className="flex items-center gap-4 mb-8">
             <div className="p-3 bg-surface-muted text-foreground rounded-2xl">
               <Bell size={24} />
@@ -198,7 +198,7 @@ export function UserSettings() {
         </div>
 
         {/* Store region */}
-        <div className="bg-surface-card border border-border rounded-[2.5rem] p-8 shadow-sm hover:shadow-md transition-shadow">
+        <div className="civic-panel p-8">
           <div className="flex items-center gap-4 mb-8">
             <div className="p-3 bg-surface-muted text-foreground rounded-2xl">
               <MapPin size={24} aria-hidden="true" />
@@ -244,7 +244,7 @@ export function UserSettings() {
         </div>
 
         {/* Appearance & Sensory Luxury */}
-        <div className="bg-surface-card border border-border rounded-[2.5rem] p-8 shadow-sm hover:shadow-md transition-shadow md:col-span-2">
+        <div className="civic-panel p-8 md:col-span-2">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
             <div className="flex items-center gap-4">
               <div className="p-3 bg-surface-muted text-foreground rounded-2xl">

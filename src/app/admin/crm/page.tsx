@@ -98,9 +98,9 @@ export default async function AdminCRMPage({
               </DataPoint>
             </span>
           </div>
-          <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-foreground uppercase">
+          <h1 className="font-display text-3xl font-semibold tracking-[-0.03em] text-foreground sm:text-4xl">
             <DataPoint as="span" name="admin.crm.title" initialData={dataPoints}>
-              Constituent Directory
+              Constituent directory
             </DataPoint>
           </h1>
           <div className="h-1.5 w-24 bg-primary mt-3" />

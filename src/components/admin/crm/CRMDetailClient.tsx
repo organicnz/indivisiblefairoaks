@@ -693,7 +693,7 @@ export function CRMDetailClient({
                     <span className="text-[10px] font-black uppercase tracking-[0.25em] text-primary dark:text-primary-on-dark block mb-1">
                       Constituent 360°
                     </span>
-                    <h1 className="text-2xl font-black uppercase tracking-tight text-foreground">
+                    <h1 className="font-display text-2xl font-semibold tracking-[-0.03em] text-foreground">
                       {fullName}
                     </h1>
                     <p className="text-xs text-muted-foreground mt-0.5">{contact.email}</p>
@@ -856,7 +856,7 @@ export function CRMDetailClient({
                             onClick={() => void handleRemoveTagInline(tag)}
                             disabled={tagBusy}
                             title={`Remove #${tag}`}
-                            className="text-muted-foreground hover:text-red-600 ml-0.5 rounded-full p-0.5 transition-colors"
+                            className="ml-0.5 rounded-sm p-0.5 text-muted-foreground transition-colors hover:text-red-600"
                           >
                             <X size={11} />
                           </button>
@@ -985,8 +985,8 @@ export function CRMDetailClient({
           {/* Tab: Timeline */}
           {activeTab === 'timeline' && (
             <div className="bg-surface-card rounded-2xl border border-border shadow-xs p-6">
-              <h2 className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground mb-6">
-                Interaction History & Civic Record
+              <h2 className="mb-6 font-display text-xs font-semibold tracking-[-0.01em] text-muted-foreground">
+                Interaction history &amp; civic record
               </h2>
 
               {/*
@@ -1153,8 +1153,8 @@ export function CRMDetailClient({
                 <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary dark:text-primary-on-dark">
                   Organizer Follow-ups
                 </span>
-                <h2 className="text-lg font-black uppercase tracking-tight text-foreground">
-                  Schedule & Track Tasks
+                <h2 className="font-display text-lg font-semibold tracking-[-0.02em] text-foreground">
+                  Schedule &amp; track tasks
                 </h2>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   Due-dated commitments for this constituent.{' '}
@@ -1403,8 +1403,8 @@ export function CRMDetailClient({
                 <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary dark:text-primary-on-dark">
                   Resend Email Engine
                 </span>
-                <h2 className="text-lg font-black uppercase tracking-tight text-foreground">
-                  Direct Outreach to {fullName}
+                <h2 className="font-display text-lg font-semibold tracking-[-0.02em] text-foreground">
+                  Direct outreach to {fullName}
                 </h2>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   Sends directly to <strong className="text-foreground">{contact.email}</strong>{' '}
@@ -1500,8 +1500,8 @@ export function CRMDetailClient({
                 <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary dark:text-primary-on-dark">
                   Organizer Observations
                 </span>
-                <h2 className="text-lg font-black uppercase tracking-tight text-foreground">
-                  Log Meeting Note or Engagement Activity
+                <h2 className="font-display text-lg font-semibold tracking-[-0.02em] text-foreground">
+                  Log meeting note or engagement activity
                 </h2>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   Record organizing interactions, volunteer commitments, or conversations.
@@ -1575,8 +1575,8 @@ export function CRMDetailClient({
                   <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary dark:text-primary-on-dark">
                     Supabase S3 Assets
                   </span>
-                  <h2 className="text-lg font-black uppercase tracking-tight text-foreground">
-                    Constituent Media & Documents
+                  <h2 className="font-display text-lg font-semibold tracking-[-0.02em] text-foreground">
+                    Constituent media &amp; documents
                   </h2>
                   <p className="text-xs text-muted-foreground mt-0.5">
                     Browse and attach assets hosted in your Supabase S3 bucket for this profile.
@@ -1597,7 +1597,7 @@ export function CRMDetailClient({
                 </div>
                 <div className="max-w-md">
                   <h3 className="text-sm font-bold text-foreground">
-                    Manage Supabase Media Assets
+                    Manage Supabase media assets
                   </h3>
                   <p className="text-xs text-muted-foreground mt-1">
                     Upload photos from rallies, volunteer sign-up sheets, or documents directly to

@@ -220,6 +220,20 @@ export const REGISTRY = {
       'github-var for the same reason as the Sentry DSN: CI and e2e builds carry ' +
       'no token so neither can file replays against the production project.',
   },
+  NEXT_PUBLIC_VAPID_PUBLIC_KEY: {
+    exposure: EXPOSURE.public,
+    owner: OWNERS['app-runtime'],
+    stores: ['vercel-var'],
+    note:
+      'Web Push applicationServerKey. Public by construction and shipped to every ' +
+      'browser; the private half is VAPID_PRIVATE_KEY.',
+  },
+  VAPID_SUBJECT: {
+    exposure: EXPOSURE.public,
+    owner: OWNERS['app-runtime'],
+    stores: ['vercel-var'],
+    note: 'mailto: contact for VAPID. Appears in the signed JWT sent to push services.',
+  },
   NEXT_PUBLIC_SENTRY_DSN: {
     exposure: EXPOSURE.public,
     owner: OWNERS['app-runtime'],
@@ -258,6 +272,24 @@ export const REGISTRY = {
       'Possession lets an attacker forge bounce/complaint events and suppress ' +
       'contacts (mailing-list DoS), but cannot unsuppress or read data — the ' +
       'route only ever sets do_not_email = true, never false.',
+  },
+  VAPID_PRIVATE_KEY: {
+    exposure: EXPOSURE.server,
+    owner: OWNERS['app-runtime'],
+    stores: ['vercel-secret'],
+    note:
+      'Web Push private key for ICE surge alerts. Possession can sign push ' +
+      'messages for the paired public key but cannot read subscriber email or ' +
+      'the database.',
+  },
+  CRON_SECRET: {
+    exposure: EXPOSURE.server,
+    owner: OWNERS['app-runtime'],
+    stores: ['vercel-secret', 'vault'],
+    note:
+      'Bearer token for the five-minute surge notification call. It authorizes ' +
+      'sending to confirmed subscribers, so rotate it if exposed and re-run ' +
+      'scripts/seed-ice-alert-cron.mjs.',
   },
 
   /**
@@ -550,11 +582,6 @@ export const QUARANTINE = {
     why:
       'A GitHub credential in the edge secret store. Four functions here are ' +
       'publicly callable; nothing reads this. Remove it.',
-  },
-  CRON_SECRET: {
-    owner: OWNERS.platform,
-    severity: 'high',
-    why: 'Shared secret for scheduled invocation, read by no function. Either wire the verifier or remove it.',
   },
   CF_ACCESS_CLIENT_ID: {
     owner: OWNERS.platform,

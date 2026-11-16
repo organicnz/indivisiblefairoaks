@@ -305,7 +305,7 @@ export function MobilizeSyncPanel() {
       <section className="space-y-4 rounded-2xl border border-border bg-surface-card p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-sm font-black uppercase tracking-wider text-foreground">Scope</h2>
+            <h2 className="font-display text-sm font-semibold tracking-[-0.01em] text-foreground">Scope</h2>
             <p className="text-[11px] text-muted-foreground">
               Events owned by the Indivisible account, filtered to this radius and the city list,
               then narrowed by any per-event rule.
@@ -479,7 +479,7 @@ export function MobilizeSyncPanel() {
       {/* ── Preview ───────────────────────────────────────────────────────── */}
       <section className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-sm font-black uppercase tracking-wider text-foreground">
+          <h2 className="font-display text-sm font-semibold tracking-[-0.01em] text-foreground">
             What would be imported
           </h2>
           <p className="text-[11px] font-semibold text-muted-foreground" role="status">
@@ -616,7 +616,7 @@ export function MobilizeSyncPanel() {
 
       {/* ── Runs ──────────────────────────────────────────────────────────── */}
       <section className="space-y-2">
-        <h2 className="text-sm font-black uppercase tracking-wider text-foreground">Recent runs</h2>
+        <h2 className="font-display text-sm font-semibold tracking-[-0.01em] text-foreground">Recent runs</h2>
         {runs.length === 0 ? (
           <p className="rounded-2xl border border-border bg-surface-card p-4 text-xs text-muted-foreground">
             No runs recorded yet. The scheduled job runs every 30 minutes once

@@ -86,7 +86,7 @@ export default function ContentPage({ params }: { params: Promise<{ slug: string
 
 function ContentSkeleton() {
   return (
-    <div className="bg-background min-h-screen pt-(--header-h) pb-16 px-4 sm:px-6 lg:px-8">
+    <div className="bg-background min-h-screen pt-(--header-clearance) pb-16 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto animate-pulse">
         <div className="flex flex-col mb-12">
           <div className="h-12 w-3/4 bg-surface-muted rounded" />
@@ -170,7 +170,7 @@ async function ContentBody({ params }: { params: Promise<{ slug: string }> }) {
   const jsonLd = [breadcrumbJsonLd, articleJsonLd].filter(Boolean);
 
   return (
-    <div className="civic-page relative min-h-screen bg-background px-4 pb-16 pt-(--header-h) text-foreground transition-colors duration-300 sm:px-6 lg:px-8">
+    <div className="civic-page relative min-h-screen bg-background px-4 pb-16 pt-(--header-clearance) text-foreground transition-colors duration-300 sm:px-6 lg:px-8">
       {jsonLd.length > 0 && (
         <script
           type="application/ld+json"

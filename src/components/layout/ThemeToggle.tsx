@@ -96,11 +96,23 @@ function themeToggleLabel(mode: ThemeMode): string {
  * says what a click will do — a control whose glyph and announcement disagree
  * is worse than one with no glyph.
  */
-export function ThemeToggle({ variant = 'icon' }: { variant?: 'icon' | 'block' | 'segmented' }) {
+export function ThemeToggle({
+  variant = 'icon',
+  tone = 'default',
+}: {
+  variant?: 'icon' | 'block' | 'segmented';
+  /** The icon variant inherits the page palette; opt into the dark chrome tone
+   * when it sits on the footer's secondary surface. */
+  tone?: 'default' | 'on-dark';
+}) {
   const { dataPoints } = useDataPoints('header');
   const { mode, effective, setMode, cycle } = useThemeMode();
   const Icon = MODE_ICON[mode];
   const label = themeToggleLabel(mode);
+  const iconTone =
+    tone === 'on-dark'
+      ? 'text-ink-on-dark/75 hover:bg-white/10 hover:text-ink-on-dark'
+      : 'text-foreground/75 hover:bg-surface-muted hover:text-foreground';
 
   const handleSegmentKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>, current: ThemeMode) => {
     const currentIndex = THEME_ORDER.indexOf(current);
@@ -224,7 +236,7 @@ export function ThemeToggle({ variant = 'icon' }: { variant?: 'icon' | 'block' |
         data-theme-effective={effective}
         aria-label={label}
         title={label}
-        className={`group relative inline-flex size-11 items-center justify-center rounded-sm text-foreground/75 transition-all duration-300 ease-out hover:bg-surface-muted hover:text-foreground active:scale-95 cursor-pointer ${FOCUS_RING}`}
+        className={`group relative inline-flex size-11 items-center justify-center rounded-sm transition-all duration-300 ease-out active:scale-95 cursor-pointer ${iconTone} ${FOCUS_RING}`}
       >
         <span className="relative flex items-center justify-center transition-transform duration-300 ease-out group-hover:rotate-12 group-active:scale-90">
           <Icon size={18} aria-hidden="true" className="transition-all duration-300 ease-out" />

@@ -9,3 +9,14 @@ import type { GalleryPhoto } from '@/lib/queries/content-client';
 export function galleryAltText(photo: Pick<GalleryPhoto, 'alt' | 'caption'>): string {
   return photo.alt?.trim() || photo.caption.trim() || 'Community photo';
 }
+
+/**
+ * The visible caption for a card or lightbox title. The authored caption wins
+ * because it is the public label; alt text is the fallback for older rows, and
+ * "Community photo" is the final non-empty fallback. Radix uses this text as
+ * `Dialog.Title`, so returning an empty string would leave the photo viewer
+ * unnamed for assistive technology.
+ */
+export function galleryCaption(photo: Pick<GalleryPhoto, 'alt' | 'caption'>): string {
+  return photo.caption.trim() || galleryAltText(photo);
+}

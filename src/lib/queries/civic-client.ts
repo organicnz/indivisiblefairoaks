@@ -2,24 +2,33 @@
  * Civic data fetchers safe to call from Client Components.
  * Fetches directly through Edge API routes without exposing database clients to the browser.
  */
+import { filterUpcomingEvents } from '@/lib/civic-events';
+import { fetchWithTimeout } from '@/lib/service-fetch';
 import type { CoalitionLinkRow, DataPointRow, FAQRow, PartnerRow } from './civic';
 
 export async function getTickerEvents(): Promise<
   { label: string; detail: string; href: string; badge: string }[]
 > {
   try {
-    const res = await fetch('/api/civic/events');
+    const res = await fetchWithTimeout('/api/civic/events');
     if (res.ok) {
       const json = await res.json();
       if (Array.isArray(json.events)) {
-        return json.events.map(
-          (e: { title: string; dateLabel: string; timeLabel: string; category: string }) => ({
-            label: e.title,
-            detail: `${e.dateLabel} • ${e.timeLabel}`,
-            href: '/events',
-            badge: e.category,
-          })
-        );
+        return filterUpcomingEvents(
+          json.events as {
+            title: string;
+            dateLabel: string;
+            timeLabel: string;
+            category: string;
+            isoDateStart: string;
+            isoDateEnd: string;
+          }[]
+        ).map((e) => ({
+          label: e.title,
+          detail: `${e.dateLabel} • ${e.timeLabel}`,
+          href: '/events',
+          badge: e.category,
+        }));
       }
     }
   } catch (err) {
@@ -32,7 +41,7 @@ export async function getTickerEvents(): Promise<
 
 export async function getFaqs(): Promise<{ faqs: FAQRow[]; categories: string[] }> {
   try {
-    const res = await fetch('/api/faqs');
+    const res = await fetchWithTimeout('/api/faqs');
     if (res.ok) {
       const json = await res.json();
       return {
@@ -50,7 +59,7 @@ export async function getFaqs(): Promise<{ faqs: FAQRow[]; categories: string[] 
 
 export async function getPartners(): Promise<PartnerRow[]> {
   try {
-    const res = await fetch('/api/partners');
+    const res = await fetchWithTimeout('/api/partners');
     if (res.ok) {
       const json = await res.json();
       if (Array.isArray(json.partners)) {
@@ -67,7 +76,7 @@ export async function getPartners(): Promise<PartnerRow[]> {
 
 export async function getCoalitionLinks(): Promise<CoalitionLinkRow[]> {
   try {
-    const res = await fetch('/api/coalition-links');
+    const res = await fetchWithTimeout('/api/coalition-links');
     if (res.ok) {
       const json = await res.json();
       if (Array.isArray(json.links)) {
@@ -95,13 +104,16 @@ export async function getDataPoints(
         const edgeUrl = new URL(`${edgeBase}/functions/v1/data-points`);
         if (group) edgeUrl.searchParams.set('group', group);
 
-        const edgeRes = await fetch(edgeUrl.toString(), {
-          headers: {
-            apikey: edgeKey,
-            Authorization: `Bearer ${edgeKey}`,
+        const edgeRes = await fetchWithTimeout(
+          edgeUrl.toString(),
+          {
+            headers: {
+              apikey: edgeKey,
+              Authorization: `Bearer ${edgeKey}`,
+            },
           },
-          signal: AbortSignal.timeout(5_000),
-        });
+          5_000
+        );
 
         if (edgeRes.ok) {
           const json = await edgeRes.json();
@@ -118,7 +130,7 @@ export async function getDataPoints(
     }
 
     const url = group ? `/api/data-points?group=${encodeURIComponent(group)}` : '/api/data-points';
-    const res = await fetch(url);
+    const res = await fetchWithTimeout(url);
     if (res.ok) {
       const json = await res.json();
       return {
@@ -141,7 +153,7 @@ export async function saveDataPoint(payload: {
   label?: string;
 }): Promise<{ success: boolean; dataPoint?: DataPointRow; error?: string }> {
   try {
-    const res = await fetch('/api/data-points', {
+    const res = await fetchWithTimeout('/api/data-points', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),

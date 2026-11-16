@@ -274,7 +274,7 @@ export function MfaChallengePage() {
   // change, so the form would be interactive on the way out.
   if (checking || !outcome || outcome.kind === 'already-verified' || outcome.kind === 'no-session')
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="civic-page min-h-screen flex items-center justify-center">
         <Loader2
           className="animate-spin text-primary dark:text-primary-on-dark"
           aria-label="Checking your security status"
@@ -305,7 +305,7 @@ export function MfaChallengePage() {
         <button
           type="button"
           onClick={() => window.location.reload()}
-          className="w-full bg-primary hover:bg-primary-dark dark:bg-primary-bright dark:hover:bg-primary-light text-white font-black rounded-full py-5 uppercase tracking-[0.2em] text-sm transition-all shadow-xl shadow-primary/20 disabled:opacity-50"
+          className="w-full bg-primary hover:bg-primary-dark dark:bg-primary-bright dark:hover:bg-primary-light text-white font-bold rounded-sm py-5 uppercase tracking-[0.2em] text-sm transition-all disabled:opacity-50"
         >
           <DataPoint as="span" name="auth.mfa.unreadable_btn_retry">
             Try again
@@ -366,7 +366,7 @@ export function MfaChallengePage() {
         </p>
         <a
           href="/account?tab=settings"
-          className="inline-flex w-full items-center justify-center bg-primary dark:bg-primary-bright text-white font-black rounded-full py-5 uppercase tracking-[0.2em] text-sm transition-all hover:bg-primary-dark dark:hover:bg-primary-light"
+          className="inline-flex w-full items-center justify-center bg-primary dark:bg-primary-bright text-white font-bold rounded-sm py-5 uppercase tracking-[0.2em] text-sm transition-all hover:bg-primary-dark dark:hover:bg-primary-light"
         >
           <DataPoint as="span" name="auth.mfa.no_factor_btn_settings">
             Go to account settings
@@ -396,7 +396,7 @@ export function MfaChallengePage() {
         <div className="text-left">
           <label
             htmlFor="code"
-            className="block text-[10px] font-black text-foreground uppercase tracking-widest mb-2 ml-1"
+            className="block text-[10px] font-bold text-foreground uppercase tracking-widest mb-2 ml-1"
           >
             <DataPoint as="span" name="auth.mfa.challenge_code_label">
               6-Digit Code
@@ -426,14 +426,14 @@ export function MfaChallengePage() {
             maxLength={6}
             aria-invalid={error ? true : undefined}
             aria-describedby={error ? 'mfa-error' : undefined}
-            className="w-full px-5 py-4 bg-surface-muted dark:bg-slate-800/80 border border-border rounded-2xl focus:ring-2 focus:ring-primary dark:focus:ring-primary-bright outline-none text-center font-black text-foreground tracking-[0.5em] text-lg"
+            className="w-full px-5 py-4 bg-surface-muted dark:bg-slate-800/80 border border-border rounded-sm focus:ring-2 focus:ring-primary dark:focus:ring-primary-bright outline-none text-center font-bold text-foreground tracking-[0.5em] text-lg"
           />
         </div>
         <button
           type="submit"
           disabled={loading || code.length < 6}
           aria-busy={loading}
-          className="w-full bg-primary dark:bg-primary-bright text-white font-black rounded-full py-5 hover:bg-primary-dark dark:hover:bg-primary-light transition-all uppercase tracking-[0.2em] text-sm shadow-xl shadow-primary/20 disabled:opacity-50"
+          className="w-full bg-primary dark:bg-primary-bright text-white font-bold rounded-sm py-5 hover:bg-primary-dark dark:hover:bg-primary-light transition-all uppercase tracking-[0.2em] text-sm disabled:opacity-50"
         >
           {loading ? (
             <DataPoint as="span" name="auth.mfa.challenge_btn_verifying">
@@ -469,10 +469,10 @@ export function MfaChallengePage() {
         <div
           id="mfa-error"
           role="alert"
-          className="mt-8 p-4 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900 rounded-2xl flex items-center gap-3 text-rose-600 dark:text-rose-400 text-left"
+          className="mt-8 p-4 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900 rounded-sm flex items-center gap-3 text-rose-600 dark:text-rose-400 text-left"
         >
           <ShieldAlert size={18} aria-hidden="true" className="shrink-0" />
-          <p className="text-xs font-black uppercase tracking-widest break-words">{error}</p>
+          <p className="text-xs font-bold uppercase tracking-widest break-words">{error}</p>
         </div>
       )}
     </Shell>
@@ -491,16 +491,16 @@ function Shell({
   children: React.ReactNode;
 }) {
   return (
-    <div className="relative overflow-hidden min-h-[80vh] bg-background flex items-center justify-center px-4 pt-(--header-h) pb-16 text-foreground transition-colors duration-300">
+    <div className="civic-page relative overflow-hidden min-h-[80vh] bg-background flex items-center justify-center px-4 pt-(--header-clearance) pb-16 text-foreground transition-colors duration-300">
       <VgpuCivicConstellation className="pointer-events-none opacity-25" />
-      <div className="relative z-10 max-w-md w-full bg-surface-card p-10 rounded-3xl shadow-raised text-center border border-border backdrop-blur-md">
+      <div className="civic-panel relative z-10 w-full max-w-md p-10 text-center">
         <div className="flex flex-col items-center mb-8">
           <div
-            className={`p-4 rounded-2xl mb-4 ${tone === 'error' ? 'bg-rose-50 dark:bg-rose-950/50 text-accent-red' : 'bg-primary/10 text-primary dark:text-primary-on-dark'}`}
+            className={`p-4 rounded-sm mb-4 ${tone === 'error' ? 'bg-rose-50 dark:bg-rose-950/50 text-accent-red' : 'bg-primary/10 text-primary dark:text-primary-on-dark'}`}
           >
             {icon}
           </div>
-          <h1 className="text-3xl font-black text-foreground uppercase tracking-tight mb-2">
+          <h1 className="mb-2 font-display text-3xl font-semibold tracking-[-0.02em] text-foreground">
             {heading}
           </h1>
           <div
@@ -522,7 +522,7 @@ export default function MfaChallengeRoute() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center">
+        <div className="civic-page min-h-screen flex items-center justify-center">
           <Loader2
             className="animate-spin text-primary dark:text-primary-on-dark"
             aria-label="Loading"

@@ -30,7 +30,7 @@ export default async function AdminNewsPage() {
             </span>
           </div>
           <h1 className="font-display text-3xl font-semibold tracking-[-0.03em] text-foreground sm:text-4xl">
-            News &amp; Bulletins
+            News &amp; bulletins
           </h1>
           <div className="h-1.5 w-24 bg-primary mt-3" />
           <p className="mt-3 text-xs font-bold text-muted-foreground max-w-2xl">

@@ -1,7 +1,4 @@
-import heatmapJson from '@/data/ice-arrest-heatmap.json';
-import type { CityPoint, HeatmapSnapshot } from './types';
-
-export const DATA = heatmapJson as HeatmapSnapshot;
+import type { CityPoint } from './types';
 
 const numberFormatter = new Intl.NumberFormat('en-US');
 const dateFormatter = new Intl.DateTimeFormat('en-US', {
@@ -35,11 +32,11 @@ export function selectedCityLabel(city: CityPoint) {
   return `${city.city}, ${city.stateCode}`;
 }
 
-/** 1-based position in the snapshot, matching the list ranking. */
-export function cityRank(city: CityPoint) {
-  return DATA.cities.findIndex((candidate) => cityKey(candidate) === cityKey(city)) + 1;
+/** 1-based position in the supplied snapshot, matching the list ranking. */
+export function cityRank(city: CityPoint, cities: readonly CityPoint[]) {
+  return cities.findIndex((candidate) => cityKey(candidate) === cityKey(city)) + 1;
 }
 
-export function citySharePercent(city: CityPoint) {
-  return ((city.count / DATA.meta.mappedRecords) * 100).toFixed(1);
+export function citySharePercent(city: CityPoint, mappedRecords: number) {
+  return ((city.count / mappedRecords) * 100).toFixed(1);
 }

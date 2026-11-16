@@ -69,4 +69,21 @@ describe('GalleryImage', () => {
     expect(container.querySelector('[data-testid="gallery-image-fallback"]')).not.toBeNull();
     expect(container.querySelector('img')).toBeNull();
   });
+
+  it('renders a supplied civic fallback instead of the generic plate', async () => {
+    await act(async () => {
+      root.render(
+        <GalleryImage
+          src=""
+          alt="Missing featured photo"
+          fallback={<div data-testid="civic-fallback">Community in view</div>}
+        />
+      );
+    });
+
+    expect(container.querySelector('[data-testid="gallery-image-fallback"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="civic-fallback"]')).not.toBeNull();
+    expect(container.textContent).toContain('Community in view');
+    expect(container.querySelector('img')).toBeNull();
+  });
 });

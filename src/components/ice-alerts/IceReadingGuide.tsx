@@ -1,7 +1,8 @@
 import { AlertTriangle, ArrowUpRight, Phone, ShieldCheck } from 'lucide-react';
-import { DATA, formatDateLabel, formatNumber } from './data';
+import { formatDateLabel, formatNumber } from './data';
+import type { HeatmapMeta } from './types';
 
-export function IceReadingGuide() {
+export function IceReadingGuide({ meta }: { meta: HeatmapMeta }) {
   return (
     <section className="mx-auto max-w-7xl px-4 pb-14 sm:px-6 lg:px-8 lg:pb-20">
       <div className="grid gap-6 border-t border-foreground/20 pt-8 lg:grid-cols-[0.75fr_1.25fr] lg:gap-10">
@@ -16,8 +17,8 @@ export function IceReadingGuide() {
             a live safety feed.
           </p>
           <p className="mt-3 max-w-md font-mono text-[10px] font-bold uppercase leading-relaxed tracking-[0.1em] text-muted-foreground">
-            Latest release: {formatDateLabel(DATA.meta.periodEnd)} · Checked{' '}
-            {formatDateLabel(DATA.meta.releaseCheckedAt)}
+            Latest release: {formatDateLabel(meta.periodEnd)} · Checked{' '}
+            {formatDateLabel(meta.releaseCheckedAt)}
           </p>
         </div>
 
@@ -36,7 +37,7 @@ export function IceReadingGuide() {
             {
               number: '03',
               title: 'Known gaps',
-              body: `${(DATA.meta.mappedShareOfAll * 100).toFixed(1)}% of de-duplicated records are mapped. The city field is manually entered, sometimes missing, and may reflect a facility or booking location.`,
+              body: `${(meta.mappedShareOfAll * 100).toFixed(1)}% of de-duplicated records are mapped. The city field is manually entered, sometimes missing, and may reflect a facility or booking location.`,
             },
           ].map((step) => (
             <div key={step.number} className="border-t border-foreground/25 pt-3">
@@ -60,7 +61,7 @@ export function IceReadingGuide() {
               De-duplicated
             </h3>
             <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-              The snapshot removes {formatNumber(DATA.meta.duplicateRowsRemoved)} duplicate rows
+              The snapshot removes {formatNumber(meta.duplicateRowsRemoved)} duplicate rows
               flagged in the processed release before counting.
             </p>
           </div>
@@ -84,8 +85,9 @@ export function IceReadingGuide() {
               Not an emergency service
             </h3>
             <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-              The map cannot dispatch help. In an emergency, call 911. Do not approach or confront
-              enforcement activity.
+              The map cannot dispatch help. In an emergency, call 911. If you encounter enforcement
+              activity, you can carefully observe or film from a safe distance; do not interfere or
+              obstruct. Filming in public is generally protected.
             </p>
           </div>
         </div>

@@ -3,8 +3,9 @@ import { expect, test } from '@playwright/test';
 /**
  * Fixed-header clearance guards.
  *
- * The header is position:fixed and measures 77px unscrolled / 69px scrolled.
- * Pages clear it through PageWrapper's `pt-(--header-clearance)`.
+ * The header is position:fixed and its own height changes with the scroll
+ * state and viewport. Pages must clear the measured box through
+ * PageWrapper's `pt-(--header-clearance)`, not through a hard-coded offset.
  *
  * PERF: Consolidated to 1 desktop + 1 mobile test. Each loops through its
  * routes in the same browser context, saving ~20-30s of context-creation
@@ -28,6 +29,8 @@ async function expectHeadingClearOfHeader(page: import('@playwright/test').Page)
 
   const banner = page.getByRole('banner');
   await expect(banner).toBeVisible();
+  // The clearance contract only means something while the banner is fixed.
+  await expect(banner).toHaveCSS('position', 'fixed');
   await expect.poll(() => banner.boundingBox(), { timeout: 10_000 }).not.toBeNull();
   const header = await banner.boundingBox();
 
@@ -48,7 +51,7 @@ async function expectHeadingClearOfHeader(page: import('@playwright/test').Page)
 }
 
 test.describe('header clearance', () => {
-  test('desktop: h1 clears navbar on all guarded routes (104px clearance)', async ({ page }) => {
+  test('desktop: h1 clears the fixed navbar on all guarded routes', async ({ page }) => {
     test.slow();
     await page.setViewportSize({ width: 1280, height: 800 });
 
@@ -67,7 +70,7 @@ test.describe('header clearance', () => {
     expect(failures, `desktop clearance failures:\n${failures.join('\n')}`).toEqual([]);
   });
 
-  test('mobile: h1 clears navbar on sampled routes (88px clearance)', async ({ page }) => {
+  test('mobile: h1 clears the fixed navbar on sampled routes', async ({ page }) => {
     test.slow();
     await page.setViewportSize({ width: 390, height: 844 });
 

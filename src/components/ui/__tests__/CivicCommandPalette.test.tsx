@@ -72,6 +72,22 @@ describe('CivicCommandPalette component', () => {
     expect(trigger).not.toBeNull();
   });
 
+  it('includes the ICE arrest heat map and navigates to it', async () => {
+    await act(async () => {
+      root.render(<CivicCommandPalette isOpen={true} setIsOpen={vi.fn()} />);
+    });
+
+    const options = Array.from(document.querySelectorAll('li[role="option"]'));
+    const iceOption = options.find((opt) => opt.textContent?.includes('ICE Arrest Heat Map'));
+    expect(iceOption).toBeDefined();
+
+    await act(async () => {
+      iceOption?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    });
+
+    expect(mockPush).toHaveBeenCalledWith('/ice-alerts');
+  });
+
   it('filters theme commands when searching for theme', async () => {
     await act(async () => {
       root.render(<CivicCommandPalette isOpen={true} setIsOpen={vi.fn()} />);

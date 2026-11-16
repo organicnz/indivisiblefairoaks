@@ -9,7 +9,7 @@ export const instant = false;
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   await requireAdminPage();
   return (
-    <div className="relative overflow-hidden bg-surface-card min-h-screen pt-(--header-h) pb-16">
+    <div className="admin-surface relative min-h-screen overflow-hidden bg-surface-card pb-16 pt-(--header-clearance)">
       <VgpuCivicConstellation className="pointer-events-none opacity-20" />
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {isE2EMode() && (

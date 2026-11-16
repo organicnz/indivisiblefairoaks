@@ -1,15 +1,25 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { FormEvent } from 'react';
 import { IceAlertBanner } from './IceAlertBanner';
 import { IceCaseDocumentation } from './IceCaseDocumentation';
 import { IceMapPanel } from './IceMapPanel';
 import { IceReadingGuide } from './IceReadingGuide';
 import { IceSidebar } from './IceSidebar';
-import type { CityPoint, SearchTarget } from './types';
+import {
+  serializeIceMapUrlState,
+  type IceMapUrlState,
+} from './map-url-state';
+import type { CityPoint, HeatmapSnapshot, SearchTarget } from './types';
 import { useIceMap } from './use-ice-map';
 import { useLocationSearch } from './use-location-search';
 import { useUserLocation } from './use-user-location';
+
+type IceArrestHeatMapProps = {
+  snapshot: HeatmapSnapshot;
+  initialState?: IceMapUrlState;
+};
 
 /**
  * Historical ICE arrest city-circle map.
@@ -19,10 +29,29 @@ import { useUserLocation } from './use-user-location';
  * location and place-search logic live in their own hooks so each can be
  * reasoned about — and tested — without the other two.
  */
-export function IceArrestHeatMap() {
-  const [selectedCity, setSelectedCity] = useState<CityPoint | null>(null);
-  const [searchTarget, setSearchTarget] = useState<SearchTarget | null>(null);
-  const shouldFocusUserRef = useRef(true);
+export function IceArrestHeatMap({ snapshot, initialState }: IceArrestHeatMapProps) {
+  const [selectedCity, setSelectedCity] = useState<CityPoint | null>(
+    initialState?.selectedCity ?? null
+  );
+  const [searchTarget, setSearchTarget] = useState<SearchTarget | null>(
+    initialState?.searchTarget ?? null
+  );
+  const shouldFocusUserRef = useRef(!initialState?.hasUrlState);
+  const allowAutoFocusRef = useRef(!initialState?.hasUrlState);
+  const urlSyncEnabledRef = useRef(Boolean(initialState?.hasUrlState));
+
+  const markUrlSyncEnabled = useCallback(() => {
+    urlSyncEnabledRef.current = true;
+  }, []);
+
+  const selectCity = useCallback(
+    (city: CityPoint) => {
+      markUrlSyncEnabled();
+      allowAutoFocusRef.current = false;
+      setSelectedCity(city);
+    },
+    [markUrlSyncEnabled]
+  );
 
   const { userLocation, userLocationRef, userLocationStatus, locationNotice } = useUserLocation({
     shouldFocusUser: shouldFocusUserRef,
@@ -32,6 +61,7 @@ export function IceArrestHeatMap() {
     mapContainerRef,
     mapRef,
     mapView,
+    mapViewport,
     setMapView,
     heatStatus,
     zoomMap,
@@ -39,12 +69,17 @@ export function IceArrestHeatMap() {
     flyToUsOverview,
     flyToUser,
   } = useIceMap({
+    snapshot,
     selectedCity,
     searchTarget,
     userLocation,
     userLocationRef,
     shouldFocusUser: shouldFocusUserRef,
-    onCitySelect: setSelectedCity,
+    allowAutoFocus: allowAutoFocusRef,
+    initialView: initialState?.initialView ?? null,
+    initialMapView: initialState?.initialMapView ?? 'nationwide',
+    onCitySelect: selectCity,
+    onMapInteraction: markUrlSyncEnabled,
   });
 
   const {
@@ -57,11 +92,35 @@ export function IceArrestHeatMap() {
   } = useLocationSearch({
     mapRef,
     searchTarget,
+    initialInput: initialState?.searchQuery || initialState?.searchTarget?.label || '',
+    initialTarget: initialState?.searchTarget ?? null,
     setMapView,
     setSelectedCity,
     setSearchTarget,
     shouldFocusUser: shouldFocusUserRef,
   });
+
+  useEffect(() => {
+    if (!urlSyncEnabledRef.current || !mapViewport) return;
+
+    const current = new URLSearchParams(window.location.search);
+    const params = serializeIceMapUrlState(current, {
+      selectedCity,
+      searchTarget,
+      searchQuery: locationInput,
+      viewport: mapViewport,
+      mapView,
+    });
+    const query = params.toString();
+    const next = `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`;
+    const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+
+    if (next !== currentUrl) {
+      // A view change is not a route navigation. replaceState keeps the URL
+      // shareable without turning every pan into a Back-button entry.
+      window.history.replaceState(window.history.state, '', next);
+    }
+  }, [locationInput, mapView, mapViewport, searchTarget, selectedCity]);
 
   const isLocating = userLocationStatus === 'locating' || userLocationStatus === 'checking';
 
@@ -90,7 +149,7 @@ export function IceArrestHeatMap() {
 
   const focusCity = (city: CityPoint) => {
     mapRef.current?.closePopup();
-    setSelectedCity(city);
+    selectCity(city);
     setMapView('free');
     flyToCity(city);
     if (window.matchMedia('(max-width: 1023px)').matches) {
@@ -102,6 +161,8 @@ export function IceArrestHeatMap() {
 
   const focusOverview = () => {
     mapRef.current?.closePopup();
+    markUrlSyncEnabled();
+    allowAutoFocusRef.current = false;
     clearLocationSearch();
     setSelectedCity(null);
     setMapView('nationwide');
@@ -112,19 +173,38 @@ export function IceArrestHeatMap() {
     if (!userLocation) return;
 
     mapRef.current?.closePopup();
+    markUrlSyncEnabled();
+    allowAutoFocusRef.current = true;
     clearLocationSearch();
     setSelectedCity(null);
     setMapView('local');
     flyToUser(userLocation);
   };
 
+  const handleMapSearch = (event: FormEvent<HTMLFormElement>) => {
+    markUrlSyncEnabled();
+    allowAutoFocusRef.current = false;
+    void handleLocationSearch(event);
+  };
+
+  const handleMapZoom = (direction: 'in' | 'out') => {
+    markUrlSyncEnabled();
+    allowAutoFocusRef.current = false;
+    zoomMap(direction);
+  };
+
+  const clearSelectedCity = () => {
+    setSelectedCity(null);
+  };
+
   return (
     <>
-      <IceAlertBanner />
+      <IceAlertBanner meta={snapshot.meta} />
 
       <section className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
         <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.42fr)_minmax(22rem,0.78fr)]">
           <IceMapPanel
+            meta={snapshot.meta}
             mapView={mapView}
             heatStatus={heatStatus}
             mapContainerRef={mapContainerRef}
@@ -136,23 +216,24 @@ export function IceArrestHeatMap() {
             locationHeadline={locationHeadline}
             locationDetail={locationDetail}
             onLocationInputChange={handleLocationInputChange}
-            onLocationSearch={handleLocationSearch}
+            onLocationSearch={handleMapSearch}
             onFocusOverview={focusOverview}
             onFocusUserArea={focusUserArea}
-            onZoom={zoomMap}
+            onZoom={handleMapZoom}
             onReset={focusOverview}
           />
 
           <IceSidebar
+            snapshot={snapshot}
             selectedCity={selectedCity}
             onSelectCity={focusCity}
-            onClearSelectedCity={() => setSelectedCity(null)}
+            onClearSelectedCity={clearSelectedCity}
           />
         </div>
       </section>
 
-      <IceReadingGuide />
-      <IceCaseDocumentation />
+      <IceReadingGuide meta={snapshot.meta} />
+      <IceCaseDocumentation meta={snapshot.meta} />
     </>
   );
 }

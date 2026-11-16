@@ -593,22 +593,11 @@ pre-push:
     # Local runs use `bun run test:coverage` on demand to avoid heap thrashing.
     build-check:
       priority: 35
-      # `NEXT_SKIP_ENV_VALIDATION=1` bypasses the Zod defaults, so a fresh
-      # checkout with no `.env.local` reaches the build with no public Supabase
-      # values at all — and `/sitemap.xml` constructs a client directly rather
-      # than going through the guarded helpers, so it fails the build. Source
-      # `.env.local` first so real local values win; only fill genuinely absent
-      # values with deliberately loopback/placeholder ones. The e2e hook runs
-      # after this one and reads `.env.local` itself.
-      run: |
-        set -a
-        if [ -f .env.local ]; then . ./.env.local; fi
-        set +a
-        NEXT_E2E_BUILD=true NEXT_SKIP_ENV_VALIDATION=1 \
-          NEXT_PUBLIC_SITE_URL="${NEXT_PUBLIC_SITE_URL:-http://localhost:3100}" \
-          NEXT_PUBLIC_SUPABASE_URL="${NEXT_PUBLIC_SUPABASE_URL:-http://127.0.0.1:9}" \
-          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:-placeholder}" \
-          bun run build
+      # E2E builds are self-contained: scripts/build.mjs loads `.env.local`
+      # when present, fills fresh-checkout placeholders only for values it does
+      # not define, and records the free port pair for the Playwright gate. No
+      # inline environment overrides are needed here or by the caller.
+      run: NEXT_E2E_BUILD=true bun run build
 
     # ── 8. Peer-dependency compatibility ──────────────────────────────────────
     # Checks the installed dependency graph before a build can reach deployment.

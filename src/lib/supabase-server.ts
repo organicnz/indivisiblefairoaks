@@ -1,7 +1,14 @@
 import { createServerClient as createSupabaseServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { cache } from 'react';
+import { fetchWithTimeout } from '@/lib/service-fetch';
 import type { Database } from '@/types/supabase';
+
+// Every public read goes through this fetch. Without a deadline, a Supabase
+// network stall holds the whole page open even though the query's caller has a
+// fallback ready and the request may never return.
+const serviceFetch = ((input: RequestInfo | URL, init?: RequestInit) =>
+  fetchWithTimeout(input, init)) as typeof fetch;
 
 export const createServerClient = async () => {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -34,6 +41,7 @@ export const createServerClient = async () => {
         }
       },
     },
+    global: { fetch: serviceFetch },
   });
 };
 
@@ -57,6 +65,7 @@ export const createPublicClient = () => {
       },
       setAll() {},
     },
+    global: { fetch: serviceFetch },
   });
 };
 

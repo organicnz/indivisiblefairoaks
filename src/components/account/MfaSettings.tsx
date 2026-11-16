@@ -235,7 +235,7 @@ export function MfaSettings() {
   const activeFactor = verified[0];
 
   return (
-    <div className="bg-surface-card border border-border rounded-3xl overflow-hidden shadow-sm p-8 mt-12">
+    <div className="civic-panel mt-12 overflow-hidden p-8">
       <div className="flex items-center gap-4 mb-6">
         <div
           className={`p-3 rounded-2xl ${activeFactor ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400' : 'bg-surface-muted text-muted-foreground'}`}
