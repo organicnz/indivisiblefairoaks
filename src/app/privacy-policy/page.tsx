@@ -28,7 +28,7 @@ export default function PrivacyPage() {
             organizing records straight. This page explains that in plain language.
           </p>
         }
-        meta={<span className="civic-stamp">Last updated November 14, 2026</span>}
+        meta={<span className="civic-stamp">Last updated November 16, 2026</span>}
       />
 
       <div className="mx-auto max-w-5xl px-4 py-14 sm:px-6 lg:px-8 lg:py-20">
@@ -44,6 +44,13 @@ export default function PrivacyPage() {
             <li>
               <strong>Contact messages:</strong> the name, email address, and message you submit
               through our contact form, plus the optional preference to receive chapter email.
+            </li>
+            <li>
+              <strong>ICE incident reports:</strong> the city, state, rough time, category, and
+              text-only observation you submit through the private report form. The form does not
+              ask for your name or contact details, but it is not technically anonymous: hosting,
+              security, and abuse-prevention systems may process limited technical data such as an
+              IP-derived rate-limit key.
             </li>
             <li>
               <strong>Account information:</strong> if you create an account, we store your email
@@ -66,6 +73,28 @@ export default function PrivacyPage() {
             chapter updates, and maintain the security of the site. We do not sell your personal
             information, and we do not share it with candidates or campaigns for their own
             fundraising.
+          </p>
+
+          <h2>ICE incident reports</h2>
+          <p>
+            The private ICE report form is text-only. It does not accept attachments, photos, or
+            video. Raw reports are stored privately, are available only to authorized chapter
+            moderators through the admin system, and are retained for up to 30 days. A raw report
+            is never published.
+          </p>
+          <p>
+            A first reviewer may prepare a sanitized, city-level draft that removes names, faces,
+            plates, street addresses, contact details, immigration status, and exact locations. A
+            second, different reviewer must approve that exact draft before a public entry is
+            created. The public entry contains only the city, state, category, rough observation
+            time, a short summary, and an approximate city-center map point. It expires after seven
+            days.
+          </p>
+          <p>
+            Do not use this form to send anyone&apos;s personal information or to report an
+            emergency. It cannot dispatch help. Reports may be rejected, and submitting one does not
+            create a guaranteed response or a legal record. We may disclose report data if required
+            by law or to address an immediate safety risk.
           </p>
 
           <h2>Service providers</h2>

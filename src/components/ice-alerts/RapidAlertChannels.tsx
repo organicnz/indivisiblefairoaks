@@ -97,7 +97,8 @@ export function RapidAlertChannels() {
         <p className="mt-4 max-w-3xl text-[10px] leading-relaxed text-muted-foreground">
           The text and Signal links leave this site. Indivisible Fair Oaks-Carmichael does not
           operate or monitor those national channels and does not receive the messages you send
-          there. This page does not collect reports.
+          there. This chapter accepts private reports only through its reviewed intake form; raw
+          reports are never published.
         </p>
       </div>
     </section>

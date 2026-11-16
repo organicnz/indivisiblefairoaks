@@ -1,6 +1,6 @@
 'use client';
 
-import { AlertTriangle, ExternalLink, MessageSquareText, Radio } from 'lucide-react';
+import { AlertTriangle, ExternalLink, LockKeyhole, MessageSquareText, Radio } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import {
   Dialog,
@@ -25,11 +25,11 @@ export function ReportSightingButton() {
       </DialogTrigger>
       <DialogContent className="max-h-[90vh] max-w-md overflow-y-auto p-6 sm:p-7">
         <DialogHeader>
-          <span className="civic-section-index">National reporting channel</span>
+          <span className="civic-section-index">Private review + national option</span>
           <DialogTitle className="mt-1">Report a sighting</DialogTitle>
           <DialogDescription>
-            This chapter does not collect reports. Send what you saw to the national Stop ICE Alerts
-            Network, which operates its own intake and privacy controls.
+            This chapter now accepts private, text-only reports for review. Nothing is published
+            automatically. You can also send what you saw to the national Stop ICE Alerts Network.
           </DialogDescription>
         </DialogHeader>
 
@@ -45,6 +45,21 @@ export function ReportSightingButton() {
         </div>
 
         <div className="grid gap-2">
+          <a
+            href="/ice-alerts/report"
+            className="inline-flex min-h-11 items-center justify-between gap-3 border border-primary/40 bg-primary/5 px-3 py-2 text-xs font-semibold text-foreground transition-colors hover:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          >
+            <span className="inline-flex items-center gap-2">
+              <LockKeyhole className="size-4 text-primary" aria-hidden="true" />
+              Start a private chapter report
+            </span>
+            <span className="font-mono text-[8px] font-bold uppercase tracking-[0.09em] text-muted-foreground">
+              Review
+            </span>
+          </a>
+          <p className="mt-1 font-mono text-[8px] font-bold uppercase tracking-[0.09em] text-muted-foreground">
+            National network
+          </p>
           <a
             href={TEXT_REPORT_HREF}
             className="inline-flex min-h-11 items-center justify-between gap-3 border border-border bg-background px-3 py-2 text-xs font-semibold text-foreground transition-colors hover:border-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
@@ -75,7 +90,8 @@ export function ReportSightingButton() {
 
         <p className="text-[10px] leading-relaxed text-muted-foreground">
           Immediate danger? Call 911. This page cannot dispatch help, verify a report, or guarantee
-          that a national channel is available. The national network&apos;s privacy and security
+          that a national channel is available. A chapter report is reviewed before any sanitized
+          city-level summary can be published; the national network&apos;s privacy and security
           terms apply to anything you send there.
         </p>
       </DialogContent>

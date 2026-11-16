@@ -7,9 +7,9 @@ import {
   FileWarning,
   HeartHandshake,
   Landmark,
+  LockKeyhole,
   MapPin,
   Phone,
-  Radio,
   ShieldAlert,
   Users,
 } from 'lucide-react';
@@ -73,11 +73,11 @@ const RESOURCES = [
   },
   {
     title: 'Report a sighting',
-    body: 'This page does not collect reports. Report through the Stop ICE Alerts Network online, or text REPORT to 877-322-2299. Never send names, plates, or addresses.',
-    href: 'https://stopice.net/',
-    label: 'Open the reporting network',
-    icon: Radio,
-    external: true,
+    body: 'Submit a private report for chapter review. Only a sanitized city-level summary can be published after two different reviewers approve it. Use the national network if you prefer. Never send names, plates, or addresses.',
+    href: '/ice-alerts/report',
+    label: 'Start a private report',
+    icon: LockKeyhole,
+    external: false,
   },
 ] as const;
 

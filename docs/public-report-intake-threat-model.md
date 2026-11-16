@@ -1,8 +1,12 @@
 # Public ICE report intake: threat model and launch checklist
 
-**Status: design-only.** No route, table, bucket, policy, or UI is approved by
-this document. Nothing here changes the current site, which still says the map
-does not collect reports and points to the Stop ICE Alerts Network.
+**Status: implemented with engineering controls; legal launch gate remains open.**
+The current site now has a text-only private intake (`/ice-alerts/report`), a
+service-role-only raw table, a separate sanitized public projection, and a
+two-person database-enforced publication path (`/admin/ice-reports`). This
+implementation does not substitute for counsel, board approval, a data map, or
+the launch checklist below. Attachments, reporter accounts, and automated
+publication remain out of scope.
 
 **This is threat modeling, not legal advice.** Every legal question below needs
 review by counsel licensed in the relevant jurisdiction. The chapter should not
@@ -72,7 +76,7 @@ and explicitly compensate where they do not.
 
 | Current fact | Implication for report intake |
 |---|---|
-| `/ice-alerts` currently says **"This page does not collect reports"** and links to Stop ICE Alerts Network (`RapidResponseGuide.tsx`) | Adding intake changes a public promise. Update the copy, privacy notice, and expectations before launch. Do not quietly turn a link-out page into a collection point. |
+| `/ice-alerts` now links to a **private chapter intake** (`/ice-alerts/report`) and the national Stop ICE Alerts Network (`RapidResponseGuide.tsx`). The old "this page does not collect reports" promise was deliberately replaced with review-before-publication copy and a privacy disclosure. | Keep the distinction between private raw intake, sanitized two-person publication, and the independent national network visible in every channel. |
 | The public feed keeps only city centroids and generated summaries; raw comments, street addresses, plates, media URLs, and names are dropped in `ice-rapid-feed.ts` | This is the right publication model. Use the same allowlist discipline for the new public projection. |
 | The private reunification intake uses RLS with **no** public policies, a private bucket, a 90-day retention default, and signed URL access (`docs/ice-reunification.md`) | A useful precedent, but report intake is more adversarial and more publicly visible. Reuse the isolation and retention pattern; do not assume the reunification threat level is sufficient. |
 | `src/lib/rate-limit.ts` is an **in-memory, per-isolate** limiter | Not sufficient for a public report form. A serverless deployment gives an attacker many buckets. Add durable global limits and platform WAF controls. |

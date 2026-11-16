@@ -23,7 +23,7 @@ describe('ReportSightingButton', () => {
     container.remove();
   });
 
-  it('opens the national report choices and does not collect a report locally', async () => {
+  it('opens the private chapter intake and the national report choices', async () => {
     await act(async () => {
       root.render(<ReportSightingButton />);
     });
@@ -39,10 +39,12 @@ describe('ReportSightingButton', () => {
 
     const dialog = document.querySelector<HTMLElement>('[role="dialog"]');
     expect(dialog).not.toBeNull();
-    expect(dialog?.textContent).toContain('does not collect reports');
+    expect(dialog?.textContent).toContain('accepts private, text-only reports');
+    expect(dialog?.textContent).toContain('Nothing is published automatically');
     expect(dialog?.textContent).toContain('Text REPORT to 877-322-2299');
     expect(dialog?.textContent).toContain('Open the online report form');
     expect(dialog?.querySelector('form')).toBeNull();
+    expect(dialog?.querySelector('a[href="/ice-alerts/report"]')).not.toBeNull();
 
     const textLink = dialog?.querySelector<HTMLAnchorElement>(
       'a[href="sms:8773222299?body=REPORT"]'

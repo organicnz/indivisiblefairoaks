@@ -10,6 +10,11 @@ import {
   listExpiredPendingSubscribers,
   listExpiredUnsubscribedSubscribers,
 } from '@/lib/ice-alert-store';
+import {
+  getIceReportStore,
+  purgeExpiredIceReports,
+  purgeExpiredPublicIceReports,
+} from '@/lib/ice-report-intake';
 import { env } from '@/lib/env';
 
 export const maxDuration = 30;
@@ -38,11 +43,14 @@ export async function POST(req: Request) {
   }
 
   const store = getIceAlertStore();
-  if (!store) return json({ ok: false, code: 'store-not-configured' }, 503);
+  const reportStore = getIceReportStore();
+  if (!store || !reportStore) {
+    return json({ ok: false, code: 'store-not-configured' }, 503);
+  }
 
   try {
     const cutoffs = iceAlertRetentionCutoffs();
-    const [pending, unsubscribed] = await Promise.all([
+    const [pending, unsubscribed, reportsDeleted, publicReportsDeleted] = await Promise.all([
       listExpiredPendingSubscribers(
         store,
         cutoffs.pendingBefore,
@@ -53,6 +61,8 @@ export async function POST(req: Request) {
         cutoffs.unsubscribedBefore,
         ICE_ALERT_PURGE_BATCH_SIZE
       ),
+      purgeExpiredIceReports(reportStore),
+      purgeExpiredPublicIceReports(reportStore),
     ]);
 
     const ids = [
@@ -65,6 +75,8 @@ export async function POST(req: Request) {
       deleted: ids.length,
       pending: pending.length,
       unsubscribed: unsubscribed.length,
+      reportsDeleted,
+      publicReportsDeleted,
     });
   } catch {
     return json({ ok: false, code: 'server-error' }, 500);

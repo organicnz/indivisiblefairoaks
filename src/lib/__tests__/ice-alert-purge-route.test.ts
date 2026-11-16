@@ -4,6 +4,9 @@ import { createMockAdminClient } from './supabase-mock';
 
 const TEST_SECRET = vi.hoisted(() => 'test-ice-alert-cron-secret');
 const getIceAlertStore = vi.hoisted(() => vi.fn());
+const getIceReportStore = vi.hoisted(() => vi.fn());
+const purgeExpiredIceReports = vi.hoisted(() => vi.fn(async () => 0));
+const purgeExpiredPublicIceReports = vi.hoisted(() => vi.fn(async () => 0));
 const isE2E = vi.hoisted(() => vi.fn(() => false));
 
 vi.mock('@/lib/env', () => ({
@@ -23,6 +26,12 @@ vi.mock('@/lib/ice-alert-store', async (importOriginal) => {
     getIceAlertStore: () => getIceAlertStore(),
   };
 });
+
+vi.mock('@/lib/ice-report-intake', () => ({
+  getIceReportStore: () => getIceReportStore(),
+  purgeExpiredIceReports,
+  purgeExpiredPublicIceReports,
+}));
 
 const { POST } = await import('@/app/api/ice-rapid/purge/route');
 
@@ -66,6 +75,9 @@ function request(authorized = true) {
 beforeEach(() => {
   vi.clearAllMocks();
   isE2E.mockReturnValue(false);
+  getIceReportStore.mockReturnValue({});
+  purgeExpiredIceReports.mockResolvedValue(0);
+  purgeExpiredPublicIceReports.mockResolvedValue(0);
 });
 
 describe('POST /api/ice-rapid/purge retention', () => {
@@ -188,6 +200,16 @@ describe('POST /api/ice-rapid/purge retention', () => {
 
   it('fails closed when the store is not configured', async () => {
     getIceAlertStore.mockReturnValue(null);
+
+    const response = await POST(request());
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({ code: 'store-not-configured' });
+  });
+
+  it('fails closed when the private report store is not configured', async () => {
+    getIceAlertStore.mockReturnValue(createMockAdminClient({ ice_alert_subscribers: { rows: [] } }));
+    getIceReportStore.mockReturnValue(null);
 
     const response = await POST(request());
 
