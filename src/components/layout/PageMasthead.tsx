@@ -3,18 +3,19 @@ import type { ReactNode } from 'react';
 
 /** Shared type recipes so every page masthead reads as one publication. */
 export const MASTHEAD_TITLE =
-  'font-display text-[clamp(2.8rem,6.2vw,5.5rem)] font-semibold leading-[0.96] tracking-[-0.045em] text-foreground';
+  'text-balance font-display text-[clamp(2.8rem,6.2vw,5.5rem)] font-semibold leading-[0.96] tracking-[-0.045em] text-foreground';
 
 /** Legal and reference pages read as documents, not landing pages. */
 export const MASTHEAD_TITLE_DOCUMENT =
-  'font-display text-[clamp(2.35rem,4vw,3.65rem)] font-semibold leading-[1.02] tracking-[-0.035em] text-foreground';
+  'text-balance font-display text-[clamp(2.35rem,4vw,3.65rem)] font-semibold leading-[1.02] tracking-[-0.035em] text-foreground';
 
-export const MASTHEAD_INTRO = 'max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg';
+export const MASTHEAD_INTRO =
+  'max-w-2xl text-pretty text-base leading-relaxed text-muted-foreground sm:text-lg';
 
 type PageMastheadProps = {
   /** Small uppercase label above the title. Pass a DataPoint when editable. */
   eyebrow: ReactNode;
-  /** The page's own icon, used in the stamped panel on wide screens. */
+  /** The page's own icon, used by the default desktop plate. */
   icon: LucideIcon;
   /** Optional real content plate for pages with stronger visual material. */
   visual?: ReactNode;
@@ -70,66 +71,22 @@ export function PageMasthead({
               <div className="mt-6 border-l-2 border-accent pl-4 sm:pl-5">{intro}</div>
             ) : null}
 
-            <div className="mt-7 flex items-center gap-3 lg:hidden" aria-hidden="true">
-              <span className="relative flex size-11 shrink-0 items-center justify-center overflow-hidden border border-foreground/20 bg-surface-card">
-                <span className="civic-plate-halftone absolute inset-0" />
-                <span className="absolute left-1.5 top-1.5 size-1.5 bg-accent" />
-                <Icon aria-hidden="true" strokeWidth={0.9} className="relative size-5 text-primary" />
-              </span>
-              <span className="h-px flex-1 bg-foreground/20" />
-              <span className="civic-meta whitespace-nowrap text-[9px]">
-                Fair Oaks &middot; Carmichael
-              </span>
-            </div>
-
             {meta ? <div className="mt-7">{meta}</div> : null}
           </div>
 
           <div className="hidden lg:col-span-4 lg:flex lg:justify-end">
             {visual ?? (
-              <div className="relative" aria-hidden="true">
-                <div className="absolute -left-3 -top-3 h-full w-full border border-accent/70" />
-                <div className="absolute -bottom-3 -right-3 h-full w-full border border-primary/25" />
-                <div
-                  className={`civic-plate relative flex aspect-square items-center justify-center overflow-hidden border border-foreground/25 ${
-                    compact ? 'w-32 xl:w-36' : 'w-44 xl:w-52'
-                  }`}
-                >
-                  <span className="civic-plate-halftone absolute inset-0" />
-                  <span className="absolute inset-2 border border-foreground/10" />
-                  <span className="absolute left-3 top-3 z-10 size-2 bg-accent" />
-                  <span className="absolute right-3 top-3 z-10 h-px w-8 bg-foreground/30" />
-
-                  <div
-                    className={`relative flex items-center justify-center ${
-                      compact ? 'size-24' : 'size-36 xl:size-40'
-                    }`}
-                  >
-                    <span className="civic-plate-ticks absolute inset-0" />
-                    <span className="absolute inset-4 rounded-full border border-foreground/15" />
-                    <Icon
-                      aria-hidden="true"
-                      strokeWidth={0.7}
-                      className={`absolute translate-x-1 translate-y-1 text-accent opacity-20 ${
-                        compact ? 'size-14' : 'size-24'
-                      }`}
-                    />
-                    <Icon
-                      aria-hidden="true"
-                      strokeWidth={0.7}
-                      className={`relative text-primary ${compact ? 'size-14' : 'size-24'}`}
-                    />
-                  </div>
-
-                  <span
-                    className={`absolute inset-x-3 bottom-3 z-10 flex items-center justify-between font-mono font-bold uppercase text-muted-foreground ${
-                      compact ? 'text-[6px] tracking-[0.08em]' : 'text-[7px] tracking-[0.14em]'
-                    }`}
-                  >
-                    <span>Fair Oaks</span>
-                    <span>Carmichael</span>
-                  </span>
-                </div>
+              <div
+                aria-hidden="true"
+                className={`flex aspect-square items-center justify-center border border-foreground/30 bg-surface-card ${
+                  compact ? 'w-32 xl:w-36' : 'w-44 xl:w-52'
+                }`}
+              >
+                <Icon
+                  aria-hidden="true"
+                  strokeWidth={0.7}
+                  className={`text-primary ${compact ? 'size-14' : 'size-24 xl:size-28'}`}
+                />
               </div>
             )}
           </div>

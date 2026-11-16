@@ -167,7 +167,7 @@ export default async function HomePage() {
                       name="home.impact.neighbors_label"
                       as="div"
                       initialData={dataPoints}
-                      className="mt-2 block text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground"
+                      className="mt-2 block text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground"
                     >
                       Active Neighbors
                     </DataPoint>
@@ -177,7 +177,7 @@ export default async function HomePage() {
                       name="home.impact.postcards"
                       as="div"
                       initialData={dataPoints}
-                      className="font-display text-3xl font-semibold leading-none tracking-[-0.03em] text-primary-ink"
+                      className="font-display text-3xl font-semibold leading-none tracking-[-0.03em] text-foreground"
                     >
                       4,200+
                     </DataPoint>
@@ -185,7 +185,7 @@ export default async function HomePage() {
                       name="home.impact.postcards_label"
                       as="div"
                       initialData={dataPoints}
-                      className="mt-2 block text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground"
+                      className="mt-2 block text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground"
                     >
                       Postcards Written
                     </DataPoint>
@@ -195,7 +195,7 @@ export default async function HomePage() {
                       name="home.impact.funding"
                       as="div"
                       initialData={dataPoints}
-                      className="font-display text-3xl font-semibold leading-none tracking-[-0.03em] text-accent"
+                      className="font-display text-3xl font-semibold leading-none tracking-[-0.03em] text-foreground"
                     >
                       100%
                     </DataPoint>
@@ -203,7 +203,7 @@ export default async function HomePage() {
                       name="home.impact.funding_label"
                       as="div"
                       initialData={dataPoints}
-                      className="mt-2 block text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground"
+                      className="mt-2 block text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground"
                     >
                       Grassroots Funded
                     </DataPoint>
@@ -221,7 +221,7 @@ export default async function HomePage() {
                       name="home.impact.districts_label"
                       as="div"
                       initialData={dataPoints}
-                      className="mt-2 block text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground"
+                      className="mt-2 block text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground"
                     >
                       Sacramento Region
                     </DataPoint>
