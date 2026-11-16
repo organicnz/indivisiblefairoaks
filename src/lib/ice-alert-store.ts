@@ -13,6 +13,7 @@ export type IceAlertPushSubscription = {
 export type IceAlertSubscriber = {
   id: string;
   email: string;
+  email_normalized: string;
   state_code: string | null;
   city: string | null;
   email_opt_in: boolean;
@@ -116,9 +117,22 @@ export async function findSubscriberByEmail(
   const { data, error } = await store
     .from('ice_alert_subscribers')
     .select('*')
-    .ilike('email', normalizeAlertEmail(email))
+    .eq('email_normalized', normalizeAlertEmail(email))
     .maybeSingle();
   if (error) throw new Error(`subscriber lookup failed: ${error.message}`);
+  return data;
+}
+
+export async function findSubscriberById(
+  store: IceAlertStore,
+  id: string
+) {
+  const { data, error } = await store
+    .from('ice_alert_subscribers')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle();
+  if (error) throw new Error(`subscriber id lookup failed: ${error.message}`);
   return data;
 }
 

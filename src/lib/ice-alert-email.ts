@@ -12,6 +12,10 @@ import type { RapidSurge } from '@/lib/ice-rapid-surges';
 type IceAlertEmailBase = {
   email: string;
   token: string;
+  /** The separate capability used by the unsubscribe route. */
+  unsubscribeToken?: string;
+  /** A management-confirmation message changes an existing subscriber. */
+  intent?: 'confirm' | 'manage';
   stateCode?: string | null;
   city?: string | null;
   siteUrl?: string;
@@ -38,12 +42,16 @@ function confirmUrl(token: string, siteUrl: string) {
   return `${siteUrl}/api/ice-rapid/confirm?token=${encodeURIComponent(token)}`;
 }
 
-function unsubscribeFooterHtml(token: string, siteUrl: string) {
-  return `<p style="margin:18px 0 0;color:#64748B;font-size:11px;line-height:1.6;">You asked for city-level ICE surge alerts for this area. This service does not track your location, publish identities, or replace 911. <a href="${escapeHtml(unsubUrl(token, siteUrl))}" style="color:#94A3B8;text-decoration:underline;">Unsubscribe</a>.</p>`;
+function unsubscribeToken(input: IceAlertEmailBase) {
+  return input.unsubscribeToken ?? input.token;
 }
 
-function emailHeaders(token: string, siteUrl: string) {
-  const url = unsubUrl(token, siteUrl);
+function unsubscribeFooterHtml(input: IceAlertEmailBase, siteUrl: string) {
+  return `<p style="margin:18px 0 0;color:#64748B;font-size:11px;line-height:1.6;">You asked for city-level ICE surge alerts for this area. This service does not track your location, publish identities, or replace 911. <a href="${escapeHtml(unsubUrl(unsubscribeToken(input), siteUrl))}" style="color:#94A3B8;text-decoration:underline;">Unsubscribe</a>.</p>`;
+}
+
+function emailHeaders(input: IceAlertEmailBase, siteUrl: string) {
+  const url = unsubUrl(unsubscribeToken(input), siteUrl);
   return {
     'List-Unsubscribe': `<${url}>`,
     'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
@@ -68,36 +76,59 @@ export function buildIceAlertConfirmationEmail(input: IceAlertEmailBase) {
   const siteUrl = input.siteUrl ?? appUrl();
   const url = confirmUrl(input.token, siteUrl);
   const place = locationLabel(input);
+  const manage = input.intent === 'manage';
+  const heading = manage ? 'Confirm changes to your surge alerts' : 'Confirm your surge alerts';
+  const intro = manage
+    ? `A request was made to update rapid-response alerts for <strong style="color:#FFFFFF;">${escapeHtml(place)}</strong>. Confirm only if you requested this change; otherwise ignore this email.`
+    : `You asked for rapid-response alerts for <strong style="color:#FFFFFF;">${escapeHtml(place)}</strong>. Confirm your email and you will get a short alert when community reports cluster in your area.`;
+  const button = manage ? 'Confirm changes' : 'Confirm surge alerts';
+  const notRequested = manage
+    ? 'If you did not request this change, ignore this email. Your current alerts will stay exactly as they are.'
+    : 'If you did not request this, ignore this email. No alerts will be sent unless you confirm.';
   const body = `
-    <p style="margin:0 0 14px;color:#F8FAFC;font-size:18px;font-weight:800;line-height:1.35;">Confirm your surge alerts</p>
-    <p style="margin:0 0 14px;color:#CBD5E1;">You asked for rapid-response alerts for <strong style="color:#FFFFFF;">${escapeHtml(place)}</strong>. Confirm your email and you will get a short alert when community reports cluster in your area.</p>
-    <p style="margin:0 0 22px;"><a href="${escapeHtml(url)}" style="display:inline-block;background:#DC2626;color:#FFFFFF;text-decoration:none;font-weight:800;font-size:13px;letter-spacing:0.04em;padding:13px 22px;border-radius:8px;">Confirm surge alerts</a></p>
+    <p style="margin:0 0 14px;color:#F8FAFC;font-size:18px;font-weight:800;line-height:1.35;">${heading}</p>
+    <p style="margin:0 0 14px;color:#CBD5E1;">${intro}</p>
+    <p style="margin:0 0 22px;"><a href="${escapeHtml(url)}" style="display:inline-block;background:#DC2626;color:#FFFFFF;text-decoration:none;font-weight:800;font-size:13px;letter-spacing:0.04em;padding:13px 22px;border-radius:8px;">${button}</a></p>
     <p style="margin:0 0 10px;color:#94A3B8;font-size:12px;line-height:1.65;">Alerts are based on the public community export, which updates nightly. They are not a live dispatch feed and cannot verify an individual report. Locations are city-level only.</p>
-    <p style="margin:0;color:#64748B;font-size:11px;line-height:1.6;">If you did not request this, ignore this email. No alerts will be sent unless you confirm.</p>
-    ${unsubscribeFooterHtml(input.token, siteUrl)}
+    <p style="margin:0;color:#64748B;font-size:11px;line-height:1.6;">${notRequested}</p>
+    ${unsubscribeFooterHtml(input, siteUrl)}
   `;
 
   return {
     to: input.email,
-    subject: safeSubject(`Confirm ICE surge alerts for ${place}`),
+    subject: safeSubject(
+      manage
+        ? `Confirm changes to ICE surge alerts for ${place}`
+        : `Confirm ICE surge alerts for ${place}`
+    ),
     html: brandShell({
-      eyebrow: 'ICE Alert / Confirm subscription',
+      eyebrow: manage
+        ? 'ICE Alert / Confirm changes'
+        : 'ICE Alert / Confirm subscription',
       body,
       footer: 'City-level surge alerts',
       siteUrl,
     }),
     text: [
-      `Confirm your ICE surge alerts for ${place}.`,
+      manage
+        ? `Confirm changes to your ICE surge alerts for ${place}.`
+        : `Confirm your ICE surge alerts for ${place}.`,
       '',
       `Confirm: ${url}`,
       '',
       'Alerts are based on a public community export that updates nightly, not a live dispatch feed.',
       'Locations are city-level only. This is not an emergency service. Call 911 in immediate danger.',
       '',
-      `Unsubscribe: ${unsubUrl(input.token, siteUrl)}`,
+      manage
+        ? 'If you did not request this change, ignore this email. Your current alerts will stay as they are.'
+        : 'If you did not request this, ignore this email. No alerts will be sent unless you confirm.',
+      '',
+      `Unsubscribe: ${unsubUrl(unsubscribeToken(input), siteUrl)}`,
     ].join('\n'),
-    headers: emailHeaders(input.token, siteUrl),
-    tags: [{ name: 'type', value: 'ice-surge-confirmation' }],
+    headers: emailHeaders(input, siteUrl),
+    tags: [
+      { name: 'type', value: manage ? 'ice-surge-management' : 'ice-surge-confirmation' },
+    ],
   };
 }
 
@@ -126,7 +157,7 @@ export function buildIceAlertSurgeEmail(
     <p style="margin:0 0 20px;"><a href="${escapeHtml(`${siteUrl}/ice-alerts`)}" style="display:inline-block;background:#DC2626;color:#FFFFFF;text-decoration:none;font-weight:800;font-size:13px;letter-spacing:0.04em;padding:13px 22px;border-radius:8px;">Open the live map</a></p>
     <p style="margin:0 0 10px;color:#94A3B8;font-size:12px;line-height:1.65;">These are community report counts, not confirmed enforcement. The export is nightly and a sighting can be delayed, mistaken, or no longer active. Never approach or obstruct enforcement activity.</p>
     <p style="margin:0;color:#FCA5A5;font-size:12px;font-weight:700;line-height:1.6;">Immediate danger? Call 911.</p>
-    ${unsubscribeFooterHtml(input.token, siteUrl)}
+    ${unsubscribeFooterHtml(input, siteUrl)}
   `;
 
   return {
@@ -147,9 +178,9 @@ export function buildIceAlertSurgeEmail(
       'Community report counts, not confirmed enforcement. The export is nightly.',
       'Never approach or obstruct enforcement activity. Immediate danger? Call 911.',
       '',
-      `Unsubscribe: ${unsubUrl(input.token, siteUrl)}`,
+      `Unsubscribe: ${unsubUrl(unsubscribeToken(input), siteUrl)}`,
     ].join('\n'),
-    headers: emailHeaders(input.token, siteUrl),
+    headers: emailHeaders(input, siteUrl),
     tags: [{ name: 'type', value: 'ice-surge-alert' }],
   };
 }

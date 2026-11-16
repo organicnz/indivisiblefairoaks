@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { isE2EMode } from '@/lib/e2e-mode';
 import { sendIceAlertConfirmation } from '@/lib/ice-alert-email';
+import { createIceAlertManagementToken } from '@/lib/ice-alert-management';
 import {
   findSubscriberByEmail,
   getIceAlertStore,
@@ -15,6 +16,29 @@ import { validatePushEndpoint } from '@/lib/push-endpoint';
 
 const MAX_BODY_BYTES = 12_000;
 const CONFIRMATION_COOLDOWN_MS = 10 * 60 * 1_000;
+
+/**
+ * Every successful request receives this exact body, whether the address is
+ * new, pending, confirmed, unsubscribed, or recently emailed. The route must
+ * not become an address-book oracle.
+ */
+const ACCEPTED = {
+  ok: true,
+  status: 'pending',
+  message: 'Check your inbox to confirm your surge-alert preferences.',
+};
+
+const EMAIL_NOT_CONFIGURED = {
+  ok: false,
+  code: 'email-not-configured',
+  message: 'Email delivery is not configured on this deployment yet.',
+};
+
+const EMAIL_FAILED = {
+  ok: false,
+  code: 'email-failed',
+  message: 'We could not send the confirmation email. Try again in a few minutes.',
+};
 
 const pushSchema = z.object({
   endpoint: z
@@ -144,88 +168,90 @@ export async function POST(req: Request) {
   try {
     const normalizedEmail = normalizeAlertEmail(email);
     const existing = await findSubscriberByEmail(store, normalizedEmail);
-    const now = Date.now();
-    const confirmed =
-      Boolean(existing?.confirmed_at) && Boolean(existing?.email_opt_in);
 
-    const recentConfirmation =
-      existing?.confirmation_sent_at &&
-      now - Date.parse(existing.confirmation_sent_at) < CONFIRMATION_COOLDOWN_MS;
-
-    const needsConfirmation = !confirmed;
-    const confirmToken =
-      needsConfirmation && !recentConfirmation
-        ? crypto.randomUUID()
-        : (existing?.confirm_token ?? crypto.randomUUID());
-
-    const pushPatch = pushSubscription
-      ? {
-          push_subscription: pushSubscription,
-          push_opt_in: true,
-        }
-      : {};
-
-    let subscriber;
     if (existing) {
-      subscriber = await updateSubscriber(store, existing.id, {
-        state_code: stateCode ?? existing.state_code,
-        city: city ?? null,
-        email_opt_in: true,
-        ...pushPatch,
-        confirm_token: confirmToken,
-        confirmed_at: needsConfirmation ? null : existing.confirmed_at,
-        unsubscribed_at: null,
+      const recentConfirmation =
+        existing.confirmation_sent_at &&
+        Date.now() - Date.parse(existing.confirmation_sent_at) <
+          CONFIRMATION_COOLDOWN_MS;
+      if (recentConfirmation) return json(ACCEPTED);
+
+      /*
+       * An email address is not proof of control. Snapshot the requested
+       * preferences into a signed token and mail it to the address on file.
+       * Nothing on this row changes until that token is confirmed.
+       */
+      // An omitted area means "leave the existing area alone", not
+      // "silently move this subscriber to nationwide".
+      const managementStateCode = stateCode ?? existing.state_code;
+      const managementCity = stateCode
+        ? city || null
+        : city || existing.city;
+      const managementToken = await createIceAlertManagementToken({
+        subscriberId: existing.id,
+        stateCode: managementStateCode,
+        city: managementCity,
+        pushSubscription: pushSubscription ?? null,
       });
-    } else {
-      subscriber = await insertSubscriber(store, {
-        email: normalizedEmail,
-        state_code: stateCode,
-        city: city || null,
-        email_opt_in: true,
-        push_opt_in: Boolean(pushSubscription),
-        push_subscription: pushSubscription ?? null,
-        confirm_token: confirmToken,
-        unsubscribe_token: crypto.randomUUID(),
-        confirmed_at: null,
-        confirmation_sent_at: null,
+      if (!managementToken) {
+        return json(
+          {
+            ok: false,
+            code: 'not-configured',
+            message: 'Surge alerts are not configured on this deployment yet.',
+          },
+          503
+        );
+      }
+
+      const sent = await sendIceAlertConfirmation({
+        email: existing.email,
+        token: managementToken,
+        unsubscribeToken: existing.unsubscribe_token,
+        intent: 'manage',
+        stateCode: managementStateCode,
+        city: managementCity,
       });
+
+      if (!sent.ok) {
+        return json(
+          sent.error === 'missing-resend-api-key'
+            ? EMAIL_NOT_CONFIGURED
+            : EMAIL_FAILED,
+          502
+        );
+      }
+
+      return json(ACCEPTED);
     }
 
-    if (!needsConfirmation) {
-      return json({
-        ok: true,
-        status: 'confirmed',
-        message: 'You are already confirmed. Your alert preferences are updated.',
-      });
-    }
-
-    if (recentConfirmation) {
-      return json({
-        ok: true,
-        status: 'pending',
-        emailSent: false,
-        message:
-          'A confirmation email was sent recently. Check your inbox, including spam.',
-      });
-    }
+    const confirmToken = crypto.randomUUID();
+    const subscriber = await insertSubscriber(store, {
+      email: normalizedEmail,
+      state_code: stateCode,
+      city: city || null,
+      email_opt_in: true,
+      push_opt_in: Boolean(pushSubscription),
+      push_subscription: pushSubscription ?? null,
+      confirm_token: confirmToken,
+      unsubscribe_token: crypto.randomUUID(),
+      confirmed_at: null,
+      confirmation_sent_at: null,
+    });
 
     const sent = await sendIceAlertConfirmation({
       email: normalizedEmail,
       token: confirmToken,
+      unsubscribeToken: subscriber.unsubscribe_token,
       stateCode: subscriber.state_code,
       city: subscriber.city,
     });
 
     if (!sent.ok) {
       return json(
-        {
-          ok: false,
-          code: sent.error === 'missing-resend-api-key' ? 'email-not-configured' : 'email-failed',
-          message:
-            sent.error === 'missing-resend-api-key'
-              ? 'Email delivery is not configured on this deployment yet.'
-              : 'We saved your request but could not send the confirmation email. Try again in a few minutes.',
-        },
+        sent.error === 'missing-resend-api-key'
+          ? EMAIL_NOT_CONFIGURED
+          : EMAIL_FAILED,
         502
       );
     }
@@ -234,12 +260,7 @@ export async function POST(req: Request) {
       confirmation_sent_at: new Date().toISOString(),
     });
 
-    return json({
-      ok: true,
-      status: 'pending',
-      emailSent: true,
-      message: 'Check your inbox to confirm. Then surge alerts are active.',
-    });
+    return json(ACCEPTED);
   } catch {
     return json(
       {
