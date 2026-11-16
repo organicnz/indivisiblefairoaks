@@ -61,6 +61,7 @@
     "sonner": "^2.0.8",
     "tailwind-merge": "^3.7.0",
     "vgpu": "0.6.0",
+    "web-push": "^4.0.0",
     "zod": "^4.6.7",
     "zustand": "^5.1.0"
   },
@@ -74,6 +75,7 @@
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "@types/sanitize-html": "^2.16.2",
+    "@types/web-push": "^3.6.4",
     "@vitest/coverage-v8": "5.1.0",
     "bun-types": "1.4.4-canary.20261110T141029",
     "fast-check": "^4.10.2",

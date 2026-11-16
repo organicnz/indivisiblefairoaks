@@ -42,6 +42,7 @@ export type HeatmapSnapshot = {
 };
 
 export type MapView = 'nationwide' | 'local' | 'free';
+export type MapViewport = { center: [number, number]; zoom: number };
 export type HeatStatus = 'loading' | 'ready' | 'error';
 
 export type UserLocation = {

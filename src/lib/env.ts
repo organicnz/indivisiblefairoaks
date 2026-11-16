@@ -30,6 +30,10 @@ const publicSchema = z.object({
   // none of them may file replays against the production project. Public by
   // construction, because the client SDK ships it in the bundle.
   NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: z.string().min(1).optional().catch(undefined),
+  // Web Push public key. Optional: absent disables the phone-alert button while
+  // email surge alerts keep working. Safe to inline; the private half stays on
+  // the server.
+  NEXT_PUBLIC_VAPID_PUBLIC_KEY: z.string().min(1).optional().catch(undefined),
 });
 
 const serverSchema = publicSchema.extend({
@@ -53,6 +57,19 @@ const serverSchema = publicSchema.extend({
   // The chapter's inbox: CRM reply-to and the destination for contact-form
   // notifications. Optional, defaulting to the same address in code.
   ADMIN_ORDER_EMAIL: z.string().email().optional().catch(undefined),
+  // Web Push VAPID private half and subject. Both optional so a deployment
+  // without push still serves email alerts; the sender refuses cleanly when
+  // they are absent.
+  VAPID_PRIVATE_KEY: z.string().min(1).optional().catch(undefined),
+  VAPID_SUBJECT: z
+    .string()
+    .min(1)
+    .optional()
+    .default('mailto:contact@indivisiblefairoaks.org'),
+  // Bearer token for the pg_cron -> /api/ice-rapid/notify request. Optional:
+  // without it the route answers 503 rather than accepting an unauthenticated
+  // send request.
+  CRON_SECRET: z.string().min(16).optional().catch(undefined),
 });
 
 const schema = isClient ? publicSchema : serverSchema;
@@ -71,6 +88,7 @@ const rawEnv: Record<string, string | undefined> = isClient
       NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
       NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN,
       NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN,
+      NEXT_PUBLIC_VAPID_PUBLIC_KEY: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
     }
   : { ...process.env };
 
