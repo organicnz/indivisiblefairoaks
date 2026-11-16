@@ -1,4 +1,5 @@
 import { ArrowRight, ShieldCheck } from 'lucide-react';
+import { connection } from 'next/server';
 import { getIceReportStore, getPublishedIceReports } from '@/lib/ice-report-intake';
 import {
   iceReportKindLabel,
@@ -18,6 +19,10 @@ async function readReviewedReports() {
 }
 
 export async function ReviewedReportsSection() {
+  // The public projection is request-time data, and relative labels need the
+  // request clock. Without this the component can be attempted in the static
+  // shell, where `Date.now()` is unstable and the rows would be stale.
+  await connection();
   const reports = await readReviewedReports();
   const now = Date.now();
 
