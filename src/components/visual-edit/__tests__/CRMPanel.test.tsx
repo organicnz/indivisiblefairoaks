@@ -1176,6 +1176,10 @@ describe('CRMPanel', () => {
       await new Promise((r) => setTimeout(r, 50));
     });
     expect(document.body.textContent).toContain('New Bulletin');
+    expect(document.body.textContent).toContain('Add News');
+    expect(
+      document.body.querySelector<HTMLAnchorElement>('a[href="/admin/content/new?type=post"]')
+    ).toHaveProperty('target', '_blank');
 
     // Switch to Links tab
     const linksTabBtn = Array.from(

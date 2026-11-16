@@ -1,5 +1,6 @@
 import { cacheLife, cacheTag } from 'next/cache';
 import { isLegacySlug } from '@/config/legacy-redirects';
+import { unreachableContentSlugs } from '@/lib/content';
 import { isCopyRegionSlug } from '@/lib/copy-regions';
 import { env } from '@/lib/env';
 import { createPublicClient } from '@/lib/supabase-server';
@@ -140,18 +141,31 @@ export interface PublishedPostSummary {
   created_at: string;
 }
 
+const UNREACHABLE_CONTENT_SLUGS = unreachableContentSlugs();
+const UNREACHABLE_SLUG_FILTER = `(${UNREACHABLE_CONTENT_SLUGS.map((slug) => `"${slug}"`).join(',')})`;
+
 export async function getPublishedPosts(limit = 10): Promise<PublishedPostSummary[]> {
   'use cache';
   cacheLife('hours');
   cacheTag('content', 'posts');
   try {
     const supabase = createPublicClient();
-    const { data } = await supabase
+    let query = supabase
       .from('content')
       .select('id, title, slug, excerpt, featured_image, published_at, created_at')
       .eq('status', 'publish')
       .eq('type', 'post')
-      .or(buildVisibilityFilter(new Date().toISOString()))
+      .or(buildVisibilityFilter(new Date().toISOString()));
+
+    // A `content` row whose slug is owned by a coded route is not a published
+    // article. The legacy `newsletters` row is the one that made this visible:
+    // it was type `post`, so it led `/news` with a link back to the archive.
+    if (UNREACHABLE_CONTENT_SLUGS.length > 0) {
+      query = query.not('slug', 'in', UNREACHABLE_SLUG_FILTER);
+    }
+    query = query.not('slug', 'like', 'copy-%');
+
+    const { data } = await query
       .order('published_at', { ascending: false, nullsFirst: false })
       .order('created_at', { ascending: false })
       .limit(limit);

@@ -116,7 +116,7 @@ export function CivicNewsletterEditorModal({
         savedRecord = res.data ?? null;
       }
 
-      toast.success(newsletter ? 'Newsletter updated' : 'New bulletin created');
+      toast.success(newsletter ? 'Bulletin updated' : 'New bulletin created');
       if (savedRecord) onSaved(savedRecord);
       onClose();
     } catch (err) {
@@ -131,11 +131,10 @@ export function CivicNewsletterEditorModal({
       <DialogContent className="max-w-2xl max-h-[90vh] bg-surface-card text-foreground p-0 overflow-hidden flex flex-col rounded-3xl border border-border shadow-float">
         <DialogHeader className="p-5 border-b border-border bg-surface-muted/50 flex flex-row items-center justify-between">
           <div>
-            <DialogTitle className="text-lg font-black uppercase tracking-tight">
-              {newsletter ? 'Edit Newsletter / Bulletin' : 'Create Newsletter Post'}
-            </DialogTitle>
+            <DialogTitle>{newsletter ? 'Edit Bulletin' : 'Create Bulletin'}</DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground mt-0.5">
-              Publish organizing recaps, community bulletins, and legislative alerts.
+              Add a short entry to the bulletin archive. For a full article, use Add News and the
+              block editor.
             </DialogDescription>
           </div>
           <button

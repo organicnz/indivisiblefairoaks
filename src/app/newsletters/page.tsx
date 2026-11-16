@@ -16,9 +16,9 @@ import { getDataPoints, getNewsletters } from '@/lib/queries/civic';
 import { getLegacyDocuments } from '@/lib/queries/legacy';
 
 export const metadata: Metadata = pageMetadata({
-  title: 'Newsletters & Chapter Updates',
+  title: 'Newsletters & Bulletins',
   description:
-    'Read current and past Indivisible Fair Oaks-Carmichael newsletters, monthly bulletins, and the legacy newsletter PDF archive.',
+    'Browse current and past Indivisible Fair Oaks-Carmichael bulletins, monthly newsletters, and the legacy newsletter PDF archive.',
   path: '/newsletters',
 });
 
@@ -28,8 +28,6 @@ export default async function NewslettersPage() {
     getDataPoints('news'),
     getLegacyDocuments('newsletter'),
   ]);
-  const initialNewsletters = newslettersRows.length > 0 ? newslettersRows : undefined;
-
   return (
     <div className="civic-page w-full min-h-screen bg-background pb-20 text-foreground pt-(--header-clearance)">
       <PageMasthead
@@ -60,11 +58,21 @@ export default async function NewslettersPage() {
             community resistance across Fair Oaks, Carmichael, and Sacramento County.
           </DataPoint>
         }
+        meta={
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <span className="civic-section-index">Latest from the chapter</span>
+            <Link
+              href="/news"
+              className="inline-flex min-h-10 items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-primary-ink hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:text-primary-on-dark"
+            >
+              Read news &amp; updates
+              <ArrowRight size={14} aria-hidden="true" />
+            </Link>
+          </div>
+        }
       />
 
       <div className="mx-auto max-w-5xl space-y-16 px-4 py-16 sm:px-6 lg:px-8">
-        <ActionAlertsSubscription initialData={dataPoints} />
-
         <section aria-labelledby="newsletter-archive-heading" className="space-y-6">
           <div className="flex flex-col gap-4 border-b border-border pb-5 sm:flex-row sm:items-end sm:justify-between">
             <div>
@@ -91,11 +99,10 @@ export default async function NewslettersPage() {
             </Link>
           </div>
 
-          <InteractiveNewslettersList
-            initialNewsletters={initialNewsletters}
-            initialData={dataPoints}
-          />
+          <InteractiveNewslettersList initialNewsletters={newslettersRows} initialData={dataPoints} />
         </section>
+
+        <ActionAlertsSubscription initialData={dataPoints} />
 
         <section aria-labelledby="neighboring-chapters-heading" className="space-y-6">
           <div className="border-b border-border pb-5">

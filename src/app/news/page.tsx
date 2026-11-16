@@ -15,40 +15,34 @@ import { getDataPoints } from '@/lib/queries/civic';
 import { getPublishedPosts } from '@/lib/queries/content';
 
 export const metadata: Metadata = pageMetadata({
-  title: 'News, Meeting Materials & Chapter Updates',
+  title: 'News & Chapter Updates',
   description:
-    'Read chapter articles and dispatches, access printable meeting handouts and minutes, and stay informed about Sacramento County grassroots organizing.',
+    'Read the latest chapter news, reports, and dispatches, then find meeting materials, bulletins, and ways to stay involved across Sacramento County.',
   path: '/news',
 });
 
 export default async function NewsPage() {
   const [postsRows, dataPoints] = await Promise.all([
-    getPublishedPosts(12).catch(() => []),
+    getPublishedPosts(11).catch(() => []),
     getDataPoints('news'),
   ]);
   return (
     <div className="civic-page w-full min-h-screen bg-background pb-20 text-foreground pt-(--header-clearance)">
       <PageMasthead
         icon={Newspaper}
-        eyebrow="Articles, Minutes & Handouts"
+        eyebrow="Chapter Newsroom"
         title={<h1 className={MASTHEAD_TITLE}>News &amp; Chapter Updates</h1>}
         intro={
           <p className={MASTHEAD_INTRO}>
-            Read chapter articles, meeting minutes, and printable handouts from across Fair Oaks,
-            Carmichael, and Sacramento County. For monthly bulletins and past newsletters, visit
-            the newsletter archive.
+            The latest reports, statements, and dispatches from our chapter organizers — published
+            here first. Meeting minutes, printable handouts, bulletins, and ways to stay involved
+            follow below.
           </p>
         }
       />
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-16">
-        {/* Interactive Action Alerts Subscription */}
-        <ActionAlertsSubscription initialData={dataPoints} />
-
-        {/* Meeting Reviews, Minutes & Printable Handouts */}
-        <MeetingMaterials />
-
-        {/* Chapter Articles & Dispatches */}
+        {/* News leads the page. Everything below is supporting chapter material. */}
         <InteractivePostsList initialPosts={postsRows} />
 
         {/* Newsletter archive lives on its own page; keep one clear route to it. */}
@@ -84,6 +78,12 @@ export default async function NewsPage() {
             </Link>
           </div>
         </section>
+
+        {/* Meeting Reviews, Minutes & Printable Handouts */}
+        <MeetingMaterials />
+
+        {/* Interactive Action Alerts Subscription */}
+        <ActionAlertsSubscription initialData={dataPoints} />
 
         {/* National Indivisible Wire */}
         <div className="space-y-4 border-y border-border bg-surface-card p-8">

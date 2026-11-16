@@ -1,13 +1,13 @@
 # Publishing chapter news
 
-This is the chapter-editor workflow for Erin's ongoing news submissions. It covers the two editorial paths on the site, how to publish safely, and what to check afterward. The admin entry point is `/admin/news`; both paths require an admin account.
+This is the chapter-editor workflow for Erin's ongoing news submissions. It covers the two editorial paths on the site, how to publish safely, and what to check afterward. The admin entry point is `/admin/news`; both paths require an admin account. `/news` is article-first: published posts lead the page, and meeting materials, bulletins, and subscription links follow.
 
 ## Choose the right format
 
 | Format | Use it for | Where it appears | Admin path |
 |---|---|---|---|
-| **Post** | Reports, statements, event recaps, longer articles | `/news` and the post's own URL | `/admin/content/new?type=post` |
-| **Bulletin** | Monthly bulletins, short news blasts, legislative round-ups | `/newsletters` chapter bulletin archive | `/admin/news` |
+| **Post** | Reports, statements, event recaps, longer articles | `/news` and the post's own URL | **Add News** on `/news` or `/admin/news`, or `/admin/content/new?type=post` |
+| **Bulletin** | Monthly bulletins, short news blasts, legislative round-ups | `/newsletters` chapter bulletin archive | **New Bulletin** on `/admin/news` |
 | **Meeting material** | Agendas, minutes, printable handouts | The meeting-materials section on `/news` | Currently maintained in the site code; ask a maintainer for changes |
 | **Page** | A permanent page such as About or a campaign page | Its own route | `/admin/content/new?type=page` |
 
@@ -15,7 +15,7 @@ Do not publish a one-off news item as a new permanent page unless it needs a sta
 
 ## Publish a news post
 
-1. Go to **Admin → Pages & Posts → New Post** or open `/admin/content/new?type=post`.
+1. Select **Add News** on `/news` or `/admin/news`, or open `/admin/content/new?type=post` directly.
 2. Add a title. The slug is generated from it; change the slug only if you need a specific URL.
 3. Write a short excerpt. This is the summary shown in news lists and search results.
 4. Build the body with the block editor. Add images with alt text when they carry meaning.
@@ -28,7 +28,7 @@ The editor autosaves and keeps revisions. The **View** action only appears for a
 ## Publish a bulletin
 
 1. Go to **Admin → News** or open `/admin/news`.
-2. Select **New Bulletin** in the bulletin manager.
+2. Select **New Bulletin** beside **Add News** in the bulletin manager. The bulletin form is intentionally short; use **Add News** when the update needs a full article.
 3. Add the title, date label, short description, topics, and display order.
 4. Save it, then open `/newsletters` and confirm it appears in the chapter bulletin archive.
 5. Use **Edit** on the bulletin to correct it later. Deletion uses the inline confirmation, not a browser alert.
@@ -61,7 +61,7 @@ Do not create a new account or share an admin login to route around access. Ask 
 - [ ] Images have alt text; no sensitive personal information is visible.
 - [ ] The item is the right format (post vs bulletin vs meeting material).
 - [ ] Preview looks correct at a narrow width as well as desktop.
-- [ ] After publishing, `/news` shows the item and its link works.
+- [ ] After publishing, `/news` leads with the item and its link works.
 
 ## Failure handling
 

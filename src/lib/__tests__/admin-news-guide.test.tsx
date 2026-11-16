@@ -38,14 +38,16 @@ describe('AdminNewsPage publishing guide', () => {
     });
 
     expect(container.textContent).toContain('How to publish news');
-    expect(container.textContent).toContain('Write a news post');
+    expect(container.textContent).toContain('Add a news post');
     expect(container.textContent).toContain('Publish a bulletin');
     expect(container.textContent).toContain('Step-by-step checklist');
 
     const links = Array.from(container.querySelectorAll<HTMLAnchorElement>('a'));
-    expect(
-      links.find((link) => link.getAttribute('href') === '/admin/content/new?type=post')
-    ).toBeDefined();
+    const addNewsLinks = links.filter(
+      (link) => link.getAttribute('href') === '/admin/content/new?type=post'
+    );
+    expect(addNewsLinks.length).toBeGreaterThanOrEqual(2);
+    expect(addNewsLinks.some((link) => link.textContent?.includes('Add News'))).toBe(true);
     expect(
       links.find((link) => link.getAttribute('href') === '#bulletin-manager')
     ).toBeDefined();

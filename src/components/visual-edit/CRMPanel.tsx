@@ -944,7 +944,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({
             </div>
           ) : activeTab === 'news' ? (
             <div className="p-5 h-[calc(85vh-80px)] overflow-hidden">
-              <CivicNewsletterManager />
+              <CivicNewsletterManager newsLinkTarget="_blank" />
             </div>
           ) : activeTab === 'links' ? (
             <div className="p-5 h-[calc(85vh-80px)] overflow-hidden">

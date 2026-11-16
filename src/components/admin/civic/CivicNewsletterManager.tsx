@@ -1,6 +1,7 @@
 'use client';
 
-import { Loader2, Newspaper, Pencil, Plus, RefreshCw, Search, Tag, Trash2 } from 'lucide-react';
+import { FilePlus2, Loader2, Newspaper, Pencil, Plus, RefreshCw, Search, Tag, Trash2 } from 'lucide-react';
+import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { ConfirmAction } from '@/components/admin/ConfirmAction';
@@ -13,9 +14,14 @@ import { CivicNewsletterEditorModal } from './CivicNewsletterEditorModal';
 
 interface CivicNewsletterManagerProps {
   onRefreshParent?: () => void;
+  /** Keep an in-progress visual-editing session alive by opening the CMS in a new tab. */
+  newsLinkTarget?: '_self' | '_blank';
 }
 
-export function CivicNewsletterManager({ onRefreshParent }: CivicNewsletterManagerProps) {
+export function CivicNewsletterManager({
+  onRefreshParent,
+  newsLinkTarget = '_self',
+}: CivicNewsletterManagerProps) {
   const [newsletters, setNewsletters] = useState<CivicNewsletterRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -98,17 +104,29 @@ export function CivicNewsletterManager({ onRefreshParent }: CivicNewsletterManag
           </button>
         </div>
 
-        <button
-          type="button"
-          onClick={() => {
-            setEditingNewsletter(null);
-            setIsEditorOpen(true);
-          }}
-          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-primary hover:bg-primary-light text-white text-xs font-black uppercase tracking-wider transition-all shadow-xs"
-        >
-          <Plus size={14} />
-          <span>New Bulletin</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href="/admin/content/new?type=post"
+            target={newsLinkTarget}
+            rel={newsLinkTarget === '_blank' ? 'noopener noreferrer' : undefined}
+            title="Write a full news post in the block editor"
+            className="inline-flex min-h-9 items-center gap-1.5 rounded-xl bg-primary px-3.5 py-1.5 text-xs font-black uppercase tracking-wider text-white shadow-xs transition-colors hover:bg-primary-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+          >
+            <FilePlus2 size={14} aria-hidden="true" />
+            <span>Add News</span>
+          </Link>
+          <button
+            type="button"
+            onClick={() => {
+              setEditingNewsletter(null);
+              setIsEditorOpen(true);
+            }}
+            className="inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-primary bg-background px-3.5 py-1.5 text-xs font-black uppercase tracking-wider text-primary-ink transition-colors hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 dark:text-primary-on-dark"
+          >
+            <Plus size={14} aria-hidden="true" />
+            <span>New Bulletin</span>
+          </button>
+        </div>
       </div>
 
       {/* Newsletter List */}

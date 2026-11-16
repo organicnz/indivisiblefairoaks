@@ -1,9 +1,15 @@
 // @vitest-environment jsdom-same-realm
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { InteractivePostsList } from '@/components/ui/InteractivePostsList';
 import type { PublishedPostSummary } from '@/lib/queries/content';
+
+const editContext = vi.hoisted(() => ({ isAdmin: false }));
+
+vi.mock('@/components/layout/useEditContext', () => ({
+  useEditContext: () => ({ loading: false, isAdmin: editContext.isAdmin, target: null }),
+}));
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -33,6 +39,7 @@ describe('InteractivePostsList', () => {
   let root: Root;
 
   beforeEach(() => {
+    editContext.isAdmin = false;
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
@@ -53,10 +60,24 @@ describe('InteractivePostsList', () => {
     expect(container.textContent).toContain('Why Fair Oaks Needs Strong Public Schools');
     expect(container.textContent).toContain('A deep look at local school board policies');
     expect(container.textContent).toContain('Mobilizing Carmichael');
+    expect(container.textContent).toContain('Lead story');
 
     const links = Array.from(container.querySelectorAll<HTMLAnchorElement>('a'));
     const schoolLink = links.find((l) => l.getAttribute('href') === '/fair-oaks-public-schools');
     expect(schoolLink).toBeDefined();
+  });
+
+  it('gives admins one clear Add News action into the block editor', async () => {
+    editContext.isAdmin = true;
+    await act(async () => {
+      root.render(<InteractivePostsList initialPosts={SAMPLE_POSTS} />);
+    });
+
+    const addNews = Array.from(container.querySelectorAll<HTMLAnchorElement>('a')).find(
+      (link) => link.getAttribute('href') === '/admin/content/new?type=post'
+    );
+    expect(addNews).toBeDefined();
+    expect(addNews?.textContent).toContain('Add News');
   });
 
   it('renders empty state when no posts are provided', async () => {

@@ -54,7 +54,7 @@ describe('NewslettersPage', () => {
   });
 
   it('exports metadata for the dedicated route', () => {
-    expect(metadata.title).toBe('Newsletters & Chapter Updates');
+    expect(metadata.title).toBe('Newsletters & Bulletins');
     expect(metadata.alternates?.canonical?.toString()).toContain('/newsletters');
   });
 
@@ -84,14 +84,25 @@ describe('NewslettersPage', () => {
 
     expect(container.textContent).toContain('Newsletters & Chapter Updates');
     expect(container.textContent).toContain('Past Bulletins & Archives');
-    expect(container.querySelector('[data-testid="subscribe-panel"]')).not.toBeNull();
-    expect(container.querySelector('[data-testid="newsletter-list"]')).not.toBeNull();
+    const archive = container.querySelector('[data-testid="newsletter-list"]');
+    const subscribe = container.querySelector('[data-testid="subscribe-panel"]');
+    expect(archive).not.toBeNull();
+    expect(subscribe).not.toBeNull();
+    expect(archive?.getAttribute('data-initial-count')).toBe('0');
     expect(container.querySelector('[data-testid="legacy-archive"]')).toBeNull();
 
-    const newsLink = Array.from(container.querySelectorAll<HTMLAnchorElement>('a')).find(
+    // The archive leads; the subscription ask is supporting material below it.
+    expect(
+      ((archive?.compareDocumentPosition(subscribe as Node) ?? 0) &
+        Node.DOCUMENT_POSITION_FOLLOWING) !== 0
+    ).toBe(true);
+
+    const newsLinks = Array.from(container.querySelectorAll<HTMLAnchorElement>('a')).filter(
       (link) => link.getAttribute('href') === '/news'
     );
-    expect(newsLink).toBeDefined();
-    expect(newsLink?.textContent).toContain('News & updates');
+    expect(newsLinks.length).toBeGreaterThanOrEqual(1);
+    expect(
+      newsLinks.some((link) => link.textContent?.toLowerCase().includes('news & updates'))
+    ).toBe(true);
   });
 });
