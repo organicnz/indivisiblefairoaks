@@ -137,6 +137,14 @@ export const SECRETS = {
       'Absent, every delivery event is rejected with 400 and bounces never ' +
       'suppress — read via env.RESEND_WEBHOOK_SECRET, never Bun.env.',
   },
+  ZAI_API_KEY: {
+    required: false,
+    example: '…',
+    note:
+      'Server-only key for the source-grounded AI extraction pass in ' +
+      'src/lib/ice-crawl.ts. Absent, the crawler uses deterministic HTML, RSS ' +
+      'and StopICE XML extraction and still stores every report it can parse.',
+  },
   VAPID_PRIVATE_KEY: {
     required: false,
     example: '…',

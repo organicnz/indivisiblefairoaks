@@ -47,6 +47,9 @@ const serverSchema = publicSchema.extend({
   CONTACT_SUBMISSION_TEST_MODE: z.literal('1').optional(),
   NEXT_E2E_BUILD: z.literal('true').optional(),
   CONTACT_RATE_LIMIT_MAX: z.coerce.number().int().positive().optional(),
+  // Existing Z.AI provider used by the ICE case brief. Optional: the source
+  // crawler falls back to deterministic extraction when it is absent.
+  ZAI_API_KEY: z.string().min(1).optional().catch(undefined),
   // Resend email delivery
   RESEND_API_KEY: z.string().min(1).optional().catch(undefined),
   // Verifies Resend webhook signatures on /api/webhooks/resend. Optional at

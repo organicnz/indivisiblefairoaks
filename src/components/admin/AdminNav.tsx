@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   Link2,
   Newspaper,
+  ScanSearch,
   ShieldAlert,
   UsersRound,
 } from 'lucide-react';
@@ -32,6 +33,7 @@ const BASE_ITEMS: AdminNavItem[] = [
   { href: '/admin/events', label: 'Events', icon: Calendar },
   { href: '/admin/news', label: 'News', icon: Newspaper },
   { href: '/admin/ice-reports', label: 'ICE Reports', icon: ShieldAlert },
+  { href: '/admin/ice-crawl', label: 'Web Reports', icon: ScanSearch },
   { href: '/admin/links', label: 'Links', icon: Link2 },
   { href: '/admin/crm', labelKey: 'admin.nav.crm', label: 'Civic CRM', icon: UsersRound },
 ];

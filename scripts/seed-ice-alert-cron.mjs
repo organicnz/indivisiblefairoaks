@@ -135,6 +135,28 @@ begin
     $job$
   );
 
+  -- Crawl approved public sources once a day. The route respects each source's
+  -- page limit and records partial runs instead of silently truncating them.
+  perform cron.schedule(
+    'ice-source-crawl',
+    '47 4 * * *',
+    $job$
+    select net.http_post(
+      url := (select decrypted_secret from vault.decrypted_secrets where name = 'ice_alert_app_url')
+             || '/api/ice-crawl/run',
+      headers := jsonb_build_object(
+        'Content-Type', 'application/json',
+        'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'ice_alert_cron_secret')
+      ),
+      body := '{}'::jsonb,
+      timeout_milliseconds := 55000
+    )
+    where exists (
+      select 1 from vault.decrypted_secrets where name = 'ice_alert_cron_secret'
+    );
+    $job$
+  );
+
   -- Pending and unsubscribed subscriber rows are retained for 7 and 30 days
   -- respectively. The route owns the cutoffs so the windows stay testable.
   perform cron.schedule(

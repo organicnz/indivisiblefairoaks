@@ -97,6 +97,23 @@ export default function PrivacyPage() {
             by law or to address an immediate safety risk.
           </p>
 
+          <h2>Public web-source reports</h2>
+          <p>
+            The chapter may crawl an approved public source page or feed and republish its readable
+            source text with the original URL, source label, publication time, and retrieval time.
+            The crawler stores the fetched readable text and page metadata privately for audit, and
+            does not bypass logins or robots.txt. Only sources added by an authorized admin with a
+            republishing-rights confirmation are eligible. These reports are not independently
+            verified by the chapter, and the source&apos;s own terms and privacy policy apply to the
+            original page.
+          </p>
+          <p>
+            If you believe a public source report should be removed or corrected, email{' '}
+            <a href="mailto:contact@indivisiblefairoaks.org">contact@indivisiblefairoaks.org</a> with
+            the source URL and the specific concern. We will review the source and, where
+            appropriate, remove the republished entry.
+          </p>
+
           <h2>Service providers</h2>
           <p>
             The site runs on Vercel, stores data with Supabase, and may use privacy-conscious

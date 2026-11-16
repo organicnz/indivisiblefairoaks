@@ -13,6 +13,7 @@ import type { Metadata } from 'next';
 import { IceArrestHeatMap } from '@/components/ice-alerts/IceArrestHeatMap';
 import { IceRapidResponse } from '@/components/ice-alerts/IceRapidResponse';
 import { ReviewedReportsSection } from '@/components/ice-alerts/ReviewedReportsSection';
+import { WebReportsSection } from '@/components/ice-alerts/WebReportsSection';
 import { ReportSightingButton } from '@/components/ice-alerts/ReportSightingDialog';
 import { SurgeAlertsButton } from '@/components/ice-alerts/SurgeAlertsDialog';
 import { formatDateLabel } from '@/components/ice-alerts/data';
@@ -235,6 +236,7 @@ export default async function IceAlertsPage({ searchParams }: { searchParams: Pa
         <>
           <IceRapidResponse snapshot={snapshot} initialState={rapidState} />
           <ReviewedReportsSection />
+          <WebReportsSection />
         </>
       )}
     </div>
