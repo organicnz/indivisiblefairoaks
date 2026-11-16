@@ -1,6 +1,10 @@
 import { ArrowUpRight, Globe2, ShieldQuestion } from 'lucide-react';
 import { connection } from 'next/server';
-import { getIceCrawlStore, getPublishedSourceReports } from '@/lib/ice-crawl-store';
+import {
+  getIceCrawlStore,
+  getPublishedSourceReportCount,
+  getPublishedSourceReports,
+} from '@/lib/ice-crawl-store';
 import {
   iceSourceKindLabel,
   type IceSourceReport,
@@ -8,11 +12,15 @@ import {
 
 async function readWebReports() {
   const store = getIceCrawlStore();
-  if (!store) return [];
+  if (!store) return { reports: [], total: 0 };
   try {
-    return await getPublishedSourceReports(store);
+    const [reports, total] = await Promise.all([
+      getPublishedSourceReports(store),
+      getPublishedSourceReportCount(store),
+    ]);
+    return { reports, total };
   } catch {
-    return [];
+    return { reports: [], total: 0 };
   }
 }
 
@@ -23,7 +31,7 @@ function sourceDate(value: string | null) {
 
 export async function WebReportsSection() {
   await connection();
-  const reports = await readWebReports();
+  const { reports, total } = await readWebReports();
 
   return (
     <section
@@ -47,10 +55,21 @@ export async function WebReportsSection() {
               verified by this chapter, and the source&apos;s own terms may apply.
             </p>
           </div>
-          <span className="inline-flex items-center gap-1.5 border border-border bg-surface-card px-2.5 py-1.5 font-mono text-[8px] font-bold uppercase tracking-[0.09em] text-muted-foreground">
-            <ShieldQuestion className="size-3" aria-hidden="true" />
-            Not independently verified
-          </span>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 border border-border bg-surface-card px-2.5 py-1.5 font-mono text-[8px] font-bold uppercase tracking-[0.09em] text-muted-foreground">
+              <ShieldQuestion className="size-3" aria-hidden="true" />
+              Not independently verified
+            </span>
+            {total > 0 && (
+              <a
+                href="/ice-alerts/web-reports"
+                className="inline-flex min-h-9 items-center gap-1.5 border border-border bg-surface-card px-3 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.09em] text-foreground transition-colors hover:border-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                Browse all {total.toLocaleString('en-US')} source reports
+                <ArrowUpRight className="size-3" aria-hidden="true" />
+              </a>
+            )}
+          </div>
         </div>
 
         {reports.length === 0 ? (
@@ -70,7 +89,7 @@ export async function WebReportsSection() {
   );
 }
 
-function WebReportCard({ report }: { report: IceSourceReport }) {
+export function WebReportCard({ report }: { report: IceSourceReport }) {
   const place =
     report.city && report.state_code
       ? `${report.city}, ${report.state_code}`

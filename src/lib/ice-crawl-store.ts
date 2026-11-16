@@ -226,17 +226,28 @@ export async function insertIceSourceReports(
   return inserted;
 }
 
+export async function getPublishedSourceReportCount(store: IceCrawlStore) {
+  const { count, error } = await store
+    .from('ice_source_reports')
+    .select('id', { count: 'exact', head: true });
+  if (error) throw new Error(`source report count failed: ${error.message}`);
+  return count ?? 0;
+}
+
 export async function getPublishedSourceReports(
   store: IceCrawlStore,
-  limit = 12
+  limit = 12,
+  offset = 0
 ) {
+  const from = Math.max(0, offset);
+  const to = from + Math.max(1, limit) - 1;
   const { data, error } = await store
     .from('ice_source_reports')
     .select(
       'id, source_name, source_url, source_title, source_published_at, source_retrieved_at, title, text_content, city, state_code, kind, extraction_method, published_at'
     )
     .order('published_at', { ascending: false })
-    .limit(limit);
+    .range(from, to);
   if (error) throw new Error(`source reports failed: ${error.message}`);
   return (data ?? []) as IceSourceReport[];
 }
