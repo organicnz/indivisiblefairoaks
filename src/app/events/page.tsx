@@ -1,7 +1,6 @@
 import { AlertCircle, Archive, ArrowUpRight, Calendar, ExternalLink, Music, Users } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { connection } from 'next/server';
 import { LegacyDocumentArchive } from '@/components/archive/LegacyDocumentArchive';
 import { CopyRegion } from '@/components/cms/CopyRegion';
 import {
@@ -11,18 +10,10 @@ import {
 } from '@/components/layout/PageMasthead';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { InteractiveEventsCalendar } from '@/components/ui/InteractiveEventsCalendar';
-import {
-  DEFAULT_UPCOMING_MEETING,
-  filterUpcomingEvents,
-  selectUpcomingMeetingEvent,
-} from '@/lib/civic-events';
+import { DEFAULT_UPCOMING_MEETING } from '@/lib/civic-events';
 import { pageMetadata } from '@/lib/metadata';
-import { getDataPoints, getEvents } from '@/lib/queries/civic';
+import { getDataPoints, getUpcomingEventData } from '@/lib/queries/civic';
 import { getLegacyDocuments } from '@/lib/queries/legacy';
-
-// Date-aware upcoming events: render at request time and allow the blocking
-// data access used above.
-export const instant = false;
 
 export const metadata: Metadata = pageMetadata({
   title: 'Events & Actions',
@@ -32,29 +23,24 @@ export const metadata: Metadata = pageMetadata({
 });
 
 export default async function EventsPage() {
-  // The upcoming-event cutoff is request-time data. `getEvents()` itself is
-  // cached, but the date comparison cannot be baked into a static prerender
-  // (Next refuses that with "encountered new Date() while prerendering").
-  await connection();
-  const [initialEventsRows, dataPoints, legacyEventDocuments] = await Promise.all([
-    getEvents().catch(() => []),
+  const [upcoming, dataPoints, legacyEventDocuments] = await Promise.all([
+    getUpcomingEventData(),
     getDataPoints('events'),
     getLegacyDocuments('event'),
   ]);
   // Issue #175: keep past one-off events out of the public upcoming list. The
   // rows remain available to admins through /admin/events; recurring rows are
-  // retained by `filterUpcomingEvents`.
-  const upcomingEvents = filterUpcomingEvents(initialEventsRows);
+  // retained by the cached filter. The server render must contain the next
+  // meeting too, not only the hydrated client. If the database has no future
+  // highlighted chapter meeting, render the confirmed December 1 fallback
+  // alongside the remaining upcoming rows.
   const fallbackMeeting = {
     ...DEFAULT_UPCOMING_MEETING,
     category: 'Meetings' as const,
   };
-  // The server render must contain the next meeting too, not only the hydrated
-  // client. If the database has no future highlighted chapter meeting, render
-  // the confirmed December 1 fallback alongside the remaining upcoming rows.
-  const eventsWithFallback = selectUpcomingMeetingEvent(upcomingEvents)
-    ? upcomingEvents
-    : [fallbackMeeting, ...upcomingEvents.filter((event) => event.id !== fallbackMeeting.id)];
+  const eventsWithFallback = upcoming.nextMeeting
+    ? upcoming.events
+    : [fallbackMeeting, ...upcoming.events.filter((event) => event.id !== fallbackMeeting.id)];
   const initialEvents = eventsWithFallback.length > 0 ? eventsWithFallback : undefined;
   return (
     <div className="civic-page w-full min-h-screen bg-background pb-20 text-foreground pt-(--header-clearance)">

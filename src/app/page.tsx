@@ -16,7 +16,6 @@ import {
 } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { connection } from 'next/server';
 import { CopyRegion } from '@/components/cms/CopyRegion';
 import { HeroPhotoFrame } from '@/components/home/HeroPhotoFrame';
 import { HomeGalleryPreview } from '@/components/home/HomeGalleryPreview';
@@ -24,22 +23,14 @@ import { LiteYouTube } from '@/components/ui/LiteYouTube';
 import type { TickerItem } from '@/components/ui/CivicActionTicker';
 import { CivicActionTicker } from '@/components/ui/CivicActionTicker';
 import { DataPoint } from '@/components/ui/DataPoint';
-import {
-  filterUpcomingEvents,
-  gatheringCard,
-  selectUpcomingMeetingEvent,
-} from '@/lib/civic-events';
-import { getDataPoints, getEvents, getGalleryPhotos } from '@/lib/queries/civic';
+import { gatheringCard } from '@/lib/civic-events';
+import { getDataPoints, getGalleryPhotos, getUpcomingEventData } from '@/lib/queries/civic';
 import { getStorageUrl } from '@/lib/supabase';
 import type { GalleryPhotoView } from '@/types/gallery';
 
 // NOTE: `page.tsx` and the root `layout.tsx` are the *same* App Router segment,
 // and Next does not apply a segment's own `title.template` to that segment. The
 // homepage therefore supplies an absolute title rather than a bare one.
-// Date-aware gathering card and ticker: render at request time and allow the
-// blocking data access used above.
-export const instant = false;
-
 export const metadata: Metadata = pageMetadata({
   title: 'Indivisible Fair Oaks-Carmichael | Grassroots Democracy in Action',
   description:
@@ -48,14 +39,12 @@ export const metadata: Metadata = pageMetadata({
 });
 
 export default async function HomePage() {
-  // The upcoming-event cutoff and next-meeting selection are request-time
-  // values. Cache the data fetches, but render the date-aware surfaces per
-  // request rather than baking today's date into a static page.
-  await connection();
-  // Server-side fetches cached via cacheTag and cacheLife('hours') in queries/civic.ts
-  const [galleryRows, events, dataPoints] = await Promise.all([
+  // Server-side fetches cached via cacheTag and cacheLife in queries/civic.ts.
+  // The upcoming-event cutoff is cached for a short window so this page stays
+  // instant and does not call `new Date()` during a prerender.
+  const [galleryRows, upcoming, dataPoints] = await Promise.all([
     getGalleryPhotos(),
-    getEvents(),
+    getUpcomingEventData(),
     getDataPoints('home'),
   ]);
   const galleryPhotos: GalleryPhotoView[] = galleryRows.map((row) => ({
@@ -78,7 +67,7 @@ export default async function HomePage() {
   // stays visible, and the next meeting is selected by date rather than by the
   // first Meetings row in sort order. The static December 1 fallback covers a
   // stale database until the next meeting is inserted through the admin UI.
-  const upcomingEvents = filterUpcomingEvents(events);
+  const upcomingEvents = upcoming.events;
   // Cap at 5 so the ticker doesn't overflow on small screens.
   const tickerItems: TickerItem[] = upcomingEvents.slice(0, 5).map((e) => ({
     label: e.title,
@@ -89,7 +78,7 @@ export default async function HomePage() {
 
   // Dynamic gathering card (issue #37): the meeting row drives the alert card,
   // so the events table — not JSX — is where the next meeting gets updated.
-  const card = gatheringCard(selectUpcomingMeetingEvent(upcomingEvents));
+  const card = gatheringCard(upcoming.nextMeeting);
 
   return (
     <div className="civic-page flex w-full flex-col">

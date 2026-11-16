@@ -71,36 +71,6 @@ export interface CivicEvent {
 
 const EVENTS: CivicEvent[] = [
   {
-    id: 'monthly-gathering-nov',
-    title: 'Monthly Chapter Gathering & Food Bank Drive',
-    category: 'Meetings',
-    dateLabel: 'Tuesday, November 10, 2026',
-    timeLabel: '6:30 PM – 8:00 PM',
-    isoDateStart: '20261110T183000',
-    isoDateEnd: '20261110T200000',
-    locationName: "St. Michael's Episcopal Church",
-    address: '2140 Mission Avenue, Carmichael, CA 95608',
-    description:
-      'Our primary monthly community gathering. Agenda includes post-election debrief and organizing strategies, federal and local updates, and a food drive for our neighborhood pantry. Please bring canned or non-perishable goods.',
-    rsvpUrl: 'https://www.mobilize.us/indivisible/',
-    highlight: true,
-  },
-  {
-    id: 'no-kings-4',
-    title: 'No Kings 4: Peaceful Protest & Stand-Out for Constitutional Democracy',
-    category: 'Rallies & Street Action',
-    dateLabel: 'Saturday, October 17, 2026',
-    timeLabel: '10:00 AM – 12:00 PM',
-    isoDateStart: '20261017T100000',
-    isoDateEnd: '20261017T120000',
-    locationName: 'Fair Oaks Public Square & Intersection',
-    address: 'Fair Oaks Blvd & Sunrise Blvd, Fair Oaks, CA',
-    description:
-      'Stand with Indivisible Fair Oaks-Carmichael in defense of constitutional democracy, equal justice under law, and judicial accountability. Bring your homemade signs, American flags, and comfortable shoes. Strictly nonviolent.',
-    rsvpUrl: 'https://www.mobilize.us/indivisible/',
-    highlight: true,
-  },
-  {
     id: 'singing-protest-ongoing',
     title: 'Carmichael Resistance Choir: Street Corner Singing Protest',
     category: 'Resistance Choir',
@@ -172,8 +142,12 @@ export function InteractiveEventsCalendar({
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  // The server passes an already-filtered list. Do not call `withUpcomingFallback`
+  // during the initial render: `new Date()` in a Client Component is a
+  // prerender error. API refreshes happen in effects, where the current date is
+  // safe to read.
   const [eventsList, setEventsList] = useState<CivicEvent[]>(() =>
-    withUpcomingFallback(initialEvents && initialEvents.length > 0 ? initialEvents : EVENTS)
+    initialEvents && initialEvents.length > 0 ? initialEvents : [DEFAULT_EVENT, ...EVENTS]
   );
   const [selectedEventForEdit, setSelectedEventForEdit] = useState<CivicEventRecord | null>(null);
   const [isEditorModalOpen, setIsEditorModalOpen] = useState(false);
@@ -201,7 +175,7 @@ export function InteractiveEventsCalendar({
         if (res.ok) {
           const data = await res.json();
           if (!cancelled && Array.isArray(data.events) && data.events.length > 0) {
-            setEventsList(data.events);
+            setEventsList(withUpcomingFallback(data.events));
           }
         }
       } catch {
@@ -214,7 +188,7 @@ export function InteractiveEventsCalendar({
     };
   }, []);
 
-  const filteredEvents = withUpcomingFallback(eventsList).filter((event) => {
+  const filteredEvents = eventsList.filter((event) => {
     const matchesCategory = activeCategory === 'All Actions' || event.category === activeCategory;
     const matchesSearch =
       event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||

@@ -1,6 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { cacheLife, cacheTag } from 'next/cache';
 import type { CivicEvent } from '@/components/ui/InteractiveEventsCalendar';
+import {
+  filterUpcomingEvents,
+  selectUpcomingMeetingEvent,
+  type CardEvent,
+} from '@/lib/civic-events';
 // Issue #149: stamps must be Pacific wall time (interpreted downstream by
 // `ctz=` / `TZID=`), never floating values the viewer's clock reinterprets.
 import { instantToPacificBasic } from '@/lib/calendar-time';
@@ -122,6 +127,27 @@ export async function getEvents(): Promise<CivicEvent[]> {
   } catch {
     return [];
   }
+}
+
+export interface UpcomingEventData {
+  events: CivicEvent[];
+  nextMeeting: CardEvent | undefined;
+}
+
+/**
+ * The public events list after applying the Pacific-time cutoff and choosing
+ * the next chapter meeting. This is a cached read, deliberately: `new Date()`
+ * cannot run in a prerender, and `/events` must remain an instant route. A
+ * short cache life keeps the cutoff honest without making the whole page
+ * blocking; tag invalidation from the admin editor still clears it immediately.
+ */
+export async function getUpcomingEventData(): Promise<UpcomingEventData> {
+  'use cache';
+  cacheLife('minutes');
+  cacheTag('events');
+  const now = new Date();
+  const events = filterUpcomingEvents(await getEvents(), now);
+  return { events, nextMeeting: selectUpcomingMeetingEvent(events, now) };
 }
 
 export async function getPartners(): Promise<PartnerRow[]> {
