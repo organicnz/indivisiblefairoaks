@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { lookup } from 'node:dns/promises';
+import type { CityPoint } from '@/components/ice-alerts/types';
 import { env } from '@/lib/env';
 import {
   classifyReportKind,
@@ -22,6 +23,7 @@ import {
   getIceCrawlSource,
   getIceCrawlStore,
   insertIceSourceReports,
+  listIceCityPoints,
   listIceCrawlSources,
   updateIceCrawlPageReportCount,
   updateIceCrawlSource,
@@ -447,7 +449,28 @@ function pageTextForStorage(html: string) {
  * stored or counted as skipped; a page limit or robots block is reported as a
  * partial run rather than disappearing.
  */
-export async function crawlIceSource(source: IceCrawlSource): Promise<IceCrawlSummary> {
+async function loadCrawlCities(store: IceCrawlStore): Promise<CityPoint[]> {
+  try {
+    const points = await listIceCityPoints(store);
+    return points.map((point) => ({
+      city: point.city,
+      state: point.state,
+      stateCode: point.stateCode,
+      lat: point.lat,
+      lng: point.lng,
+      count: point.count,
+    }));
+  } catch {
+    // A missing city snapshot must not stop a source crawl; the textual
+    // fallback still preserves a state code when one is visible.
+    return [];
+  }
+}
+
+export async function crawlIceSource(
+  source: IceCrawlSource,
+  cities: readonly CityPoint[] = []
+): Promise<IceCrawlSummary> {
   const store = getIceCrawlStore();
   if (!store) throw new Error('Crawler storage is not configured.');
 
@@ -523,11 +546,11 @@ export async function crawlIceSource(source: IceCrawlSource): Promise<IceCrawlSu
 
     if (feed) {
       const stopIceItems = /<report_data>/i.test(page.text)
-        ? extractStopIceReports(page.text, page.finalUrl)
+        ? extractStopIceReports(page.text, page.finalUrl, cities)
         : [];
       const items = stopIceItems.length > 0
         ? stopIceItems
-        : extractFeedItems(page.text, page.finalUrl);
+        : extractFeedItems(page.text, page.finalUrl, cities);
       reports = items.map((item) => ({
         title: item.title,
         text: item.text,
@@ -548,7 +571,7 @@ export async function crawlIceSource(source: IceCrawlSource): Promise<IceCrawlSu
         reports = aiReports;
         method = 'ai';
       } else {
-        const report = extractHtmlReport(page.text, page.finalUrl);
+        const report = extractHtmlReport(page.text, page.finalUrl, cities);
         if (report) {
           reports = [report];
           method = 'html';
@@ -559,7 +582,7 @@ export async function crawlIceSource(source: IceCrawlSource): Promise<IceCrawlSu
         // Keep the complete readable page as a fallback if extraction found
         // nothing but the page clearly discusses an ICE report.
         if (reports.length === 0 && text.length >= 40) {
-          const cityState = extractCityState(`${pageTitle}\n${text}`);
+          const cityState = extractCityState(`${pageTitle}\n${text}`, cities);
           reports = [
             {
               title: cleanTitle(pageTitle, 'Source report'),
@@ -691,18 +714,20 @@ export async function crawlIceSourceById(id: string) {
   if (!store) throw new Error('Crawler storage is not configured.');
   const source = await getIceCrawlSource(store, id);
   if (!source) throw new Error('Source not found.');
-  return crawlIceSource(source);
+  const cities = await loadCrawlCities(store);
+  return crawlIceSource(source, cities);
 }
 
 export async function crawlAllIceSources() {
   const store = getIceCrawlStore();
   if (!store) throw new Error('Crawler storage is not configured.');
   const sources = (await listIceCrawlSources(store)).filter((source) => source.enabled);
+  const cities = await loadCrawlCities(store);
   const results: Array<{ source: string; summary: IceCrawlSummary | { error: string } }> = [];
 
   for (const source of sources) {
     try {
-      results.push({ source: source.label, summary: await crawlIceSource(source) });
+      results.push({ source: source.label, summary: await crawlIceSource(source, cities) });
     } catch (error) {
       results.push({
         source: source.label,

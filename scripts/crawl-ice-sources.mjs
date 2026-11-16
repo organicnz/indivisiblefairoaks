@@ -6,8 +6,10 @@
  * Supabase service key; it never prints the key.
  */
 import { crawlAllIceSources } from '../src/lib/ice-crawl.ts';
+import { backfillIceSourceLocations } from '../src/lib/ice-crawl-locations.ts';
 
 try {
+  const locations = await backfillIceSourceLocations();
   const results = await crawlAllIceSources();
   const summaries = results.map((result) => result.summary);
   const errors = summaries.filter(
@@ -16,6 +18,7 @@ try {
   console.log(
     JSON.stringify(
       {
+        locations,
         sources: results.length,
         reports: summaries.reduce(
           (total, summary) => total + ('reportsFound' in summary ? summary.reportsFound : 0),

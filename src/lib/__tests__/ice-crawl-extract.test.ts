@@ -11,6 +11,14 @@ import {
   verbatimExcerpt,
 } from '@/lib/ice-crawl-extract';
 import { isPrivateAddress, resolveCrawlUrls } from '@/lib/ice-crawl';
+import type { CityPoint } from '@/components/ice-alerts/types';
+
+const CITIES: CityPoint[] = [
+  { city: 'San Diego', state: 'California', stateCode: 'CA', lat: 32.7, lng: -117.1, count: 1 },
+  { city: 'Fort Myers', state: 'Florida', stateCode: 'FL', lat: 26.6, lng: -81.8, count: 1 },
+  { city: 'Gateway', state: 'Florida', stateCode: 'FL', lat: 26.5, lng: -81.7, count: 1 },
+  { city: 'Los Angeles', state: 'California', stateCode: 'CA', lat: 34.0, lng: -118.2, count: 1 },
+];
 
 describe('ice source extraction', () => {
   it('keeps readable source paragraphs and drops scripts', () => {
@@ -78,6 +86,28 @@ describe('ice source extraction', () => {
     expect(extractCityState('Activity in Sacramento, ZZ')).toEqual({
       city: null,
       stateCode: null,
+    });
+    expect(extractCityState('ice crashed in san diego ca')).toEqual({
+      city: 'San Diego',
+      stateCode: 'CA',
+    });
+  });
+
+  it('uses the verified city snapshot for lowercase and address-style locations', () => {
+    expect(extractCityState('san diego ca', CITIES)).toEqual({
+      city: 'San Diego',
+      stateCode: 'CA',
+    });
+    expect(
+      extractCityState('4087 Palm Beach Blvd Fort Myers FL 33916 United States', CITIES)
+    ).toEqual({ city: 'Fort Myers', stateCode: 'FL' });
+    expect(extractCityState('FL82 and Owen Ave Gateway FL 33913', CITIES)).toEqual({
+      city: 'Gateway',
+      stateCode: 'FL',
+    });
+    expect(extractCityState('230 S Alvarado St Los Angeles Ca 90057', CITIES)).toEqual({
+      city: 'Los Angeles',
+      stateCode: 'CA',
     });
   });
 

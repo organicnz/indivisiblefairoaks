@@ -272,12 +272,19 @@ export function RapidResponseGuide({
               </p>
               <div className="mt-2 flex flex-wrap gap-3">
                 <a
+                  href="/ice-alerts/data"
+                  className="inline-flex items-center gap-1 font-mono text-[8px] font-bold uppercase tracking-[0.09em] text-foreground underline underline-offset-2"
+                >
+                  Chapter API &amp; downloads
+                  <ArrowRight className="size-2.5" aria-hidden="true" />
+                </a>
+                <a
                   href={community?.sourceUrl ?? 'https://stopice.net/?data=1'}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 font-mono text-[8px] font-bold uppercase tracking-[0.09em] text-foreground underline underline-offset-2"
+                  className="inline-flex items-center gap-1 font-mono text-[8px] font-bold uppercase tracking-[0.09em] text-muted-foreground underline underline-offset-2"
                 >
-                  Public data export
+                  National data export
                   <ExternalLink className="size-2.5" aria-hidden="true" />
                 </a>
                 {community?.checkedAt ? (
