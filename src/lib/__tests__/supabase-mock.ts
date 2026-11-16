@@ -45,7 +45,7 @@ import { vi } from 'vitest';
 
 /** A filter recorded by `.eq()` / `.is()` / `.like()`, applied by the terminal. */
 interface Filter {
-  kind: 'eq' | 'is' | 'like' | 'ilike' | 'lte' | 'neq' | 'lt' | 'in' | 'notIn' | 'notIs';
+  kind: 'eq' | 'is' | 'like' | 'ilike' | 'lte' | 'neq' | 'lt' | 'gt' | 'in' | 'notIn' | 'notIs';
   column: string;
   value: unknown;
 }
@@ -193,7 +193,7 @@ function matches(row: Record<string, unknown>, filters: readonly Filter[]): bool
       if (actual === null || actual === undefined) return false;
       return actual !== value;
     }
-    if (kind === 'lt' || kind === 'lte') {
+    if (kind === 'lt' || kind === 'lte' || kind === 'gt') {
       // Both sides are `unknown` on the row and the filter, but `lt`/`lte` are
       // only ever applied to ordered scalars here — an ISO timestamp or a
       // number — and `a < b` / `a <= b` is exactly Postgres's comparison for
@@ -202,6 +202,9 @@ function matches(row: Record<string, unknown>, filters: readonly Filter[]): bool
       // exactly at `now()` is published, so the boundary is inclusive.
       if (actual === null || actual === undefined) return false;
       if (value === null || value === undefined) return false;
+      if (kind === 'gt') {
+        return (actual as number | string) > (value as number | string);
+      }
       return kind === 'lte'
         ? (actual as number | string) <= (value as number | string)
         : (actual as number | string) < (value as number | string);
@@ -304,6 +307,11 @@ export class MockQueryBuilder {
 
   lt(column: string, value: unknown) {
     this.filters.push({ kind: 'lt', column, value });
+    return this;
+  }
+
+  gt(column: string, value: unknown) {
+    this.filters.push({ kind: 'gt', column, value });
     return this;
   }
 

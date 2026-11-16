@@ -46,10 +46,22 @@ export function rateLimit(
 /**
  * Best-effort client IP from request headers.
  *
- * Vercel overwrites x-real-ip with the true client IP (unspoofable).
- * x-forwarded-for's FIRST entry is client-controlled — trusting it lets bots
- * rotate identity per request. Fall back to the LAST forwarded entry (closest
- * proxy) where x-real-ip is absent (non-Vercel environments).
+ * ## Trusted-proxy assumptions
+ *
+ * This trusts `x-real-ip` because the production deployment is behind Vercel's
+ * edge, which overwrites that header before the request reaches Next. The
+ * header is only as good as that promise: a direct connection to the Next
+ * server can set it freely.
+ *
+ * `x-forwarded-for` is not trusted from the left. Its FIRST entry is supplied
+ * by the caller and can be rotated per request; the LAST entry is the hop
+ * added by the nearest proxy. We use that fallback only when `x-real-ip` is
+ * absent.
+ *
+ * If another proxy (Cloudflare, a load balancer, a local tunnel) is placed in
+ * front, it must overwrite `x-real-ip` and strip the inbound
+ * `x-forwarded-for` value. Otherwise clients can choose their own rate-limit
+ * identity. With neither header, every request shares the `unknown` bucket.
  *
  * Exported separately because a server proxy has to pass the identity to the
  * upstream service; the service cannot recover it from the proxy's own socket.

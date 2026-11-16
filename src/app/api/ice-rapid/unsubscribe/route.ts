@@ -4,6 +4,8 @@ import {
   findSubscriberByToken,
   getIceAlertStore,
   updateSubscriber,
+  type IceAlertStore,
+  type IceAlertSubscriber,
 } from '@/lib/ice-alert-store';
 import { clientKey, rateLimit } from '@/lib/rate-limit';
 
@@ -28,7 +30,14 @@ function label(stateCode: string | null, city: string | null) {
   return stateCode ?? 'nationwide';
 }
 
-async function resolve(req: Request, token: string | null) {
+type ResolveResult =
+  | { response: NextResponse }
+  | { store: IceAlertStore; subscriber: IceAlertSubscriber };
+
+async function resolve(
+  req: Request,
+  token: string | null
+): Promise<ResolveResult> {
   const gate = rateLimit(clientKey(req.headers, 'ice-alert-unsubscribe'), 20, 600_000);
   if (!gate.ok) {
     return {
@@ -113,6 +122,16 @@ export async function POST(req: Request) {
       push_subscription: null,
       confirmed_at: null,
       unsubscribed_at: new Date().toISOString(),
+      /*
+       * Rotate the confirmation token instead of deleting it. Any signed or
+       * raw confirmation link issued before this unsubscribe now names a token
+       * that no longer matches the row, so it cannot re-subscribe the person.
+       * The confirmation cooldown is cleared too: a deliberate re-subscribe
+       * from the public form must be able to send a fresh link immediately.
+       */
+      confirm_token: crypto.randomUUID(),
+      confirm_token_expires_at: null,
+      confirmation_sent_at: null,
     });
 
     if (!fromBrowserForm) {

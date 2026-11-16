@@ -122,7 +122,7 @@ export async function POST(req: Request) {
           if (subscriber.email_opt_in && subscriber.email) {
             const result = await sendIceAlertSurge({
               email: subscriber.email,
-              token: subscriber.unsubscribe_token,
+              unsubscribeToken: subscriber.unsubscribe_token,
               stateCode: subscriber.state_code,
               city: subscriber.city,
               surges,

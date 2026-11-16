@@ -7,7 +7,7 @@ const rateLimit = vi.hoisted(() => vi.fn());
 const getIceAlertStore = vi.hoisted(() => vi.fn());
 const findSubscriberById = vi.hoisted(() => vi.fn());
 const findSubscriberByToken = vi.hoisted(() => vi.fn());
-const updateSubscriber = vi.hoisted(() => vi.fn());
+const consumeIceAlertConfirmation = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/env', () => ({
   env: {
@@ -27,7 +27,7 @@ vi.mock('@/lib/ice-alert-store', () => ({
   getIceAlertStore,
   findSubscriberById,
   findSubscriberByToken,
-  updateSubscriber,
+  consumeIceAlertConfirmation,
 }));
 
 import { GET, POST } from '@/app/api/ice-rapid/confirm/route';
@@ -35,6 +35,9 @@ import {
   createIceAlertManagementToken,
   ICE_ALERT_MANAGEMENT_TTL_MS,
 } from '@/lib/ice-alert-management';
+
+const FUTURE = '2030-01-01T00:00:00.000Z';
+const PAST = '2020-01-01T00:00:00.000Z';
 
 const SUBSCRIBER = {
   id: '11111111-1111-4111-8111-111111111111',
@@ -46,6 +49,7 @@ const SUBSCRIBER = {
   push_opt_in: false,
   push_subscription: null,
   confirm_token: '22222222-2222-4222-8222-222222222222',
+  confirm_token_expires_at: FUTURE,
   unsubscribe_token: '33333333-3333-4333-8333-333333333333',
   confirmed_at: '2026-11-01T00:00:00.000Z',
   confirmation_sent_at: null,
@@ -54,6 +58,12 @@ const SUBSCRIBER = {
   unsubscribed_at: null,
   created_at: '2026-10-01T00:00:00.000Z',
   updated_at: '2026-11-01T00:00:00.000Z',
+};
+
+const PENDING = {
+  ...SUBSCRIBER,
+  confirmed_at: null,
+  confirmation_sent_at: null,
 };
 
 const PUSH = {
@@ -68,6 +78,7 @@ async function signedToken(overrides: Record<string, unknown> = {}) {
   const token = await createIceAlertManagementToken(
     {
       subscriberId: SUBSCRIBER.id,
+      confirmToken: SUBSCRIBER.confirm_token,
       stateCode: 'TX',
       city: 'Austin',
       pushSubscription: PUSH,
@@ -97,7 +108,7 @@ beforeEach(() => {
   getIceAlertStore.mockReturnValue({});
   findSubscriberById.mockResolvedValue(SUBSCRIBER);
   findSubscriberByToken.mockResolvedValue(null);
-  updateSubscriber.mockResolvedValue(SUBSCRIBER);
+  consumeIceAlertConfirmation.mockResolvedValue(SUBSCRIBER);
 });
 
 describe('/api/ice-rapid/confirm signed management tokens', () => {
@@ -115,10 +126,10 @@ describe('/api/ice-rapid/confirm signed management tokens', () => {
       SUBSCRIBER.id
     );
     expect(findSubscriberByToken).not.toHaveBeenCalled();
-    expect(updateSubscriber).not.toHaveBeenCalled();
+    expect(consumeIceAlertConfirmation).not.toHaveBeenCalled();
   });
 
-  it('POST applies the signed preferences and confirms the subscriber', async () => {
+  it('POST applies the signed preferences and consumes the token atomically', async () => {
     const token = await signedToken();
 
     const response = await POST(postForm(token));
@@ -127,15 +138,18 @@ describe('/api/ice-rapid/confirm signed management tokens', () => {
     expect(response.status).toBe(200);
     expect(page).toContain('You&rsquo;re confirmed');
     expect(page).toContain('Austin, TX');
-    expect(updateSubscriber).toHaveBeenCalledTimes(1);
+    expect(consumeIceAlertConfirmation).toHaveBeenCalledTimes(1);
 
-    const [store, id, patch] = updateSubscriber.mock.calls[0] as [
-      unknown,
-      string,
-      Record<string, unknown>,
-    ];
+    const [store, id, confirmToken, patch] =
+      consumeIceAlertConfirmation.mock.calls[0] as [
+        unknown,
+        string,
+        string,
+        Record<string, unknown>,
+      ];
     expect(store).toBeDefined();
     expect(id).toBe(SUBSCRIBER.id);
+    expect(confirmToken).toBe(SUBSCRIBER.confirm_token);
     expect(patch).toMatchObject({
       state_code: 'TX',
       city: 'Austin',
@@ -150,17 +164,22 @@ describe('/api/ice-rapid/confirm signed management tokens', () => {
   it('rejects a tampered token without writing', async () => {
     const token = await signedToken();
     const [payload, signature] = token.split('.');
-    const tampered = `${payload.slice(0, -1)}A.${signature}`;
+    const tampered = `${payload[0] === 'A' ? 'B' : 'A'}${payload.slice(1)}.${signature}`;
 
     const response = await POST(postForm(tampered));
 
     expect(response.status).toBe(400);
-    expect(updateSubscriber).not.toHaveBeenCalled();
+    expect(consumeIceAlertConfirmation).not.toHaveBeenCalled();
   });
 
-  it('rejects an expired token without writing', async () => {
+  it('rejects an expired signed token without writing', async () => {
     const token = await createIceAlertManagementToken(
-      { subscriberId: SUBSCRIBER.id, stateCode: 'TX', city: 'Austin' },
+      {
+        subscriberId: SUBSCRIBER.id,
+        confirmToken: SUBSCRIBER.confirm_token,
+        stateCode: 'TX',
+        city: 'Austin',
+      },
       {
         secret: TEST_SECRET,
         now: Date.now() - ICE_ALERT_MANAGEMENT_TTL_MS - 1_000,
@@ -172,7 +191,7 @@ describe('/api/ice-rapid/confirm signed management tokens', () => {
     const response = await POST(postForm(token));
 
     expect(response.status).toBe(400);
-    expect(updateSubscriber).not.toHaveBeenCalled();
+    expect(consumeIceAlertConfirmation).not.toHaveBeenCalled();
   });
 
   it('rejects an unknown signature without looking up a subscriber', async () => {
@@ -184,6 +203,106 @@ describe('/api/ice-rapid/confirm signed management tokens', () => {
 
     expect(response.status).toBe(400);
     expect(findSubscriberById).not.toHaveBeenCalled();
-    expect(updateSubscriber).not.toHaveBeenCalled();
+    expect(consumeIceAlertConfirmation).not.toHaveBeenCalled();
+  });
+
+  it('rejects a replayed signed link after its token has been consumed', async () => {
+    const token = await signedToken();
+    findSubscriberById
+      .mockResolvedValueOnce(SUBSCRIBER)
+      .mockResolvedValueOnce({
+        ...SUBSCRIBER,
+        confirm_token: '44444444-4444-4444-8444-444444444444',
+        confirm_token_expires_at: null,
+      });
+
+    const first = await POST(postForm(token));
+    const second = await POST(postForm(token));
+
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(410);
+    expect(consumeIceAlertConfirmation).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects an expired row token even when the signed envelope is still valid', async () => {
+    const token = await signedToken();
+    findSubscriberById.mockResolvedValue({
+      ...SUBSCRIBER,
+      confirm_token_expires_at: PAST,
+    });
+
+    const response = await POST(postForm(token));
+
+    expect(response.status).toBe(410);
+    expect(consumeIceAlertConfirmation).not.toHaveBeenCalled();
+  });
+
+  it('rejects an old management link after an unsubscribe rotated the token', async () => {
+    const token = await signedToken();
+    findSubscriberById.mockResolvedValue({
+      ...SUBSCRIBER,
+      confirm_token: '55555555-5555-4555-8555-555555555555',
+      confirm_token_expires_at: null,
+      email_opt_in: false,
+      confirmed_at: null,
+      unsubscribed_at: '2026-11-02T00:00:00.000Z',
+    });
+
+    const response = await POST(postForm(token));
+
+    expect(response.status).toBe(410);
+    expect(consumeIceAlertConfirmation).not.toHaveBeenCalled();
+  });
+});
+
+describe('/api/ice-rapid/confirm raw confirmation tokens', () => {
+  it('confirms a pending subscriber and consumes the raw token', async () => {
+    findSubscriberByToken.mockResolvedValue(PENDING);
+    consumeIceAlertConfirmation.mockResolvedValue(PENDING);
+
+    const response = await POST(postForm(PENDING.confirm_token));
+
+    expect(response.status).toBe(200);
+    expect(findSubscriberByToken).toHaveBeenCalledWith(
+      expect.anything(),
+      'confirm_token',
+      PENDING.confirm_token
+    );
+    expect(consumeIceAlertConfirmation).toHaveBeenCalledWith(
+      expect.anything(),
+      PENDING.id,
+      PENDING.confirm_token,
+      {
+        confirmed_at: expect.any(String),
+        email_opt_in: true,
+        unsubscribed_at: null,
+      }
+    );
+  });
+
+  it('rejects an expired raw token without writing', async () => {
+    findSubscriberByToken.mockResolvedValue({
+      ...PENDING,
+      confirm_token_expires_at: PAST,
+    });
+
+    const response = await POST(postForm(PENDING.confirm_token));
+
+    expect(response.status).toBe(410);
+    expect(consumeIceAlertConfirmation).not.toHaveBeenCalled();
+  });
+
+  it('rejects a replayed raw link after the row token was rotated', async () => {
+    findSubscriberByToken
+      .mockResolvedValueOnce(PENDING)
+      .mockResolvedValueOnce(null);
+    consumeIceAlertConfirmation.mockResolvedValue(PENDING);
+
+    const first = await POST(postForm(PENDING.confirm_token));
+    const second = await POST(postForm(PENDING.confirm_token));
+
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(404);
+    expect(consumeIceAlertConfirmation).toHaveBeenCalledTimes(1);
   });
 });

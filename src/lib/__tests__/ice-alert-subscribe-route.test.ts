@@ -16,7 +16,7 @@ const ACCEPTED = {
 };
 
 const sendIceAlertConfirmation = vi.hoisted(() => vi.fn());
-const rateLimit = vi.hoisted(() => vi.fn());
+const verifyIceAlertProof = vi.hoisted(() => vi.fn());
 const storeRef = vi.hoisted(() => ({ current: null as unknown }));
 
 vi.mock('@/lib/env', () => ({
@@ -30,9 +30,9 @@ vi.mock('@/lib/env', () => ({
 
 vi.mock('@/lib/e2e-mode', () => ({ isE2EMode: () => false }));
 vi.mock('@/lib/ice-alert-email', () => ({ sendIceAlertConfirmation }));
+vi.mock('@/lib/ice-alert-proof', () => ({ verifyIceAlertProof }));
 vi.mock('@/lib/rate-limit', () => ({
-  rateLimit,
-  clientKey: () => 'test-ip',
+  clientIp: () => '203.0.113.7',
 }));
 vi.mock('@/lib/push-endpoint', () => ({
   validatePushEndpoint: vi.fn().mockResolvedValue(undefined),
@@ -51,6 +51,10 @@ vi.mock('@/lib/ice-alert-store', async (importOriginal) => {
 
 import { POST } from '@/app/api/ice-rapid/subscribe/route';
 import { verifyIceAlertManagementToken } from '@/lib/ice-alert-management';
+import {
+  hashIceAlertRateLimitKey,
+  ICE_ALERT_RATE_LIMITS,
+} from '@/lib/ice-alert-rate-limit';
 
 type SubscriberRow = {
   id: string;
@@ -62,6 +66,7 @@ type SubscriberRow = {
   push_opt_in: boolean;
   push_subscription: null;
   confirm_token: string;
+  confirm_token_expires_at: string | null;
   unsubscribe_token: string;
   confirmed_at: string | null;
   confirmation_sent_at: string | null;
@@ -82,10 +87,18 @@ type LookupRecord = {
   value: unknown;
 };
 
+type RateLimitRow = {
+  allowed: boolean;
+  retry_after_seconds: number;
+  limited_scope: 'ip' | 'email' | 'endpoint' | 'global' | null;
+};
+
 type FakeStore = {
   rows: SubscriberRow[];
   writes: WriteRecord[];
   lookups: LookupRecord[];
+  rpcCalls: { fn: string; args: Record<string, unknown> }[];
+  rpcResult: RateLimitRow;
   client: unknown;
 };
 
@@ -100,6 +113,7 @@ function baseRow(overrides: Partial<SubscriberRow> = {}): SubscriberRow {
     push_opt_in: false,
     push_subscription: null,
     confirm_token: '22222222-2222-4222-8222-222222222222',
+    confirm_token_expires_at: '2030-01-01T00:00:00.000Z',
     unsubscribe_token: '33333333-3333-4333-8333-333333333333',
     confirmed_at: '2026-11-01T00:00:00.000Z',
     confirmation_sent_at: null,
@@ -118,8 +132,18 @@ function fakeStore(initialRows: SubscriberRow[] = []): FakeStore {
   const rows = initialRows.map((row) => ({ ...row }));
   const writes: WriteRecord[] = [];
   const lookups: LookupRecord[] = [];
+  const rpcCalls: { fn: string; args: Record<string, unknown> }[] = [];
+  const rpcResult: RateLimitRow = {
+    allowed: true,
+    retry_after_seconds: 0,
+    limited_scope: null,
+  };
 
   const client = {
+    async rpc(fn: string, args: Record<string, unknown>) {
+      rpcCalls.push({ fn, args });
+      return { data: [rpcResult], error: null };
+    },
     from(table: string) {
       let operation: 'select' | 'insert' | 'update' = 'select';
       let insertPayload: Record<string, unknown> | null = null;
@@ -193,20 +217,24 @@ function fakeStore(initialRows: SubscriberRow[] = []): FakeStore {
     },
   };
 
-  return { rows, writes, lookups, client };
+  return { rows, writes, lookups, rpcCalls, rpcResult, client };
 }
 
-function request(body: Record<string, unknown>) {
+function request(body: Record<string, unknown>, includeProof = true) {
   return new Request('https://site.test/api/ice-rapid/subscribe', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body),
+    body: JSON.stringify(
+      includeProof
+        ? { proof: { token: 'test-proof-token', nonce: '1' }, ...body }
+        : body
+    ),
   });
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
-  rateLimit.mockReturnValue({ ok: true, retryAfterSec: 0 });
+  verifyIceAlertProof.mockResolvedValue(true);
   sendIceAlertConfirmation.mockResolvedValue({ ok: true, id: 'email-1' });
 });
 
@@ -226,9 +254,18 @@ describe('POST /api/ice-rapid/subscribe authorization', () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual(ACCEPTED);
 
-    // The active row is untouched. The lookup is exact and normalized, not a
-    // pattern match that an alternate address could use to reach this row.
-    expect(store.writes).toEqual([]);
+    // The active preferences are untouched. The lookup is exact and normalized,
+    // not a pattern match that an alternate address could use to reach this row.
+    expect(store.writes).toHaveLength(2);
+    expect(store.writes.map((write) => write.payload)).toContainEqual(
+      expect.objectContaining({
+        confirm_token: expect.any(String),
+        confirm_token_expires_at: expect.any(String),
+      })
+    );
+    expect(store.writes.map((write) => write.payload)).not.toContainEqual(
+      expect.objectContaining({ state_code: 'TX', city: 'Austin' })
+    );
     expect(store.lookups).toContainEqual({
       table: 'ice_alert_subscribers',
       column: 'email_normalized',
@@ -260,11 +297,116 @@ describe('POST /api/ice-rapid/subscribe authorization', () => {
     const claims = await verifyIceAlertManagementToken(sent.token, {
       secret: TEST_SECRET,
     });
+    const rotated = store.writes.find(
+      (write) => 'confirm_token' in write.payload
+    )?.payload.confirm_token;
     expect(claims).toMatchObject({
       subscriberId: '11111111-1111-4111-8111-111111111111',
+      confirmToken: rotated,
       stateCode: 'TX',
       city: 'Austin',
     });
+
+    expect(store.rpcCalls).toHaveLength(1);
+    expect(store.rpcCalls[0]).toMatchObject({
+      fn: 'ice_alert_consume_rate_limits',
+      args: {
+        p_ip_hash: await hashIceAlertRateLimitKey('ip', '203.0.113.7'),
+        p_email_hash: await hashIceAlertRateLimitKey('email', 'robin@example.com'),
+        p_endpoint_hash: null,
+        p_window_seconds: 600,
+        p_ip_limit: ICE_ALERT_RATE_LIMITS.ip,
+        p_email_limit: ICE_ALERT_RATE_LIMITS.email,
+        p_endpoint_limit: ICE_ALERT_RATE_LIMITS.endpoint,
+        p_global_limit: ICE_ALERT_RATE_LIMITS.global,
+      },
+    });
+  });
+
+  it('requires a proof before touching the durable counters', async () => {
+    const store = fakeStore([baseRow()]);
+    storeRef.current = store.client;
+
+    const response = await POST(
+      request({ email: 'robin@example.com' }, false)
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ code: 'proof-required' });
+    expect(verifyIceAlertProof).not.toHaveBeenCalled();
+    expect(store.rpcCalls).toEqual([]);
+  });
+
+  it('rejects an invalid proof before touching the durable counters', async () => {
+    verifyIceAlertProof.mockResolvedValue(false);
+    const store = fakeStore([baseRow()]);
+    storeRef.current = store.client;
+
+    const response = await POST(
+      request({ email: 'robin@example.com' })
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ code: 'proof-invalid' });
+    expect(store.rpcCalls).toEqual([]);
+  });
+
+  it('returns 429 and Retry-After when a durable counter is exhausted', async () => {
+    const store = fakeStore([baseRow()]);
+    store.rpcResult.allowed = false;
+    store.rpcResult.retry_after_seconds = 42;
+    store.rpcResult.limited_scope = 'email';
+    storeRef.current = store.client;
+
+    const response = await POST(
+      request({ email: 'robin@example.com', stateCode: 'CA' })
+    );
+
+    expect(response.status).toBe(429);
+    expect(response.headers.get('retry-after')).toBe('42');
+    expect(await response.json()).toMatchObject({ code: 'rate-limited' });
+    expect(sendIceAlertConfirmation).not.toHaveBeenCalled();
+    expect(store.writes).toEqual([]);
+  });
+
+  it('rejects an oversized body while reading it, without consulting storage', async () => {
+    const store = fakeStore();
+    storeRef.current = store.client;
+    const response = await POST(
+      new Request('https://site.test/api/ice-rapid/subscribe', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          email: 'robin@example.com',
+          proof: { token: 'test-proof-token', nonce: '1' },
+          padding: 'x'.repeat(13_000),
+        }),
+      })
+    );
+
+    expect(response.status).toBe(413);
+    expect(await response.json()).toMatchObject({ code: 'too-large' });
+    expect(store.rpcCalls).toEqual([]);
+  });
+
+  it('keys the endpoint counter by the push endpoint host', async () => {
+    const store = fakeStore();
+    storeRef.current = store.client;
+
+    const response = await POST(
+      request({
+        email: 'robin@example.com',
+        pushSubscription: {
+          endpoint: 'https://push.example.com/send/abc',
+          keys: { p256dh: 'p'.repeat(24), auth: 'a'.repeat(12) },
+        },
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(store.rpcCalls[0]?.args.p_endpoint_hash).toBe(
+      await hashIceAlertRateLimitKey('endpoint', 'push.example.com')
+    );
   });
 
   it('preserves an existing area when the request omits a new one', async () => {
@@ -284,7 +426,7 @@ describe('POST /api/ice-rapid/subscribe authorization', () => {
     });
     expect(claims).toMatchObject({ stateCode: 'CA', city: 'Oakland' });
     expect(sent).toMatchObject({ stateCode: 'CA', city: 'Oakland' });
-    expect(store.writes).toEqual([]);
+    expect(store.writes).toHaveLength(2);
   });
 
   it('returns the same accepted response for new, pending, confirmed, and unsubscribed addresses', async () => {
@@ -314,9 +456,9 @@ describe('POST /api/ice-rapid/subscribe authorization', () => {
 
       expect(response.status, state.name).toBe(200);
       expect(await response.json(), state.name).toEqual(ACCEPTED);
-      if (state.rows.length > 0) {
-        expect(store.writes, state.name).toEqual([]);
-      }
+      // New rows insert plus stamp the send; existing rows rotate the token and
+      // stamp the send. Neither path changes the requested preferences here.
+      expect(store.writes, state.name).toHaveLength(2);
     }
   });
 

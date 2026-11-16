@@ -11,15 +11,24 @@ import type { RapidSurge } from '@/lib/ice-rapid-surges';
 
 type IceAlertEmailBase = {
   email: string;
-  token: string;
-  /** The separate capability used by the unsubscribe route. */
-  unsubscribeToken?: string;
-  /** A management-confirmation message changes an existing subscriber. */
-  intent?: 'confirm' | 'manage';
+  /**
+   * The unsubscribe capability is deliberately required and separate from the
+   * confirmation token. Falling back to `token` when a caller forgot it made
+   * one link able to both confirm and unsubscribe.
+   */
+  unsubscribeToken: string;
   stateCode?: string | null;
   city?: string | null;
   siteUrl?: string;
 };
+
+type IceAlertConfirmationEmail = IceAlertEmailBase & {
+  token: string;
+  /** A management-confirmation message changes an existing subscriber. */
+  intent?: 'confirm' | 'manage';
+};
+
+type IceAlertSurgeEmail = IceAlertEmailBase & { surges: RapidSurge[] };
 
 function appUrl() {
   return (env.NEXT_PUBLIC_SITE_URL || 'https://indivisiblefairoaks.org').replace(
@@ -42,16 +51,12 @@ function confirmUrl(token: string, siteUrl: string) {
   return `${siteUrl}/api/ice-rapid/confirm?token=${encodeURIComponent(token)}`;
 }
 
-function unsubscribeToken(input: IceAlertEmailBase) {
-  return input.unsubscribeToken ?? input.token;
-}
-
 function unsubscribeFooterHtml(input: IceAlertEmailBase, siteUrl: string) {
-  return `<p style="margin:18px 0 0;color:#64748B;font-size:11px;line-height:1.6;">You asked for city-level ICE surge alerts for this area. This service does not track your location, publish identities, or replace 911. <a href="${escapeHtml(unsubUrl(unsubscribeToken(input), siteUrl))}" style="color:#94A3B8;text-decoration:underline;">Unsubscribe</a>.</p>`;
+  return `<p style="margin:18px 0 0;color:#64748B;font-size:11px;line-height:1.6;">You asked for city-level ICE surge alerts for this area. This service does not track your location, publish identities, or replace 911. <a href="${escapeHtml(unsubUrl(input.unsubscribeToken, siteUrl))}" style="color:#94A3B8;text-decoration:underline;">Unsubscribe</a>.</p>`;
 }
 
 function emailHeaders(input: IceAlertEmailBase, siteUrl: string) {
-  const url = unsubUrl(unsubscribeToken(input), siteUrl);
+  const url = unsubUrl(input.unsubscribeToken, siteUrl);
   return {
     'List-Unsubscribe': `<${url}>`,
     'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
@@ -72,7 +77,7 @@ async function sendIceAlertEmail(
   return sendEmail(input);
 }
 
-export function buildIceAlertConfirmationEmail(input: IceAlertEmailBase) {
+export function buildIceAlertConfirmationEmail(input: IceAlertConfirmationEmail) {
   const siteUrl = input.siteUrl ?? appUrl();
   const url = confirmUrl(input.token, siteUrl);
   const place = locationLabel(input);
@@ -123,7 +128,7 @@ export function buildIceAlertConfirmationEmail(input: IceAlertEmailBase) {
         ? 'If you did not request this change, ignore this email. Your current alerts will stay as they are.'
         : 'If you did not request this, ignore this email. No alerts will be sent unless you confirm.',
       '',
-      `Unsubscribe: ${unsubUrl(unsubscribeToken(input), siteUrl)}`,
+      `Unsubscribe: ${unsubUrl(input.unsubscribeToken, siteUrl)}`,
     ].join('\n'),
     headers: emailHeaders(input, siteUrl),
     tags: [
@@ -132,9 +137,7 @@ export function buildIceAlertConfirmationEmail(input: IceAlertEmailBase) {
   };
 }
 
-export function buildIceAlertSurgeEmail(
-  input: IceAlertEmailBase & { surges: RapidSurge[] }
-) {
+export function buildIceAlertSurgeEmail(input: IceAlertSurgeEmail) {
   const siteUrl = input.siteUrl ?? appUrl();
   const place = locationLabel(input);
   const primary = input.surges[0];
@@ -178,19 +181,17 @@ export function buildIceAlertSurgeEmail(
       'Community report counts, not confirmed enforcement. The export is nightly.',
       'Never approach or obstruct enforcement activity. Immediate danger? Call 911.',
       '',
-      `Unsubscribe: ${unsubUrl(unsubscribeToken(input), siteUrl)}`,
+      `Unsubscribe: ${unsubUrl(input.unsubscribeToken, siteUrl)}`,
     ].join('\n'),
     headers: emailHeaders(input, siteUrl),
     tags: [{ name: 'type', value: 'ice-surge-alert' }],
   };
 }
 
-export async function sendIceAlertConfirmation(input: IceAlertEmailBase) {
+export async function sendIceAlertConfirmation(input: IceAlertConfirmationEmail) {
   return sendIceAlertEmail(buildIceAlertConfirmationEmail(input));
 }
 
-export async function sendIceAlertSurge(
-  input: IceAlertEmailBase & { surges: RapidSurge[] }
-) {
+export async function sendIceAlertSurge(input: IceAlertSurgeEmail) {
   return sendIceAlertEmail(buildIceAlertSurgeEmail(input));
 }

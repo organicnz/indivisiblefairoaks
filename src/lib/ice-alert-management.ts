@@ -2,7 +2,7 @@ import { decodeBase64, encodeBase64 } from '@/lib/base64';
 import { env } from '@/lib/env';
 import type { IceAlertPushSubscription } from '@/lib/ice-alert-store';
 
-const VERSION = 1;
+const VERSION = 2;
 const MAX_TOKEN_LENGTH = 8_192;
 const CLOCK_SKEW_MS = 5 * 60 * 1_000;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -18,8 +18,10 @@ const decoder = new TextDecoder();
 export const ICE_ALERT_MANAGEMENT_TTL_MS = 24 * 60 * 60 * 1_000;
 
 export type IceAlertManagementClaims = {
-  v: 1;
+  v: 2;
   subscriberId: string;
+  /** The current confirmation token this link is allowed to consume. */
+  confirmToken: string;
   stateCode: string | null;
   city: string | null;
   /** Absent means keep the subscriber's existing push settings. */
@@ -30,6 +32,7 @@ export type IceAlertManagementClaims = {
 
 type CreateManagementTokenInput = {
   subscriberId: string;
+  confirmToken: string;
   stateCode?: string | null;
   city?: string | null;
   pushSubscription?: IceAlertPushSubscription | null;
@@ -99,6 +102,9 @@ function readClaims(value: unknown, now: number): IceAlertManagementClaims | nul
   if (typeof record.subscriberId !== 'string' || !UUID_RE.test(record.subscriberId)) {
     return null;
   }
+  if (typeof record.confirmToken !== 'string' || !UUID_RE.test(record.confirmToken)) {
+    return null;
+  }
 
   const stateCode = record.stateCode;
   if (
@@ -133,6 +139,7 @@ function readClaims(value: unknown, now: number): IceAlertManagementClaims | nul
   return {
     v: VERSION,
     subscriberId: record.subscriberId,
+    confirmToken: record.confirmToken,
     stateCode: stateCode as string | null,
     city: city as string | null,
     ...(push ? { push } : {}),
@@ -152,12 +159,13 @@ export async function createIceAlertManagementToken(
   options: ManagementTokenOptions = {}
 ) {
   const secret = signingSecret(options);
-  if (!secret) return null;
+  if (!secret || !UUID_RE.test(input.confirmToken)) return null;
 
   const now = options.now ?? Date.now();
   const claims: IceAlertManagementClaims = {
     v: VERSION,
     subscriberId: input.subscriberId,
+    confirmToken: input.confirmToken,
     stateCode: input.stateCode ?? null,
     city: input.city ?? null,
     ...(input.pushSubscription ? { push: input.pushSubscription } : {}),

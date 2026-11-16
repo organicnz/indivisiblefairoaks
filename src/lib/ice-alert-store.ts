@@ -20,6 +20,7 @@ export type IceAlertSubscriber = {
   push_opt_in: boolean;
   push_subscription: IceAlertPushSubscription | null;
   confirm_token: string;
+  confirm_token_expires_at: string | null;
   unsubscribe_token: string;
   confirmed_at: string | null;
   confirmation_sent_at: string | null;
@@ -51,6 +52,7 @@ type SubscriberInsert = {
   push_opt_in: boolean;
   push_subscription: IceAlertPushSubscription | null;
   confirm_token: string;
+  confirm_token_expires_at: string | null;
   unsubscribe_token: string;
   confirmed_at: string | null;
   confirmation_sent_at: string | null;
@@ -71,6 +73,30 @@ type SurgeEventInsert = {
   detected_at: string;
 };
 
+type IceAlertRateLimitRow = {
+  scope: 'ip' | 'email' | 'endpoint' | 'global';
+  key_hash: string;
+  window_start: string;
+  count: number;
+};
+
+export type IceAlertRateLimitResult = {
+  allowed: boolean;
+  retryAfterSec: number;
+  limitedScope: 'ip' | 'email' | 'endpoint' | 'global' | null;
+};
+
+export type IceAlertRateLimitInput = {
+  ipHash: string;
+  emailHash: string;
+  endpointHash: string | null;
+  windowSeconds: number;
+  ipLimit: number;
+  emailLimit: number;
+  endpointLimit: number;
+  globalLimit: number;
+};
+
 type IceAlertDatabase = {
   public: {
     Tables: {
@@ -86,9 +112,33 @@ type IceAlertDatabase = {
         Update: Partial<SurgeEventInsert & { notified_at: string; delivery_count: number }>;
         Relationships: [];
       };
+      ice_alert_rate_limits: {
+        Row: IceAlertRateLimitRow;
+        Insert: IceAlertRateLimitRow;
+        Update: Partial<IceAlertRateLimitRow>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      ice_alert_consume_rate_limits: {
+        Args: {
+          p_ip_hash: string;
+          p_email_hash: string;
+          p_endpoint_hash: string | null;
+          p_window_seconds: number;
+          p_ip_limit: number;
+          p_email_limit: number;
+          p_endpoint_limit: number;
+          p_global_limit: number;
+        };
+        Returns: {
+          allowed: boolean;
+          retry_after_seconds: number;
+          limited_scope: IceAlertRateLimitResult['limitedScope'];
+        }[];
+      };
+    };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
   };
@@ -108,6 +158,31 @@ export function getIceAlertStore(): IceAlertStore | null {
 
 export function normalizeAlertEmail(value: string) {
   return value.trim().toLowerCase();
+}
+
+export async function consumeIceAlertRateLimits(
+  store: IceAlertStore,
+  input: IceAlertRateLimitInput
+): Promise<IceAlertRateLimitResult> {
+  const { data, error } = await store.rpc('ice_alert_consume_rate_limits', {
+    p_ip_hash: input.ipHash,
+    p_email_hash: input.emailHash,
+    p_endpoint_hash: input.endpointHash,
+    p_window_seconds: input.windowSeconds,
+    p_ip_limit: input.ipLimit,
+    p_email_limit: input.emailLimit,
+    p_endpoint_limit: input.endpointLimit,
+    p_global_limit: input.globalLimit,
+  });
+  if (error) throw new Error(`rate limit lookup failed: ${error.message}`);
+
+  const row = data?.[0];
+  if (!row) throw new Error('rate limit lookup returned no row');
+  return {
+    allowed: row.allowed,
+    retryAfterSec: row.retry_after_seconds,
+    limitedScope: row.limited_scope,
+  };
 }
 
 export async function findSubscriberByEmail(
@@ -164,6 +239,35 @@ export async function updateSubscriber(
   return data;
 }
 
+export async function consumeIceAlertConfirmation(
+  store: IceAlertStore,
+  id: string,
+  confirmToken: string,
+  patch: SubscriberUpdate
+): Promise<IceAlertSubscriber | null> {
+  /*
+   * The `.eq('confirm_token', …)` is the single-use boundary, not the read in
+   * the route: two requests can both render the form, but only one UPDATE can
+   * still match this token. Rotating to a fresh, never-emailed UUID also makes
+   * a replay fail even when the subscriber is later unsubscribed or deleted.
+   */
+  const { data, error } = await store
+    .from('ice_alert_subscribers')
+    .update({
+      ...patch,
+      confirm_token: crypto.randomUUID(),
+      confirm_token_expires_at: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id)
+    .eq('confirm_token', confirmToken)
+    .gt('confirm_token_expires_at', new Date().toISOString())
+    .select('*')
+    .maybeSingle();
+  if (error) throw new Error(`subscriber confirmation failed: ${error.message}`);
+  return data;
+}
+
 export async function findSubscriberByToken(
   store: IceAlertStore,
   column: 'confirm_token' | 'unsubscribe_token',
@@ -176,6 +280,55 @@ export async function findSubscriberByToken(
     .maybeSingle();
   if (error) throw new Error(`subscriber token lookup failed: ${error.message}`);
   return data;
+}
+
+export async function listExpiredPendingSubscribers(
+  store: IceAlertStore,
+  before: string,
+  limit = 200
+) {
+  const { data, error } = await store
+    .from('ice_alert_subscribers')
+    .select('id')
+    .is('confirmed_at', null)
+    .is('unsubscribed_at', null)
+    .lt('updated_at', before)
+    .order('updated_at', { ascending: true })
+    .limit(limit);
+  if (error) throw new Error(`pending subscriber retention query failed: ${error.message}`);
+  return data ?? [];
+}
+
+export async function listExpiredUnsubscribedSubscribers(
+  store: IceAlertStore,
+  before: string,
+  limit = 200
+) {
+  const { data, error } = await store
+    .from('ice_alert_subscribers')
+    .select('id')
+    .not('unsubscribed_at', 'is', null)
+    .lt('unsubscribed_at', before)
+    .lt('updated_at', before)
+    .order('unsubscribed_at', { ascending: true })
+    .limit(limit);
+  if (error) throw new Error(`unsubscribed subscriber retention query failed: ${error.message}`);
+  return data ?? [];
+}
+
+export async function deleteSubscribers(store: IceAlertStore, ids: string[]) {
+  /*
+   * Keep each PostgREST URL bounded. A purge can find 200 pending plus 200
+   * unsubscribed rows in one run; sending all 400 UUIDs in one `in.(...)`
+   * approaches proxy URL limits and turns a routine cleanup into a 414.
+   */
+  for (let index = 0; index < ids.length; index += 200) {
+    const { error } = await store
+      .from('ice_alert_subscribers')
+      .delete()
+      .in('id', ids.slice(index, index + 200));
+    if (error) throw new Error(`subscriber retention delete failed: ${error.message}`);
+  }
 }
 
 export async function listConfirmedSubscribers(

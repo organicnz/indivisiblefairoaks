@@ -1,14 +1,15 @@
 import { NextResponse } from 'next/server';
 import { escapeHtml } from '@/lib/email';
+import { isIceAlertConfirmationTokenLive } from '@/lib/ice-alert-confirmation';
 import {
   verifyIceAlertManagementToken,
   type IceAlertManagementClaims,
 } from '@/lib/ice-alert-management';
 import {
+  consumeIceAlertConfirmation,
   findSubscriberById,
   findSubscriberByToken,
   getIceAlertStore,
-  updateSubscriber,
   type IceAlertStore,
   type IceAlertSubscriber,
 } from '@/lib/ice-alert-store';
@@ -31,6 +32,19 @@ const html = (body: string, status = 200) =>
     },
   });
 
+function expiredLink() {
+  return new NextResponse(
+    'This confirmation link expired or was already used. Request a new subscription email.',
+    {
+      status: 410,
+      headers: {
+        'Cache-Control': 'no-store',
+        ...NO_INDEX,
+      },
+    }
+  );
+}
+
 function label(stateCode: string | null, city: string | null) {
   if (city && stateCode) return `${city}, ${stateCode}`;
   return stateCode ?? 'nationwide';
@@ -51,6 +65,7 @@ type ResolveResult =
       store: IceAlertStore;
       subscriber: IceAlertSubscriber;
       claims: IceAlertManagementClaims | null;
+      confirmToken: string;
     };
 
 async function resolve(
@@ -87,11 +102,47 @@ async function resolve(
 
   const claims = await verifyIceAlertManagementToken(token);
   let subscriber: IceAlertSubscriber | null = null;
+  let confirmToken = '';
 
   if (claims) {
     subscriber = await findSubscriberById(store, claims.subscriberId);
+    if (!subscriber) {
+      return {
+        kind: 'response',
+        response: new NextResponse('This confirmation link is no longer valid.', {
+          status: 404,
+        }),
+      };
+    }
+
+    /*
+     * A valid HMAC is not enough. The link is only live while it still names
+     * the row's current confirmation token. Rotating that token when a newer
+     * email is sent, or when the subscriber unsubscribes, is what stops an old
+     * management link from re-applying stale preferences and re-subscribing
+     * somebody.
+     */
+    if (
+      subscriber.confirm_token !== claims.confirmToken ||
+      !isIceAlertConfirmationTokenLive(subscriber.confirm_token_expires_at)
+    ) {
+      return { kind: 'response', response: expiredLink() };
+    }
+    confirmToken = claims.confirmToken;
   } else if (UUID_RE.test(token)) {
     subscriber = await findSubscriberByToken(store, 'confirm_token', token);
+    if (!subscriber) {
+      return {
+        kind: 'response',
+        response: new NextResponse('This confirmation link is no longer valid.', {
+          status: 404,
+        }),
+      };
+    }
+    if (!isIceAlertConfirmationTokenLive(subscriber.confirm_token_expires_at)) {
+      return { kind: 'response', response: expiredLink() };
+    }
+    confirmToken = subscriber.confirm_token;
   } else {
     return {
       kind: 'response',
@@ -99,16 +150,7 @@ async function resolve(
     };
   }
 
-  if (!subscriber) {
-    return {
-      kind: 'response',
-      response: new NextResponse('This confirmation link is no longer valid.', {
-        status: 404,
-      }),
-    };
-  }
-
-  return { kind: 'subscriber', store, subscriber, claims };
+  return { kind: 'subscriber', store, subscriber, claims, confirmToken };
 }
 
 /** GET only shows the form. Mail scanners must not confirm a subscription. */
@@ -169,29 +211,40 @@ export async function POST(req: Request): Promise<NextResponse> {
   try {
     const resolved = await resolve(req, token);
     if (resolved.kind === 'response') return resolved.response;
-    const { store, subscriber, claims } = resolved;
+    const { store, subscriber, claims, confirmToken } = resolved;
+    const now = new Date().toISOString();
 
-    if (claims) {
-      await updateSubscriber(store, subscriber.id, {
-        state_code: claims.stateCode,
-        city: claims.city,
-        email_opt_in: true,
-        ...(claims.push
-          ? {
-              push_subscription: claims.push,
-              push_opt_in: true,
-            }
-          : {}),
-        confirmed_at: subscriber.confirmed_at ?? new Date().toISOString(),
-        unsubscribed_at: null,
-      });
-    } else if (!subscriber.confirmed_at || !subscriber.email_opt_in) {
-      await updateSubscriber(store, subscriber.id, {
-        confirmed_at: new Date().toISOString(),
-        email_opt_in: true,
-        unsubscribed_at: null,
-      });
-    }
+    const consumed = await consumeIceAlertConfirmation(
+      store,
+      subscriber.id,
+      confirmToken,
+      claims
+        ? {
+            state_code: claims.stateCode,
+            city: claims.city,
+            email_opt_in: true,
+            ...(claims.push
+              ? {
+                  push_subscription: claims.push,
+                  push_opt_in: true,
+                }
+              : {}),
+            confirmed_at: subscriber.confirmed_at ?? now,
+            unsubscribed_at: null,
+          }
+        : {
+            confirmed_at: subscriber.confirmed_at ?? now,
+            email_opt_in: true,
+            unsubscribed_at: null,
+          }
+    );
+
+    /*
+     * The token can be consumed by a concurrent request between resolve() and
+     * this UPDATE. In that case the row is intentionally left untouched and the
+     * second request gets the same expired/replayed response as an old link.
+     */
+    if (!consumed) return expiredLink();
 
     const place = escapeHtml(placeFor(subscriber, claims ?? undefined));
 
