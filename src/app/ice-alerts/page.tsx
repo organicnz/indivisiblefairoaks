@@ -4,14 +4,15 @@ import {
   ArrowRight,
   CalendarDays,
   Database,
-  ExternalLink,
   HeartHandshake,
+  MessageSquareText,
   Phone,
   Radio,
 } from 'lucide-react';
 import type { Metadata } from 'next';
 import { IceArrestHeatMap } from '@/components/ice-alerts/IceArrestHeatMap';
 import { IceRapidResponse } from '@/components/ice-alerts/IceRapidResponse';
+import { ReportSightingButton } from '@/components/ice-alerts/ReportSightingDialog';
 import { SurgeAlertsButton } from '@/components/ice-alerts/SurgeAlertsDialog';
 import { formatDateLabel } from '@/components/ice-alerts/data';
 import { parseIceMapUrlState } from '@/components/ice-alerts/map-url-state';
@@ -47,21 +48,20 @@ function RapidActions() {
     <div className="flex flex-wrap items-center gap-2">
       <SurgeAlertsButton />
       <a
+        href="#alert-channels"
+        className="inline-flex min-h-11 items-center gap-1.5 border border-border bg-surface-card px-3 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-foreground transition-colors hover:border-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+      >
+        <MessageSquareText className="size-3.5" aria-hidden="true" />
+        Text &amp; Signal
+      </a>
+      <a
         href="/ice-alerts/reunification"
         className="inline-flex min-h-10 items-center gap-1.5 border border-primary/30 bg-primary/5 px-3 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-foreground transition-colors hover:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
       >
         <HeartHandshake className="size-3.5" aria-hidden="true" />
         Family help
       </a>
-      <a
-        href="https://stopice.net/"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-flex min-h-10 items-center gap-1.5 border border-border bg-surface-card px-3 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-foreground transition-colors hover:border-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-      >
-        Report a sighting
-        <ExternalLink className="size-3.5" aria-hidden="true" />
-      </a>
+      <ReportSightingButton />
       <a
         href="tel:911"
         className="inline-flex min-h-10 items-center gap-1.5 border border-accent/40 bg-accent/10 px-3 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-accent transition-colors hover:bg-accent/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"

@@ -4,6 +4,7 @@ import { AlertTriangle } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { computeRapidSurges } from '@/lib/ice-rapid-surges';
+import { RapidAlertChannels } from './RapidAlertChannels';
 import { RapidAlertFeed } from './RapidAlertFeed';
 import { RapidFilterBar } from './RapidFilterBar';
 import { RapidLiveRail } from './RapidLiveRail';
@@ -332,6 +333,8 @@ export function IceRapidResponse({ snapshot, initialState }: IceRapidResponsePro
           </div>
         </div>
       </section>
+
+      <RapidAlertChannels />
 
       <RapidResponseGuide
         historicalMeta={snapshot.meta}

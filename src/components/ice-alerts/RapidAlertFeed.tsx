@@ -394,11 +394,11 @@ export function RapidAlertFeed({
         />
         <span>
           This page checks for a new public export every 2 minutes; the community source compiles
-          its export nightly. Source links open the original network, which may show more detail
-          than this page. Official releases are summarized by topic so names and case details are
-          not reproduced; open the release for the agency&apos;s full text. They are not live
-          enforcement locations. Source-confirmed means the reporting network&apos;s label, not
-          independent verification by this page.
+          its export nightly. Source links open the original network, which may show more detail,
+          including any community comments or updates. Official releases are summarized by topic
+          so names and case details are not reproduced; open the release for the agency&apos;s full
+          text. They are not live enforcement locations. Source-confirmed means the reporting
+          network&apos;s label, not independent verification by this page.
         </span>
       </div>
     </section>

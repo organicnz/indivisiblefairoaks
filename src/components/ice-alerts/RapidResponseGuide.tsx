@@ -73,7 +73,7 @@ const RESOURCES = [
   },
   {
     title: 'Report a sighting',
-    body: 'This page does not collect reports. Report through the Stop ICE Alerts Network, the public community source used here.',
+    body: 'This page does not collect reports. Report through the Stop ICE Alerts Network online, or text REPORT to 877-322-2299. Never send names, plates, or addresses.',
     href: 'https://stopice.net/',
     label: 'Open the reporting network',
     icon: Radio,

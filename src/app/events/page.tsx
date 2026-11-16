@@ -1,4 +1,13 @@
-import { AlertCircle, Archive, ArrowUpRight, Calendar, ExternalLink, Music, Users } from 'lucide-react';
+import {
+  AlertCircle,
+  Archive,
+  ArrowUpRight,
+  Calendar,
+  ExternalLink,
+  Mail,
+  Music,
+  Users,
+} from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { LegacyDocumentArchive } from '@/components/archive/LegacyDocumentArchive';
@@ -14,6 +23,9 @@ import { DEFAULT_UPCOMING_MEETING } from '@/lib/civic-events';
 import { pageMetadata } from '@/lib/metadata';
 import { getDataPoints, getUpcomingEventData } from '@/lib/queries/civic';
 import { getLegacyDocuments } from '@/lib/queries/legacy';
+
+const EVENT_SUBMISSION_HREF =
+  'mailto:contact@indivisiblefairoaks.org?subject=Community%20event%20submission&body=Event%20title%3A%0A%0AEvent%20type%20(protest%2C%20fundraiser%2C%20direct%20action%2C%20teach-in%2C%20show%2C%20virtual%2C%20or%20community)%3A%0A%0ADate%20and%20time%3A%0A%0ALocation%3A%0A%0AOrganizer%3A%0A%0AAccessibility%20and%20other%20details%3A%0A%0ALink%3A';
 
 export const metadata: Metadata = pageMetadata({
   title: 'Events & Actions',
@@ -82,10 +94,20 @@ export default async function EventsPage() {
                 Upcoming events
               </h2>
             </div>
-            <p className="civic-lede">
-              Meetings, street actions, choir rehearsals and trainings. Filter by the kind of work
-              you want to do, then RSVP with the organizer.
-            </p>
+            <div className="flex flex-col items-start gap-3">
+              <p className="civic-lede">
+                Meetings, street actions, choir rehearsals and trainings. Filter by the kind of work
+                you want to do, then RSVP with the organizer.
+              </p>
+              <a
+                href={EVENT_SUBMISSION_HREF}
+                title="Email the chapter to propose a community event. Events are reviewed before they appear."
+                className="inline-flex min-h-11 items-center gap-1.5 border border-border bg-surface-card px-3 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-foreground transition-colors hover:border-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                <Mail className="size-3.5" aria-hidden="true" />
+                Submit an event
+              </a>
+            </div>
           </div>
           <InteractiveEventsCalendar initialEvents={initialEvents} initialData={dataPoints} />
         </section>
