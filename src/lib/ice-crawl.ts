@@ -423,6 +423,7 @@ async function publishReports(
       kind: report.kind,
       extraction_method: method,
       dedupe_key: dedupeKey,
+      published_at: report.publishedAt ?? retrievedAt,
     });
   }
 

@@ -54,6 +54,7 @@ export type IceSourceReportInput = {
   kind: IceSourceReportKind;
   extraction_method: IceSourceExtractionMethod;
   dedupe_key: string;
+  published_at?: string;
 };
 
 type IceCrawlDatabase = {
