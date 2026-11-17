@@ -52,9 +52,22 @@ function adminSession() {
 function failure(
   status: 401 | 403 | 503,
   error: string,
-  mfaRequired = false
-): { ok: false; status: 401 | 403 | 503; error: string; mfaRequired?: boolean } {
-  return { ok: false, status, error, ...(mfaRequired ? { mfaRequired: true } : {}) };
+  mfaRequired = false,
+  mfaEnrollmentRequired = false
+): {
+  ok: false;
+  status: 401 | 403 | 503;
+  error: string;
+  mfaRequired?: boolean;
+  mfaEnrollmentRequired?: boolean;
+} {
+  return {
+    ok: false,
+    status,
+    error,
+    ...(mfaRequired ? { mfaRequired: true } : {}),
+    ...(mfaEnrollmentRequired ? { mfaEnrollmentRequired: true } : {}),
+  };
 }
 
 const aal1Failure = () =>
@@ -90,26 +103,38 @@ describe('Visual Edit Edge API Routes', () => {
         mfaRequired: true,
       },
       {
+        status: 403 as const,
+        error: 'MFA enrollment required. Set up an authenticator app to continue.',
+        mfaRequired: false,
+        mfaEnrollmentRequired: true,
+      },
+      {
         status: 503 as const,
         error: 'Could not verify admin access. Try again.',
         mfaRequired: false,
       },
-    ])('maps $status $error to a JSON response', async ({ status, error, mfaRequired }) => {
-      requireAdminApi.mockResolvedValue(failure(status, error, mfaRequired));
+    ])(
+      'maps $status $error to a JSON response',
+      async ({ status, error, mfaRequired, mfaEnrollmentRequired }) => {
+        requireAdminApi.mockResolvedValue(
+          failure(status, error, mfaRequired, mfaEnrollmentRequired)
+        );
 
-      const req = new Request(
-        'https://indivisiblefairoaks.org/api/visual-edit/context?pathname=/about'
-      ) as unknown as NextRequest;
-      const res = await getContext(req);
+        const req = new Request(
+          'https://indivisiblefairoaks.org/api/visual-edit/context?pathname=/about'
+        ) as unknown as NextRequest;
+        const res = await getContext(req);
 
-      expect(res.status).toBe(status);
-      const json = await res.json();
-      expect(json).toEqual({
-        error,
-        ...(mfaRequired ? { mfaRequired: true } : {}),
-      });
-      expect(getVisualPageContext).not.toHaveBeenCalled();
-    });
+        expect(res.status).toBe(status);
+        const json = await res.json();
+        expect(json).toEqual({
+          error,
+          ...(mfaRequired ? { mfaRequired: true } : {}),
+          ...(mfaEnrollmentRequired ? { mfaEnrollmentRequired: true } : {}),
+        });
+        expect(getVisualPageContext).not.toHaveBeenCalled();
+      }
+    );
 
     it('stops all visual-edit handlers before their actions when the session is AAL1', async () => {
       requireAdminApi.mockResolvedValue(aal1Failure());

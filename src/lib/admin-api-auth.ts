@@ -1,4 +1,8 @@
-import { assertMfaVerified, isStepUpChallenge } from '@/lib/mfa-guard';
+import {
+  assertMfaVerified,
+  isMfaEnrollmentRequired,
+  isStepUpChallenge,
+} from '@/lib/mfa-guard';
 import { createAdminClient, createServerClient } from '@/lib/supabase-server';
 
 export type AdminApiSession = {
@@ -8,6 +12,8 @@ export type AdminApiSession = {
   adminClient: Awaited<ReturnType<typeof createAdminClient>>;
   adminUserId: string;
   adminEmail: string;
+  /** `assertMfaVerified(..., { requireEnrollment: true })` just proved AAL2. */
+  mfaLevel: 'aal2';
 };
 
 export type AdminApiFailure = {
@@ -15,6 +21,8 @@ export type AdminApiFailure = {
   status: 401 | 403 | 503;
   error: string;
   mfaRequired?: boolean;
+  /** The account is an admin but has no verified TOTP factor yet. */
+  mfaEnrollmentRequired?: boolean;
 };
 
 export type AdminApiResult = { ok: true; session: AdminApiSession } | AdminApiFailure;
@@ -23,8 +31,8 @@ export type AdminApiResult = { ok: true; session: AdminApiSession } | AdminApiFa
  * The JSON-route counterpart of `requireAdmin`.
  *
  * Route handlers must return a status instead of calling `redirect()`, but they
- * need the same two checks the page gate performs: a verified MFA step-up when
- * the account has a TOTP factor, and a current `profiles.is_admin` grant. Doing
+ * need the same three checks the page gate performs: a current
+ * `profiles.is_admin` grant, a verified TOTP factor, and an AAL2 session. Doing
  * only the profile check here let an AAL1 admin session call the write endpoint
  * directly and bypass the step-up the UI enforces.
  */
@@ -38,17 +46,6 @@ export async function requireAdminApi(): Promise<AdminApiResult> {
 
     if (userError || !user) {
       return { ok: false, status: 401, error: 'Unauthenticated' };
-    }
-
-    const mfa = await assertMfaVerified(supabase);
-    if (!mfa.ok) {
-      if (isStepUpChallenge(mfa)) {
-        return { ok: false, status: 403, error: mfa.error, mfaRequired: true };
-      }
-      if (mfa.reason === 'not_authenticated') {
-        return { ok: false, status: 401, error: mfa.error };
-      }
-      return { ok: false, status: 503, error: mfa.error };
     }
 
     const adminClient = await createAdminClient();
@@ -67,12 +64,32 @@ export async function requireAdminApi(): Promise<AdminApiResult> {
       return { ok: false, status: 403, error: 'Admin privileges required' };
     }
 
+    const mfa = await assertMfaVerified(supabase, { requireEnrollment: true });
+    if (!mfa.ok) {
+      if (isStepUpChallenge(mfa)) {
+        return { ok: false, status: 403, error: mfa.error, mfaRequired: true };
+      }
+      if (isMfaEnrollmentRequired(mfa)) {
+        return {
+          ok: false,
+          status: 403,
+          error: mfa.error,
+          mfaEnrollmentRequired: true,
+        };
+      }
+      if (mfa.reason === 'not_authenticated') {
+        return { ok: false, status: 401, error: mfa.error };
+      }
+      return { ok: false, status: 503, error: mfa.error };
+    }
+
     return {
       ok: true,
       session: {
         supabase,
         adminUserId: user.id,
         adminEmail: profile.email || user.email || '',
+        mfaLevel: 'aal2',
         adminClient,
       },
     };

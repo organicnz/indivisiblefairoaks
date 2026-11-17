@@ -2,6 +2,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   assertMfaVerified,
+  hasVerifiedTotpFactor,
+  isMfaEnrollmentRequired,
   isMfaStepUpError,
   isStepUpChallenge,
   MFA_STEP_UP_ERROR,
@@ -92,9 +94,38 @@ describe('assertMfaVerified', () => {
     expect(isStepUpChallenge(result)).toBe(false);
   });
 
-  it('allows a user without verified factors', async () => {
+  it('allows a user without verified factors on ordinary account surfaces', async () => {
     const { client } = makeClient();
     expect(await assertMfaVerified(client)).toEqual({ ok: true });
+  });
+
+  it('requires TOTP enrollment when the caller asks for it', async () => {
+    const { client, getAal } = makeClient();
+    const result = await assertMfaVerified(client, { requireEnrollment: true });
+    expect(result).toEqual({
+      ok: false,
+      reason: 'enrollment_required',
+      error: 'MFA enrollment required. Set up an authenticator app to continue.',
+    });
+    expect(isMfaEnrollmentRequired(result)).toBe(true);
+    expect(isStepUpChallenge(result)).toBe(false);
+    // Enrollment is proven from the live factor list; no AAL read is useful
+    // when there is nothing that can answer a challenge.
+    expect(getAal).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['no factors', { all: [] }],
+    ['a phone-only factor', { all: [{ status: 'verified', factor_type: 'phone' }] }],
+    ['an unfinished TOTP enrollment', { all: [{ status: 'unverified', factor_type: 'totp' }] }],
+  ])('requires enrollment for %s even at AAL2', async (_label, factors) => {
+    const { client } = makeClient({
+      listFactors: { data: factors },
+      aal: { data: { currentLevel: 'aal2', nextLevel: 'aal2' } },
+    });
+    const result = await assertMfaVerified(client, { requireEnrollment: true });
+    expect(result.ok).toBe(false);
+    expect(isMfaEnrollmentRequired(result)).toBe(true);
   });
 
   /**
@@ -183,12 +214,12 @@ describe('assertMfaVerified', () => {
     expect(isStepUpChallenge(result)).toBe(true);
   });
 
-  it('allows a verified factor at AAL2', async () => {
+  it('allows a verified factor at AAL2 with enrollment required', async () => {
     const { client } = makeClient({
       listFactors: { data: { all: [{ status: 'verified', factor_type: 'totp' }] } },
       aal: { data: { currentLevel: 'aal2', nextLevel: 'aal2' } },
     });
-    expect(await assertMfaVerified(client)).toEqual({ ok: true });
+    expect(await assertMfaVerified(client, { requireEnrollment: true })).toEqual({ ok: true });
   });
 
   /**
@@ -267,6 +298,23 @@ describe('assertMfaVerified', () => {
   });
 });
 
+describe('hasVerifiedTotpFactor', () => {
+  it.each([
+    ['totp bucket', { totp: [{ status: 'verified' }] }],
+    ['all bucket', { all: [{ status: 'verified', factor_type: 'totp' }] }],
+  ])('accepts a verified factor in the %s', (_label, factors) => {
+    expect(hasVerifiedTotpFactor(factors)).toBe(true);
+  });
+
+  it.each([
+    ['an empty list', null],
+    ['a phone factor', { all: [{ status: 'verified', factor_type: 'phone' }] }],
+    ['an unverified TOTP factor', { all: [{ status: 'unverified', factor_type: 'totp' }] }],
+  ])('rejects %s', (_label, factors) => {
+    expect(hasVerifiedTotpFactor(factors)).toBe(false);
+  });
+});
+
 describe('isMfaStepUpError', () => {
   /**
    * The client half of the contract.
@@ -333,10 +381,23 @@ describe('isStepUpChallenge', () => {
    * middleware bounced the still-signed-in user off /login to a gated route.
    * Only `step_up_required` may be answered by a challenge.
    */
-  it.each(['not_authenticated', 'unavailable', 'state_unknown'] as const)(
+  it.each(['not_authenticated', 'unavailable', 'state_unknown', 'enrollment_required'] as const)(
     'is false for %s, so no fault is routed to the code box',
     (reason) => {
       expect(isStepUpChallenge({ ok: false, reason, error: 'x' })).toBe(false);
     }
   );
+
+  it('recognises enrollment separately from a step-up', () => {
+    expect(
+      isMfaEnrollmentRequired({
+        ok: false,
+        reason: 'enrollment_required',
+        error: 'MFA enrollment required. Set up an authenticator app to continue.',
+      })
+    ).toBe(true);
+    expect(
+      isMfaEnrollmentRequired({ ok: false, reason: 'step_up_required', error: 'x' })
+    ).toBe(false);
+  });
 });

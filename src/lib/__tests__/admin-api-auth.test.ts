@@ -16,6 +16,8 @@ vi.mock('@/lib/mfa-guard', () => ({
   assertMfaVerified: mocks.assertMfaVerified,
   isStepUpChallenge: (result: { ok: boolean; reason?: string }) =>
     !result.ok && result.reason === 'step_up_required',
+  isMfaEnrollmentRequired: (result: { ok: boolean; reason?: string }) =>
+    !result.ok && result.reason === 'enrollment_required',
 }));
 
 const { requireAdminApi } = await import('@/lib/admin-api-auth');
@@ -71,7 +73,24 @@ describe('requireAdminApi', () => {
       status: 403,
       mfaRequired: true,
     });
-    expect(mocks.createAdminClient).not.toHaveBeenCalled();
+    expect(mocks.assertMfaVerified).toHaveBeenCalledWith(expect.anything(), {
+      requireEnrollment: true,
+    });
+  });
+
+  it('requires enrollment for an admin with no verified TOTP factor', async () => {
+    mocks.assertMfaVerified.mockResolvedValue({
+      ok: false,
+      reason: 'enrollment_required',
+      error: 'MFA enrollment required. Set up an authenticator app to continue.',
+    });
+
+    await expect(requireAdminApi()).resolves.toMatchObject({
+      ok: false,
+      status: 403,
+      mfaEnrollmentRequired: true,
+      error: 'MFA enrollment required. Set up an authenticator app to continue.',
+    });
   });
 
   it('treats an unreadable MFA state as a retryable service fault', async () => {
@@ -110,7 +129,7 @@ describe('requireAdminApi', () => {
     });
   });
 
-  it('returns the session for a verified admin', async () => {
+  it('returns the session for an AAL2 admin', async () => {
     const adminClient = profileClient({ is_admin: true, email: 'admin@example.com' });
     mocks.createAdminClient.mockResolvedValue(adminClient);
 

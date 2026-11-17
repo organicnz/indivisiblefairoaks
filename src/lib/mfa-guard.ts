@@ -5,7 +5,7 @@ type ServerClient = Awaited<ReturnType<typeof createServerClient>>;
 /**
  * Why a step-up check failed.
  *
- * Three of these are "ask the volunteer to enter a code" and one is not, and
+ * Two of these are actionable (enroll or enter a code) and the rest are not, and
  * the difference decides what a caller should *do*. Before this existed every
  * caller branched on the message string — `admin/actions.ts` threw whatever
  * text arrived, `settings.ts` returned it to a generic error box whose only
@@ -21,24 +21,64 @@ type ServerClient = Awaited<ReturnType<typeof createServerClient>>;
  *   `step_up_required`   — the user has a verified factor and this session is
  *                          AAL1. This is the only reason to send someone to
  *                          `/auth/mfa`.
+ *   `enrollment_required` — an admin surface, but the account has no verified
+ *                          TOTP factor. Send them to account settings to enroll,
+ *                          never to the code box.
  */
 export type MfaFailureReason =
   | 'not_authenticated'
   | 'unavailable'
   | 'state_unknown'
-  | 'step_up_required';
+  | 'step_up_required'
+  | 'enrollment_required';
 
 export type MfaGuardResult = { ok: true } | { ok: false; reason: MfaFailureReason; error: string };
+
+export type MfaGuardOptions = {
+  /**
+   * Admin surfaces pass this. A verified TOTP factor is then mandatory even
+   * when the account has never enrolled; ordinary account surfaces still allow
+   * an account with no factor to use the site, matching the public policy.
+   */
+  requireEnrollment?: boolean;
+};
+
+export interface MfaFactorLike {
+  status?: string;
+  factor_type?: string;
+}
+
+export interface MfaFactorsLike {
+  totp?: MfaFactorLike[];
+  all?: MfaFactorLike[];
+}
 
 function deny(reason: MfaFailureReason, error: string): MfaGuardResult {
   return { ok: false, reason, error };
 }
 
 /**
+ * The single definition of "this account can answer a TOTP challenge".
+ *
+ * `totp` is the SDK bucket; `all` is the fallback for versions that do not
+ * populate it. A phone or webauthn factor is deliberately not enrollment here:
+ * both step-up surfaces render a TOTP box and cannot answer those factors.
+ */
+export function hasVerifiedTotpFactor(factors: MfaFactorsLike | null | undefined): boolean {
+  const totpFactors = factors?.totp ?? [];
+  const allFactors = factors?.all ?? [];
+  return [...totpFactors, ...allFactors].some(
+    (f) => f.status === 'verified' && (f.factor_type === undefined || f.factor_type === 'totp')
+  );
+}
+
+/**
  * Enforces step-up auth for account-mutating operations.
  *
- * If the user has no verified MFA factors, this is a no-op (pass).
- * If they do have verified factors, the session must already be AAL2 —
+ * If the user has no verified TOTP factor, ordinary account surfaces pass (the
+ * site cannot challenge a factor the account does not have), while admin
+ * surfaces pass `requireEnrollment` and deny with `enrollment_required`.
+ * If they do have a verified TOTP factor, the session must already be AAL2 —
  * otherwise the caller must send the user to /auth/mfa instead of writing.
  *
  * Fails closed on unreadable state (`state_unknown`), which is the deliberate
@@ -46,7 +86,10 @@ function deny(reason: MfaFailureReason, error: string): MfaGuardResult {
  * `state_unknown` as an error to retry, not as a prompt for a code — hence the
  * `reason` discriminant.
  */
-export async function assertMfaVerified(supabase: ServerClient): Promise<MfaGuardResult> {
+export async function assertMfaVerified(
+  supabase: ServerClient,
+  options: MfaGuardOptions = {}
+): Promise<MfaGuardResult> {
   try {
     const {
       data: { user },
@@ -91,14 +134,16 @@ export async function assertMfaVerified(supabase: ServerClient): Promise<MfaGuar
      * versions that do not populate it — filtered on `factor_type` either way, so
      * a phone factor surfacing through `all` cannot reintroduce the loop.
      */
-    const totpFactors = (factors?.totp ?? []) as { status?: string; factor_type?: string }[];
-    const allFactors = ((
-      factors as unknown as { all?: { status?: string; factor_type?: string }[] }
-    )?.all ?? []) as { status?: string; factor_type?: string }[];
-    const hasVerifiedTotp = [...totpFactors, ...allFactors].some(
-      (f) => f.status === 'verified' && (f.factor_type === undefined || f.factor_type === 'totp')
-    );
-    if (!hasVerifiedTotp) return { ok: true }; // nothing this site can challenge → pass through
+    const hasVerifiedTotp = hasVerifiedTotpFactor(factors as MfaFactorsLike);
+    if (!hasVerifiedTotp) {
+      if (options.requireEnrollment) {
+        return deny(
+          'enrollment_required',
+          'MFA enrollment required. Set up an authenticator app to continue.'
+        );
+      }
+      return { ok: true }; // ordinary account surface: nothing this site can challenge
+    }
 
     let aalCurrent: string | null = null;
     try {
@@ -146,6 +191,11 @@ export function isStepUpChallenge(result: MfaGuardResult): boolean {
   return !result.ok && result.reason === 'step_up_required';
 }
 
+/** Whether an admin must enroll a TOTP factor before the gate can pass. */
+export function isMfaEnrollmentRequired(result: MfaGuardResult): boolean {
+  return !result.ok && result.reason === 'enrollment_required';
+}
+
 /**
  * The `name` on an `Error` thrown by a step-up-guarded action.
  *
@@ -161,4 +211,16 @@ export const MFA_STEP_UP_ERROR = 'MfaStepUpRequired';
 /** Whether a rejection from a guarded action is a recoverable step-up request. */
 export function isMfaStepUpError(err: unknown): boolean {
   return err instanceof Error && err.name === MFA_STEP_UP_ERROR;
+}
+
+/**
+ * The rejection name for an admin action reached before TOTP enrollment.
+ *
+ * Kept distinct from `MFA_STEP_UP_ERROR`: sending this user to `/auth/mfa`
+ * would show a code box for a factor that does not exist yet.
+ */
+export const MFA_ENROLLMENT_ERROR = 'MfaEnrollmentRequired';
+
+export function isMfaEnrollmentError(err: unknown): boolean {
+  return err instanceof Error && err.name === MFA_ENROLLMENT_ERROR;
 }
