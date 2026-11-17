@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { getContentBySlugForEdit, getContentForEdit, saveContent } from '@/lib/actions/content';
-import { createServerClient } from '@/lib/supabase-server';
+import { requireAdminApi } from '@/lib/admin-api-auth';
+import { adminApiFailureResponse } from '@/lib/admin-api-response';
 
 /**
  * GET /api/visual-edit/content
@@ -9,24 +10,8 @@ import { createServerClient } from '@/lib/supabase-server';
  */
 export async function GET(req: NextRequest) {
   try {
-    const supabase = await createServerClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
-    }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('is_admin')
-      .or(`id.eq.${user.id},user_id.eq.${user.id}`)
-      .single();
-
-    if (!profile?.is_admin) {
-      return NextResponse.json({ error: 'Admin required' }, { status: 403 });
-    }
+    const auth = await requireAdminApi();
+    if (!auth.ok) return adminApiFailureResponse(auth);
 
     const { searchParams } = new URL(req.url);
     const slug = searchParams.get('slug');
@@ -62,24 +47,8 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
-    const supabase = await createServerClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
-    }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('is_admin')
-      .or(`id.eq.${user.id},user_id.eq.${user.id}`)
-      .single();
-
-    if (!profile?.is_admin) {
-      return NextResponse.json({ error: 'Admin required' }, { status: 403 });
-    }
+    const auth = await requireAdminApi();
+    if (!auth.ok) return adminApiFailureResponse(auth);
 
     const body = await req.json();
     const result = await saveContent(body);

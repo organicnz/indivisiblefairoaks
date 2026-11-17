@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { deleteCRMMedia, getCRMMediaFiles, uploadCRMMedia } from '@/lib/actions/crm';
-import { createServerClient } from '@/lib/supabase-server';
+import { requireAdminApi } from '@/lib/admin-api-auth';
+import { adminApiFailureResponse } from '@/lib/admin-api-response';
 
 /**
  * Visual Editor Media API
@@ -12,29 +13,13 @@ import { createServerClient } from '@/lib/supabase-server';
 
 export async function GET(req: Request) {
   try {
+    const auth = await requireAdminApi();
+    if (!auth.ok) return adminApiFailureResponse(auth);
+
     const { searchParams } = new URL(req.url);
     const folder = searchParams.get('folder') || 'all';
     const search = searchParams.get('search') || undefined;
     const limit = searchParams.get('limit') ? Number(searchParams.get('limit')) : 100;
-
-    const supabase = await createServerClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
-    }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('is_admin')
-      .or(`id.eq.${user.id},user_id.eq.${user.id}`)
-      .single();
-
-    if (!profile?.is_admin) {
-      return NextResponse.json({ error: 'Admin required' }, { status: 403 });
-    }
 
     const res = await getCRMMediaFiles({ folder, search, limit });
     return NextResponse.json({ media: res.items, folders: res.folders });
@@ -49,24 +34,8 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const supabase = await createServerClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
-    }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('is_admin')
-      .or(`id.eq.${user.id},user_id.eq.${user.id}`)
-      .single();
-
-    if (!profile?.is_admin) {
-      return NextResponse.json({ error: 'Admin required' }, { status: 403 });
-    }
+    const auth = await requireAdminApi();
+    if (!auth.ok) return adminApiFailureResponse(auth);
 
     const formData = await req.formData();
     const res = await uploadCRMMedia(formData);
@@ -90,30 +59,14 @@ export async function POST(req: Request) {
 
 export async function DELETE(req: Request) {
   try {
+    const auth = await requireAdminApi();
+    if (!auth.ok) return adminApiFailureResponse(auth);
+
     const { searchParams } = new URL(req.url);
     const path = searchParams.get('path') || searchParams.get('id');
 
     if (!path) {
       return NextResponse.json({ error: 'Media path required' }, { status: 400 });
-    }
-
-    const supabase = await createServerClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
-    }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('is_admin')
-      .or(`id.eq.${user.id},user_id.eq.${user.id}`)
-      .single();
-
-    if (!profile?.is_admin) {
-      return NextResponse.json({ error: 'Admin required' }, { status: 403 });
     }
 
     const res = await deleteCRMMedia(path);
