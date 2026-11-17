@@ -15,6 +15,11 @@ export type NavLink = {
   short?: string;
   href: string;
   /**
+   * Desktop header placement. Omitted routes render in the primary row;
+   * `alert` gives the route its own labeled navigation landmark.
+   */
+  placement?: 'alert';
+  /**
    * Extra path prefixes that should also mark this link active. A link is active
    * when the current path is the href itself or sits under one of these prefixes.
    */
@@ -60,6 +65,9 @@ export const ROUTES: readonly NavLink[] = [
     label: 'ICE Alert',
     short: 'ICE Alert',
     href: '/ice-alerts',
+    // Keep the alert in its own desktop utility landmark while retaining its
+    // position in the mobile drawer's ROUTES order.
+    placement: 'alert',
   },
   {
     label: 'Voter Info',
@@ -138,4 +146,34 @@ export function isActiveRoute(pathname: string, link: NavLink): boolean {
   return (link.matchPrefixes ?? []).some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
   );
+}
+
+export type HeaderNavigation = {
+  readonly primaryRoutes: readonly NavLink[];
+  readonly alertRoute: NavLink;
+};
+
+/**
+ * Split the route list into the desktop header's two landmarks.
+ *
+ * Exactly one route must opt into the alert placement. Failing loudly is
+ * deliberate: the ICE Alert entry is safety-critical, and a missing or
+ * duplicated placement must never silently remove it from the header.
+ */
+export function getHeaderNavigation(
+  routes: readonly NavLink[] = ROUTES
+): HeaderNavigation {
+  const alertRoutes = routes.filter((route) => route.placement === 'alert');
+  const [alertRoute, ...extraAlertRoutes] = alertRoutes;
+
+  if (!alertRoute || extraAlertRoutes.length > 0) {
+    throw new Error(
+      `Expected exactly one route with placement "alert", found ${alertRoutes.length}.`
+    );
+  }
+
+  return {
+    alertRoute,
+    primaryRoutes: routes.filter((route) => route.placement !== 'alert'),
+  };
 }

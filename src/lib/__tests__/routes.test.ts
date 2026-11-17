@@ -1,7 +1,12 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import { isLegacySlug, LEGACY_REDIRECTS } from '@/config/legacy-redirects';
-import { isActiveRoute, NOT_FOUND_ROUTES, ROUTES } from '@/config/routes';
+import {
+  getHeaderNavigation,
+  isActiveRoute,
+  NOT_FOUND_ROUTES,
+  ROUTES,
+} from '@/config/routes';
 
 describe('isActiveRoute', () => {
   it('matches an exact path', () => {
@@ -98,6 +103,34 @@ describe('ROUTES', () => {
     for (const privatePath of ['/login', '/account', '/admin']) {
       expect(hrefs).not.toContain(privatePath);
     }
+  });
+});
+
+describe('getHeaderNavigation', () => {
+  it('returns the single alert route and excludes it from the primary row', () => {
+    const { alertRoute, primaryRoutes } = getHeaderNavigation();
+    expect(alertRoute).toMatchObject({
+      label: 'ICE Alert',
+      short: 'ICE Alert',
+      href: '/ice-alerts',
+    });
+    expect(primaryRoutes.map((route) => route.href)).not.toContain('/ice-alerts');
+  });
+
+  it('fails loudly if the alert route is missing', () => {
+    expect(() => getHeaderNavigation([{ label: 'About', href: '/about' }])).toThrow(
+      /Expected exactly one route with placement "alert", found 0\./
+    );
+  });
+
+  it('fails loudly if more than one alert route is declared', () => {
+    expect(() =>
+      getHeaderNavigation([
+        { label: 'About', href: '/about' },
+        { label: 'ICE Alert', href: '/ice-alerts', placement: 'alert' },
+        { label: 'Other alert', href: '/other-alert', placement: 'alert' },
+      ])
+    ).toThrow(/Expected exactly one route with placement "alert", found 2\./);
   });
 });
 

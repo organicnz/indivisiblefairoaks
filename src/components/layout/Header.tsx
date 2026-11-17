@@ -12,7 +12,7 @@ import { NavDropdown } from '@/components/layout/NavDropdown';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
 import { CivicCommandPalette } from '@/components/ui/CivicCommandPalette';
 import { DataPoint } from '@/components/ui/DataPoint';
-import { isActiveRoute, ROUTES } from '@/config/routes';
+import { getHeaderNavigation, isActiveRoute, ROUTES } from '@/config/routes';
 import { SITE_CONTACT } from '@/config/site';
 import { useDataPoints } from '@/hooks/useDataPoints';
 
@@ -23,6 +23,10 @@ const DRAWER_ID = 'primary-navigation-drawer';
 // invisible, which fails WCAG 2.4.7.
 const FOCUS_RING =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background';
+
+// Route metadata is static. Validate the exactly-one-alert invariant once at
+// module load, rather than filtering the list on every header render.
+const { alertRoute, primaryRoutes } = getHeaderNavigation();
 
 export function Header() {
   return (
@@ -87,12 +91,11 @@ function HeaderFallback() {
 
 function HeaderInner() {
   const { dataPoints } = useDataPoints('header');
-  const alertRoute = ROUTES.find((link) => link.href === '/ice-alerts');
-  const primaryRoutes = ROUTES.filter((link) => link.href !== '/ice-alerts');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const pathname = usePathname();
+  const isAlertActive = isActiveRoute(pathname, alertRoute);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -237,21 +240,24 @@ function HeaderInner() {
               })}
             </nav>
 
-            {alertRoute ? (
+            <nav
+              aria-label="ICE alerts"
+              className="flex h-full shrink-0 items-center"
+            >
               <Link
                 href={alertRoute.href}
-                aria-current={isActiveRoute(pathname, alertRoute) ? 'page' : undefined}
+                aria-current={isAlertActive ? 'page' : undefined}
                 className={`relative inline-flex h-full shrink-0 items-center whitespace-nowrap rounded-sm px-1 text-[11px] font-bold uppercase tracking-[0.1em] text-accent transition-colors duration-300 ease-out hover:text-foreground ${FOCUS_RING}`}
               >
                 {alertRoute.short ?? alertRoute.label}
-                {isActiveRoute(pathname, alertRoute) ? (
+                {isAlertActive ? (
                   <span
                     aria-hidden="true"
                     className="absolute inset-x-1 bottom-0 h-0.5 bg-accent"
                   />
                 ) : null}
               </Link>
-            ) : null}
+            </nav>
           </div>
         </div>
       </header>
