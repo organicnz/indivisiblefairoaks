@@ -14,6 +14,12 @@
  *   src/lib/admin-auth.ts     — admin-only chokepoint: verifies is_admin
  *                              BEFORE issuing the admin client, then hands
  *                              it only to /admin routes and actions.
+ *   src/lib/admin-api-auth.ts — JSON-route counterpart of admin-auth: checks
+ *                              the session, MFA step-up and is_admin before
+ *                              issuing the client. The service client is used
+ *                              only for that profile read; writes continue on
+ *                              the session client so RLS remains a second
+ *                              check.
  *   src/app/api/crm/unsubscribe/ — public RFC 8058 landing zone: no user
  *                              session exists; token is an unguessable
  *                              per-contact UUID, update is idempotent and
@@ -52,7 +58,7 @@
  */
 
 const ALLOWLIST =
-  'src/app/admin/|src/app/api/webhooks/|src/app/api/crm/unsubscribe/|src/app/news/actions.ts|src/app/account/page.tsx|src/lib/supabase-server.ts|src/lib/admin-auth.ts|src/lib/crm-tag-scan.ts';
+  'src/app/admin/|src/app/api/webhooks/|src/app/api/crm/unsubscribe/|src/app/news/actions.ts|src/app/account/page.tsx|src/lib/supabase-server.ts|src/lib/admin-auth.ts|src/lib/admin-api-auth.ts|src/lib/crm-tag-scan.ts';
 
 const files = process.argv.slice(2);
 const violations = [];

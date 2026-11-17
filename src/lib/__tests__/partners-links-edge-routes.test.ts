@@ -3,12 +3,25 @@ import type { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const createPublicClient = vi.hoisted(() => vi.fn());
-const createServerClient = vi.hoisted(() => vi.fn());
+const requireAdminApi = vi.hoisted(() => vi.fn());
+const revalidateTag = vi.hoisted(() => vi.fn());
+const revalidatePath = vi.hoisted(() => vi.fn());
 
-vi.mock('@/lib/supabase-server', () => ({
-  createPublicClient,
-  createServerClient,
-}));
+vi.mock('@/lib/supabase-server', () => ({ createPublicClient }));
+vi.mock('@/lib/admin-api-auth', () => ({ requireAdminApi }));
+vi.mock('next/cache', () => ({ revalidateTag, revalidatePath }));
+
+function adminSession(supabase: unknown) {
+  return {
+    ok: true as const,
+    session: {
+      supabase,
+      adminClient: supabase,
+      adminUserId: 'admin-1',
+      adminEmail: 'admin@example.com',
+    },
+  };
+}
 
 const {
   GET: getPartners,
@@ -56,9 +69,7 @@ describe('Partners & Coalition Links Edge API Routes', () => {
     });
 
     it('POST rejects unauthenticated users with 401', async () => {
-      createServerClient.mockResolvedValue({
-        auth: { getUser: async () => ({ data: { user: null } }) },
-      });
+      requireAdminApi.mockResolvedValue({ ok: false, status: 401, error: 'Unauthenticated' });
 
       const req = new Request('https://indivisiblefairoaks.org/api/partners', {
         method: 'POST',
@@ -79,29 +90,17 @@ describe('Partners & Coalition Links Edge API Routes', () => {
         sort_order: 10,
       };
 
-      createServerClient.mockResolvedValue({
-        auth: {
-          getUser: async () => ({ data: { user: { id: 'admin-1' } } }),
-        },
-        from: (table: string) => {
-          if (table === 'profiles') {
-            return {
-              select: () => ({
-                or: () => ({
-                  single: async () => ({ data: { is_admin: true } }),
-                }),
-              }),
-            };
-          }
-          return {
+      requireAdminApi.mockResolvedValue(
+        adminSession({
+          from: () => ({
             upsert: () => ({
               select: () => ({
                 single: async () => ({ data: mockSaved, error: null }),
               }),
             }),
-          };
-        },
-      });
+          }),
+        })
+      );
 
       const req = new Request('https://indivisiblefairoaks.org/api/partners', {
         method: 'POST',
@@ -122,27 +121,15 @@ describe('Partners & Coalition Links Edge API Routes', () => {
     });
 
     it('DELETE deletes partner by slug when user is admin', async () => {
-      createServerClient.mockResolvedValue({
-        auth: {
-          getUser: async () => ({ data: { user: { id: 'admin-1' } } }),
-        },
-        from: (table: string) => {
-          if (table === 'profiles') {
-            return {
-              select: () => ({
-                or: () => ({
-                  single: async () => ({ data: { is_admin: true } }),
-                }),
-              }),
-            };
-          }
-          return {
+      requireAdminApi.mockResolvedValue(
+        adminSession({
+          from: () => ({
             delete: () => ({
               eq: async () => ({ error: null }),
             }),
-          };
-        },
-      });
+          }),
+        })
+      );
 
       const req = new Request('https://indivisiblefairoaks.org/api/partners?slug=partner-1', {
         method: 'DELETE',
@@ -186,9 +173,7 @@ describe('Partners & Coalition Links Edge API Routes', () => {
     });
 
     it('POST rejects unauthenticated users with 401', async () => {
-      createServerClient.mockResolvedValue({
-        auth: { getUser: async () => ({ data: { user: null } }) },
-      });
+      requireAdminApi.mockResolvedValue({ ok: false, status: 401, error: 'Unauthenticated' });
 
       const req = new Request('https://indivisiblefairoaks.org/api/coalition-links', {
         method: 'POST',
@@ -210,29 +195,17 @@ describe('Partners & Coalition Links Edge API Routes', () => {
         sort_order: 10,
       };
 
-      createServerClient.mockResolvedValue({
-        auth: {
-          getUser: async () => ({ data: { user: { id: 'admin-1' } } }),
-        },
-        from: (table: string) => {
-          if (table === 'profiles') {
-            return {
-              select: () => ({
-                or: () => ({
-                  single: async () => ({ data: { is_admin: true } }),
-                }),
-              }),
-            };
-          }
-          return {
+      requireAdminApi.mockResolvedValue(
+        adminSession({
+          from: () => ({
             upsert: () => ({
               select: () => ({
                 single: async () => ({ data: mockSaved, error: null }),
               }),
             }),
-          };
-        },
-      });
+          }),
+        })
+      );
 
       const req = new Request('https://indivisiblefairoaks.org/api/coalition-links', {
         method: 'POST',
@@ -251,30 +224,20 @@ describe('Partners & Coalition Links Edge API Routes', () => {
       const json = await res.json();
       expect(json.success).toBe(true);
       expect(json.link.name).toBe('California Voter Reg');
+      expect(revalidateTag).toHaveBeenCalledWith('coalition-links', 'hours');
+      expect(revalidatePath).toHaveBeenCalledWith('/links');
     });
 
     it('DELETE deletes coalition link by slug when user is admin', async () => {
-      createServerClient.mockResolvedValue({
-        auth: {
-          getUser: async () => ({ data: { user: { id: 'admin-1' } } }),
-        },
-        from: (table: string) => {
-          if (table === 'profiles') {
-            return {
-              select: () => ({
-                or: () => ({
-                  single: async () => ({ data: { is_admin: true } }),
-                }),
-              }),
-            };
-          }
-          return {
+      requireAdminApi.mockResolvedValue(
+        adminSession({
+          from: () => ({
             delete: () => ({
               eq: async () => ({ error: null }),
             }),
-          };
-        },
-      });
+          }),
+        })
+      );
 
       const req = new Request('https://indivisiblefairoaks.org/api/coalition-links?slug=link-1', {
         method: 'DELETE',
@@ -284,6 +247,8 @@ describe('Partners & Coalition Links Edge API Routes', () => {
       expect(res.status).toBe(200);
       const json = await res.json();
       expect(json.success).toBe(true);
+      expect(revalidateTag).toHaveBeenCalledWith('coalition-links', 'hours');
+      expect(revalidatePath).toHaveBeenCalledWith('/links');
     });
   });
 });

@@ -1,6 +1,8 @@
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { createPublicClient, createServerClient } from '@/lib/supabase-server';
+import { requireAdminApi } from '@/lib/admin-api-auth';
+import { createPublicClient } from '@/lib/supabase-server';
 
 const coalitionLinkSchema = z.object({
   slug: z.string().trim().min(1).max(120).optional(),
@@ -60,23 +62,12 @@ export async function GET() {
  */
 export async function POST(req: NextRequest) {
   try {
-    const authClient = await createServerClient();
-    const {
-      data: { user },
-    } = await authClient.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
-    }
-
-    const { data: profile } = await authClient
-      .from('profiles')
-      .select('is_admin')
-      .or(`id.eq.${user.id},user_id.eq.${user.id}`)
-      .single();
-
-    if (!profile?.is_admin) {
-      return NextResponse.json({ error: 'Admin privileges required' }, { status: 403 });
+    const auth = await requireAdminApi();
+    if (!auth.ok) {
+      return NextResponse.json(
+        { error: auth.error, ...(auth.mfaRequired ? { mfaRequired: true } : {}) },
+        { status: auth.status }
+      );
     }
 
     const json = await req.json();
@@ -103,7 +94,7 @@ export async function POST(req: NextRequest) {
       sort_order: payload.sort_order,
     };
 
-    const { data, error } = await authClient
+    const { data, error } = await auth.session.supabase
       .from('coalition_links')
       .upsert(upsertRow, { onConflict: 'slug' })
       .select('*')
@@ -112,6 +103,9 @@ export async function POST(req: NextRequest) {
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
+
+    revalidateTag('coalition-links', 'hours');
+    revalidatePath('/links');
 
     return NextResponse.json({ success: true, link: data }, { status: 200 });
   } catch (err) {
@@ -128,23 +122,12 @@ export async function POST(req: NextRequest) {
  */
 export async function DELETE(req: NextRequest) {
   try {
-    const authClient = await createServerClient();
-    const {
-      data: { user },
-    } = await authClient.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
-    }
-
-    const { data: profile } = await authClient
-      .from('profiles')
-      .select('is_admin')
-      .or(`id.eq.${user.id},user_id.eq.${user.id}`)
-      .single();
-
-    if (!profile?.is_admin) {
-      return NextResponse.json({ error: 'Admin privileges required' }, { status: 403 });
+    const auth = await requireAdminApi();
+    if (!auth.ok) {
+      return NextResponse.json(
+        { error: auth.error, ...(auth.mfaRequired ? { mfaRequired: true } : {}) },
+        { status: auth.status }
+      );
     }
 
     const { searchParams } = new URL(req.url);
@@ -154,10 +137,16 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'slug parameter required' }, { status: 400 });
     }
 
-    const { error } = await authClient.from('coalition_links').delete().eq('slug', slug);
+    const { error } = await auth.session.supabase
+      .from('coalition_links')
+      .delete()
+      .eq('slug', slug);
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
+
+    revalidateTag('coalition-links', 'hours');
+    revalidatePath('/links');
 
     return NextResponse.json({ success: true, deleted: slug }, { status: 200 });
   } catch (err) {

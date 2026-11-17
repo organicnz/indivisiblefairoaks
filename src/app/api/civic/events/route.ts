@@ -1,11 +1,13 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 // Issue #149: the GET payload feeds the calendar's rows and links; stamps must
 // be Pacific wall time interpreted by the consumers' `ctz=` / `TZID=`, never a
 // runtime-zone-of-the-server rendering.
 import { instantToPacificBasic } from '@/lib/calendar-time';
-import { createPublicClient, createServerClient } from '@/lib/supabase-server';
+import { requireAdminApi } from '@/lib/admin-api-auth';
+import { createPublicClient } from '@/lib/supabase-server';
 
 const eventSchema = z.object({
   slug: z.string().trim().min(1).max(120).optional(),
@@ -118,23 +120,12 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
-    const authClient = await createServerClient();
-    const {
-      data: { user },
-    } = await authClient.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
-    }
-
-    const { data: profile } = await authClient
-      .from('profiles')
-      .select('is_admin')
-      .or(`id.eq.${user.id},user_id.eq.${user.id}`)
-      .single();
-
-    if (!profile?.is_admin) {
-      return NextResponse.json({ error: 'Admin privileges required' }, { status: 403 });
+    const auth = await requireAdminApi();
+    if (!auth.ok) {
+      return NextResponse.json(
+        { error: auth.error, ...(auth.mfaRequired ? { mfaRequired: true } : {}) },
+        { status: auth.status }
+      );
     }
 
     const json = await req.json();
@@ -153,7 +144,9 @@ export async function POST(req: NextRequest) {
 
     // Issue #153: editing a Mobilize-sourced row claims it for a human — the
     // sync then skips it rather than overwriting the edit on its next pass.
-    const eventsClient = authClient as unknown as SupabaseClient;
+    // Writes stay on the session client, so RLS remains a second check after
+    // `requireAdminApi` has verified the MFA level and the profile grant.
+    const eventsClient = auth.session.supabase as unknown as SupabaseClient;
     let locksSync = false;
     if (payload.slug) {
       const { data: existing } = await eventsClient
@@ -192,6 +185,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    // The modal posts to this API first. Without this invalidation a successful
+    // save left `/events` and the homepage on their cached copies, so the
+    // editor could publish a correction that readers would not see until the
+    // cache expired.
+    revalidateTag('events', 'hours');
+    revalidatePath('/events');
+    revalidatePath('/');
+
     return NextResponse.json({ success: true, event: data }, { status: 200 });
   } catch (err) {
     return NextResponse.json(
@@ -207,23 +208,12 @@ export async function POST(req: NextRequest) {
  */
 export async function DELETE(req: NextRequest) {
   try {
-    const authClient = await createServerClient();
-    const {
-      data: { user },
-    } = await authClient.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
-    }
-
-    const { data: profile } = await authClient
-      .from('profiles')
-      .select('is_admin')
-      .or(`id.eq.${user.id},user_id.eq.${user.id}`)
-      .single();
-
-    if (!profile?.is_admin) {
-      return NextResponse.json({ error: 'Admin privileges required' }, { status: 403 });
+    const auth = await requireAdminApi();
+    if (!auth.ok) {
+      return NextResponse.json(
+        { error: auth.error, ...(auth.mfaRequired ? { mfaRequired: true } : {}) },
+        { status: auth.status }
+      );
     }
 
     const { searchParams } = new URL(req.url);
@@ -232,11 +222,15 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'Event slug is required' }, { status: 400 });
     }
 
-    const { error } = await authClient.from('events').delete().eq('slug', slug);
+    const { error } = await auth.session.supabase.from('events').delete().eq('slug', slug);
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
+
+    revalidateTag('events', 'hours');
+    revalidatePath('/events');
+    revalidatePath('/');
 
     return NextResponse.json({ success: true, deletedSlug: slug }, { status: 200 });
   } catch (err) {

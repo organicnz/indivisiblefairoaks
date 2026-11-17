@@ -3,12 +3,25 @@ import type { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const createPublicClient = vi.hoisted(() => vi.fn());
-const createServerClient = vi.hoisted(() => vi.fn());
+const requireAdminApi = vi.hoisted(() => vi.fn());
+const revalidateTag = vi.hoisted(() => vi.fn());
+const revalidatePath = vi.hoisted(() => vi.fn());
 
-vi.mock('@/lib/supabase-server', () => ({
-  createPublicClient,
-  createServerClient,
-}));
+vi.mock('@/lib/supabase-server', () => ({ createPublicClient }));
+vi.mock('@/lib/admin-api-auth', () => ({ requireAdminApi }));
+vi.mock('next/cache', () => ({ revalidateTag, revalidatePath }));
+
+function adminSession(supabase: unknown) {
+  return {
+    ok: true as const,
+    session: {
+      supabase,
+      adminClient: supabase,
+      adminUserId: 'admin-1',
+      adminEmail: 'admin@example.com',
+    },
+  };
+}
 
 const {
   GET: getDataPoints,
@@ -50,11 +63,7 @@ describe('Data Points Edge API Route (/api/data-points)', () => {
   });
 
   it('POST rejects unauthenticated users with 401', async () => {
-    createServerClient.mockResolvedValue({
-      auth: {
-        getUser: async () => ({ data: { user: null } }),
-      },
-    });
+    requireAdminApi.mockResolvedValue({ ok: false, status: 401, error: 'Unauthenticated' });
 
     const req = new Request('https://indivisiblefairoaks.org/api/data-points', {
       method: 'POST',
@@ -66,17 +75,10 @@ describe('Data Points Edge API Route (/api/data-points)', () => {
   });
 
   it('POST rejects non-admin users with 403', async () => {
-    createServerClient.mockResolvedValue({
-      auth: {
-        getUser: async () => ({ data: { user: { id: 'user-789' } } }),
-      },
-      from: () => ({
-        select: () => ({
-          or: () => ({
-            single: async () => ({ data: { is_admin: false } }),
-          }),
-        }),
-      }),
+    requireAdminApi.mockResolvedValue({
+      ok: false,
+      status: 403,
+      error: 'Admin privileges required',
     });
 
     const req = new Request('https://indivisiblefairoaks.org/api/data-points', {
@@ -97,29 +99,17 @@ describe('Data Points Edge API Route (/api/data-points)', () => {
       updated_at: '2026-10-14T12:00:00Z',
     };
 
-    createServerClient.mockResolvedValue({
-      auth: {
-        getUser: async () => ({ data: { user: { id: 'admin-123' } } }),
-      },
-      from: (table: string) => {
-        if (table === 'profiles') {
-          return {
-            select: () => ({
-              or: () => ({
-                single: async () => ({ data: { is_admin: true } }),
-              }),
-            }),
-          };
-        }
-        return {
+    requireAdminApi.mockResolvedValue(
+      adminSession({
+        from: () => ({
           upsert: () => ({
             select: () => ({
               single: async () => ({ data: mockSaved, error: null }),
             }),
           }),
-        };
-      },
-    });
+        }),
+      })
+    );
 
     const req = new Request('https://indivisiblefairoaks.org/api/data-points', {
       method: 'POST',
@@ -138,27 +128,15 @@ describe('Data Points Edge API Route (/api/data-points)', () => {
   });
 
   it('DELETE deletes data point by key when user is admin', async () => {
-    createServerClient.mockResolvedValue({
-      auth: {
-        getUser: async () => ({ data: { user: { id: 'admin-123' } } }),
-      },
-      from: (table: string) => {
-        if (table === 'profiles') {
-          return {
-            select: () => ({
-              or: () => ({
-                single: async () => ({ data: { is_admin: true } }),
-              }),
-            }),
-          };
-        }
-        return {
+    requireAdminApi.mockResolvedValue(
+      adminSession({
+        from: () => ({
           delete: () => ({
             eq: async () => ({ error: null }),
           }),
-        };
-      },
-    });
+        }),
+      })
+    );
 
     const req = new Request(
       'https://indivisiblefairoaks.org/api/data-points?key=home.hero.headline',

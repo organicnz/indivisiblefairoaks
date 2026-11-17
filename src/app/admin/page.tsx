@@ -1,3 +1,4 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   ArrowRight,
   Calendar,
@@ -41,6 +42,12 @@ type ContentRow = {
 
 export default async function AdminDashboardPage() {
   const { adminClient } = await requireAdminPage();
+  // The generated database types predate `is_hidden`, so this query needs the
+  // same untyped client the public query uses. Without the future filter the
+  // "Upcoming actions" panel listed the five oldest rows in the table — which
+  // were also the five most likely to be past events.
+  const eventsClient = adminClient as unknown as SupabaseClient;
+  const now = new Date().toISOString();
 
   const [
     { count: eventCount },
@@ -56,10 +63,12 @@ export default async function AdminDashboardPage() {
       .order('updated_at', { ascending: false })
       .limit(500),
     adminClient.from('profiles').select('id', { count: 'exact', head: true }),
-    adminClient
+    eventsClient
       .from('events')
       .select('slug, title, date_label, time_label, location_name, starts_at')
-      .order('starts_at', { ascending: true })
+      .eq('is_hidden', false)
+      .or(`starts_at.gte.${now},starts_at.is.null`)
+      .order('starts_at', { ascending: true, nullsFirst: false })
       .limit(5),
     getDataPoints('admin'),
   ]);

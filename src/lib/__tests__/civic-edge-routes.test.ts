@@ -3,17 +3,25 @@ import type { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const createPublicClient = vi.hoisted(() => vi.fn());
-const createAdminClient = vi.hoisted(() => vi.fn());
-const createServerClient = vi.hoisted(() => vi.fn());
+const requireAdminApi = vi.hoisted(() => vi.fn());
 const revalidateTag = vi.hoisted(() => vi.fn());
 const revalidatePath = vi.hoisted(() => vi.fn());
 
-vi.mock('@/lib/supabase-server', () => ({
-  createPublicClient,
-  createAdminClient,
-  createServerClient,
-}));
+vi.mock('@/lib/supabase-server', () => ({ createPublicClient }));
+vi.mock('@/lib/admin-api-auth', () => ({ requireAdminApi }));
 vi.mock('next/cache', () => ({ revalidateTag, revalidatePath }));
+
+function adminSession(adminClient: unknown) {
+  return {
+    ok: true as const,
+    session: {
+      supabase: adminClient,
+      adminClient,
+      adminUserId: 'admin-123',
+      adminEmail: 'admin@example.com',
+    },
+  };
+}
 
 const {
   GET: getEvents,
@@ -79,11 +87,7 @@ describe('Civic Events Edge API Route (/api/civic/events)', () => {
   });
 
   it('POST rejects unauthenticated users', async () => {
-    createServerClient.mockResolvedValue({
-      auth: {
-        getUser: async () => ({ data: { user: null } }),
-      },
-    });
+    requireAdminApi.mockResolvedValue({ ok: false, status: 401, error: 'Unauthenticated' });
 
     const req = new Request('https://indivisiblefairoaks.org/api/civic/events', {
       method: 'POST',
@@ -92,6 +96,24 @@ describe('Civic Events Edge API Route (/api/civic/events)', () => {
 
     const res = await postEvent(req);
     expect(res.status).toBe(401);
+  });
+
+  it('POST returns the step-up challenge instead of writing from an AAL1 session', async () => {
+    requireAdminApi.mockResolvedValue({
+      ok: false,
+      status: 403,
+      error: 'MFA verification required. Please complete 2FA.',
+      mfaRequired: true,
+    });
+
+    const req = new Request('https://indivisiblefairoaks.org/api/civic/events', {
+      method: 'POST',
+      body: JSON.stringify({ title: 'New Event' }),
+    }) as unknown as NextRequest;
+
+    const res = await postEvent(req);
+    expect(res.status).toBe(403);
+    expect(await res.json()).toMatchObject({ mfaRequired: true });
   });
 
   it('POST saves new event when user is admin', async () => {
@@ -109,29 +131,17 @@ describe('Civic Events Edge API Route (/api/civic/events)', () => {
       sort_order: 15,
     };
 
-    createServerClient.mockResolvedValue({
-      auth: {
-        getUser: async () => ({ data: { user: { id: 'admin-123' } } }),
-      },
-      from: (table: string) => {
-        if (table === 'profiles') {
-          return {
-            select: () => ({
-              or: () => ({
-                single: async () => ({ data: { is_admin: true } }),
-              }),
-            }),
-          };
-        }
-        return {
+    requireAdminApi.mockResolvedValue(
+      adminSession({
+        from: () => ({
           upsert: () => ({
             select: () => ({
               single: async () => ({ data: mockSaved, error: null }),
             }),
           }),
-        };
-      },
-    });
+        }),
+      })
+    );
 
     const req = new Request('https://indivisiblefairoaks.org/api/civic/events', {
       method: 'POST',
@@ -148,30 +158,21 @@ describe('Civic Events Edge API Route (/api/civic/events)', () => {
     const json = await res.json();
     expect(json.success).toBe(true);
     expect(json.event.title).toBe('Democracy Rally');
+    expect(revalidateTag).toHaveBeenCalledWith('events', 'hours');
+    expect(revalidatePath).toHaveBeenCalledWith('/events');
+    expect(revalidatePath).toHaveBeenCalledWith('/');
   });
 
   it('DELETE removes event by slug when user is admin', async () => {
-    createServerClient.mockResolvedValue({
-      auth: {
-        getUser: async () => ({ data: { user: { id: 'admin-123' } } }),
-      },
-      from: (table: string) => {
-        if (table === 'profiles') {
-          return {
-            select: () => ({
-              or: () => ({
-                single: async () => ({ data: { is_admin: true } }),
-              }),
-            }),
-          };
-        }
-        return {
+    requireAdminApi.mockResolvedValue(
+      adminSession({
+        from: () => ({
           delete: () => ({
             eq: async () => ({ error: null }),
           }),
-        };
-      },
-    });
+        }),
+      })
+    );
 
     const req = new Request('https://indivisiblefairoaks.org/api/civic/events?slug=test-event', {
       method: 'DELETE',
@@ -182,6 +183,9 @@ describe('Civic Events Edge API Route (/api/civic/events)', () => {
     const json = await res.json();
     expect(json.success).toBe(true);
     expect(json.deletedSlug).toBe('test-event');
+    expect(revalidateTag).toHaveBeenCalledWith('events', 'hours');
+    expect(revalidatePath).toHaveBeenCalledWith('/events');
+    expect(revalidatePath).toHaveBeenCalledWith('/');
   });
 });
 
@@ -236,29 +240,17 @@ describe('Civic Newsletters Edge API Route (/api/civic/newsletters)', () => {
       sort_order: 20,
     };
 
-    createServerClient.mockResolvedValue({
-      auth: {
-        getUser: async () => ({ data: { user: { id: 'admin-123' } } }),
-      },
-      from: (table: string) => {
-        if (table === 'profiles') {
-          return {
-            select: () => ({
-              or: () => ({
-                single: async () => ({ data: { is_admin: true } }),
-              }),
-            }),
-          };
-        }
-        return {
+    requireAdminApi.mockResolvedValue(
+      adminSession({
+        from: () => ({
           upsert: () => ({
             select: () => ({
               single: async () => ({ data: mockSaved, error: null }),
             }),
           }),
-        };
-      },
-    });
+        }),
+      })
+    );
 
     const req = new Request('https://indivisiblefairoaks.org/api/civic/newsletters', {
       method: 'POST',
@@ -280,27 +272,15 @@ describe('Civic Newsletters Edge API Route (/api/civic/newsletters)', () => {
   });
 
   it('DELETE removes newsletter by slug when user is admin', async () => {
-    createServerClient.mockResolvedValue({
-      auth: {
-        getUser: async () => ({ data: { user: { id: 'admin-123' } } }),
-      },
-      from: (table: string) => {
-        if (table === 'profiles') {
-          return {
-            select: () => ({
-              or: () => ({
-                single: async () => ({ data: { is_admin: true } }),
-              }),
-            }),
-          };
-        }
-        return {
+    requireAdminApi.mockResolvedValue(
+      adminSession({
+        from: () => ({
           delete: () => ({
             eq: async () => ({ error: null }),
           }),
-        };
-      },
-    });
+        }),
+      })
+    );
 
     const req = new Request(
       'https://indivisiblefairoaks.org/api/civic/newsletters?slug=fall-bulletin-2026',

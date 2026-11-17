@@ -1,8 +1,9 @@
 import { revalidatePath, revalidateTag } from 'next/cache';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { requireAdminApi } from '@/lib/admin-api-auth';
 import { env } from '@/lib/env';
-import { createPublicClient, createServerClient } from '@/lib/supabase-server';
+import { createPublicClient } from '@/lib/supabase-server';
 
 const dataPointSchema = z.object({
   key: z.string().trim().min(1, 'Key is required').max(120),
@@ -118,23 +119,12 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
-    const authClient = await createServerClient();
-    const {
-      data: { user },
-    } = await authClient.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
-    }
-
-    const { data: profile } = await authClient
-      .from('profiles')
-      .select('is_admin')
-      .or(`id.eq.${user.id},user_id.eq.${user.id}`)
-      .single();
-
-    if (!profile?.is_admin) {
-      return NextResponse.json({ error: 'Admin privileges required' }, { status: 403 });
+    const auth = await requireAdminApi();
+    if (!auth.ok) {
+      return NextResponse.json(
+        { error: auth.error, ...(auth.mfaRequired ? { mfaRequired: true } : {}) },
+        { status: auth.status }
+      );
     }
 
     const json = await req.json();
@@ -169,7 +159,7 @@ export async function POST(req: NextRequest) {
     // The two checks agree for every current admin: `is_admin()` matches
     // `profiles.user_id = auth.uid()`, and every admin row has `user_id` set and
     // equal to `id`. The `.or()` above stays as a legacy-row tolerance.
-    const { data, error } = await authClient
+    const { data, error } = await auth.session.supabase
       .from('data_points')
       .upsert(upsertRow, { onConflict: 'key' })
       .select('*')
@@ -201,23 +191,12 @@ export async function POST(req: NextRequest) {
  */
 export async function DELETE(req: NextRequest) {
   try {
-    const authClient = await createServerClient();
-    const {
-      data: { user },
-    } = await authClient.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
-    }
-
-    const { data: profile } = await authClient
-      .from('profiles')
-      .select('is_admin')
-      .or(`id.eq.${user.id},user_id.eq.${user.id}`)
-      .single();
-
-    if (!profile?.is_admin) {
-      return NextResponse.json({ error: 'Admin privileges required' }, { status: 403 });
+    const auth = await requireAdminApi();
+    if (!auth.ok) {
+      return NextResponse.json(
+        { error: auth.error, ...(auth.mfaRequired ? { mfaRequired: true } : {}) },
+        { status: auth.status }
+      );
     }
 
     const { searchParams } = new URL(req.url);
@@ -227,7 +206,7 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'key parameter required' }, { status: 400 });
     }
 
-    const { error } = await authClient.from('data_points').delete().eq('key', key);
+    const { error } = await auth.session.supabase.from('data_points').delete().eq('key', key);
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }

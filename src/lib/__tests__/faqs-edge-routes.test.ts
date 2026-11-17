@@ -3,12 +3,22 @@ import type { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const createPublicClient = vi.hoisted(() => vi.fn());
-const createServerClient = vi.hoisted(() => vi.fn());
+const requireAdminApi = vi.hoisted(() => vi.fn());
 
-vi.mock('@/lib/supabase-server', () => ({
-  createPublicClient,
-  createServerClient,
-}));
+vi.mock('@/lib/supabase-server', () => ({ createPublicClient }));
+vi.mock('@/lib/admin-api-auth', () => ({ requireAdminApi }));
+
+function adminSession(supabase: unknown) {
+  return {
+    ok: true as const,
+    session: {
+      supabase,
+      adminClient: supabase,
+      adminUserId: 'admin-1',
+      adminEmail: 'admin@example.com',
+    },
+  };
+}
 
 const { GET: getFaqs, POST: postFaq, DELETE: deleteFaq } = await import('@/app/api/faqs/route');
 
@@ -48,11 +58,7 @@ describe('FAQs Edge API Route (/api/faqs)', () => {
   });
 
   it('POST rejects unauthenticated requests with 401', async () => {
-    createServerClient.mockResolvedValue({
-      auth: {
-        getUser: async () => ({ data: { user: null } }),
-      },
-    });
+    requireAdminApi.mockResolvedValue({ ok: false, status: 401, error: 'Unauthenticated' });
 
     const req = new Request('https://indivisiblefairoaks.org/api/faqs', {
       method: 'POST',
@@ -64,17 +70,10 @@ describe('FAQs Edge API Route (/api/faqs)', () => {
   });
 
   it('POST rejects non-admin users with 403', async () => {
-    createServerClient.mockResolvedValue({
-      auth: {
-        getUser: async () => ({ data: { user: { id: 'user-456' } } }),
-      },
-      from: () => ({
-        select: () => ({
-          or: () => ({
-            single: async () => ({ data: { is_admin: false } }),
-          }),
-        }),
-      }),
+    requireAdminApi.mockResolvedValue({
+      ok: false,
+      status: 403,
+      error: 'Admin privileges required',
     });
 
     const req = new Request('https://indivisiblefairoaks.org/api/faqs', {
@@ -100,29 +99,17 @@ describe('FAQs Edge API Route (/api/faqs)', () => {
       sort_order: 10,
     };
 
-    createServerClient.mockResolvedValue({
-      auth: {
-        getUser: async () => ({ data: { user: { id: 'admin-123' } } }),
-      },
-      from: (table: string) => {
-        if (table === 'profiles') {
-          return {
-            select: () => ({
-              or: () => ({
-                single: async () => ({ data: { is_admin: true } }),
-              }),
-            }),
-          };
-        }
-        return {
+    requireAdminApi.mockResolvedValue(
+      adminSession({
+        from: () => ({
           upsert: () => ({
             select: () => ({
               single: async () => ({ data: mockSaved, error: null }),
             }),
           }),
-        };
-      },
-    });
+        }),
+      })
+    );
 
     const req = new Request('https://indivisiblefairoaks.org/api/faqs', {
       method: 'POST',
@@ -142,27 +129,15 @@ describe('FAQs Edge API Route (/api/faqs)', () => {
   });
 
   it('DELETE deletes FAQ by slug when user is admin', async () => {
-    createServerClient.mockResolvedValue({
-      auth: {
-        getUser: async () => ({ data: { user: { id: 'admin-123' } } }),
-      },
-      from: (table: string) => {
-        if (table === 'profiles') {
-          return {
-            select: () => ({
-              or: () => ({
-                single: async () => ({ data: { is_admin: true } }),
-              }),
-            }),
-          };
-        }
-        return {
+    requireAdminApi.mockResolvedValue(
+      adminSession({
+        from: () => ({
           delete: () => ({
             eq: async () => ({ error: null }),
           }),
-        };
-      },
-    });
+        }),
+      })
+    );
 
     const req = new Request('https://indivisiblefairoaks.org/api/faqs?slug=old-faq', {
       method: 'DELETE',
