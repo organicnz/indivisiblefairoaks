@@ -355,6 +355,12 @@ export async function getPublishedSourceReportCount(
   if (filters?.stateCode) {
     query = query.eq('state_code', filters.stateCode);
   }
+  if (filters?.city) {
+    // The locator returns the stored city spelling, but a hand-written URL may
+    // use different casing. Normalized city input cannot contain wildcard
+    // characters, so ILIKE is safe here and keeps selected places case-safe.
+    query = query.ilike('city', filters.city);
+  }
 
   const search = sourceReportSearchTerm(filters);
   if (search) {
@@ -388,6 +394,9 @@ export async function getPublishedSourceReports(
   }
   if (filters?.stateCode) {
     query = query.eq('state_code', filters.stateCode);
+  }
+  if (filters?.city) {
+    query = query.ilike('city', filters.city);
   }
 
   const search = sourceReportSearchTerm(filters);

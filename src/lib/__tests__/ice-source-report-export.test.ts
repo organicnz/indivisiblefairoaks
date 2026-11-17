@@ -32,7 +32,12 @@ describe('source report XML export', () => {
   it('includes attribution fields and readable source text', () => {
     const xml = serializeIceSourceReportsXml([REPORT], {
       generatedAt: '2026-11-16T20:00:00.000Z',
-      filters: { query: 'sacramento', kind: 'enforcement', stateCode: 'CA' },
+      filters: {
+        query: 'sacramento',
+        kind: 'enforcement',
+        stateCode: 'CA',
+        city: 'Sacramento',
+      },
     });
 
     expect(xml).toContain('<source_name>Example Source</source_name>');
@@ -44,6 +49,7 @@ describe('source report XML export', () => {
     expect(xml).toContain('Line three &quot;quoted&quot;.');
     expect(xml).toContain('<filter name="query">sacramento</filter>');
     expect(xml).toContain('<filter name="state">CA</filter>');
+    expect(xml).toContain('<filter name="city">Sacramento</filter>');
   });
 
   it('emits empty optional elements instead of dropping fields', () => {
@@ -51,7 +57,7 @@ describe('source report XML export', () => {
       [{ ...REPORT, source_title: null, city: null }],
       {
         generatedAt: '2026-11-16T20:00:00.000Z',
-        filters: { query: '', kind: 'all', stateCode: '' },
+        filters: { query: '', kind: 'all', stateCode: '', city: '' },
       }
     );
 

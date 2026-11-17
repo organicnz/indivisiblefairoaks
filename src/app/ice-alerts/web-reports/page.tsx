@@ -11,8 +11,9 @@ import {
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { connection } from 'next/server';
+import { SourceReportLocationPicker } from '@/components/ice-alerts/SourceReportLocationPicker';
+import { SourceReportStateSelect } from '@/components/ice-alerts/SourceReportStateSelect';
 import { WebReportCard } from '@/components/ice-alerts/WebReportsSection';
-import { US_STATE_OPTIONS } from '@/components/ice-alerts/us-state-options';
 import {
   getIceCrawlStore,
   getPublishedSourceReportCount,
@@ -33,7 +34,7 @@ const PER_PAGE = 20;
 export const metadata: Metadata = pageMetadata({
   title: 'Web Source Reports | ICE Alert',
   description:
-    'Search and browse source-attributed public web reports collected by the chapter, with the original URL, source label, publication time, and full readable source text.',
+    'Browse source-attributed public web reports nationwide or near your location, with the original URL, source label, publication time, and full readable source text.',
   path: '/ice-alerts/web-reports',
   robots: { index: false, follow: false },
 });
@@ -72,10 +73,13 @@ async function readArchive(page: number, filters: IceSourceReportFilters) {
 }
 
 function FilterSummary({ filters }: { filters: IceSourceReportFilters }) {
+  const area = filters.city
+    ? `${filters.city}${filters.stateCode ? `, ${filters.stateCode}` : ''}`
+    : filters.stateCode || null;
   const labels = [
     filters.query ? `“${filters.query}”` : null,
     filters.kind !== 'all' ? filters.kind : null,
-    filters.stateCode || null,
+    area,
   ].filter(Boolean);
 
   return labels.length > 0 ? <span>{labels.join(' · ')}</span> : null;
@@ -90,6 +94,12 @@ export default async function WebReportsPage({ searchParams }: { searchParams: S
   const { reports, total } = archive;
   const current = archive.current ?? 1;
   const totalPages = archive.totalPages ?? 1;
+  const clearQueryHref = iceSourceReportArchiveHref({ ...filters, query: '' });
+  const nationwideHref = iceSourceReportArchiveHref({
+    ...filters,
+    city: '',
+    stateCode: '',
+  });
 
   return (
     <main className="civic-page min-h-screen bg-background pb-20 pt-(--header-clearance) text-foreground">
@@ -108,8 +118,10 @@ export default async function WebReportsPage({ searchParams }: { searchParams: S
           </h1>
           <p className="mt-4 max-w-3xl text-sm leading-relaxed text-muted-foreground">
             Full readable passages collected from approved public sources. Every entry keeps its
-            original URL, source label, publication time, and retrieval time. These reports are not
-            independently verified by this chapter, and the source&apos;s own terms may apply.
+            original URL, source label, publication time, and retrieval time. Browse the full
+            national archive, or narrow it to the nearest city with collected reports. These
+            reports are not independently verified by this chapter, and the source&apos;s own terms
+            may apply.
           </p>
           <div className="mt-4 flex flex-wrap items-center gap-2">
             <p className="inline-flex items-center gap-2 border border-border bg-surface-card px-3 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.09em] text-muted-foreground">
@@ -127,12 +139,15 @@ export default async function WebReportsPage({ searchParams }: { searchParams: S
           </div>
         </div>
 
+        <SourceReportLocationPicker filters={filters} total={total} />
+
         <form
           action="/ice-alerts/web-reports"
           method="get"
           role="search"
           className="mt-6 border border-border bg-surface-card p-4 sm:p-5"
         >
+          <input type="hidden" name="city" value={filters.city} />
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="flex items-center gap-2 font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
               <SlidersHorizontal className="size-3.5 text-accent" aria-hidden="true" />
@@ -196,19 +211,7 @@ export default async function WebReportsPage({ searchParams }: { searchParams: S
               >
                 State
               </label>
-              <select
-                id="web-reports-state"
-                name="state"
-                defaultValue={filters.stateCode}
-                className="mt-1 min-h-11 w-full border border-border bg-background px-2.5 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-              >
-                <option value="">All states</option>
-                {US_STATE_OPTIONS.map((state) => (
-                  <option key={state.code} value={state.code}>
-                    {state.name}
-                  </option>
-                ))}
-              </select>
+              <SourceReportStateSelect defaultValue={filters.stateCode} />
             </div>
 
             <button
@@ -265,13 +268,31 @@ export default async function WebReportsPage({ searchParams }: { searchParams: S
                 : 'An admin can add an approved public source and run the crawler from the admin panel.'}
             </p>
             {filtered ? (
-              <Link
-                href="/ice-alerts/web-reports"
-                className="mt-3 inline-flex min-h-9 items-center gap-1.5 border border-border bg-background px-3 py-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.09em] text-foreground hover:border-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-              >
-                <RotateCcw className="size-3" aria-hidden="true" />
-                Clear filters
-              </Link>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {filters.query ? (
+                  <Link
+                    href={clearQueryHref}
+                    className="inline-flex min-h-9 items-center gap-1.5 border border-border bg-background px-3 py-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.09em] text-foreground hover:border-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  >
+                    Clear search, keep area
+                  </Link>
+                ) : null}
+                {filters.city || filters.stateCode ? (
+                  <Link
+                    href={nationwideHref}
+                    className="inline-flex min-h-9 items-center gap-1.5 border border-border bg-background px-3 py-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.09em] text-foreground hover:border-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  >
+                    Search nationwide
+                  </Link>
+                ) : null}
+                <Link
+                  href="/ice-alerts/web-reports"
+                  className="inline-flex min-h-9 items-center gap-1.5 border border-border bg-background px-3 py-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.09em] text-foreground hover:border-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                >
+                  <RotateCcw className="size-3" aria-hidden="true" />
+                  Clear all filters
+                </Link>
+              </div>
             ) : null}
           </div>
         ) : (

@@ -43,6 +43,9 @@ export function serializeIceSourceReportsXml(
   if (meta.filters.stateCode) {
     lines.push(`  <filter name="state">${escapeXml(meta.filters.stateCode)}</filter>`);
   }
+  if (meta.filters.city) {
+    lines.push(`  <filter name="city">${escapeXml(meta.filters.city)}</filter>`);
+  }
 
   for (const report of reports) {
     lines.push('  <report>');

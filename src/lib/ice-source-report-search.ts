@@ -7,6 +7,7 @@ export type IceSourceReportFilters = {
   query: string;
   kind: IceSourceReportKindFilter;
   stateCode: string;
+  city: string;
 };
 
 type SearchParamValue = string | string[] | null | undefined;
@@ -18,6 +19,7 @@ export const DEFAULT_ICE_SOURCE_REPORT_FILTERS: IceSourceReportFilters = {
   query: '',
   kind: 'all',
   stateCode: '',
+  city: '',
 };
 
 const KINDS = new Set<IceSourceReportKind>([
@@ -56,6 +58,19 @@ export function normalizeIceSourceReportQuery(value: unknown): string {
     .trim();
 }
 
+export function normalizeIceSourceReportCity(value: unknown): string {
+  const raw = Array.isArray(value) ? value[0] : value;
+  if (typeof raw !== 'string') return '';
+
+  return raw
+    .normalize('NFKC')
+    .replace(/[^\p{L}\p{N}\s.'-]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, MAX_QUERY_LENGTH)
+    .trim();
+}
+
 export function parseIceSourceReportFilters(
   params: SearchParamSource
 ): IceSourceReportFilters {
@@ -66,12 +81,18 @@ export function parseIceSourceReportFilters(
     : 'all';
   const rawState = readParam(params, 'state').trim().toUpperCase();
   const stateCode = US_STATE_CODES.has(rawState) ? rawState : '';
+  const city = normalizeIceSourceReportCity(readParam(params, 'city'));
 
-  return { query, kind, stateCode };
+  return { query, kind, stateCode, city };
 }
 
 export function hasIceSourceReportFilters(filters: IceSourceReportFilters) {
-  return filters.query.length > 0 || filters.kind !== 'all' || filters.stateCode.length > 0;
+  return (
+    filters.query.length > 0 ||
+    filters.kind !== 'all' ||
+    filters.stateCode.length > 0 ||
+    filters.city.length > 0
+  );
 }
 
 export function iceSourceReportFilterParams(filters: IceSourceReportFilters) {
@@ -79,6 +100,7 @@ export function iceSourceReportFilterParams(filters: IceSourceReportFilters) {
   if (filters.query) params.set('q', filters.query);
   if (filters.kind !== 'all') params.set('kind', filters.kind);
   if (filters.stateCode) params.set('state', filters.stateCode);
+  if (filters.city) params.set('city', filters.city);
   return params;
 }
 

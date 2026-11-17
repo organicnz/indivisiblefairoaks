@@ -64,7 +64,8 @@ const FIELDS = [
 const API_EXAMPLES = [
   '/api/ice-source-reports?per_page=20',
   '/api/ice-source-reports?q=sacramento&state=CA&kind=enforcement',
-  '/api/ice-source-reports?page=2&per_page=50',
+  '/api/ice-source-reports?state=CA&city=Sacramento',
+  '/api/ice-source-reports/locate?lat=38.5816&lng=-121.4944',
   '/api/ice-source-reports/export?format=json',
   '/api/ice-source-reports/export?format=xml&state=CA',
 ];
@@ -223,8 +224,11 @@ export default async function IceSourceDataPage() {
             </div>
             <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
               The API returns the same public projection as the archive. Use <code>q</code>,{' '}
-              <code>kind</code>, and <code>state</code> to filter; <code>page</code> and{' '}
-              <code>per_page</code> page through results. <code>per_page</code> is capped at 100.
+              <code>kind</code>, <code>state</code>, and <code>city</code> to filter; <code>page</code>{' '}
+              and <code>per_page</code> page through results. <code>per_page</code> is capped at 100.
+              The archive&apos;s Near me control uses the <code>locate</code> endpoint, which resolves
+              coordinates to the nearest city with published reports and never returns a precise
+              report location.
             </p>
 
             <div className="mt-4 space-y-2">
@@ -250,7 +254,7 @@ export default async function IceSourceDataPage() {
   "page": 1,
   "perPage": 20,
   "totalPages": 177,
-  "filters": { "query": "", "kind": "all", "stateCode": "" },
+  "filters": { "query": "", "kind": "all", "stateCode": "", "city": "" },
   "reports": [ { "id": "...", "source_url": "...", "text_content": "..." } ]
 }`}
               </pre>

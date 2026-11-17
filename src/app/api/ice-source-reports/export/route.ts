@@ -56,7 +56,7 @@ export async function GET(request: Request) {
       return errorJson(
         413,
         'export-too-large',
-        'This export is too large. Narrow it with q, kind, or state.'
+        'This export is too large. Narrow it with q, kind, state, or city.'
       );
     }
 
