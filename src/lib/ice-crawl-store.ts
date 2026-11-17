@@ -56,6 +56,8 @@ export type IceSourceReportLocationRow = {
   id: string;
   title: string;
   text_content: string;
+  city: string | null;
+  state_code: string | null;
 };
 
 export type IceSourceReportInput = {
@@ -309,7 +311,7 @@ export async function listIceCityPoints(store: IceCrawlStore) {
   return points;
 }
 
-export async function listSourceReportsMissingLocation(
+export async function listSourceReportsForLocationAudit(
   store: IceCrawlStore,
   limit = 1000,
   offset = 0
@@ -317,19 +319,18 @@ export async function listSourceReportsMissingLocation(
   const from = Math.max(0, offset);
   const { data, error } = await store
     .from('ice_source_reports')
-    .select('id, title, text_content')
-    .is('city', null)
+    .select('id, title, text_content, city, state_code')
     .order('id', { ascending: true })
     .range(from, from + Math.max(1, limit) - 1);
-  if (error) throw new Error(`missing source locations failed: ${error.message}`);
+  if (error) throw new Error(`source location audit failed: ${error.message}`);
   return (data ?? []) as IceSourceReportLocationRow[];
 }
 
 export async function updateSourceReportLocations(
   store: IceCrawlStore,
   ids: string[],
-  city: string,
-  stateCode: string
+  city: string | null,
+  stateCode: string | null
 ) {
   const { data, error } = await store
     .from('ice_source_reports')

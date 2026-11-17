@@ -54,7 +54,7 @@ const FIELDS = [
   ['source_retrieved_at', 'When this chapter retrieved the source text.'],
   ['title', 'The report headline derived from the source.'],
   ['text_content', 'The readable source text. Original wording is preserved.'],
-  ['city', 'City-level location, when the source states one.'],
+  ['city', 'City or named area, when the source states one.'],
   ['state_code', 'Two-letter U.S. state code, when available.'],
   ['kind', 'enforcement, detention, checkpoint, or other.'],
   ['extraction_method', 'feed, html, ai, or fallback.'],
@@ -271,7 +271,8 @@ export default async function IceSourceDataPage() {
               <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
                 The chapter does not independently verify these reports. Source text remains the
                 publisher&apos;s; its terms may apply. Do not use this dataset to identify, locate, or
-                harass any person. City-level location is intentional.
+                harass any person. Structured location is city-level; the full source text is
+                preserved verbatim.
               </p>
             </section>
 

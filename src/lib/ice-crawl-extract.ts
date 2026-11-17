@@ -1,7 +1,9 @@
 import sanitizeHtml from 'sanitize-html';
 import {
+  cleanCityName,
   createCityMatcher,
   extractStateCode,
+  isStreetSuffixCityName,
   US_STATE_CODES,
   type CityMatcher,
 } from '@/lib/rapid-city-match';
@@ -237,16 +239,19 @@ export function classifyReportKind(text: string): IceSourceReportKind {
 }
 
 const STREET_SUFFIX =
-  /\b(?:st|street|ave|avenue|blvd|boulevard|rd|road|dr|drive|ln|lane|way|hwy|highway|pkwy|parkway|ct|court|pl|place|ter|terrace|cir|circle|sq|square|loop|trail|trl)\b/i;
+  /\b(?:st|street|ave|avenue|blvd|boulevard|rd|road|dr|drive|ln|lane|way|hwy|highway|fwy|freeway|pkwy|parkway|ct|court|pl|place|ter|terrace|cir|circle|sq|square|loop|trail|trl|turnpike|route|rte)\b/i;
 const CITY_STOP_WORDS = new Set([
   'agent',
   'agents',
   'activity',
   'and',
+  'area',
   'at',
   'by',
+  'county',
   'crashed',
   'enforcement',
+  'exit',
   'for',
   'from',
   'ice',
@@ -261,6 +266,7 @@ const CITY_STOP_WORDS = new Set([
   'reported',
   'seen',
   'sighting',
+  'source',
   'spotted',
   'stopped',
   'the',
@@ -271,16 +277,27 @@ const CITY_STOP_WORDS = new Set([
   'working',
 ]);
 
+function stopWord(value: string) {
+  return value.toLowerCase().replace(/[^a-z]/g, '');
+}
+
 function cityCandidate(value: string) {
-  const words = value.replace(/\s+/g, ' ').trim().split(' ').filter(Boolean);
-  while (words.length > 0 && CITY_STOP_WORDS.has(words[0].toLowerCase())) {
+  const words = value
+    .replace(/\s+/g, ' ')
+    .trim()
+    .split(' ')
+    .map((word) => word.replace(/^[^A-Za-z0-9]+|[^A-Za-z0-9]+$/g, ''))
+    .filter(Boolean);
+  while (words.length > 0 && CITY_STOP_WORDS.has(stopWord(words[0]))) {
     words.shift();
   }
   const city = titleCaseCity(words.join(' '));
   if (!city || city.length > 80) return null;
+  if (!/[a-z]/i.test(city) || /\d/.test(city)) return null;
+  if (isStreetSuffixCityName(city)) return null;
   if (STREET_SUFFIX.test(city)) return null;
   for (const word of city.split(' ')) {
-    if (CITY_STOP_WORDS.has(word.toLowerCase())) return null;
+    if (CITY_STOP_WORDS.has(stopWord(word))) return null;
   }
   return city;
 }
@@ -315,7 +332,7 @@ function fallbackCityState(text: string) {
     if (stateCode && city) return { city, stateCode };
   }
 
-  const withZip = text.match(/\b([A-Za-z]{2})\s+\d{5}(?:-\d{4})?\b/i);
+  const withZip = text.match(/\b([A-Za-z]{2})\s*\d{5,9}(?:-\d{4})?\b/i);
   if (withZip?.index !== undefined) {
     const stateCode = validState(withZip[1]);
     const city = stateCode ? cityBeforeState(text.slice(0, withZip.index), stateCode) : null;
@@ -332,10 +349,14 @@ function fallbackCityState(text: string) {
   return { city: null, stateCode: validState(extractStateCode(text)) };
 }
 
-function cityStateFromMatcher(matcher: CityMatcher | null, text: string) {
-  if (!matcher) return null;
-  const match = matcher.findCityInLocation(text);
-  return match ? { city: match.city.city, stateCode: match.stateCode } : null;
+function cityStateFromText(text: string, matcher: CityMatcher | null) {
+  const stateCode = extractStateCode(text);
+  if (!stateCode) return { city: null, stateCode: null };
+  if (!matcher) return fallbackCityState(text);
+  const match = matcher.findCityInLocation(text, stateCode);
+  return match
+    ? { city: cleanCityName(match.city.city) ?? match.city.city, stateCode }
+    : { city: null, stateCode };
 }
 
 export function extractCityState(
@@ -343,10 +364,7 @@ export function extractCityState(
   cities?: readonly CityPoint[]
 ) {
   const matcher = cities?.length ? createCityMatcher(cities) : null;
-  return (
-    cityStateFromMatcher(matcher, text) ??
-    fallbackCityState(text)
-  );
+  return cityStateFromText(text, matcher);
 }
 
 export function isIceReportText(text: string) {
@@ -422,8 +440,7 @@ export function extractStopIceReports(
     } catch {
       // Keep the feed URL as the source when a report URL is malformed.
     }
-    const { city, stateCode } =
-      cityStateFromMatcher(matcher, location) ?? extractCityState(location);
+    const { city, stateCode } = cityStateFromText(location, matcher);
     const title = `Source report: ${location || 'ICE activity'}`;
     items.push({
       title,
@@ -465,9 +482,7 @@ export function extractFeedItems(
     const text = readableText(rawText);
     if (!sourceUrl || text.length < 20) continue;
     if (!isIceReportText(`${rawTitle} ${text}`)) continue;
-    const { city, stateCode } =
-      cityStateFromMatcher(matcher, `${rawTitle} ${text}`) ??
-      extractCityState(`${rawTitle} ${text}`);
+    const { city, stateCode } = cityStateFromText(`${rawTitle} ${text}`, matcher);
     const title = cleanTitle(rawTitle, 'Source report');
     items.push({
       title,

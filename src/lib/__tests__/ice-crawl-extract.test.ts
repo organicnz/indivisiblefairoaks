@@ -111,6 +111,44 @@ describe('ice source extraction', () => {
     });
   });
 
+  it('never borrows a same-named city from another state', () => {
+    const cities: CityPoint[] = [
+      ...CITIES,
+      { city: 'Costa Mesa', state: 'California', stateCode: 'CA', lat: 33.6, lng: -117.9, count: 1 },
+      { city: 'Gardena', state: 'California', stateCode: 'CA', lat: 33.8, lng: -118.3, count: 1 },
+      { city: 'McAllen', state: 'Texas', stateCode: 'TX', lat: 26.2, lng: -98.2, count: 1 },
+      { city: 'Houston', state: 'Texas', stateCode: 'TX', lat: 29.7, lng: -95.3, count: 1 },
+      { city: 'Willowbrook', state: 'Illinois', stateCode: 'IL', lat: 41.7, lng: -87.9, count: 1 },
+      { city: 'Boulevard', state: 'California', stateCode: 'CA', lat: 32.6, lng: -116.2, count: 1 },
+      { city: "Dallas'", state: 'Texas', stateCode: 'TX', lat: 32.7, lng: -96.8, count: 1 },
+    ];
+
+    expect(extractCityState('Willowbrook CA 90061', cities)).toEqual({
+      city: null,
+      stateCode: 'CA',
+    });
+    expect(extractCityState('15715 Crenshaw Boulevard Gardena CA 90249', cities)).toEqual({
+      city: 'Gardena',
+      stateCode: 'CA',
+    });
+    expect(extractCityState('974 W Houston Ave McAllen TX 78501', cities)).toEqual({
+      city: 'McAllen',
+      stateCode: 'TX',
+    });
+    expect(extractCityState('Costa MesaCA 92626', cities)).toEqual({
+      city: 'Costa Mesa',
+      stateCode: 'CA',
+    });
+    expect(extractCityState('Dallas TX 75252', cities)).toEqual({
+      city: 'Dallas',
+      stateCode: 'TX',
+    });
+    expect(extractCityState('Colden and Vermont 90044', cities)).toEqual({
+      city: null,
+      stateCode: null,
+    });
+  });
+
   it('finds same-origin links without external or fragment links', () => {
     const links = extractSameOriginLinks(
       '<a href="/one">One</a><a href="https://other.example/two">Two</a><a href="#three">Three</a><a href="/four#x">Four</a>',
