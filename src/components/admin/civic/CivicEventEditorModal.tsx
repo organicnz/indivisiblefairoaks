@@ -142,6 +142,9 @@ export function CivicEventEditorModal({
     try {
       const payload = {
         slug: slug.trim() || undefined,
+        // Only an existing row can be renamed. Sending its current slug lets
+        // the save update that row instead of upserting a duplicate.
+        original_slug: event?.slug,
         title: title.trim(),
         category,
         date_label: dateLabel.trim(),

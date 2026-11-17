@@ -230,10 +230,16 @@ export function CivicLinkManager({ onRefreshParent }: CivicLinkManagerProps) {
         link={editingLink}
         onSaved={(saved) => {
           setLinks((prev) => {
-            const exists = prev.some((item) => item.slug === saved.slug);
+            // A renamed link keeps its old slug in local state unless it is
+            // removed explicitly, which leaves a stale duplicate in the list.
+            const withoutOldSlug =
+              editingLink && editingLink.slug !== saved.slug
+                ? prev.filter((item) => item.slug !== editingLink.slug)
+                : prev;
+            const exists = withoutOldSlug.some((item) => item.slug === saved.slug);
             const next = exists
-              ? prev.map((item) => (item.slug === saved.slug ? saved : item))
-              : [...prev, saved];
+              ? withoutOldSlug.map((item) => (item.slug === saved.slug ? saved : item))
+              : [...withoutOldSlug, saved];
             // Sorting only the new-row branch left an edited row in its old
             // position after its sort order changed, so the admin list no
             // longer matched the order the public page would use.

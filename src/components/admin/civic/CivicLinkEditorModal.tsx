@@ -95,6 +95,7 @@ export function CivicLinkEditorModal({
     try {
       const payload = {
         slug: slug.trim() || undefined,
+        original_slug: link?.slug,
         name: name.trim(),
         category: resolvedCategory,
         url: url.trim(),

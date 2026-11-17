@@ -7,6 +7,7 @@ import { createPublicClient } from '@/lib/supabase-server';
 
 const newsletterSchema = z.object({
   slug: z.string().trim().min(1).max(120).optional(),
+  original_slug: z.string().trim().min(1).max(120).optional(),
   title: z.string().trim().min(1, 'Title is required').max(200),
   date_label: z.string().trim().min(1, 'Date label is required').max(100),
   description: z.string().trim().default(''),
@@ -87,6 +88,8 @@ export async function POST(req: NextRequest) {
     const finalSlug = payload.slug
       ? slugify(payload.slug)
       : slugify(payload.title) || `newsletter-${Date.now()}`;
+    const originalSlug = payload.original_slug ? slugify(payload.original_slug) : null;
+    const isRename = Boolean(originalSlug && originalSlug !== finalSlug);
 
     const upsertRow = {
       slug: finalSlug,
@@ -98,13 +101,21 @@ export async function POST(req: NextRequest) {
       published_at: payload.published_at || new Date().toISOString(),
     };
 
-    const { data, error } = await auth.session.supabase
-      .from('newsletters')
-      .upsert(upsertRow, { onConflict: 'slug' })
-      .select('*')
-      .single();
+    const write = isRename
+      ? auth.session.supabase
+          .from('newsletters')
+          .update(upsertRow)
+          .eq('slug', originalSlug ?? finalSlug)
+      : auth.session.supabase.from('newsletters').upsert(upsertRow, { onConflict: 'slug' });
+    const { data, error } = await write.select('*').single();
 
     if (error) {
+      if (error.code === '23505') {
+        return NextResponse.json(
+          { error: `"${finalSlug}" is already used by another bulletin.` },
+          { status: 409 }
+        );
+      }
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 

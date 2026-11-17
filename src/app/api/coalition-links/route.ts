@@ -6,6 +6,7 @@ import { createPublicClient } from '@/lib/supabase-server';
 
 const coalitionLinkSchema = z.object({
   slug: z.string().trim().min(1).max(120).optional(),
+  original_slug: z.string().trim().min(1).max(120).optional(),
   name: z.string().trim().min(1, 'Link name is required').max(200),
   category: z.string().trim().default(''),
   url: z.string().trim().url('Valid URL is required'),
@@ -83,6 +84,8 @@ export async function POST(req: NextRequest) {
     const finalSlug = payload.slug
       ? slugify(payload.slug)
       : slugify(payload.name) || `link-${Date.now()}`;
+    const originalSlug = payload.original_slug ? slugify(payload.original_slug) : null;
+    const isRename = Boolean(originalSlug && originalSlug !== finalSlug);
 
     const upsertRow = {
       slug: finalSlug,
@@ -94,13 +97,21 @@ export async function POST(req: NextRequest) {
       sort_order: payload.sort_order,
     };
 
-    const { data, error } = await auth.session.supabase
-      .from('coalition_links')
-      .upsert(upsertRow, { onConflict: 'slug' })
-      .select('*')
-      .single();
+    const write = isRename
+      ? auth.session.supabase
+          .from('coalition_links')
+          .update(upsertRow)
+          .eq('slug', originalSlug ?? finalSlug)
+      : auth.session.supabase.from('coalition_links').upsert(upsertRow, { onConflict: 'slug' });
+    const { data, error } = await write.select('*').single();
 
     if (error) {
+      if (error.code === '23505') {
+        return NextResponse.json(
+          { error: `"${finalSlug}" is already used by another link.` },
+          { status: 409 }
+        );
+      }
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 

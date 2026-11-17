@@ -86,6 +86,7 @@ export function CivicNewsletterEditorModal({
     try {
       const payload = {
         slug: slug.trim() || undefined,
+        original_slug: newsletter?.slug,
         title: title.trim(),
         date_label: dateLabel.trim(),
         description: description.trim(),

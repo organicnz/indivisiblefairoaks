@@ -163,6 +163,51 @@ describe('Civic Server Actions', () => {
       });
     });
 
+    it('renames an existing event in place instead of creating a duplicate', async () => {
+      const rows = [
+        {
+          slug: 'old-rally',
+          title: 'Old Rally',
+          category: 'Rallies & Street Action',
+          date_label: 'Saturday, Oct 24',
+          time_label: '10:00 AM',
+          starts_at: null,
+          ends_at: null,
+          location_name: 'Corner',
+          address: 'Fair Oaks Blvd',
+          description: 'Stand for democracy',
+          rsvp_url: '',
+          highlight: false,
+          sort_order: 10,
+          external_id: null,
+        },
+      ];
+      requireAdmin.mockResolvedValue({
+        adminClient: createMockAdminClient({ events: { rows } }),
+      });
+
+      const res = await saveCivicEvent({
+        slug: 'new-rally',
+        original_slug: 'old-rally',
+        title: 'Old Rally',
+        category: 'Rallies & Street Action' as const,
+        date_label: 'Saturday, Oct 24',
+        time_label: '10:00 AM',
+        starts_at: null,
+        ends_at: null,
+        location_name: 'Corner',
+        address: 'Fair Oaks Blvd',
+        description: 'Stand for democracy',
+        rsvp_url: '',
+        highlight: false,
+        sort_order: 10,
+      });
+
+      expect(res.success).toBe(true);
+      expect(rows).toHaveLength(1);
+      expect(rows[0]?.slug).toBe('new-rally');
+    });
+
     it('does not unlock a synced event when the ownership lookup fails', async () => {
       const upsert = vi.fn();
       requireAdmin.mockResolvedValue({
@@ -321,6 +366,38 @@ describe('Civic Server Actions', () => {
       }
     });
 
+    it('renames an existing newsletter in place instead of creating a duplicate', async () => {
+      const rows = [
+        {
+          slug: 'bulletin-summer',
+          title: 'Summer Bulletin',
+          date_label: 'July 2026',
+          description: 'Summer organizing',
+          topics: ['Election Defense'],
+          sort_order: 1,
+          published_at: '2026-07-01T00:00:00Z',
+        },
+      ];
+      requireAdmin.mockResolvedValue({
+        adminClient: createMockAdminClient({ newsletters: { rows } }),
+      });
+
+      const res = await saveCivicNewsletter({
+        slug: 'bulletin-autumn',
+        original_slug: 'bulletin-summer',
+        title: 'Summer Bulletin',
+        date_label: 'July 2026',
+        description: 'Summer organizing',
+        topics: ['Election Defense'],
+        sort_order: 1,
+        published_at: '2026-07-01T00:00:00Z',
+      });
+
+      expect(res.success).toBe(true);
+      expect(rows).toHaveLength(1);
+      expect(rows[0]?.slug).toBe('bulletin-autumn');
+    });
+
     it('deletes a newsletter by slug', async () => {
       const rows = [{ slug: 'bulletin-summer', title: 'Summer Bulletin' }];
       requireAdmin.mockResolvedValue({
@@ -398,6 +475,38 @@ describe('Civic Server Actions', () => {
       if (res.success && res.data) {
         expect(res.data.name).toBe('Sister District Project');
       }
+    });
+
+    it('renames an existing coalition link in place instead of creating a duplicate', async () => {
+      const rows = [
+        {
+          slug: 'sister-district',
+          name: 'Sister District Project',
+          category: 'Electoral Strategy',
+          url: 'https://sisterdistrict.com',
+          description: 'Focusing resources on competitive state legislative races.',
+          badge: 'Allies',
+          sort_order: 10,
+        },
+      ];
+      requireAdmin.mockResolvedValue({
+        adminClient: createMockAdminClient({ coalition_links: { rows } }),
+      });
+
+      const res = await saveCoalitionLink({
+        slug: 'sister-district-project',
+        original_slug: 'sister-district',
+        name: 'Sister District Project',
+        category: 'Electoral Strategy',
+        url: 'https://sisterdistrict.com',
+        description: 'Focusing resources on competitive state legislative races.',
+        badge: 'Allies',
+        sort_order: 10,
+      });
+
+      expect(res.success).toBe(true);
+      expect(rows).toHaveLength(1);
+      expect(rows[0]?.slug).toBe('sister-district-project');
     });
 
     it('rejects an invalid coalition link with missing fields', async () => {

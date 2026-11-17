@@ -228,6 +228,43 @@ describe('Partners & Coalition Links Edge API Routes', () => {
       expect(revalidatePath).toHaveBeenCalledWith('/links');
     });
 
+    it('POST renames an existing coalition link in place instead of upserting a duplicate', async () => {
+      const update = vi.fn(() => ({
+        eq: () => ({
+          select: () => ({
+            single: async () => ({
+              data: { slug: 'ca-voter-registration', name: 'California Voter Reg' },
+              error: null,
+            }),
+          }),
+        }),
+      }));
+      const upsert = vi.fn();
+      requireAdminApi.mockResolvedValue(
+        adminSession({
+          from: () => ({ update, upsert }),
+        })
+      );
+
+      const req = new Request('https://indivisiblefairoaks.org/api/coalition-links', {
+        method: 'POST',
+        body: JSON.stringify({
+          slug: 'ca-voter-registration',
+          original_slug: 'ca-voter-reg',
+          name: 'California Voter Reg',
+          category: 'Voter Resources',
+          url: 'https://registertovote.ca.gov',
+        }),
+      }) as unknown as NextRequest;
+
+      const res = await postCoalitionLink(req);
+      expect(res.status).toBe(200);
+      expect(update).toHaveBeenCalledWith(
+        expect.objectContaining({ slug: 'ca-voter-registration' })
+      );
+      expect(upsert).not.toHaveBeenCalled();
+    });
+
     it('DELETE deletes coalition link by slug when user is admin', async () => {
       requireAdminApi.mockResolvedValue(
         adminSession({

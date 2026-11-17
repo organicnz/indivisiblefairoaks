@@ -65,6 +65,9 @@ function slugify(text: string): string {
 
 const eventSchema = z.object({
   slug: z.string().trim().min(1).max(120).optional(),
+  // Set by the editor when an existing row is open. Without it a changed slug
+  // upserts a second row and leaves the original public event in place.
+  original_slug: z.string().trim().min(1).max(120).optional(),
   title: z.string().trim().min(1, 'Title is required').max(200),
   category: z.enum([
     'Meetings',
@@ -87,6 +90,7 @@ const eventSchema = z.object({
 
 const newsletterSchema = z.object({
   slug: z.string().trim().min(1).max(120).optional(),
+  original_slug: z.string().trim().min(1).max(120).optional(),
   title: z.string().trim().min(1, 'Title is required').max(200),
   date_label: z.string().trim().min(1, 'Date label is required').max(100),
   description: z.string().trim().default(''),
@@ -131,6 +135,8 @@ export async function saveCivicEvent(
     const finalSlug = payload.slug
       ? slugify(payload.slug)
       : slugify(payload.title) || `event-${Date.now()}`;
+    const originalSlug = payload.original_slug ? slugify(payload.original_slug) : null;
+    const isRename = Boolean(originalSlug && originalSlug !== finalSlug);
 
     // `events` gained `external_id` / `sync_locked` in the Mobilize migration,
     // which the generated types do not know about until the next
@@ -143,11 +149,15 @@ export async function saveCivicEvent(
     // corrected title or a shortened description is overwritten within the
     // hour, and the editor silently loses the argument.
     let locksSync = false;
-    if (payload.slug) {
+    // A rename must inspect the row being edited, not the new slug: reusing the
+    // new slug here would miss the Mobilize provenance and let the sync
+    // overwrite the renamed row on its next pass.
+    const sourceSlug = originalSlug ?? (payload.slug ? finalSlug : null);
+    if (sourceSlug) {
       const { data: existing, error: lookupError } = await eventsClient
         .from('events')
         .select('external_id')
-        .eq('slug', finalSlug)
+        .eq('slug', sourceSlug)
         .maybeSingle();
       if (lookupError) return fail(lookupError.message);
       locksSync = Boolean(existing?.external_id);
@@ -171,13 +181,17 @@ export async function saveCivicEvent(
       ...(locksSync ? { sync_locked: true } : {}),
     };
 
-    const { data, error } = await eventsClient
-      .from('events')
-      .upsert(upsertRow, { onConflict: 'slug' })
-      .select('*')
-      .single();
+    const write = isRename
+      ? eventsClient.from('events').update(upsertRow).eq('slug', originalSlug ?? finalSlug)
+      : eventsClient.from('events').upsert(upsertRow, { onConflict: 'slug' });
+    const { data, error } = await write.select('*').single();
 
-    if (error) return fail(error.message);
+    if (error) {
+      if (error.code === '23505') {
+        return fail(`"${finalSlug}" is already used by another event.`);
+      }
+      return fail(error.message);
+    }
 
     revalidateTag('events', 'hours');
     revalidatePath('/events');
@@ -273,6 +287,8 @@ export async function saveCivicNewsletter(
     const finalSlug = payload.slug
       ? slugify(payload.slug)
       : slugify(payload.title) || `newsletter-${Date.now()}`;
+    const originalSlug = payload.original_slug ? slugify(payload.original_slug) : null;
+    const isRename = Boolean(originalSlug && originalSlug !== finalSlug);
 
     const upsertRow = {
       slug: finalSlug,
@@ -284,13 +300,17 @@ export async function saveCivicNewsletter(
       published_at: payload.published_at || new Date().toISOString(),
     };
 
-    const { data, error } = await adminClient
-      .from('newsletters')
-      .upsert(upsertRow, { onConflict: 'slug' })
-      .select('*')
-      .single();
+    const write = isRename
+      ? adminClient.from('newsletters').update(upsertRow).eq('slug', originalSlug ?? finalSlug)
+      : adminClient.from('newsletters').upsert(upsertRow, { onConflict: 'slug' });
+    const { data, error } = await write.select('*').single();
 
-    if (error) return fail(error.message);
+    if (error) {
+      if (error.code === '23505') {
+        return fail(`"${finalSlug}" is already used by another bulletin.`);
+      }
+      return fail(error.message);
+    }
 
     revalidateTag('newsletters', 'hours');
     revalidatePath('/newsletters');
@@ -351,6 +371,7 @@ export interface CoalitionLinkRecord {
 
 const linkSchema = z.object({
   slug: z.string().trim().min(1).max(120).optional(),
+  original_slug: z.string().trim().min(1).max(120).optional(),
   name: z.string().trim().min(1, 'Link name is required').max(200),
   category: z.string().trim().default('Movement Partners'),
   url: z.string().trim().url('Valid URL is required (http/https)').max(500),
@@ -395,6 +416,8 @@ export async function saveCoalitionLink(
     const finalSlug = payload.slug
       ? slugify(payload.slug)
       : slugify(payload.name) || `link-${Date.now()}`;
+    const originalSlug = payload.original_slug ? slugify(payload.original_slug) : null;
+    const isRename = Boolean(originalSlug && originalSlug !== finalSlug);
 
     const upsertRow = {
       slug: finalSlug,
@@ -406,13 +429,17 @@ export async function saveCoalitionLink(
       sort_order: payload.sort_order,
     };
 
-    const { data, error } = await adminClient
-      .from('coalition_links')
-      .upsert(upsertRow, { onConflict: 'slug' })
-      .select('*')
-      .single();
+    const write = isRename
+      ? adminClient.from('coalition_links').update(upsertRow).eq('slug', originalSlug ?? finalSlug)
+      : adminClient.from('coalition_links').upsert(upsertRow, { onConflict: 'slug' });
+    const { data, error } = await write.select('*').single();
 
-    if (error) return fail(error.message);
+    if (error) {
+      if (error.code === '23505') {
+        return fail(`"${finalSlug}" is already used by another link.`);
+      }
+      return fail(error.message);
+    }
 
     revalidateTag('coalition-links', 'hours');
     revalidatePath('/links');

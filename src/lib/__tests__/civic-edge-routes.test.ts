@@ -164,6 +164,54 @@ describe('Civic Events Edge API Route (/api/civic/events)', () => {
     expect(revalidatePath).toHaveBeenCalledWith('/');
   });
 
+  it('POST renames an existing event in place instead of upserting a duplicate', async () => {
+    const renamed = {
+      slug: 'renaissance-rally',
+      title: 'Renaissance Rally',
+      category: 'Rallies & Street Action',
+      date_label: 'Oct 20, 2026',
+      time_label: '10:00 AM',
+    };
+    const update = vi.fn(() => ({
+      eq: () => ({
+        select: () => ({
+          single: async () => ({ data: renamed, error: null }),
+        }),
+      }),
+    }));
+    const upsert = vi.fn();
+    requireAdminApi.mockResolvedValue(
+      adminSession({
+        from: () => ({
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({ data: { external_id: null }, error: null }),
+            }),
+          }),
+          update,
+          upsert,
+        }),
+      })
+    );
+
+    const req = new Request('https://indivisiblefairoaks.org/api/civic/events', {
+      method: 'POST',
+      body: JSON.stringify({
+        slug: 'renaissance-rally',
+        original_slug: 'old-rally',
+        title: 'Renaissance Rally',
+        category: 'Rallies & Street Action',
+        date_label: 'Oct 20, 2026',
+        time_label: '10:00 AM',
+      }),
+    }) as unknown as NextRequest;
+
+    const res = await postEvent(req);
+    expect(res.status).toBe(200);
+    expect(update).toHaveBeenCalledWith(expect.objectContaining({ slug: 'renaissance-rally' }));
+    expect(upsert).not.toHaveBeenCalled();
+  });
+
   it('DELETE removes event by slug when user is admin', async () => {
     requireAdminApi.mockResolvedValue(
       adminSession({
@@ -303,6 +351,40 @@ describe('Civic Newsletters Edge API Route (/api/civic/newsletters)', () => {
     expect(json.newsletter.title).toBe('Winter Bulletin');
     expect(revalidateTag).toHaveBeenCalledWith('newsletters', 'hours');
     expect(revalidatePath).toHaveBeenCalledWith('/newsletters');
+  });
+
+  it('POST renames an existing newsletter in place instead of upserting a duplicate', async () => {
+    const update = vi.fn(() => ({
+      eq: () => ({
+        select: () => ({
+          single: async () => ({
+            data: { slug: 'bulletin-autumn', title: 'Summer Bulletin' },
+            error: null,
+          }),
+        }),
+      }),
+    }));
+    const upsert = vi.fn();
+    requireAdminApi.mockResolvedValue(
+      adminSession({
+        from: () => ({ update, upsert }),
+      })
+    );
+
+    const req = new Request('https://indivisiblefairoaks.org/api/civic/newsletters', {
+      method: 'POST',
+      body: JSON.stringify({
+        slug: 'bulletin-autumn',
+        original_slug: 'bulletin-summer',
+        title: 'Summer Bulletin',
+        date_label: 'July 2026',
+      }),
+    }) as unknown as NextRequest;
+
+    const res = await postNewsletter(req);
+    expect(res.status).toBe(200);
+    expect(update).toHaveBeenCalledWith(expect.objectContaining({ slug: 'bulletin-autumn' }));
+    expect(upsert).not.toHaveBeenCalled();
   });
 
   it('DELETE removes newsletter by slug when user is admin', async () => {

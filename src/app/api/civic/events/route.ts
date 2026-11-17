@@ -11,6 +11,7 @@ import { createPublicClient } from '@/lib/supabase-server';
 
 const eventSchema = z.object({
   slug: z.string().trim().min(1).max(120).optional(),
+  original_slug: z.string().trim().min(1).max(120).optional(),
   title: z.string().trim().min(1, 'Title is required').max(200),
   category: z.enum([
     'Meetings',
@@ -141,6 +142,8 @@ export async function POST(req: NextRequest) {
     const finalSlug = payload.slug
       ? slugify(payload.slug)
       : slugify(payload.title) || `event-${Date.now()}`;
+    const originalSlug = payload.original_slug ? slugify(payload.original_slug) : null;
+    const isRename = Boolean(originalSlug && originalSlug !== finalSlug);
 
     // Issue #153: editing a Mobilize-sourced row claims it for a human — the
     // sync then skips it rather than overwriting the edit on its next pass.
@@ -148,12 +151,19 @@ export async function POST(req: NextRequest) {
     // `requireAdminApi` has verified the MFA level and the profile grant.
     const eventsClient = auth.session.supabase as unknown as SupabaseClient;
     let locksSync = false;
-    if (payload.slug) {
-      const { data: existing } = await eventsClient
+    // Look up the row being edited, not the submitted slug. On a rename the
+    // latter is the new name and would miss the Mobilize provenance, letting
+    // the sync overwrite the renamed event on its next pass.
+    const sourceSlug = originalSlug ?? (payload.slug ? finalSlug : null);
+    if (sourceSlug) {
+      const { data: existing, error: lookupError } = await eventsClient
         .from('events')
         .select('external_id')
-        .eq('slug', finalSlug)
+        .eq('slug', sourceSlug)
         .maybeSingle();
+      if (lookupError) {
+        return NextResponse.json({ error: lookupError.message }, { status: 500 });
+      }
       locksSync = Boolean(existing?.external_id);
     }
 
@@ -175,13 +185,18 @@ export async function POST(req: NextRequest) {
       ...(locksSync ? { sync_locked: true } : {}),
     };
 
-    const { data, error } = await eventsClient
-      .from('events')
-      .upsert(upsertRow, { onConflict: 'slug' })
-      .select('*')
-      .single();
+    const write = isRename
+      ? eventsClient.from('events').update(upsertRow).eq('slug', originalSlug ?? finalSlug)
+      : eventsClient.from('events').upsert(upsertRow, { onConflict: 'slug' });
+    const { data, error } = await write.select('*').single();
 
     if (error) {
+      if (error.code === '23505') {
+        return NextResponse.json(
+          { error: `"${finalSlug}" is already used by another event.` },
+          { status: 409 }
+        );
+      }
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
