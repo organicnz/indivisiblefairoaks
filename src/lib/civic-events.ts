@@ -97,6 +97,15 @@ export const DEFAULT_UPCOMING_MEETING: CardEvent = {
 };
 
 /**
+ * The static December 1 fallback is valid only while it is still upcoming.
+ * After that date the callers must render the honest "date to be announced"
+ * state instead of advertising a meeting that has already happened.
+ */
+export function getFallbackMeeting(now: Date = new Date()): CardEvent | undefined {
+  return isEventUpcoming(DEFAULT_UPCOMING_MEETING, now) ? DEFAULT_UPCOMING_MEETING : undefined;
+}
+
+/**
  * The meeting the homepage card announces: first Meetings-category row in
  * `sort_order`, else the highlighted row, else the first row. `undefined` when
  * the table is empty — the call site renders its static fallback then, the
@@ -190,25 +199,39 @@ export interface GatheringCard {
   dateLine: string;
   locationLine: string;
   rsvpUrl: string;
-  calendarUrl: string;
+  calendarUrl: string | null;
+  isScheduled: boolean;
 }
 
 /**
- * Maps the selected event onto the card, or onto the static fallback when the
- * table holds no meeting. The fallback is the November chapter meeting the
- * card hardcoded before issue #37 — it renders only when the backend cannot
- * supply a row, never as a substitute for updating one. Its stamps are Pacific
- * wall time with `ctz` (issue #149), the same shape the builder emits.
+ * Maps the selected event onto the card, or onto the still-upcoming fallback
+ * when the table holds no meeting. When neither exists, the card says so
+ * instead of reusing a past date. The fallback is the December 1 chapter
+ * meeting; its stamps are Pacific wall time with `ctz` (issue #149), the same
+ * shape the builder emits.
  */
-export function gatheringCard(event: CardEvent | undefined): GatheringCard {
-  if (!event) {
-    const fallback = DEFAULT_UPCOMING_MEETING;
+export function gatheringCard(
+  event: CardEvent | undefined,
+  fallbackMeeting?: CardEvent
+): GatheringCard {
+  if (!event && fallbackMeeting) {
     return {
-      title: fallback.title,
-      dateLine: `${fallback.dateLabel} • ${fallback.timeLabel}`,
-      locationLine: `${fallback.locationName}, ${fallback.address}`,
-      rsvpUrl: fallback.rsvpUrl,
-      calendarUrl: buildGoogleCalendarUrl(fallback),
+      title: fallbackMeeting.title,
+      dateLine: `${fallbackMeeting.dateLabel} • ${fallbackMeeting.timeLabel}`,
+      locationLine: `${fallbackMeeting.locationName}, ${fallbackMeeting.address}`,
+      rsvpUrl: fallbackMeeting.rsvpUrl,
+      calendarUrl: buildGoogleCalendarUrl(fallbackMeeting),
+      isScheduled: true,
+    };
+  }
+  if (!event) {
+    return {
+      title: 'Next Chapter Meeting',
+      dateLine: 'Date to be announced',
+      locationLine: 'Location to be announced',
+      rsvpUrl: 'mailto:contact@indivisiblefairoaks.org?subject=Next%20chapter%20meeting',
+      calendarUrl: null,
+      isScheduled: false,
     };
   }
   return {
@@ -217,5 +240,6 @@ export function gatheringCard(event: CardEvent | undefined): GatheringCard {
     locationLine: `${event.locationName}, ${event.address}`,
     rsvpUrl: event.rsvpUrl,
     calendarUrl: buildGoogleCalendarUrl(event),
+    isScheduled: true,
   };
 }

@@ -65,8 +65,9 @@ export default async function HomePage() {
 
   // Issue #175: past one-off events belong in the archive. Recurring activity
   // stays visible, and the next meeting is selected by date rather than by the
-  // first Meetings row in sort order. The static December 1 fallback covers a
-  // stale database until the next meeting is inserted through the admin UI.
+  // first Meetings row in sort order. The still-upcoming December 1 fallback
+  // covers a stale database until the next meeting is inserted through the
+  // admin UI; after that date the card shows an honest TBD state.
   const upcomingEvents = upcoming.events;
   // Cap at 5 so the ticker doesn't overflow on small screens.
   const tickerItems: TickerItem[] = upcomingEvents.slice(0, 5).map((e) => ({
@@ -78,7 +79,7 @@ export default async function HomePage() {
 
   // Dynamic gathering card (issue #37): the meeting row drives the alert card,
   // so the events table — not JSX — is where the next meeting gets updated.
-  const card = gatheringCard(upcoming.nextMeeting);
+  const card = gatheringCard(upcoming.nextMeeting, upcoming.fallbackMeeting);
 
   return (
     <div className="civic-page flex w-full flex-col">
@@ -286,33 +287,51 @@ export default async function HomePage() {
                   <span>{card.locationLine}</span>
                 </div>
               </div>
-              <p className="mt-4 flex items-start gap-1.5 border-t border-border pt-3 text-xs leading-relaxed text-muted-foreground">
-                <Soup size={13} className="mt-0.5 shrink-0 text-accent" aria-hidden="true" />
-                <span>
-                  <strong className="text-foreground">
-                    <DataPoint name="home.gathering.food_bank_label" initialData={dataPoints}>
-                      Food Bank Drive:
+              {card.isScheduled ? (
+                <p className="mt-4 flex items-start gap-1.5 border-t border-border pt-3 text-xs leading-relaxed text-muted-foreground">
+                  <Soup size={13} className="mt-0.5 shrink-0 text-accent" aria-hidden="true" />
+                  <span>
+                    <strong className="text-foreground">
+                      <DataPoint name="home.gathering.food_bank_label" initialData={dataPoints}>
+                        Food Bank Drive:
+                      </DataPoint>
+                    </strong>{' '}
+                    <DataPoint name="home.gathering.food_bank" initialData={dataPoints}>
+                      Please bring a can or box of non-perishable food to support our local community
+                      food pantry.
                     </DataPoint>
-                  </strong>{' '}
-                  <DataPoint name="home.gathering.food_bank" initialData={dataPoints}>
-                    Please bring a can or box of non-perishable food to support our local community
-                    food pantry.
-                  </DataPoint>
-                </span>
-              </p>
+                  </span>
+                </p>
+              ) : (
+                <p className="mt-4 flex items-start gap-1.5 border-t border-border pt-3 text-xs leading-relaxed text-muted-foreground">
+                  <CalendarDays size={13} className="mt-0.5 shrink-0 text-accent" aria-hidden="true" />
+                  <span>
+                    No future chapter meeting is scheduled yet.{' '}
+                    <a
+                      href="mailto:contact@indivisiblefairoaks.org?subject=Next%20chapter%20meeting"
+                      className="font-semibold text-primary-ink underline decoration-primary/40 underline-offset-4 hover:decoration-primary dark:text-primary-on-dark"
+                    >
+                      Ask the chapter
+                    </a>{' '}
+                    for the next date.
+                  </span>
+                </p>
+              )}
             </div>
 
             <div className="flex flex-col justify-center gap-2 border-t border-border px-5 py-5 md:border-l md:border-t-0 md:px-5">
-              <a
-                href={card.calendarUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex min-h-11 w-full items-center justify-center border border-foreground/30 px-4 py-3 text-center text-[10px] font-bold uppercase tracking-[0.12em] text-foreground transition-colors duration-300 hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-              >
-                <DataPoint as="span" name="home.gathering.btn_cal" initialData={dataPoints}>
-                  + Add to Calendar
-                </DataPoint>
-              </a>
+              {card.calendarUrl ? (
+                <a
+                  href={card.calendarUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex min-h-11 w-full items-center justify-center border border-foreground/30 px-4 py-3 text-center text-[10px] font-bold uppercase tracking-[0.12em] text-foreground transition-colors duration-300 hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                >
+                  <DataPoint as="span" name="home.gathering.btn_cal" initialData={dataPoints}>
+                    + Add to Calendar
+                  </DataPoint>
+                </a>
+              ) : null}
               <a
                 href={card.rsvpUrl}
                 target="_blank"
@@ -320,7 +339,7 @@ export default async function HomePage() {
                 className="inline-flex min-h-11 w-full items-center justify-center bg-accent-gold px-5 py-3 text-center text-[10px] font-bold uppercase tracking-[0.12em] text-ink-strong transition-all duration-300 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
               >
                 <DataPoint as="span" name="home.gathering.btn_rsvp" initialData={dataPoints}>
-                  RSVP via Mobilize
+                  {card.isScheduled ? 'RSVP via Mobilize' : 'Ask about the next meeting'}
                 </DataPoint>
               </a>
             </div>

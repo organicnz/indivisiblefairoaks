@@ -63,7 +63,8 @@ export default async function AdminEventsPage() {
             <ul className="mt-3 grid gap-1.5 text-xs leading-relaxed text-muted-foreground sm:grid-cols-3">
               <li>Past one-off events are hidden from the public Events page.</li>
               <li>“Ongoing” and “Every …” rows stay visible as recurring activity.</li>
-              <li>December 1 is the fallback until a newer meeting is added.</li>
+              <li>December 1 is the fallback while it is still upcoming.</li>
+              <li>After it passes, the public card says “Date to be announced” until a newer meeting is added.</li>
             </ul>
           </div>
         </div>

@@ -3,6 +3,7 @@ import { cacheLife, cacheTag } from 'next/cache';
 import type { CivicEvent } from '@/components/ui/InteractiveEventsCalendar';
 import {
   filterUpcomingEvents,
+  getFallbackMeeting,
   selectUpcomingMeetingEvent,
   type CardEvent,
 } from '@/lib/civic-events';
@@ -132,6 +133,7 @@ export async function getEvents(): Promise<CivicEvent[]> {
 export interface UpcomingEventData {
   events: CivicEvent[];
   nextMeeting: CardEvent | undefined;
+  fallbackMeeting: CardEvent | undefined;
 }
 
 /**
@@ -147,7 +149,11 @@ export async function getUpcomingEventData(): Promise<UpcomingEventData> {
   cacheTag('events');
   const now = new Date();
   const events = filterUpcomingEvents(await getEvents(), now);
-  return { events, nextMeeting: selectUpcomingMeetingEvent(events, now) };
+  return {
+    events,
+    nextMeeting: selectUpcomingMeetingEvent(events, now),
+    fallbackMeeting: getFallbackMeeting(now),
+  };
 }
 
 export async function getPartners(): Promise<PartnerRow[]> {

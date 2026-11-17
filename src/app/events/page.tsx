@@ -19,7 +19,6 @@ import {
 } from '@/components/layout/PageMasthead';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { InteractiveEventsCalendar } from '@/components/ui/InteractiveEventsCalendar';
-import { DEFAULT_UPCOMING_MEETING } from '@/lib/civic-events';
 import { pageMetadata } from '@/lib/metadata';
 import { getDataPoints, getUpcomingEventData } from '@/lib/queries/civic';
 import { getLegacyDocuments } from '@/lib/queries/legacy';
@@ -43,16 +42,18 @@ export default async function EventsPage() {
   // Issue #175: keep past one-off events out of the public upcoming list. The
   // rows remain available to admins through /admin/events; recurring rows are
   // retained by the cached filter. The server render must contain the next
-  // meeting too, not only the hydrated client. If the database has no future
-  // highlighted chapter meeting, render the confirmed December 1 fallback
-  // alongside the remaining upcoming rows.
-  const fallbackMeeting = {
-    ...DEFAULT_UPCOMING_MEETING,
-    category: 'Meetings' as const,
-  };
+  // meeting too, not only the hydrated client. The December 1 fallback is
+  // included only while it is still upcoming; after that, the public list has
+  // no fabricated meeting and the homepage shows a "date to be announced"
+  // state until an admin adds the next row.
+  const fallbackMeeting = upcoming.fallbackMeeting
+    ? { ...upcoming.fallbackMeeting, category: 'Meetings' as const }
+    : undefined;
   const eventsWithFallback = upcoming.nextMeeting
     ? upcoming.events
-    : [fallbackMeeting, ...upcoming.events.filter((event) => event.id !== fallbackMeeting.id)];
+    : fallbackMeeting
+      ? [fallbackMeeting, ...upcoming.events.filter((event) => event.id !== fallbackMeeting.id)]
+      : upcoming.events;
   const initialEvents = eventsWithFallback.length > 0 ? eventsWithFallback : undefined;
   return (
     <div className="civic-page w-full min-h-screen bg-background pb-20 text-foreground pt-(--header-clearance)">

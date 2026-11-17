@@ -81,7 +81,7 @@ The homepage's “Next Community Gathering” card and the public Events page ar
 4. Save, then open `/events` and the homepage. The next future highlighted meeting is announced automatically; past one-off events are omitted from the public list.
 5. To correct or remove an event, use **Edit** or **Delete** on the event card. Recurring rows whose date label begins with “Ongoing” or “Every” stay visible after their first occurrence.
 
-The December 1, 2026 meeting is the built-in fallback until a future meeting row is available. It uses the chapter's established monthly time and venue; change the row from `/admin/events` if the meeting details differ.
+The December 1, 2026 meeting is the built-in fallback while it is still upcoming. It uses the chapter's established monthly time and venue; change the row from `/admin/events` if the meeting details differ. Once it passes without a newer row, the public card says **Date to be announced** instead of advertising a past meeting.
 
 ## Editing other pages
 

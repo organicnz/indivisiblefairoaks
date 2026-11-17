@@ -7,6 +7,7 @@ import {
   DEFAULT_UPCOMING_MEETING,
   filterUpcomingEvents,
   gatheringCard,
+  getFallbackMeeting,
   isEventUpcoming,
   isRecurringEvent,
   selectMeetingEvent,
@@ -138,16 +139,31 @@ describe('gatheringCard', () => {
     );
     expect(card.rsvpUrl).toBe('https://www.mobilize.us/indivisible/event/903494/');
     expect(card.calendarUrl).toBe(buildGoogleCalendarUrl(MEETING));
+    expect(card.isScheduled).toBe(true);
   });
 
-  it('renders the confirmed December 1 fallback when the table holds no future meeting', () => {
-    const card = gatheringCard(undefined);
+  it('renders the confirmed December 1 fallback while it is still upcoming', () => {
+    const card = gatheringCard(undefined, DEFAULT_UPCOMING_MEETING);
     expect(card.title).toContain('Monthly Chapter Meeting');
     expect(card.dateLine).toBe('Tuesday, December 1, 2026 • 6:30 PM – 8:00 PM');
     expect(card.rsvpUrl).toBe(DEFAULT_UPCOMING_MEETING.rsvpUrl);
     expect(card.calendarUrl).toContain('calendar.google.com/calendar/render');
     expect(card.calendarUrl).toContain('20261201T183000');
     expect(card.calendarUrl).toContain('ctz=America%2FLos_Angeles');
+    expect(card.isScheduled).toBe(true);
+  });
+
+  it('does not reuse the December 1 fallback after it has passed', () => {
+    const afterFallback = new Date('2026-12-02T20:00:00Z');
+    expect(getFallbackMeeting(NOW)).toBe(DEFAULT_UPCOMING_MEETING);
+    expect(getFallbackMeeting(afterFallback)).toBeUndefined();
+
+    const card = gatheringCard(undefined);
+    expect(card.title).toBe('Next Chapter Meeting');
+    expect(card.dateLine).toBe('Date to be announced');
+    expect(card.locationLine).toBe('Location to be announced');
+    expect(card.calendarUrl).toBeNull();
+    expect(card.isScheduled).toBe(false);
   });
 });
 

@@ -35,8 +35,8 @@ import { instantToPacificBasic } from '@/lib/calendar-time';
 import {
   buildGoogleCalendarUrl,
   buildIcsCalendar,
-  DEFAULT_UPCOMING_MEETING,
   filterUpcomingEvents,
+  getFallbackMeeting,
   selectUpcomingMeetingEvent,
 } from '@/lib/civic-events';
 import { captureAnalyticsEvent } from '@/lib/posthog';
@@ -101,21 +101,22 @@ const EVENTS: CivicEvent[] = [
   },
 ];
 
-const DEFAULT_EVENT: CivicEvent = {
-  ...DEFAULT_UPCOMING_MEETING,
-  category: 'Meetings',
-};
-
 /**
  * Keep the public calendar date-aware: past one-off events disappear, recurring
- * rows stay, and the confirmed December 1 meeting fills the gap while the
- * database has no future highlighted chapter meeting. The admin pages use a
- * separate data path, so old rows remain editable and removable there.
+ * rows stay, and the still-upcoming December 1 meeting fills the gap while the
+ * database has no future highlighted chapter meeting. Once that fallback has
+ * passed, no fabricated meeting is inserted. The admin pages use a separate
+ * data path, so old rows remain editable and removable there.
  */
 function withUpcomingFallback(events: CivicEvent[]): CivicEvent[] {
   const upcoming = filterUpcomingEvents(events);
   if (selectUpcomingMeetingEvent(upcoming)) return upcoming;
-  return [DEFAULT_EVENT, ...upcoming.filter((event) => event.id !== DEFAULT_EVENT.id)];
+  const fallback = getFallbackMeeting();
+  if (!fallback) return upcoming;
+  return [
+    { ...fallback, category: 'Meetings' },
+    ...upcoming.filter((event) => event.id !== fallback.id),
+  ];
 }
 
 const CATEGORIES = [
@@ -147,7 +148,7 @@ export function InteractiveEventsCalendar({
   // prerender error. API refreshes happen in effects, where the current date is
   // safe to read.
   const [eventsList, setEventsList] = useState<CivicEvent[]>(() =>
-    initialEvents && initialEvents.length > 0 ? initialEvents : [DEFAULT_EVENT, ...EVENTS]
+    initialEvents && initialEvents.length > 0 ? initialEvents : EVENTS
   );
   const [selectedEventForEdit, setSelectedEventForEdit] = useState<CivicEventRecord | null>(null);
   const [isEditorModalOpen, setIsEditorModalOpen] = useState(false);

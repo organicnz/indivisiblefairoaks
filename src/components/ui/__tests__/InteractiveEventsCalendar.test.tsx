@@ -2,7 +2,11 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { InteractiveEventsCalendar } from '@/components/ui/InteractiveEventsCalendar';
+import {
+  InteractiveEventsCalendar,
+  type CivicEvent,
+} from '@/components/ui/InteractiveEventsCalendar';
+import { DEFAULT_UPCOMING_MEETING } from '@/lib/civic-events';
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -11,6 +15,17 @@ const mockEditContext = {
   loading: false,
   target: null,
 };
+
+const SEED_EVENTS: CivicEvent[] = [
+  { ...DEFAULT_UPCOMING_MEETING, category: 'Meetings' },
+  {
+    ...DEFAULT_UPCOMING_MEETING,
+    id: 'singing-protest-ongoing',
+    title: 'Carmichael Resistance Choir: Street Corner Singing Protest',
+    category: 'Resistance Choir',
+    dateLabel: 'Ongoing Every Saturday Afternoon',
+  },
+];
 
 vi.mock('@/components/layout/useEditContext', () => ({
   useEditContext: () => mockEditContext,
@@ -35,7 +50,7 @@ describe('InteractiveEventsCalendar', () => {
 
   it('renders the next chapter meeting and recurring activity, not past one-off events', async () => {
     await act(async () => {
-      root.render(<InteractiveEventsCalendar />);
+      root.render(<InteractiveEventsCalendar initialEvents={SEED_EVENTS} />);
     });
 
     expect(container.textContent).toContain('Monthly Chapter Meeting & Food Drive');
@@ -52,7 +67,7 @@ describe('InteractiveEventsCalendar', () => {
 
   it('filters events by category when chips are clicked', async () => {
     await act(async () => {
-      root.render(<InteractiveEventsCalendar />);
+      root.render(<InteractiveEventsCalendar initialEvents={SEED_EVENTS} />);
     });
 
     const buttons = Array.from(container.querySelectorAll<HTMLButtonElement>('button'));
@@ -109,7 +124,7 @@ describe('InteractiveEventsCalendar', () => {
 
   it('provides accessible Google Calendar URLs and ICS download controls', async () => {
     await act(async () => {
-      root.render(<InteractiveEventsCalendar />);
+      root.render(<InteractiveEventsCalendar initialEvents={SEED_EVENTS} />);
     });
 
     const calLinks = Array.from(
