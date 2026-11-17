@@ -198,7 +198,20 @@ export async function deleteCivicEvent(slug: string): Promise<CivicActionResult>
     const cleanSlug = slugify(slug);
     if (!cleanSlug) return fail('Event slug is required');
 
-    const { data: deleted, error } = await adminClient
+    // `events` gained the Mobilize provenance columns in a migration the
+    // generated types do not know about yet; see `saveCivicEvent`.
+    const eventsClient = adminClient as unknown as SupabaseClient;
+    const { data: existing, error: lookupError } = await eventsClient
+      .from('events')
+      .select('external_id')
+      .eq('slug', cleanSlug)
+      .maybeSingle();
+    if (lookupError) return fail(lookupError.message);
+    if (existing?.external_id) {
+      return fail('This event comes from Mobilize. Hide it instead of deleting it.');
+    }
+
+    const { data: deleted, error } = await eventsClient
       .from('events')
       .delete()
       .eq('slug', cleanSlug)

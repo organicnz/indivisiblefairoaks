@@ -242,6 +242,27 @@ describe('Civic Server Actions', () => {
 
       expect(res).toEqual({ success: false, error: 'Event not found' });
     });
+
+    it('refuses to delete a Mobilize-sourced event that the sync would recreate', async () => {
+      const rows = [
+        {
+          slug: 'mobilize-1011420',
+          title: 'Synced event',
+          external_id: '1011420',
+        },
+      ];
+      requireAdmin.mockResolvedValue({
+        adminClient: createMockAdminClient({ events: { rows } }),
+      });
+
+      const res = await deleteCivicEvent('mobilize-1011420');
+
+      expect(res).toEqual({
+        success: false,
+        error: 'This event comes from Mobilize. Hide it instead of deleting it.',
+      });
+      expect(rows).toHaveLength(1);
+    });
   });
 
   describe('Newsletters CRUD', () => {

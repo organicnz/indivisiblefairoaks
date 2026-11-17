@@ -67,6 +67,8 @@ export interface CivicEvent {
   description: string;
   rsvpUrl: string;
   highlight?: boolean;
+  /** Preserved when the public calendar opens an event in the admin editor. */
+  sortOrder?: number;
 }
 
 const EVENTS: CivicEvent[] = [
@@ -217,7 +219,9 @@ export function InteractiveEventsCalendar({
       description: event.description,
       rsvp_url: event.rsvpUrl,
       highlight: Boolean(event.highlight),
-      sort_order: 10,
+      // The public feed carries this now. The old hardcoded 10 silently reset
+      // any custom ordering the moment an admin edited the event from here.
+      sort_order: event.sortOrder ?? 10,
     });
     setIsEditorModalOpen(true);
   };
@@ -265,6 +269,7 @@ export function InteractiveEventsCalendar({
       description: savedRecord.description,
       rsvpUrl: savedRecord.rsvp_url,
       highlight: savedRecord.highlight,
+      sortOrder: savedRecord.sort_order,
     };
 
     setEventsList((prev) => {

@@ -84,6 +84,7 @@ describe('Civic Events Edge API Route (/api/civic/events)', () => {
     expect(json.events[0].id).toBe('test-event');
     expect(json.events[0].title).toBe('Community Gathering');
     expect(json.events[0].highlight).toBe(true);
+    expect(json.events[0].sortOrder).toBe(10);
   });
 
   it('POST rejects unauthenticated users', async () => {
@@ -167,6 +168,11 @@ describe('Civic Events Edge API Route (/api/civic/events)', () => {
     requireAdminApi.mockResolvedValue(
       adminSession({
         from: () => ({
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({ data: { external_id: null }, error: null }),
+            }),
+          }),
           delete: () => ({
             eq: async () => ({ error: null }),
           }),
@@ -186,6 +192,34 @@ describe('Civic Events Edge API Route (/api/civic/events)', () => {
     expect(revalidateTag).toHaveBeenCalledWith('events', 'hours');
     expect(revalidatePath).toHaveBeenCalledWith('/events');
     expect(revalidatePath).toHaveBeenCalledWith('/');
+  });
+
+  it('DELETE refuses a Mobilize-sourced event that the sync would recreate', async () => {
+    const deleteEq = vi.fn(async () => ({ error: null }));
+    requireAdminApi.mockResolvedValue(
+      adminSession({
+        from: () => ({
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({ data: { external_id: '1011420' }, error: null }),
+            }),
+          }),
+          delete: () => ({ eq: deleteEq }),
+        }),
+      })
+    );
+
+    const req = new Request(
+      'https://indivisiblefairoaks.org/api/civic/events?slug=mobilize-1011420',
+      { method: 'DELETE' }
+    ) as unknown as NextRequest;
+
+    const res = await deleteEvent(req);
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({
+      error: 'This event comes from Mobilize. Hide it instead of deleting it.',
+    });
+    expect(deleteEq).not.toHaveBeenCalled();
   });
 });
 

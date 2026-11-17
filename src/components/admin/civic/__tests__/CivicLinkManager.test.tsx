@@ -21,11 +21,35 @@ vi.mock('sonner', () => ({
 }));
 
 vi.mock('../CivicLinkEditorModal', () => ({
-  CivicLinkEditorModal: ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) =>
+  CivicLinkEditorModal: ({
+    isOpen,
+    onClose,
+    onSaved,
+  }: {
+    isOpen: boolean;
+    onClose: () => void;
+    onSaved: (saved: civicActions.CoalitionLinkRecord) => void;
+  }) =>
     isOpen ? (
       <div data-testid="mock-link-editor-modal">
         <button type="button" onClick={onClose}>
           Close Modal
+        </button>
+        <button
+          type="button"
+          onClick={() =>
+            onSaved({
+              slug: 'priority-link',
+              name: 'Priority Link',
+              category: 'Coalition',
+              url: 'https://example.org',
+              description: 'A link that should sort first.',
+              badge: null,
+              sort_order: 5,
+            })
+          }
+        >
+          Save Test Link
         </button>
       </div>
     ) : null,
@@ -145,5 +169,28 @@ describe('CivicLinkManager', () => {
     });
 
     expect(container.querySelector('[data-testid="mock-link-editor-modal"]')).toBeTruthy();
+  });
+
+  it('re-sorts an edited link after its sort order changes', async () => {
+    await act(async () => {
+      root.render(<CivicLinkManager />);
+    });
+
+    const addBtn = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.toLowerCase().includes('new coalition link')
+    );
+    await act(async () => {
+      addBtn?.click();
+    });
+
+    const saveBtn = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Save Test Link')
+    );
+    await act(async () => {
+      saveBtn?.click();
+    });
+
+    const text = container.textContent ?? '';
+    expect(text.indexOf('Priority Link')).toBeLessThan(text.indexOf('Indivisible National'));
   });
 });

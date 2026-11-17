@@ -222,7 +222,23 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'Event slug is required' }, { status: 400 });
     }
 
-    const { error } = await auth.session.supabase.from('events').delete().eq('slug', slug);
+    const eventsClient = auth.session.supabase as unknown as SupabaseClient;
+    const { data: existing, error: lookupError } = await eventsClient
+      .from('events')
+      .select('external_id')
+      .eq('slug', slug)
+      .maybeSingle();
+    if (lookupError) {
+      return NextResponse.json({ error: lookupError.message }, { status: 500 });
+    }
+    if (existing?.external_id) {
+      return NextResponse.json(
+        { error: 'This event comes from Mobilize. Hide it instead of deleting it.' },
+        { status: 409 }
+      );
+    }
+
+    const { error } = await eventsClient.from('events').delete().eq('slug', slug);
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });

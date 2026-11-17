@@ -86,6 +86,8 @@ export function CivicEventManager({ onRefreshParent }: CivicEventManagerProps) {
       } else {
         toast.error(res.error);
       }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error updating the event');
     } finally {
       setBusySlug(null);
     }
@@ -108,6 +110,8 @@ export function CivicEventManager({ onRefreshParent }: CivicEventManagerProps) {
       } else {
         toast.error(res.error);
       }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error updating the event');
     } finally {
       setBusySlug(null);
     }
@@ -310,16 +314,20 @@ export function CivicEventManager({ onRefreshParent }: CivicEventManagerProps) {
                   <Pencil size={12} />
                   <span>Edit</span>
                 </button>
-                <ConfirmAction
-                  label={`Delete event ${evt.title}`}
-                  message={`Delete event "${evt.title}"? This cannot be undone.`}
-                  danger
-                  confirmLabel="Delete"
-                  onConfirm={() => handleDelete(evt.slug)}
-                  idleClassName="p-1.5 rounded-lg border border-rose-500/30 text-rose-500 hover:bg-rose-500/10 transition-colors"
-                >
-                  <Trash2 size={14} />
-                </ConfirmAction>
+                {/* A synced row must be hidden, not deleted: the next Mobilize
+                    sync sees the same event in the feed and recreates it. */}
+                {!evt.external_id && (
+                  <ConfirmAction
+                    label={`Delete event ${evt.title}`}
+                    message={`Delete event "${evt.title}"? This cannot be undone.`}
+                    danger
+                    confirmLabel="Delete"
+                    onConfirm={() => handleDelete(evt.slug)}
+                    idleClassName="p-1.5 rounded-lg border border-rose-500/30 text-rose-500 hover:bg-rose-500/10 transition-colors"
+                  >
+                    <Trash2 size={14} />
+                  </ConfirmAction>
+                )}
               </div>
             </div>
           ))

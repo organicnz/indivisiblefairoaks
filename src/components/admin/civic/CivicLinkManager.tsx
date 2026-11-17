@@ -230,13 +230,16 @@ export function CivicLinkManager({ onRefreshParent }: CivicLinkManagerProps) {
         link={editingLink}
         onSaved={(saved) => {
           setLinks((prev) => {
-            const idx = prev.findIndex((item) => item.slug === saved.slug);
-            if (idx >= 0) {
-              const updated = [...prev];
-              updated[idx] = saved;
-              return updated;
-            }
-            return [...prev, saved].sort((a, b) => a.sort_order - b.sort_order);
+            const exists = prev.some((item) => item.slug === saved.slug);
+            const next = exists
+              ? prev.map((item) => (item.slug === saved.slug ? saved : item))
+              : [...prev, saved];
+            // Sorting only the new-row branch left an edited row in its old
+            // position after its sort order changed, so the admin list no
+            // longer matched the order the public page would use.
+            return next.sort(
+              (a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name)
+            );
           });
           onRefreshParent?.();
         }}

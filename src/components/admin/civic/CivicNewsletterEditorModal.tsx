@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from '@/components/ui/Dialog';
 import { type CivicNewsletterRecord, saveCivicNewsletter } from '@/lib/actions/civic';
+import { instantToPacificInput, pacificWallToInstant } from '@/lib/calendar-time';
 
 interface CivicNewsletterEditorModalProps {
   isOpen: boolean;
@@ -43,7 +44,10 @@ export function CivicNewsletterEditorModal({
       setDescription(newsletter.description || '');
       setTopics(Array.isArray(newsletter.topics) ? newsletter.topics : []);
       setSortOrder(newsletter.sort_order ?? 10);
-      setPublishedAt(newsletter.published_at ? newsletter.published_at.slice(0, 16) : '');
+      // `datetime-local` is a wall-clock field. Slicing the stored UTC ISO
+      // string displayed UTC as if it were Pacific and then re-read it in the
+      // browser's zone on save, shifting the publication time on every edit.
+      setPublishedAt(instantToPacificInput(newsletter.published_at));
     } else {
       setTitle('');
       setSlug('');
@@ -51,7 +55,7 @@ export function CivicNewsletterEditorModal({
       setDescription('');
       setTopics([]);
       setSortOrder(10);
-      setPublishedAt(new Date().toISOString().slice(0, 16));
+      setPublishedAt(instantToPacificInput(new Date().toISOString()));
     }
   }, [newsletter]);
 
@@ -87,7 +91,7 @@ export function CivicNewsletterEditorModal({
         description: description.trim(),
         topics,
         sort_order: sortOrder,
-        published_at: publishedAt ? new Date(publishedAt).toISOString() : null,
+        published_at: publishedAt ? pacificWallToInstant(publishedAt) || null : null,
       };
 
       let savedRecord: CivicNewsletterRecord | null = null;
@@ -280,7 +284,7 @@ export function CivicNewsletterEditorModal({
                   htmlFor="civic-news-published-at"
                   className="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1"
                 >
-                  Publication Timestamp
+                  Publication Timestamp (Pacific)
                 </label>
                 <input
                   id="civic-news-published-at"
@@ -290,7 +294,8 @@ export function CivicNewsletterEditorModal({
                   className="w-full px-3.5 py-2 rounded-xl border border-border bg-background focus:ring-2 focus:ring-primary focus:outline-none font-medium text-xs transition-all"
                 />
                 <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-                  Future timestamps keep this bulletin out of the public archive until then.
+                  Pacific chapter time. Future timestamps keep this bulletin out of the public
+                  archive until then.
                 </p>
               </div>
 

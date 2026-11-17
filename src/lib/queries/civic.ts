@@ -124,6 +124,7 @@ export async function getEvents(): Promise<CivicEvent[]> {
       description: row.description,
       rsvpUrl: row.rsvp_url,
       highlight: row.highlight ?? undefined,
+      sortOrder: row.sort_order,
     }));
   } catch {
     return [];

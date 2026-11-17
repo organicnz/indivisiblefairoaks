@@ -66,7 +66,7 @@ describe('InteractiveNewslettersList', () => {
     expect(container.textContent).not.toContain('No chapter bulletins match your criteria');
   });
 
-  it('preserves the real publication timestamp when an admin opens edit', async () => {
+  it('shows the stored publication instant as Pacific wall time when an admin opens edit', async () => {
     mockEditContext.isAdmin = true;
     await act(async () => {
       root.render(
@@ -93,6 +93,6 @@ describe('InteractiveNewslettersList', () => {
     });
 
     const publishedAt = document.querySelector<HTMLInputElement>('#civic-news-published-at');
-    expect(publishedAt?.value).toBe('2026-10-01T00:00');
+    expect(publishedAt?.value).toBe('2026-09-30T17:00');
   });
 });
