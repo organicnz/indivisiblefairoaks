@@ -5,8 +5,34 @@ The current site now has a text-only private intake (`/ice-alerts/report`), a
 service-role-only raw table, a separate sanitized public projection, and a
 two-person database-enforced publication path (`/admin/ice-reports`). This
 implementation does not substitute for counsel, board approval, a data map, or
-the launch checklist below. Attachments, reporter accounts, and automated
-publication remain out of scope.
+the launch checklist below. Attachments and reporter accounts remain out of
+scope.
+
+### Narrow automatic-publication amendment (2026-11-17)
+
+This implementation adds one limited exception to the original no-automatic-
+publication rule. It does **not** permit automatic publication of raw or
+human-written report text. The only automatic output is a generated template:
+
+> Community report of [category] in [city], [state]. City-level only; not
+> independently verified.
+
+The rules enforced in code and the database are:
+
+1. The report's city must match a verified city centroid in the heat-map
+   snapshot. Unmapped cities stay in manual review.
+2. Detention reports, reports with safety-sensitive terms (arrest, weapon,
+   injury, school, home, business, and similar), and reports containing an exact
+   street address stay in manual review.
+3. A unique eligible report may create one public entry automatically.
+4. A report in the same city, state, and category within two hours whose private
+   text is substantially similar is merged into the existing public entry; the
+   public entry increments `corroboration_count` instead of creating a duplicate.
+5. Automatic publication never creates a surge label, a "confirmed" label, a
+   dispatch, or a notification.
+6. The manual path remains two-person and continues to serve held reports.
+7. Raw text, names, exact places, and reporter details never enter the public
+   projection on either path.
 
 **This is threat modeling, not legal advice.** Every legal question below needs
 review by counsel licensed in the relevant jurisdiction. The chapter should not
@@ -38,13 +64,14 @@ The safest credible version of this feature is deliberately narrow:
    addresses, immigration status, employer, school, or social handles.
 3. **City-level publication only.** The private record may hold a little more
    detail for verification; the public projection holds only a coarse time,
-   city/state, category, and a short human-written summary.
+   city/state, category, and a short generated summary.
 4. **Anonymous or minimal-contact intake.** No account required. Contact details
    optional and clearly labeled as a risk. Never promise anonymity unless the
    entire path, including edge logs, email, and backups, is engineered for it.
-5. **Human review before publication.** Two-person approval for anything that
-   reaches the public map. No automatic publishing, no automatic "confirmed"
-   label, no automatic surge notification.
+5. **Human review or the narrow generated path.** Two-person approval for held
+   reports. A unique, city-mapped, low-risk report may auto-publish only the
+   generated city-level template in the amendment above. No automatic "confirmed"
+   label and no automatic surge notification on either path.
 6. **Short retention and a real deletion path.** Raw reports, contact details,
    and originals should disappear on a schedule; the public projection can
    outlive them only as a sanitized, non-identifying record.
@@ -76,7 +103,7 @@ and explicitly compensate where they do not.
 
 | Current fact | Implication for report intake |
 |---|---|
-| `/ice-alerts` now links to a **private chapter intake** (`/ice-alerts/report`) and the national Stop ICE Alerts Network (`RapidResponseGuide.tsx`). The old "this page does not collect reports" promise was deliberately replaced with review-before-publication copy and a privacy disclosure. | Keep the distinction between private raw intake, sanitized two-person publication, and the independent national network visible in every channel. |
+| `/ice-alerts` now links to a **private chapter intake** (`/ice-alerts/report`) and the national Stop ICE Alerts Network (`RapidResponseGuide.tsx`). The old "this page does not collect reports" promise was deliberately replaced with city-level publication copy and a privacy disclosure. | Keep the distinction between private raw intake, generated-or-two-person publication, and the independent national network visible in every channel. |
 | The public feed keeps only city centroids and generated summaries; raw comments, street addresses, plates, media URLs, and names are dropped in `ice-rapid-feed.ts` | This is the right publication model. Use the same allowlist discipline for the new public projection. |
 | The private reunification intake uses RLS with **no** public policies, a private bucket, a 90-day retention default, and signed URL access (`docs/ice-reunification.md`) | A useful precedent, but report intake is more adversarial and more publicly visible. Reuse the isolation and retention pattern; do not assume the reunification threat level is sufficient. |
 | `src/lib/rate-limit.ts` is an **in-memory, per-isolate** limiter | Not sufficient for a public report form. A serverless deployment gives an attacker many buckets. Add durable global limits and platform WAF controls. |
@@ -204,8 +231,9 @@ ship.
 2. **The public projection is an allowlist.** It is built from a dedicated
    view/table/DTO containing only approved fields; it is never a `select *` from
    the raw table with a UI filter.
-3. **No automatic publication.** A human decision, recorded with reviewer and
-   timestamp, precedes every public item.
+3. **No automatic publication of report text.** A human decision precedes every
+   manual public item. The only automatic item is the generated city-level
+   template above; raw and human-written text always require review.
 4. **No identity, face, plate, address, or immigration status in public.**
    Prohibited fields are rejected at intake or removed before storage; they are
    never "hidden in the UI."
@@ -217,8 +245,9 @@ ship.
    a purge job deletes objects and rows; failures alert an owner.
 8. **Legal hold overrides deletion.** A held record cannot be purged by the
    normal worker, and the hold is logged.
-9. **Two-person publication.** One person may draft; a second, authorized person
-   approves the public projection.
+9. **Two-person manual publication.** One person may draft a held report; a
+   second, authorized person approves that public projection. The narrow
+   generated path is separate and never publishes raw text.
 10. **Access to raw records is audited.** Viewing, revealing, exporting, and
     deleting are recorded; broad exports are not available to ordinary
     moderators.
@@ -239,14 +268,14 @@ moderators, or trying to make the map itself a weapon.
 |---|---|---|---|---|
 | A1 | Bot flood creates thousands of drafts, emails, and attachments | Queue collapse, cost, hidden real reports | Durable global/per-IP/per-email limits; proof-of-work or privacy-reviewed CAPTCHA; honeypot; request and upload caps; queue backpressure; no email until accepted | Distributed low-and-slow traffic can still consume capacity |
 | A2 | One person submits many reports to manufacture a "surge" | False alert, diversion, credibility loss | Deduplicate by normalized event fingerprint; velocity limits; do not compute public surges from unreviewed reports; cap per reporter/network; moderation | A determined actor with many networks can still create noise |
-| A3 | Coordinated group brigades a location or business | Harassment, economic harm, false enforcement claim | Corroboration policy; trust tiers; no automatic publish; source diversity checks; block coordinated fingerprints; review all media | Coordination is hard to prove; avoid treating shared language or Spanish as suspicious |
+| A3 | Coordinated group brigades a location or business | Harassment, economic harm, false enforcement claim | Corroboration policy; trust tiers; no automatic publish of raw text; automatic path limited to the generated city-level template and blocked for sensitive places; source diversity checks; block coordinated fingerprints; review all media | Coordination is hard to prove; avoid treating shared language or Spanish as suspicious |
 | A4 | Report is really a doxxing attempt against a named person, home, employer, or school | Stalking, retaliation, deportation, violence | Do not provide subject-name/address/status fields; reject prohibited content; automated detection plus human review; preserve evidence but do not publish | A determined submitter can describe a person without labels; reviewers need training |
 | A5 | Swatting or false emergency | Armed response, injury, death | No dispatch integration; city-level only; delay publication; emergency copy says call 911; escalate threats to counsel/leadership; never send a location to police as a "tip" without a documented emergency decision | The chapter cannot control what readers do with a public post |
 | A6 | Link spam, phishing, tracking pixels, or malware disguised as a "source" | Malware, reporter/reader deanonymization | Strip links from public copy; do not fetch arbitrary URLs server-side; quarantine attachments; warn about external links; no clickable user URLs in email | A screenshot can contain a malicious QR code; human review still needed |
 | A7 | Enumeration of receipt/status tokens | Read another person's report/status | High-entropy tokens; rate-limit lookups; no sequential IDs; no listing endpoint; uniform not-found responses; audit repeated failures | A leaked or forwarded link is a bearer capability |
 | A8 | Cross-site request forgery or open CORS | Third-party sites file reports as a visitor | Same-origin checks; Origin/Sec-Fetch-Site validation; CSRF token or strict JSON content type; no wildcard CORS; no credentials on public POST | Browser extensions and malicious local software remain outside the boundary |
 | A9 | Resource exhaustion: huge text, decompression bomb, huge image, long video | Outage, memory exhaustion, cost, queue poisoning | Strict body limits while streaming; pixel/duration/frame caps; decode timeouts; worker memory limits; reject multi-page/animated formats; queue quotas | Provider-level request limits are not a content policy |
-| A10 | Attacker takes over a moderator account | Mass publish, delete, export, or leak | MFA/SSO; short sessions; device/session review; anomaly alerts; least privilege; two-person publish; no bulk export; access revocation | A live session on an infected device can still act as the moderator |
+| A10 | Attacker takes over a moderator account | Mass publish, delete, export, or leak | MFA/SSO; short sessions; device/session review; anomaly alerts; least privilege; two-person manual publish; no bulk export; access revocation | A live session on an infected device can still act as the moderator |
 | A11 | Insider curiosity, conflict, or coercion | Unauthorized reading, screenshot, leak | Need-to-know roles; reveal-on-demand; audit every reveal; no personal devices if possible; confidentiality agreement; conflict recusal; canary records; offboarding | Screenshots and memory cannot be prevented |
 | A12 | DDoS or application-layer flood | Intake and public map unavailable during an enforcement event | WAF/edge rate controls; queue; static fallback with 911/legal resources and an alternate trusted network; status communication; no false success | A sustained attack can still force degraded service |
 | A13 | Reporter uses the form to threaten or harass volunteers | Moderator safety, legal exposure | Prohibited-content policy; route threats to a safety lead; do not reply from personal accounts; preserve evidence; law-enforcement decision by counsel | Volunteers may still be targeted by someone who knows them |
@@ -270,8 +299,9 @@ moderators, or trying to make the map itself a weapon.
   invasive, and punishes people using shelters, libraries, VPNs, or mobile
   networks. Use it only as one weak signal, never as proof the report is false.
 - **Do not auto-publish based on volume.** Multiple reports are not independent
-  evidence; they may be one campaign. Human review is required before a public
-  item or surge label.
+  evidence; they may be one campaign. Volume can increment a corroboration count
+  only after the narrow same-event similarity rule. Human review is required
+  before any surge label.
 - **Separate submission from publication.** A successful POST means "received,"
   not "published," "verified," or "help is coming." The UI must say that.
 - **Keep an abuse evidence path.** Threats, CSAM, coordinated campaigns, and
@@ -285,7 +315,7 @@ fact. It is also a new insider-risk surface and a human-trauma surface.
 
 | ID | Moderation failure | Impact | Required controls |
 |---|---|---|---|
-| M1 | One reviewer publishes a report with an exact address, face, or plate | Doxxing, retaliation, loss of trust | Two-person publish; public-projection preview; redaction checklist; second reviewer sees the exact public output, not just the draft |
+| M1 | One reviewer publishes a report with an exact address, face, or plate | Doxxing, retaliation, loss of trust | Two-person publish for held reports; generated auto path is template-only and blocks exact places; public-projection preview; redaction checklist; second reviewer sees the exact public output, not just the draft |
 | M2 | Reviewer has a conflict of interest (friend, employer, target, local business) | Biased rejection or publication | Written recusal rule; conflict declaration; reassignment; audit of decisions |
 | M3 | Reviewer over-trusts a source's "confirmed" label or an AI score | False alert presented as verified | No "confirmed" badge at launch; defined evidence tiers; reviewer records the basis; periodic QA sample |
 | M4 | Inconsistent decisions across reviewers | Perceived bias, legal risk, community harm | Written rubric with examples; training; calibration exercises; appeal path; decision log |
@@ -340,7 +370,7 @@ accounts are prohibited.
 
 | Class | Data | Default handling | Public projection |
 |---|---|---|---|
-| **Public** | City/state, category, coarse time window, human-written generic summary, unverified label | Allowed after two-person approval | Yes |
+| **Public** | City/state, category, coarse time window, generated generic summary, corroboration count, unverified label | Allowed after the generated automatic path for unique low-risk reports or two-person approval for held reports | Yes |
 | **Internal restricted** | Raw narrative, precise place or landmark, private media, moderation notes, verification basis | Encrypted at rest; need-to-know; audited access; short retention | No |
 | **Highly restricted** | Reporter name/email/phone, IP/device metadata, subject name/face/plate/A-Number/immigration status, minors, medical information, threats/CSAM evidence | Avoid collection if possible; extra encryption/access controls; legal hold aware; shortest retention | Never |
 
@@ -596,8 +626,8 @@ reflected in the privacy notice and in an executable job.
 |---|---|---|---|---|
 | X1 | RLS or bucket misconfiguration exposes raw data | Mass deanonymization | Signed-out and role-based probes each deploy; bucket public check; policy diff | Separate private project/schema; no anon grants; automated regression test; immediate kill switch |
 | X2 | Service-role key leaks in a bundle, log, or repo | Full read/write | Secret scanning; build artifact scan; provider alert | Server-only env; separate project; rotation; least privilege; no client import |
-| X3 | Public projection includes a raw field | Doxxing | Schema/DTO allowlist test; diff preview; canary field | No `select *`; dedicated view; two-person preview; remove and correct |
-| X4 | Moderator publishes by mistake | Harm, legal exposure | Post-publish checklist; second reviewer | Two-person rule; delay window; takedown runbook; correction log |
+| X3 | Public projection includes a raw field | Doxxing | Schema/DTO allowlist test; diff preview; canary field | No `select *`; dedicated view; generated template only on the automatic path; two-person preview for manual drafts; remove and correct |
+| X4 | Moderator publishes by mistake | Harm, legal exposure | Post-publish checklist; second reviewer | Two-person rule for held reports; automatic path can publish only the generated template; delay window; takedown runbook; correction log |
 | X5 | Attachment scanner fails or is bypassed | Malware/CSAM exposure | Scan status; quarantine queue; alerts | Fail closed; no preview until clean; manual review; legal protocol |
 | X6 | Database outage | Intake unavailable during an event | Health checks; error rate | Honest 503, retry, alternate trusted network; no false "received" |
 | X7 | Storage outage/partial upload | Orphan files or lost media | Reconciliation job | Quarantine ledger; compensating delete; retry; no public link until complete |
@@ -610,7 +640,7 @@ reflected in the privacy notice and in an executable job.
 | X14 | Logs/Sentry/PostHog capture form data | Shadow PII | Log audit; vendor payload review | Scrubber; disable analytics/session replay on form; no content in errors |
 | X15 | Backup restore resurrects deleted data | Privacy breach | Restore drill | Tombstone/replay deletions; backup retention; document limitation |
 | X16 | Legal hold and purge race | Spoliation or wrongful deletion | Hold audit; worker errors | Hold check in transaction; pause worker; manual review |
-| X17 | Admin account takeover | Mass publish/export | Anomaly alerts; MFA logs | SSO/MFA; short sessions; two-person; no bulk export; revoke |
+| X17 | Admin account takeover | Mass publish/export | Anomaly alerts; MFA logs | SSO/MFA; short sessions; two-person manual publish; automatic path is template-only; no bulk export; revoke |
 | X18 | DDoS during an enforcement event | Map unavailable | Edge metrics | WAF; static fallback; status page; alternate network |
 | X19 | Vendor breach or overbroad vendor request | Exposure | Vendor notice; audit | Minimize data; DPA; region review; encryption; counsel; vendor notice policy |
 | X20 | Purge cron stops silently | Over-retention | Dead-man switch; record counts | Alert owner; runbook; manual invocation; test |
@@ -675,7 +705,7 @@ privacy boundary must exist before the form is exposed.
 - Invite-only accounts, MFA, named roles, least privilege, fast session expiry.
 - Queue with statuses and an audit trail; no raw media in list views; reveal
   full record only on demand and log the reveal.
-- Two-person publish; conflict recusal; written rubric; training; QA sampling.
+- Two-person publish for held reports; generated-template-only automatic path for unique low-risk reports; conflict recusal; written rubric; training; QA sampling.
 - Redaction tools that produce a new public derivative; never edit the original
   in place.
 - Emergency removal and correction path with a named safety lead.
@@ -683,8 +713,9 @@ privacy boundary must exist before the form is exposed.
 
 ### 13.4 Publication
 
-- A dedicated public projection table/view, populated only after approval.
-  Fields: city, state, category, coarse time bucket, generic summary,
+- A dedicated public projection table/view, populated by the generated
+  automatic path or after manual approval. Fields: city, state, category, coarse
+  time bucket, generic generated summary, corroboration count,
   unverified-community label, published/corrected timestamps. No report ID that
   links back to the raw record, no reporter metadata, no media at launch.
 - City centroid only, matching the current feed's practice. No exact
@@ -789,8 +820,8 @@ control.
 ### Gate E — Moderation operations
 
 - [ ] Named roles: triager, verifier, publisher, safety/legal, admin.
-- [ ] Two-person publication and conflict-recusal rules are enforced, not just
-      written down.
+- [ ] Two-person publication for held reports, the generated-template automatic
+      path, and conflict-recusal rules are enforced, not just written down.
 - [ ] Rubric, prohibited-content checklist, redaction checklist, and examples
       are trained.
 - [ ] Queue/SLA, freshness labels, auto-expiry, and pause-intake procedure are
@@ -939,8 +970,8 @@ perfect verification, complete deletion, or an emergency response.
 
 ## 18. Bottom line
 
-The feature is defensible only as a **minimized, reviewed, time-limited event
-report**, not as an identity-rich tip line. The engineering effort should go
+The feature is defensible only as a **minimized, generated-or-reviewed,
+time-limited event report**, not as an identity-rich tip line. The engineering effort should go
 first into isolation, deletion, review, and legal readiness — not into a richer
 form. If the chapter cannot staff two-person moderation, counsel, retention,
 and incident response, the safer product is to keep linking to an existing

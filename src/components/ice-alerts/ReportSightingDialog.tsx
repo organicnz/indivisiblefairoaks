@@ -25,11 +25,12 @@ export function ReportSightingButton() {
       </DialogTrigger>
       <DialogContent className="max-h-[90vh] max-w-md overflow-y-auto p-6 sm:p-7">
         <DialogHeader>
-          <span className="civic-section-index">Private review + national option</span>
+          <span className="civic-section-index">Private report + national option</span>
           <DialogTitle className="mt-1">Report a sighting</DialogTitle>
           <DialogDescription>
-            This chapter now accepts private, text-only reports for review. Nothing is published
-            automatically. You can also send what you saw to the national Stop ICE Alerts Network.
+            This chapter accepts private, text-only reports. Raw text stays private; a unique,
+            low-risk report may publish only a generated city-level summary, and similar reports
+            are combined. You can also send what you saw to the national Stop ICE Alerts Network.
           </DialogDescription>
         </DialogHeader>
 
@@ -54,7 +55,7 @@ export function ReportSightingButton() {
               Start a private chapter report
             </span>
             <span className="font-mono text-[8px] font-bold uppercase tracking-[0.09em] text-muted-foreground">
-              Review
+              Private
             </span>
           </a>
           <p className="mt-1 font-mono text-[8px] font-bold uppercase tracking-[0.09em] text-muted-foreground">
@@ -90,9 +91,9 @@ export function ReportSightingButton() {
 
         <p className="text-[10px] leading-relaxed text-muted-foreground">
           Immediate danger? Call 911. This page cannot dispatch help, verify a report, or guarantee
-          that a national channel is available. A chapter report is reviewed before any sanitized
-          city-level summary can be published; the national network&apos;s privacy and security
-          terms apply to anything you send there.
+          that a national channel is available. A chapter report is private; a generated city-level
+          summary may be published automatically, and similar reports may be combined. The national
+          network&apos;s privacy and security terms apply to anything you send there.
         </p>
       </DialogContent>
     </Dialog>

@@ -45,6 +45,8 @@ type IceReportIntakeUpdate = Partial<
     | 'public_kind'
     | 'public_observed_at'
     | 'public_summary'
+    | 'auto_published'
+    | 'public_report_id'
     | 'rejection_reason'
   >
 >;
@@ -73,6 +75,16 @@ type IceReportDatabase = {
           p_reviewer_id: string;
           p_lat: number;
           p_lng: number;
+        };
+        Returns: string;
+      };
+      ice_auto_publish_report: {
+        Args: {
+          p_report_id: string;
+          p_lat: number;
+          p_lng: number;
+          p_public_summary: string;
+          p_merge_public_id: string | null;
         };
         Returns: string;
       };
@@ -204,7 +216,7 @@ export const iceReportInputSchema = z.object({
     .datetime({ offset: true })
     .refine((value) => isAcceptableObservedAt(value), 'Choose a time within the last 24 hours.'),
   summary: summarySchema,
-  consent: z.literal(true, { message: 'Confirm the review and publication terms.' }),
+  consent: z.literal(true, { message: 'Confirm the publication terms.' }),
   /** Honeypot. Real browsers leave this empty. */
   company: z.string().max(200).optional(),
 });

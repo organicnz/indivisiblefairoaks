@@ -8,6 +8,7 @@ import { US_STATE_OPTIONS } from './us-state-options';
 
 type SubmitResult = {
   ok: true;
+  status?: 'published' | 'combined' | 'received' | 'ignored' | 'test-build';
   referenceCode: string;
   message: string;
 };
@@ -44,7 +45,7 @@ export function IceReportForm() {
 
     try {
       if (!consent) {
-        setError('Confirm the review and publication terms before sending.');
+        setError('Confirm the publication terms before sending.');
         return;
       }
 
@@ -132,7 +133,7 @@ export function IceReportForm() {
           <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden="true" />
           <div>
             <p className="font-display text-2xl font-semibold leading-tight tracking-[-0.03em]">
-              Report received privately.
+              Report received.
             </p>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{result.message}</p>
           </div>
@@ -289,9 +290,10 @@ export function IceReportForm() {
           className="mt-0.5 size-4 accent-primary"
         />
         <span>
-          I understand this is a private report for chapter review. If two different reviewers
-          approve it, only a sanitized, city-level summary may be published. It will not appear
-          automatically, and it does not guarantee a response.
+          I understand this is a private report. Raw text stays private. A generated city-level
+          summary may be published automatically; if similar reports already exist, they may be
+          combined into one entry. Reports with safety flags or no verified city are held for
+          chapter review. This does not guarantee a response.
         </span>
       </label>
 

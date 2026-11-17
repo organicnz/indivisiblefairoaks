@@ -43,17 +43,18 @@ export async function WebReportsSection() {
       <div className="border-t border-foreground/20 pt-8">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="civic-section-index">Source-attributed web reports</p>
+            <p className="civic-section-index">Republished from the web</p>
             <h2
               id="ice-web-reports-title"
               className="mt-2 max-w-2xl font-display text-4xl font-semibold leading-[0.95] tracking-[-0.045em] sm:text-5xl"
             >
-              Gathered from the web. Kept with its source.
+              Republished from the web. Kept with its source.
             </h2>
             <p className="mt-4 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-              These are full readable passages collected from public source pages. Every entry keeps
-              its original URL, publication time, and retrieval time. They are not independently
-              verified by this chapter, and the source&apos;s own terms may apply.
+              These full readable passages are republished from approved public sources. Every
+              entry keeps its original URL, source label, source page title, publication time,
+              and retrieval time. They are not independently verified by this chapter, and the
+              source&apos;s own terms may apply.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -66,7 +67,7 @@ export async function WebReportsSection() {
                 href="/ice-alerts/web-reports"
                 className="inline-flex min-h-9 items-center gap-1.5 border border-border bg-surface-card px-3 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.09em] text-foreground transition-colors hover:border-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               >
-                Browse all {total.toLocaleString('en-US')} source reports
+                Browse all {total.toLocaleString('en-US')} republished reports
                 <ArrowUpRight className="size-3" aria-hidden="true" />
               </a>
             )}
@@ -98,7 +99,7 @@ export function WebReportCard({ report }: { report: IceSourceReport }) {
       <div className="flex flex-wrap items-center gap-1.5">
         <span className="inline-flex items-center gap-1 border border-accent/35 bg-accent/5 px-1.5 py-0.5 font-mono text-[8px] font-bold uppercase tracking-[0.08em] text-accent">
           <Globe2 className="size-2.5" aria-hidden="true" />
-          Web source
+          Republished
         </span>
         <span className="border border-border bg-background px-1.5 py-0.5 font-mono text-[8px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
           {iceSourceKindLabel(report.kind)}
@@ -111,8 +112,20 @@ export function WebReportCard({ report }: { report: IceSourceReport }) {
       <h3 className="mt-3 font-display text-2xl font-semibold leading-tight tracking-[-0.03em]">
         {report.title}
       </h3>
+      {report.source_title && report.source_title !== report.title ? (
+        <p className="mt-1 break-words font-mono text-[8px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
+          Source page: {report.source_title}
+        </p>
+      ) : null}
       <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[8px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
-        <span>{report.source_name}</span>
+        <a
+          href={report.source_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline underline-offset-2 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        >
+          {report.source_name}
+        </a>
         <span aria-hidden="true">/</span>
         <span>Published {sourceDate(report.source_published_at)}</span>
         <span aria-hidden="true">/</span>

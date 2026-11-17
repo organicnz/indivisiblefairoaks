@@ -2,7 +2,7 @@
 
 import { AlertTriangle } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { FormEvent } from 'react';
+import type { FormEvent, ReactNode } from 'react';
 import { computeRapidSurges } from '@/lib/ice-rapid-surges';
 import { RapidAlertChannels } from './RapidAlertChannels';
 import { RapidAlertFeed } from './RapidAlertFeed';
@@ -29,9 +29,10 @@ import { useUserLocation } from './use-user-location';
 type IceRapidResponseProps = {
   snapshot: HeatmapSnapshot;
   initialState: RapidUrlState;
+  children?: ReactNode;
 };
 
-export function IceRapidResponse({ snapshot, initialState }: IceRapidResponseProps) {
+export function IceRapidResponse({ snapshot, initialState, children }: IceRapidResponseProps) {
   const { feed, status, error, isRefreshing, refresh } = useRapidFeed();
   const [filters, setFilters] = useState<RapidFilters>(DEFAULT_RAPID_FILTERS);
   const [selectedId, setSelectedId] = useState<string | null>(
@@ -333,6 +334,8 @@ export function IceRapidResponse({ snapshot, initialState }: IceRapidResponsePro
           </div>
         </div>
       </section>
+
+      {children}
 
       <RapidAlertChannels />
 

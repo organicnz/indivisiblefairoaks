@@ -40,7 +40,7 @@ describe('ReportSightingButton', () => {
     const dialog = document.querySelector<HTMLElement>('[role="dialog"]');
     expect(dialog).not.toBeNull();
     expect(dialog?.textContent).toContain('accepts private, text-only reports');
-    expect(dialog?.textContent).toContain('Nothing is published automatically');
+    expect(dialog?.textContent).toContain('Raw text stays private');
     expect(dialog?.textContent).toContain('Text REPORT to 877-322-2299');
     expect(dialog?.textContent).toContain('Open the online report form');
     expect(dialog?.querySelector('form')).toBeNull();

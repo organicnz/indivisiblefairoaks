@@ -102,9 +102,10 @@ export function IceCrawlManager({ sources }: { sources: IceCrawlSource[] }) {
               Add an approved public source
             </h2>
             <p className="mt-1 max-w-3xl text-xs leading-relaxed text-muted-foreground">
-              A seed page or public feed. The crawler follows same-origin links from a page, discovers
-              RSS/Atom feeds, and stores every fetched page. A source page limit protects the target
-              site and this deployment; when it is reached, the run is marked partial.
+              A seed page or public feed. The crawler follows same-origin links, discovers
+              RSS/Atom/JSON feeds and sitemaps, reads long pages in overlapping chunks, and stores
+              every fetched page. A source page limit protects the target site and this deployment;
+              when it is reached, the run is marked partial.
             </p>
           </div>
         </div>

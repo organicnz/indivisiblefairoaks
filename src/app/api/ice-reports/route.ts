@@ -16,6 +16,12 @@ import {
   insertIceReport,
   makeIceReportReference,
 } from '@/lib/ice-report-intake';
+import {
+  autoPublishOrMergeIceReport,
+  autoPublishRiskIssue,
+} from '@/lib/ice-report-auto-publish';
+import { getIceHeatmapSnapshot } from '@/lib/queries/ice-heatmap';
+import { createCityMatcher } from '@/lib/rapid-city-match';
 import { isSameOriginRequest } from '@/lib/same-origin';
 import { clientIp, rateLimit } from '@/lib/rate-limit';
 import { readJsonBodyWithLimit } from '@/lib/request-body';
@@ -39,13 +45,26 @@ function json(body: unknown, status = 200) {
   return NextResponse.json(body, { status, headers: NO_STORE });
 }
 
-function receivedResponse(referenceCode: string) {
+type ReportPublicationStatus = 'published' | 'combined' | 'received';
+
+const PUBLICATION_MESSAGES: Record<ReportPublicationStatus, string> = {
+  published:
+    'Received. A generated, city-level summary was published automatically. Similar reports may be combined into the same entry. This is not a verified alert or a guaranteed response.',
+  combined:
+    'Received. It closely matched existing reports in the same city, state, and category, so it was combined into one city-level entry. This is not a verified alert or a guaranteed response.',
+  received:
+    'Received privately. A volunteer will review it before any city-level summary can be published. This is not an alert or a guaranteed response.',
+};
+
+function receivedResponse(
+  referenceCode: string,
+  status: ReportPublicationStatus = 'received'
+) {
   return json({
     ok: true,
-    status: 'received',
+    status,
     referenceCode,
-    message:
-      'Received privately. A volunteer will review it. Only a sanitized, city-level summary can be published after a second reviewer approves it.',
+    message: PUBLICATION_MESSAGES[status],
   });
 }
 
@@ -114,7 +133,7 @@ export async function POST(req: Request) {
       {
         ok: false,
         code: 'not-configured',
-        message: 'Private report review is not configured on this deployment yet.',
+        message: 'Private report intake is not configured on this deployment yet.',
       },
       503
     );
@@ -126,7 +145,7 @@ export async function POST(req: Request) {
       {
         ok: false,
         code: 'not-configured',
-        message: 'Private report review is not configured on this deployment yet.',
+        message: 'Private report intake is not configured on this deployment yet.',
       },
       503
     );
@@ -208,5 +227,42 @@ export async function POST(req: Request) {
     );
   }
 
-  return receivedResponse(referenceCode);
+  let publicationStatus: ReportPublicationStatus = 'received';
+  try {
+    // Only a generated city-level summary can take this path. Detention,
+    // safety-sensitive, exact-place, and unmapped-city reports stay queued for
+    // the existing two-person manual review.
+    if (!autoPublishRiskIssue(data.summary, data.kind)) {
+      const snapshot = await getIceHeatmapSnapshot();
+      const matchedCity = createCityMatcher(snapshot.cities).findCityCentroid(
+        data.city,
+        data.stateCode
+      );
+      if (matchedCity) {
+        const result = await autoPublishOrMergeIceReport(
+          reportStore,
+          {
+            id,
+            city: matchedCity.city,
+            state_code: matchedCity.stateCode,
+            kind: data.kind,
+            observed_at: data.observedAt,
+            summary: data.summary,
+          },
+          matchedCity.lat,
+          matchedCity.lng
+        );
+        publicationStatus = result.merged ? 'combined' : 'published';
+      }
+    }
+  } catch (error) {
+    // The private report is already saved. A failed automatic path must never
+    // lose it or return a misleading public status; leave it for manual review.
+    console.error(
+      'ice report automatic publication failed:',
+      error instanceof Error ? error.message : 'unknown error'
+    );
+  }
+
+  return receivedResponse(referenceCode, publicationStatus);
 }

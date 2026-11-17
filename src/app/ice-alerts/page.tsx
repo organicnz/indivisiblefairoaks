@@ -197,7 +197,7 @@ export default async function IceAlertsPage({ searchParams }: { searchParams: Pa
             <div className="ml-auto flex flex-wrap items-center gap-2">
               <nav
                 aria-label="ICE data views"
-                className="inline-flex shrink-0 border border-border"
+                className="inline-flex max-w-full shrink-0 flex-wrap border border-border"
               >
                 <a
                   href="/ice-alerts"
@@ -221,6 +221,12 @@ export default async function IceAlertsPage({ searchParams }: { searchParams: Pa
                 >
                   Historical FOIA
                 </a>
+                <a
+                  href="/ice-alerts/web-reports"
+                  className="inline-flex min-h-8 items-center border-l border-border px-2.5 py-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.09em] text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
+                >
+                  Web reports
+                </a>
               </nav>
               {!isHistory ? <RapidActions /> : null}
             </div>
@@ -234,9 +240,10 @@ export default async function IceAlertsPage({ searchParams }: { searchParams: Pa
         <IceArrestHeatMap snapshot={snapshot} initialState={historicalState} />
       ) : (
         <>
-          <IceRapidResponse snapshot={snapshot} initialState={rapidState} />
+          <IceRapidResponse snapshot={snapshot} initialState={rapidState}>
+            <WebReportsSection />
+          </IceRapidResponse>
           <ReviewedReportsSection />
-          <WebReportsSection />
         </>
       )}
     </div>

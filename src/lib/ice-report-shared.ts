@@ -4,7 +4,12 @@
  * service-role client into the browser bundle.
  */
 export type IceReportKind = 'enforcement' | 'detention' | 'checkpoint';
-export type IceReportStatus = 'received' | 'needs_second_review' | 'published' | 'rejected';
+export type IceReportStatus =
+  | 'received'
+  | 'needs_second_review'
+  | 'published'
+  | 'merged'
+  | 'rejected';
 
 export type IceReportIntakeRow = {
   id: string;
@@ -24,6 +29,8 @@ export type IceReportIntakeRow = {
   public_kind: IceReportKind | null;
   public_observed_at: string | null;
   public_summary: string | null;
+  auto_published: boolean;
+  public_report_id: string | null;
   rejection_reason: string | null;
   retention_expires_at: string;
   created_at: string;
@@ -40,6 +47,7 @@ export type IceReportPublicRow = {
   summary: string;
   lat: number;
   lng: number;
+  corroboration_count: number;
   published_at: string;
   expires_at: string;
 };
@@ -53,6 +61,7 @@ export function iceReportKindLabel(kind: IceReportKind) {
 export function iceReportStatusLabel(status: IceReportStatus) {
   if (status === 'needs_second_review') return 'Awaiting second reviewer';
   if (status === 'published') return 'Published';
+  if (status === 'merged') return 'Combined with a matching report';
   if (status === 'rejected') return 'Rejected';
   return 'Awaiting first review';
 }

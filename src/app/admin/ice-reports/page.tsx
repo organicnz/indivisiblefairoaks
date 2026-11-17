@@ -43,8 +43,10 @@ export default async function AdminIceReportsPage() {
             ICE reports
           </h1>
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-            Raw reports are private. First review prepares a sanitized city-level draft; a
-            different admin must approve it before anything appears publicly. Never copy names,
+            Raw reports are private. Unique low-risk reports may automatically publish a generated
+            city-level summary; similar reports are combined. Reports with safety flags or no
+            verified city wait here for manual review. First review prepares a sanitized draft; a
+            different admin must approve it before that draft appears publicly. Never copy names,
             plates, addresses, contact details, or exact locations into a draft.
           </p>
         </div>
@@ -86,9 +88,11 @@ export default async function AdminIceReportsPage() {
       </div>
 
       <div className="mb-5 border border-accent/35 bg-accent/5 p-4 text-xs leading-relaxed text-muted-foreground">
-        <strong className="text-foreground">Two-person rule:</strong> the admin who prepares the
-        public draft cannot approve it. The database function re-checks this and writes only the
-        allowlisted public fields. A report is not evidence of a crime or a verified sighting.
+        <strong className="text-foreground">Two-person rule for this queue:</strong> the admin who
+        prepares a held report&apos;s public draft cannot approve it. The database function re-checks
+        this and writes only the allowlisted public fields. Automatic entries are generated
+        city-level summaries, never raw text. A report is not evidence of a crime or a verified
+        sighting.
       </div>
 
       {loadError ? (

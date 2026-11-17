@@ -33,9 +33,9 @@ import type { IceSourceReport } from '@/lib/ice-crawl-types';
 const PER_PAGE = 20;
 
 export const metadata: Metadata = pageMetadata({
-  title: 'Web Source Reports | ICE Alert',
+  title: 'Republished Web Reports | ICE Alert',
   description:
-    'Browse source-attributed public web reports nationwide or near your location, with the original URL, source label, publication time, and full readable source text.',
+    'Browse source-attributed reports republished from approved public web sources nationwide or near your location, with the original URL, source label, publication time, and full readable source text.',
   path: '/ice-alerts/web-reports',
   robots: { index: false, follow: false },
 });
@@ -113,21 +113,21 @@ export default async function WebReportsPage({ searchParams }: { searchParams: S
             <ArrowLeft className="size-3" aria-hidden="true" />
             Back to ICE Alert
           </Link>
-          <p className="civic-section-index mt-6">Source-attributed web reports</p>
+          <p className="civic-section-index mt-6">Republished from the web</p>
           <h1 className="mt-2 max-w-3xl font-display text-4xl font-semibold leading-[0.95] tracking-[-0.045em] sm:text-6xl">
-            Every gathered report, with its source.
+            Every republished report, with its source.
           </h1>
           <p className="mt-4 max-w-3xl text-sm leading-relaxed text-muted-foreground">
-            Full readable passages collected from approved public sources. Every entry keeps its
-            original URL, source label, publication time, and retrieval time. Browse the full
-            national archive, or narrow it to the nearest city with collected reports. These
-            reports are not independently verified by this chapter, and the source&apos;s own terms
-            may apply.
+            Full readable passages republished from approved public sources. Every entry keeps its
+            original URL, source label, source page title, publication time, and retrieval time.
+            Browse the full national archive, or narrow it to the nearest city with collected
+            reports. These reports are not independently verified by this chapter, and the
+            source&apos;s own terms may apply.
           </p>
           <div className="mt-4 flex flex-wrap items-center gap-2">
             <p className="inline-flex items-center gap-2 border border-border bg-surface-card px-3 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.09em] text-muted-foreground">
               <Globe2 className="size-3" aria-hidden="true" />
-              {total.toLocaleString('en-US')} {filtered ? 'matching' : 'archived'} report
+              {total.toLocaleString('en-US')} {filtered ? 'matching' : 'republished'} report
               {total === 1 ? '' : 's'}
             </p>
             <Link
@@ -261,7 +261,7 @@ export default async function WebReportsPage({ searchParams }: { searchParams: S
         {reports.length === 0 ? (
           <div className="mt-8 border border-border bg-surface-card p-5 text-sm leading-relaxed text-muted-foreground">
             <p className="font-semibold text-foreground">
-              {filtered ? 'No reports match these filters.' : 'No web-source reports have been published yet.'}
+              {filtered ? 'No reports match these filters.' : 'No republished reports have been published yet.'}
             </p>
             <p className="mt-1">
               {filtered

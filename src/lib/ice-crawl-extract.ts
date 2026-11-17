@@ -18,6 +18,7 @@ export type ExtractedReport = {
   city: string | null;
   stateCode: string | null;
   kind: IceSourceReportKind;
+  sourceTitle?: string | null;
 };
 
 export type FeedExtraction = {
@@ -35,6 +36,7 @@ const BLOCK_END =
   /<\/(?:p|div|li|h[1-6]|blockquote|article|section|tr|td|th)>|<br\s*\/?>/gi;
 const DROP_ELEMENTS =
   /<(script|style|noscript|template|svg|canvas|iframe|object|embed)[\s\S]*?<\/\1>/gi;
+const MAX_FEED_ITEMS = 10_000;
 
 export function normalizeText(value: string) {
   return value
@@ -136,6 +138,58 @@ export function extractJsonLdArticleBody(html: string) {
   return null;
 }
 
+export type JsonLdArticle = {
+  title: string;
+  text: string;
+  publishedAt: string | null;
+};
+
+/** Collect every JSON-LD article body, not just the first one on the page. */
+export function extractJsonLdArticles(html: string): JsonLdArticle[] {
+  const scripts = html.match(
+    /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi
+  ) ?? [];
+  const articles: JsonLdArticle[] = [];
+
+  for (const script of scripts) {
+    const json = script.replace(/^[\s\S]*?>/, '').replace(/<\/script>$/i, '');
+    try {
+      const parsed: unknown = JSON.parse(json);
+      const queue: unknown[] = [parsed];
+      while (queue.length > 0) {
+        const value = queue.shift();
+        if (!value || typeof value !== 'object') continue;
+        if (Array.isArray(value)) {
+          queue.push(...value);
+          continue;
+        }
+        const record = value as Record<string, unknown>;
+        if (typeof record.articleBody === 'string' && record.articleBody.trim().length >= 40) {
+          articles.push({
+            title:
+              typeof record.headline === 'string'
+                ? normalizeText(decodeHtmlEntities(record.headline))
+                : typeof record.name === 'string'
+                  ? normalizeText(decodeHtmlEntities(record.name))
+                  : '',
+            text: normalizeText(record.articleBody),
+            publishedAt: dateIso(
+              typeof record.datePublished === 'string' ? record.datePublished : ''
+            ),
+          });
+        }
+        if (record['@graph']) queue.push(record['@graph']);
+        if (record.mainEntity) queue.push(record.mainEntity);
+        if (record.itemListElement) queue.push(record.itemListElement);
+      }
+    } catch {
+      // Ignore malformed JSON-LD; HTML extraction still runs.
+    }
+  }
+
+  return articles;
+}
+
 export function extractFeedLinks(html: string, baseUrl: string) {
   const links = html.match(/<link\b[^>]*>/gi) ?? [];
   const found: string[] = [];
@@ -155,8 +209,36 @@ export function extractFeedLinks(html: string, baseUrl: string) {
   return [...new Set(found)];
 }
 
+export function extractNextLinks(html: string, baseUrl: string) {
+  const tags = html.match(/<(?:a|(?:[a-z0-9]+:)?link)\b[^>]*>/gi) ?? [];
+  const base = new URL(baseUrl);
+  const found: string[] = [];
+  for (const tag of tags) {
+    const rel = attribute(tag, 'rel');
+    if (!rel || !/\bnext\b/i.test(rel)) continue;
+    const href = attribute(tag, 'href');
+    if (!href) continue;
+    try {
+      const url = new URL(href, baseUrl);
+      if (url.origin !== base.origin) continue;
+      if (url.protocol !== 'https:' && url.protocol !== 'http:') continue;
+      url.hash = '';
+      found.push(url.toString());
+    } catch {
+      // Ignore malformed pagination links.
+    }
+  }
+  return [...new Set(found)];
+}
+
 export function extractSameOriginLinks(html: string, baseUrl: string) {
-  const anchors = html.match(/<a\b[^>]*>/gi) ?? [];
+  const anchors = [
+    ...(html.match(/<a\b[^>]*>/gi) ?? []),
+    // Pagination is sometimes declared in the head rather than as an anchor.
+    ...(html.match(/<(?:[a-z0-9]+:)?link\b[^>]*>/gi) ?? []).filter((tag) =>
+      /\brel\s*=\s*["'][^"']*\bnext\b/i.test(tag)
+    ),
+  ];
   const base = new URL(baseUrl);
   const found: string[] = [];
   for (const tag of anchors) {
@@ -176,21 +258,28 @@ export function extractSameOriginLinks(html: string, baseUrl: string) {
 }
 
 export function extractSitemapLinks(xml: string, baseUrl: string) {
-  const locs = [...xml.matchAll(/<loc>\s*([^<]+?)\s*<\/loc>/gi)].map((match) =>
-    decodeHtmlEntities(match[1]).trim()
+  const locs = [...xml.matchAll(/<loc\b[^>]*>([\s\S]*?)<\/loc>/gi)].map((match) =>
+    decodeHtmlEntities(
+      match[1]
+        .trim()
+        .replace(/^<!\[CDATA\[/, '')
+        .replace(/\]\]>$/, '')
+    ).trim()
   );
   const base = new URL(baseUrl);
-  return [
-    ...new Set(
-      locs.filter((value) => {
-        try {
-          return new URL(value).origin === base.origin;
-        } catch {
-          return false;
-        }
-      })
-    ),
-  ];
+  const found: string[] = [];
+  for (const value of locs) {
+    try {
+      const url = new URL(value, baseUrl);
+      if (url.origin !== base.origin) continue;
+      if (url.protocol !== 'https:' && url.protocol !== 'http:') continue;
+      url.hash = '';
+      found.push(url.toString());
+    } catch {
+      // Ignore malformed sitemap locations.
+    }
+  }
+  return [...new Set(found)];
 }
 
 function readTag(block: string, tag: string) {
@@ -204,12 +293,14 @@ function readTag(block: string, tag: string) {
 }
 
 function readLinkTag(block: string, baseUrl: string) {
-  const plain = readTag(block, 'link');
-  if (plain) {
+  const candidates = [readTag(block, 'link'), readTag(block, 'guid')];
+  for (const plain of candidates) {
+    if (!plain) continue;
     try {
-      return new URL(plain, baseUrl).toString();
+      const url = new URL(plain, baseUrl);
+      if (url.protocol === 'https:' || url.protocol === 'http:') return url.toString();
     } catch {
-      return null;
+      // Try the next candidate.
     }
   }
   const atom = block.match(/<link\b[^>]*href=["']([^"']+)["'][^>]*>/i)?.[1];
@@ -422,8 +513,8 @@ export function extractStopIceReports(
   feedUrl: string,
   cities?: readonly CityPoint[]
 ): FeedExtraction[] {
-  const blocks = [...xml.matchAll(/<report_data>([\s\S]*?)<\/report_data>/gi)]
-    .slice(0, 5_000)
+  const blocks = [...xml.matchAll(/<report_data\b[^>]*>([\s\S]*?)<\/report_data>/gi)]
+    .slice(0, MAX_FEED_ITEMS)
     .map((match) => match[1]);
   const items: FeedExtraction[] = [];
   const matcher = cities?.length ? createCityMatcher(cities) : null;
@@ -464,10 +555,10 @@ export function extractFeedItems(
 ): FeedExtraction[] {
   const matcher = cities?.length ? createCityMatcher(cities) : null;
   const blocks = [
-    ...xml.matchAll(/<item>([\s\S]*?)<\/item>/gi),
-    ...xml.matchAll(/<entry>([\s\S]*?)<\/entry>/gi),
+    ...xml.matchAll(/<item\b[^>]*>([\s\S]*?)<\/item>/gi),
+    ...xml.matchAll(/<entry\b[^>]*>([\s\S]*?)<\/entry>/gi),
   ]
-    .slice(0, 5_000)
+    .slice(0, MAX_FEED_ITEMS)
     .map((match) => match[1]);
 
   const items: FeedExtraction[] = [];
@@ -498,6 +589,83 @@ export function extractFeedItems(
   return items;
 }
 
+/** Parse a JSON Feed (application/feed+json), which uses JSON rather than RSS/Atom. */
+export function extractJsonFeedNextUrl(json: string, feedUrl: string): string | null {
+  try {
+    const parsed: unknown = JSON.parse(json);
+    if (!parsed || typeof parsed !== 'object') return null;
+    const nextUrl = (parsed as Record<string, unknown>).next_url;
+    if (typeof nextUrl !== 'string' || !nextUrl.trim()) return null;
+    const url = new URL(nextUrl, feedUrl);
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') return null;
+    if (url.origin !== new URL(feedUrl).origin) return null;
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+export function extractJsonFeedItems(
+  json: string,
+  feedUrl: string,
+  cities?: readonly CityPoint[]
+): FeedExtraction[] {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(json);
+  } catch {
+    return [];
+  }
+  if (!parsed || typeof parsed !== 'object') return [];
+  const source = parsed as Record<string, unknown>;
+  const items = Array.isArray(source.items) ? source.items.slice(0, MAX_FEED_ITEMS) : [];
+  const matcher = cities?.length ? createCityMatcher(cities) : null;
+  const extracted: FeedExtraction[] = [];
+
+  for (const value of items) {
+    if (!value || typeof value !== 'object') continue;
+    const item = value as Record<string, unknown>;
+    const rawUrl = typeof item.url === 'string' ? item.url : typeof item.id === 'string' ? item.id : '';
+    let sourceUrl = '';
+    try {
+      const candidate = new URL(rawUrl, feedUrl);
+      if (candidate.protocol === 'https:' || candidate.protocol === 'http:') {
+        sourceUrl = candidate.toString();
+      }
+    } catch {
+      // A non-URL GUID is not a source URL.
+    }
+    const rawTitle = typeof item.title === 'string' ? item.title : '';
+    const rawText =
+      (typeof item.content_html === 'string' && item.content_html) ||
+      (typeof item.content_text === 'string' && item.content_text) ||
+      (typeof item.summary === 'string' && item.summary) ||
+      '';
+    const text = readableText(rawText);
+    if (!sourceUrl || text.length < 20 || !isIceReportText(`${rawTitle} ${text}`)) continue;
+    const { city, stateCode } = cityStateFromText(`${rawTitle} ${text}`, matcher);
+    const title = cleanTitle(rawTitle, 'Source report');
+    extracted.push({
+      title,
+      text,
+      sourceUrl,
+      publishedAt: dateIso(
+        typeof item.date_published === 'string'
+          ? item.date_published
+          : typeof item.date_modified === 'string'
+            ? item.date_modified
+            : ''
+      ),
+      city,
+      stateCode,
+      kind: classifyReportKind(`${title} ${text}`),
+      sourceTitle: title,
+    });
+  }
+
+  return extracted;
+}
+
 export function extractHtmlReport(
   html: string,
   pageUrl: string,
@@ -511,7 +679,7 @@ export function extractHtmlReport(
     html.match(/<body\b[^>]*>([\s\S]*?)<\/body>/i)?.[1] ??
     html;
   const text = articleBody || readableText(articleHtml);
-  if (text.length < 40 || !isIceReportText(`${sourceTitle} ${text}`)) return null;
+  if (text.length < 20 || !isIceReportText(`${sourceTitle} ${text}`)) return null;
 
   const { city, stateCode } = extractCityState(`${sourceTitle}\n${text}`, cities);
   return {
@@ -522,13 +690,105 @@ export function extractHtmlReport(
     city,
     stateCode,
     kind: classifyReportKind(`${sourceTitle}\n${text}`),
+    sourceTitle,
   };
+}
+
+/**
+ * Extract every article-like block on a page. News sites often put several
+ * separate reports in one listing page; taking only the first <article> loses
+ * the rest even when the page is small.
+ */
+export function extractHtmlReports(
+  html: string,
+  pageUrl: string,
+  cities?: readonly CityPoint[],
+  includeBodyFallback = true
+): ExtractedReport[] {
+  const pageTitle = extractTitle(html);
+  const pagePublishedAt = extractPublishedAt(html);
+  const blocks = [
+    ...(html.match(/<article\b[^>]*>[\s\S]*?<\/article>/gi) ?? []),
+  ];
+  if (blocks.length === 0) {
+    const main = html.match(/<main\b[^>]*>([\s\S]*?)<\/main>/i)?.[1];
+    if (main) blocks.push(main);
+  }
+
+  const reports: ExtractedReport[] = [];
+
+  const add = (title: string, text: string, publishedAt: string | null) => {
+    if (text.length < 20 || !isIceReportText(`${title}\n${text}`)) return;
+    const { city, stateCode } = extractCityState(`${title}\n${text}`, cities);
+    reports.push({
+      title: cleanTitle(title, pageTitle || 'Source report'),
+      text,
+      sourceUrl: pageUrl,
+      publishedAt: publishedAt ?? pagePublishedAt,
+      city,
+      stateCode,
+      kind: classifyReportKind(`${title}\n${text}`),
+      sourceTitle: pageTitle || null,
+    });
+  };
+
+  for (const block of blocks) {
+    add(extractTitle(block) || pageTitle, readableText(block), null);
+  }
+
+  for (const article of extractJsonLdArticles(html)) {
+    add(article.title || pageTitle, article.text, article.publishedAt);
+  }
+
+  if (reports.length === 0 && includeBodyFallback) {
+    const single = extractHtmlReport(html, pageUrl, cities);
+    if (single) reports.push(single);
+  }
+
+  return mergeExtractedReports([], reports);
+}
+
+/**
+ * Deduplicate reports by normalized text and drop reports that are fully
+ * contained in a more complete excerpt. This is what keeps overlapping AI
+ * chunks from publishing the same report twice.
+ */
+export function mergeExtractedReports(
+  primary: readonly ExtractedReport[],
+  secondary: readonly ExtractedReport[]
+): ExtractedReport[] {
+  const merged = [...primary];
+  const normalized = merged.map((report) => normalizeForMatch(report.text));
+
+  for (const candidate of secondary) {
+    const candidateText = normalizeForMatch(candidate.text);
+    if (candidateText.length < 20) continue;
+    const overlapIndex = normalized.findIndex(
+      (existing) =>
+        existing === candidateText ||
+        existing.includes(candidateText) ||
+        candidateText.includes(existing)
+    );
+    if (overlapIndex >= 0) {
+      // Keep the more complete source text when the same report appears as a
+      // short AI excerpt and a full article paragraph.
+      if (candidateText.length > normalized[overlapIndex].length) {
+        merged[overlapIndex] = candidate;
+        normalized[overlapIndex] = candidateText;
+      }
+      continue;
+    }
+    merged.push(candidate);
+    normalized.push(candidateText);
+  }
+
+  return merged;
 }
 
 /** Validate that an AI-returned excerpt is verbatim text from the source page. */
 export function verbatimExcerpt(pageText: string, excerpt: string) {
   const normalizedPage = normalizeForMatch(pageText);
   const normalizedExcerpt = normalizeForMatch(excerpt);
-  if (normalizedExcerpt.length < 40) return false;
+  if (normalizedExcerpt.length < 20) return false;
   return normalizedPage.includes(normalizedExcerpt);
 }

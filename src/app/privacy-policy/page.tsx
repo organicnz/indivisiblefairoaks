@@ -28,7 +28,7 @@ export default function PrivacyPage() {
             organizing records straight. This page explains that in plain language.
           </p>
         }
-        meta={<span className="civic-stamp">Last updated November 16, 2026</span>}
+        meta={<span className="civic-stamp">Last updated November 17, 2026</span>}
       />
 
       <div className="mx-auto max-w-5xl px-4 py-14 sm:px-6 lg:px-8 lg:py-20">
@@ -83,12 +83,14 @@ export default function PrivacyPage() {
             is never published.
           </p>
           <p>
-            A first reviewer may prepare a sanitized, city-level draft that removes names, faces,
-            plates, street addresses, contact details, immigration status, and exact locations. A
-            second, different reviewer must approve that exact draft before a public entry is
-            created. The public entry contains only the city, state, category, rough observation
-            time, a short summary, and an approximate city-center map point. It expires after seven
-            days.
+            A unique, low-risk report may automatically publish only a generated city-level
+            summary. That summary contains the city, state, category, rough observation time, a
+            generic unverified description, and an approximate city-center map point. Reports that
+            closely match an existing report in the same city, state, and category within two hours
+            are combined into one public entry with a corroboration count. Reports with safety
+            flags or no verified city are held for manual review, where a first reviewer may
+            prepare a sanitized draft and a second, different reviewer must approve it. Raw report
+            text is never published. Public entries expire after seven days.
           </p>
           <p>
             Do not use this form to send anyone&apos;s personal information or to report an

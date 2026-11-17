@@ -50,7 +50,7 @@ describe('RapidAlertChannels', () => {
     expect(signalLink?.getAttribute('target')).toBe('_blank');
     expect(signalLink?.getAttribute('rel')).toBe('noopener noreferrer');
 
-    expect(container.textContent).toContain('accepts private reports only through its reviewed intake form');
+    expect(container.textContent).toContain('accepts private reports only through its intake form');
     expect(container.textContent).toContain('does not operate or monitor');
   });
 });

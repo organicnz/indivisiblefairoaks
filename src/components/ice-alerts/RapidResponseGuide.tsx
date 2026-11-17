@@ -10,6 +10,7 @@ import {
   LockKeyhole,
   MapPin,
   Phone,
+  Scale,
   ShieldAlert,
   Users,
 } from 'lucide-react';
@@ -73,7 +74,7 @@ const RESOURCES = [
   },
   {
     title: 'Report a sighting',
-    body: 'Submit a private report for chapter review. Only a sanitized city-level summary can be published after two different reviewers approve it. Use the national network if you prefer. Never send names, plates, or addresses.',
+    body: 'Submit a private report. Raw text stays private; a unique, low-risk report may publish only a generated city-level summary, and similar reports are combined. Reports with safety flags or no verified city are held for review. Use the national network if you prefer. Never send names, plates, or addresses.',
     href: '/ice-alerts/report',
     label: 'Start a private report',
     icon: LockKeyhole,
@@ -181,6 +182,30 @@ export function RapidResponseGuide({
           );
         })}
       </div>
+
+      <a
+        href="https://detentionhelp.org/en/"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="group mt-4 flex flex-col gap-4 border border-border bg-surface-card p-4 transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary sm:flex-row sm:items-center sm:justify-between sm:p-5"
+      >
+        <div className="flex min-w-0 items-start gap-3">
+          <Scale className="mt-0.5 size-5 shrink-0 text-accent" aria-hidden="true" />
+          <div>
+            <h3 className="font-display text-xl font-semibold leading-tight tracking-[-0.025em]">
+              DetentionHelp
+            </h3>
+            <p className="mt-1 max-w-2xl text-xs leading-relaxed text-muted-foreground">
+              A free tool from immigrant-rights groups for people in ICE detention preparing a
+              habeas petition, including people without a lawyer. It does not guarantee release.
+            </p>
+          </div>
+        </div>
+        <span className="inline-flex min-h-9 shrink-0 items-center gap-1.5 border border-border bg-background px-3 py-1.5 font-mono text-[8px] font-bold uppercase tracking-[0.1em] text-foreground transition-colors group-hover:border-foreground">
+          Open DetentionHelp
+          <ExternalLink className="size-3" aria-hidden="true" />
+        </span>
+      </a>
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-4 border border-primary/30 bg-primary/5 p-4 sm:p-5">
         <div className="flex min-w-0 items-start gap-3">

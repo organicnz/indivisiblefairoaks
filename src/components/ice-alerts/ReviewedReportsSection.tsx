@@ -35,17 +35,18 @@ export async function ReviewedReportsSection() {
       <div className="border-t border-foreground/20 pt-8">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="civic-section-index">Chapter-reviewed reports</p>
+            <p className="civic-section-index">Community reports</p>
             <h2
               id="ice-reviewed-reports-title"
               className="mt-2 max-w-lg font-display text-4xl font-semibold leading-[0.95] tracking-[-0.045em] sm:text-5xl"
             >
-              Published only after two reviews.
+              City-level community reports.
             </h2>
             <p className="mt-4 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-              These are sanitized, city-level summaries approved by two different chapter
-              reviewers. The raw report, reporter details, names, plates, and addresses are never
-              published here.
+              These are generated, city-level summaries from private community reports. Unique
+              low-risk reports may publish automatically; similar reports are combined. Raw text,
+              names, plates, addresses, and reporter details are never published. These are not
+              verified incidents or active alerts.
             </p>
           </div>
           <a
@@ -59,8 +60,9 @@ export async function ReviewedReportsSection() {
 
         {reports.length === 0 ? (
           <p className="mt-6 border border-border bg-surface-card p-5 text-sm leading-relaxed text-muted-foreground">
-            No chapter-reviewed reports have been published yet. Reports stay private until two
-            different reviewers approve a sanitized city-level summary.
+            No community reports have been published yet. Raw reports stay private. A unique,
+            low-risk report may automatically publish a generated city-level summary; similar
+            reports are combined.
           </p>
         ) : (
           <div className="mt-6 grid gap-px border border-border bg-border sm:grid-cols-2 lg:grid-cols-3">
@@ -86,11 +88,16 @@ function ReviewedReportCard({
       <div className="flex flex-wrap items-center gap-2">
         <span className="inline-flex items-center gap-1 border border-primary/35 bg-primary/5 px-1.5 py-0.5 font-mono text-[8px] font-bold uppercase tracking-[0.08em] text-primary-ink dark:text-primary-on-dark">
           <ShieldCheck className="size-2.5" aria-hidden="true" />
-          Two-person review
+          Community report
         </span>
         <span className="border border-border bg-background px-1.5 py-0.5 font-mono text-[8px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
           {iceReportKindLabel(report.kind)}
         </span>
+        {report.corroboration_count > 1 ? (
+          <span className="border border-accent/35 bg-accent/5 px-1.5 py-0.5 font-mono text-[8px] font-bold uppercase tracking-[0.08em] text-foreground">
+            Combined from {report.corroboration_count} reports
+          </span>
+        ) : null}
         <time
           dateTime={report.observed_at}
           className="ml-auto font-mono text-[8px] font-bold uppercase tracking-[0.08em] text-muted-foreground"
@@ -103,7 +110,7 @@ function ReviewedReportCard({
       </h3>
       <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{report.summary}</p>
       <p className="mt-3 font-mono text-[8px] font-bold uppercase tracking-[0.09em] text-muted-foreground">
-        City-level only
+        City-level only · Not independently verified
       </p>
     </article>
   );

@@ -46,7 +46,9 @@ export function IceReportModeration({
       <div className="border border-border bg-surface-card p-6">
         <p className="font-display text-xl font-semibold tracking-[-0.02em]">Queue is clear.</p>
         <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-          No reports are waiting for review. Raw reports are retained privately for up to 30 days.
+          No reports are waiting for manual review. Unique low-risk reports may have published a
+          generated city-level summary automatically; raw reports are retained privately for up to
+          30 days.
         </p>
       </div>
     );
