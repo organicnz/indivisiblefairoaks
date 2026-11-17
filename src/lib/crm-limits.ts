@@ -91,6 +91,17 @@ export const CRM_DIRECTORY_PAGE_SIZE = 50;
 export const CRM_DIRECTORY_MAX_PAGE_SIZE = 100;
 
 /**
+ * Follow-up board page size, and the ceiling a caller may ask for.
+ *
+ * The page passed a literal `100` and the action had no clamp at all, so a
+ * direct call to the server action could ask for a negative offset or the whole
+ * table. `getCRMContacts` and campaign history already clamp their pairs; this
+ * one is the third paged read and now follows the same rule.
+ */
+export const CRM_TASKS_PAGE_SIZE = 100;
+export const CRM_TASKS_MAX_PAGE_SIZE = 100;
+
+/**
  * Clamp for `pageSize` on the paged history read.
  *
  * `BROADCAST_HISTORY_PAGE_SIZE` is the default, not the maximum: a pager asks

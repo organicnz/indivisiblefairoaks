@@ -296,12 +296,16 @@ export function CRMContactList({
   const handleDeleteSegment = async (segment: CRMSegment) => {
     // No confirm() here: the ConfirmAction only calls this from its inline
     // confirm step.
-    const res = await deleteCRMSegment(segment.id);
-    if (res.success) {
-      toast.success('Segment deleted');
-      router.refresh();
-    } else {
-      toast.error(res.error || 'Failed to delete segment');
+    try {
+      const res = await deleteCRMSegment(segment.id);
+      if (res.success) {
+        toast.success('Segment deleted');
+        router.refresh();
+      } else {
+        toast.error(res.error || 'Failed to delete segment');
+      }
+    } catch {
+      toast.error('Failed to delete segment');
     }
   };
 
@@ -391,6 +395,10 @@ export function CRMContactList({
           | 'organizer'
           | 'inactive',
         tags: contact.tags,
+        // Without the version this row was rendered from, `saveCRMContact`
+        // refuses the write against an already-updated contact — which is every
+        // real contact, since the trigger moves `updated_at` on each save.
+        updated_at: contact.updated_at,
       });
       if (res.success) {
         toast.success(`Updated status for ${contact.first_name || contact.email}`);
@@ -459,7 +467,7 @@ export function CRMContactList({
       .toLowerCase()
       .replace(/[^a-z0-9_-]/g, '-');
     if (!clean) return;
-    if (contact.tags.includes(clean)) {
+    if (contact.tags.some((tag) => tag.toLowerCase() === clean)) {
       toast.info('Constituent already has this tag');
       setAddingTagContactId(null);
       setInlineTagInput('');
@@ -472,6 +480,7 @@ export function CRMContactList({
         id: contact.id,
         email: contact.email,
         tags: nextTags,
+        updated_at: contact.updated_at,
       });
       if (res.success) {
         toast.success(`Added tag #${clean}`);
@@ -497,6 +506,7 @@ export function CRMContactList({
         id: contact.id,
         email: contact.email,
         tags: nextTags,
+        updated_at: contact.updated_at,
       });
       if (res.success) {
         toast.success(`Removed tag #${tagToRemove}`);

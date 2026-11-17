@@ -643,16 +643,23 @@ export function CRMBroadcastComposer({
   };
 
   const handleDiscardDraft = async (id: string) => {
-    const res = await deleteCRMBroadcastDraft(id);
-    if (!res.success) {
-      toast.error(res.error || 'Failed to delete draft');
-      return;
+    try {
+      const res = await deleteCRMBroadcastDraft(id);
+      if (!res.success) {
+        toast.error(res.error || 'Failed to delete draft');
+        return;
+      }
+      // Only clear the composer if it was the draft on screen that went away.
+      setDraftId((current) => (current === id ? null : current));
+      setDrafts((current) => current.filter((d) => d.id !== id));
+      toast.success('Draft discarded');
+      startTransition(() => router.refresh());
+    } catch {
+      // A transport rejection here used to leave the confirmation step with no
+      // answer at all; the draft is still in the list, and the author needs to
+      // know the click did nothing.
+      toast.error('Draft could not be deleted — it is still in the list');
     }
-    // Only clear the composer if it was the draft on screen that went away.
-    setDraftId((current) => (current === id ? null : current));
-    setDrafts((current) => current.filter((d) => d.id !== id));
-    toast.success('Draft discarded');
-    startTransition(() => router.refresh());
   };
 
   /**
@@ -758,13 +765,19 @@ export function CRMBroadcastComposer({
         const sentDraftId = draftId;
         setDraftId(null);
         if (sentDraftId)
-          void deleteCRMBroadcastDraft(sentDraftId).then((r) => {
-            if (!r.success) {
+          void deleteCRMBroadcastDraft(sentDraftId)
+            .then((r) => {
+              if (!r.success) {
+                toast.warning(
+                  'The sent draft could not be cleared from your drafts — delete it manually so it cannot be sent twice.'
+                );
+              }
+            })
+            .catch(() => {
               toast.warning(
                 'The sent draft could not be cleared from your drafts — delete it manually so it cannot be sent twice.'
               );
-            }
-          });
+            });
 
         if (res.broadcastId) void followProgress(res.broadcastId);
         startTransition(() => {

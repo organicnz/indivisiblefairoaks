@@ -5,6 +5,8 @@ import {
   BROADCAST_DISPATCH_TIMEOUT_MS,
   BROADCAST_HISTORY_MAX_PAGE_SIZE,
   BROADCAST_HISTORY_PAGE_SIZE,
+  CRM_TASKS_MAX_PAGE_SIZE,
+  CRM_TASKS_PAGE_SIZE,
   PROGRESS_POLL_TIMEOUT_MS,
 } from '@/lib/crm-limits';
 
@@ -65,6 +67,12 @@ describe('crm-limits: relationships the bounds exist to hold', () => {
    */
   it('gives history and drafts the same page size', () => {
     expect(BROADCAST_HISTORY_PAGE_SIZE).toBe(25);
+  });
+
+  it('keeps the follow-up ceiling at or above its default page size', () => {
+    // Otherwise the board's own page size would be silently clamped on every
+    // request, and the pager's arithmetic would disagree with the rows returned.
+    expect(CRM_TASKS_MAX_PAGE_SIZE).toBeGreaterThanOrEqual(CRM_TASKS_PAGE_SIZE);
   });
 
   it('bounds the notes budget at the size an export round-trips', () => {

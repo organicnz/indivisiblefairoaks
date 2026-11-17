@@ -979,8 +979,8 @@ describe('CRM reads and bookkeeping', () => {
      * read that returned `undefined` on failure would render an empty contact
      * page and look like a person who does not exist.
      */
-    it('reads one contact’s tasks, and throws rather than returning an error object', async () => {
-      const mine = {
+    it('reads every one of one contact’s tasks, including overdue and undated work', async () => {
+      const done = {
         id: 't1',
         title: 'Call back',
         contact_id: 'c1',
@@ -994,27 +994,37 @@ describe('CRM reads and bookkeeping', () => {
         status: 'open',
         due_at: '2026-02-01',
       };
+      // The two rows the old status/due-date filter hid. The 360 panel's Open
+      // filter is built from this read, so an overdue follow-up used to vanish
+      // from the exact view an organizer opens to find it.
+      const overdue = {
+        id: 't4',
+        title: 'Call the clerk back',
+        contact_id: 'c1',
+        status: 'open',
+        due_at: '2025-12-01',
+      };
+      const undated = {
+        id: 't5',
+        title: 'Ask about the permit',
+        contact_id: 'c1',
+        status: 'open',
+        due_at: null,
+      };
       const theirs = {
         id: 't3',
-        title: 'Chase the clerk',
+        title: 'Chase someone else',
         contact_id: 'c2',
         status: 'done',
         due_at: '2026-01-15',
       };
-      tables.crm_tasks = {
-        rows: [mine, upcoming, theirs],
-        // `.or('status.eq.done,and(status.eq.open,due_at.gte.<today>)')` is a
-        // PostgREST filter string the mock deliberately does not parse, so the
-        // rows it selects are declared: all three, because all three are done
-        // or open-and-dated. `t3` is in that set on purpose — it is someone
-        // else's task, so the `.eq('contact_id', id)` in front of the `.or()`
-        // still has to do its job for the answer to be right.
-        filterRows: [mine, upcoming, theirs],
-      };
+      tables.crm_tasks = { rows: [done, upcoming, overdue, undated, theirs] };
 
       const res = await getCRMTasksForContact('c1');
 
-      expect(res.map((t) => t.id)).toEqual(['t1', 't2']);
+      // `theirs` stays out, and the two hidden rows now sort where they belong:
+      // overdue first, undated last.
+      expect(res.map((t) => t.id)).toEqual(['t4', 't1', 't2', 't5']);
     });
 
     it('throws on a failed task read instead of returning an empty list', async () => {
@@ -1175,6 +1185,22 @@ describe('CRM reads and bookkeeping', () => {
 
         expect(res.tasks).toHaveLength(2);
         expect(res.totalCount).toBe(2);
+      });
+
+      it('clamps a hostile page and page size instead of reading a negative range', async () => {
+        const seeded = Array.from({ length: 150 }, (_, i) => ({
+          id: `t${i}`,
+          status: 'open',
+          due_at: new Date(Date.UTC(2026, 0, 1 + i)).toISOString().slice(0, 10),
+        }));
+        tables.crm_tasks = { rows: seeded };
+
+        const res = await getCRMTasks({ scope: 'all', page: 0, pageSize: 100000 });
+
+        // `page: 0` used to request `range(-100000, -1)`; an unclamped page size
+        // would have returned all 150 rows.
+        expect(res.tasks).toHaveLength(100);
+        expect(res.totalCount).toBe(150);
       });
 
       it('fails instead of reporting zero when the task count is unavailable', async () => {

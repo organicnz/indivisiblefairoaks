@@ -695,14 +695,21 @@ export function ContentEditor({ initial, siteHost }: Props) {
     if (!initial.id) return;
     // No confirm() here: the ConfirmAction below only calls this from its
     // inline confirm step, which already named the page and the consequence.
-    const result = await deleteContent(initial.id);
-    if (!result.success) {
-      toast.error(result.error);
-      return;
+    try {
+      const result = await deleteContent(initial.id);
+      if (!result.success) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success('Page deleted');
+      router.push('/admin/content');
+      router.refresh();
+    } catch {
+      // ConfirmAction does not await its callback, so a rejected server action
+      // became an unhandled rejection with the page still sitting there and no
+      // message explaining why.
+      toast.error('Page could not be deleted');
     }
-    toast.success('Page deleted');
-    router.push('/admin/content');
-    router.refresh();
   }, [initial.id, router]);
 
   const handleDuplicate = useCallback(async () => {

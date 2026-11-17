@@ -27,6 +27,8 @@ import {
   CRM_DIRECTORY_MAX_PAGE_SIZE,
   CRM_DIRECTORY_PAGE_SIZE,
   CRM_EXPORT_LIMIT,
+  CRM_TASKS_MAX_PAGE_SIZE,
+  CRM_TASKS_PAGE_SIZE,
 } from '@/lib/crm-limits';
 import { type CRMTagScan, getCachedCRMTags } from '@/lib/crm-tag-scan';
 import { isE2EMode } from '@/lib/e2e-mode';
@@ -73,8 +75,15 @@ const tagSchema = z
   .max(MAX_TAG_LENGTH)
   .regex(TAG_PATTERN, 'Tags may not contain <, >, or commas');
 
-const contactSchema = z.object({
-  id: z.string().uuid().optional(),
+/**
+ * The fields a contact write may carry, without the create-only defaults.
+ *
+ * The update path used this shape with `.default()`s, which is how an inline tag
+ * edit that sent only `{ id, email, tags }` also wrote `status: 'supporter'` and
+ * `district: 'CA-06'` — silently resetting both fields the organizer never
+ * touched. Defaults belong to creation, where there is no prior value to keep.
+ */
+const contactEditableFields = {
   email: z.string().trim().toLowerCase().email(),
   first_name: z.string().max(100).nullable().optional(),
   last_name: z.string().max(100).nullable().optional(),
@@ -82,15 +91,19 @@ const contactSchema = z.object({
   address: z.string().max(200).nullable().optional(),
   city: z.string().max(100).nullable().optional(),
   zip_code: z.string().max(20).nullable().optional(),
-  district: z.string().max(20).default('CA-06'),
-  status: z
-    .enum(['active_volunteer', 'supporter', 'donor', 'choir', 'organizer', 'inactive'])
-    .default('supporter'),
+  district: z.string().max(20),
+  status: z.enum([
+    'active_volunteer',
+    'supporter',
+    'donor',
+    'choir',
+    'organizer',
+    'inactive',
+  ]),
   tags: z
     .array(tagSchema)
     .max(MAX_TAGS_PER_CONTACT, `A contact may carry at most ${MAX_TAGS_PER_CONTACT} tags`)
-    .transform(normalizeTags)
-    .default([]),
+    .transform(normalizeTags),
   // Bounded, unlike before. An arbitrarily large blob reached `crm_contacts.notes`
   // from three directions at once — this schema, the CSV importer, and an editor
   // textarea with no `maxLength` — and it is rendered in the 360 panel *and*
@@ -98,12 +111,37 @@ const contactSchema = z.object({
   // 2000 for comparison; a free-text organizer note does not need more than the
   // importer's own row limit.
   notes: z.string().max(MAX_CONTACT_NOTES_LENGTH).nullable().optional(),
+};
+
+const contactSchema = z.object({
+  id: z.string().uuid().optional(),
+  ...contactEditableFields,
+  district: contactEditableFields.district.default('CA-06'),
+  status: contactEditableFields.status.default('supporter'),
+  tags: contactEditableFields.tags.default([]),
   /**
    * The version this edit was based on — the `updated_at` the editor was opened
    * with. Optional, so an existing caller without it keeps the old behaviour, but
    * the editor always sends it and it is what turns two organizers editing one
    * contact from last-write-wins into a reported conflict.
    */
+  updated_at: z.string().nullable().optional(),
+});
+
+/**
+ * An edit is a patch: absent fields are left alone, not defaulted.
+ *
+ * `id` is required here because this schema is only chosen when the caller sent
+ * one. `email` stays required since it is the contact's identity column. Every
+ * other field is optional, so the inline directory and 360 handlers can change
+ * one attribute without rewriting the rest of the row.
+ */
+const contactUpdateSchema = z.object({
+  id: z.string().uuid(),
+  ...contactEditableFields,
+  district: contactEditableFields.district.optional(),
+  status: contactEditableFields.status.optional(),
+  tags: contactEditableFields.tags.optional(),
   updated_at: z.string().nullable().optional(),
 });
 
@@ -701,7 +739,7 @@ export type TaskScope = 'open' | 'overdue' | 'upcoming' | 'done' | 'all';
 export async function getCRMTasks({
   scope = 'open',
   page = 1,
-  pageSize = 50,
+  pageSize = CRM_TASKS_PAGE_SIZE,
 }: {
   scope?: TaskScope;
   page?: number;
@@ -709,6 +747,17 @@ export async function getCRMTasks({
 } = {}): Promise<{ tasks: CRMTaskWithContact[]; totalCount: number }> {
   const { adminClient } = await requireAdmin();
   const today = new Date().toISOString().slice(0, 10);
+  // Both values reach PostgREST as a range, and this action is a `'use server'`
+  // boundary — it is callable directly, not only through the page that already
+  // parses `page`. `page: 0` produced a negative offset and a hostile
+  // `pageSize` could ask for the whole table. `Number.isFinite` first because
+  // `Math.max(1, Math.trunc(NaN))` is still NaN, just as in the broadcast
+  // history read.
+  const size = Math.min(
+    CRM_TASKS_MAX_PAGE_SIZE,
+    Math.max(1, Number.isFinite(pageSize) ? Math.trunc(pageSize) : CRM_TASKS_PAGE_SIZE)
+  );
+  const current = Number.isFinite(page) ? Math.max(1, Math.trunc(page)) : 1;
 
   let qb = adminClient
     .from('crm_tasks')
@@ -724,8 +773,8 @@ export async function getCRMTasks({
     qb = qb.eq('status', 'open').or(`due_at.gte.${today},due_at.is.null`);
   }
 
-  const from = (page - 1) * pageSize;
-  const to = from + pageSize - 1;
+  const from = (current - 1) * size;
+  const to = from + size - 1;
   const { data, count, error } = await qb
     .order('due_at', { ascending: true, nullsFirst: false })
     .order('created_at', { ascending: false })
@@ -741,14 +790,21 @@ export async function getCRMTasks({
   return { tasks: (data as CRMTaskWithContact[]) || [], totalCount: count };
 }
 
+/**
+ * Every follow-up recorded for one constituent.
+ *
+ * The read used to select only done tasks plus open tasks due today or later,
+ * which hid exactly the rows an organizer most needs to see: an overdue call
+ * disappeared from the 360 panel's Open filter, and an open task with no due
+ * date disappeared entirely. The panel filters the returned list into All / Open
+ * / Done itself, so the read must not pre-filter it.
+ */
 export async function getCRMTasksForContact(contactId: string): Promise<CRMTask[]> {
   const { adminClient } = await requireAdmin();
-  const today = new Date().toISOString().slice(0, 10);
   const { data, error } = await adminClient
     .from('crm_tasks')
     .select('*')
     .eq('contact_id', contactId)
-    .or(`status.eq.done,and(status.eq.open,due_at.gte.${today})`)
     .order('due_at', { ascending: true, nullsFirst: false })
     .order('created_at', { ascending: false })
     .order('id', { ascending: false })
@@ -1134,7 +1190,12 @@ export async function saveCRMContact(
 ): Promise<SaveCRMContactResult> {
   const { adminClient, adminUserId } = await requireAdmin();
 
-  const parsed = contactSchema.safeParse(rawInput);
+  // A create fills the defaults (status, district, tags); an edit must not.
+  // Parsing an edit against `contactSchema` made every omitted field look like
+  // an intentional value, so a one-field inline change rewrote the rest.
+  const parsed = rawInput.id
+    ? contactUpdateSchema.safeParse(rawInput)
+    : contactSchema.safeParse(rawInput);
   if (!parsed.success) {
     return { success: false, error: parsed.error.issues[0]?.message || 'Invalid input' };
   }
@@ -1177,7 +1238,10 @@ export async function saveCRMContact(
     if (previousError) return { success: false, error: previousError.message };
     if (!previous) return { success: false, error: 'That contact no longer exists' };
 
-    const statusChanged = previous.status !== data.status;
+    // `status` is optional on an edit now. Only a status the caller actually
+    // sent can have changed, and an omitted one keeps the row's current value.
+    const nextStatus = data.status ?? previous.status;
+    const statusChanged = data.status !== undefined && previous.status !== data.status;
 
     // `updated_at` is deliberately *not* in this payload. It is the expected
     // version, not the new one: writing it back would overwrite the value the
@@ -1223,9 +1287,9 @@ export async function saveCRMContact(
       type: 'status_change',
       title: statusChanged ? 'Status Changed' : 'Constituent Profile Updated',
       description: statusChanged
-        ? `Status moved from "${previous.status}" to "${data.status}"`
-        : `Updated details and status (${data.status})`,
-      metadata: statusChanged ? { from: previous.status, to: data.status } : {},
+        ? `Status moved from "${previous.status}" to "${nextStatus}"`
+        : `Updated details${data.status ? ` and status (${nextStatus})` : ''}`,
+      metadata: statusChanged ? { from: previous.status, to: nextStatus } : {},
       created_by: adminUserId,
     });
 

@@ -89,29 +89,41 @@ export function ContentList({
 
   const handleToggle = async (row: ContentListRow) => {
     setBusyId(row.id);
-    const next = row.status === 'publish' ? 'draft' : 'publish';
-    const result = await setContentStatus(row.id, next);
-    setBusyId(null);
-    if (!result.success) {
-      toast.error(result.error);
-      return;
+    try {
+      const next = row.status === 'publish' ? 'draft' : 'publish';
+      const result = await setContentStatus(row.id, next);
+      if (!result.success) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success(next === 'publish' ? `Published “${row.title}”` : `Moved to drafts`);
+      router.refresh();
+    } catch {
+      toast.error('Page could not be updated');
+    } finally {
+      // In a `finally`, not after the await: a rejected action used to skip the
+      // reset and leave that row's buttons disabled for the rest of the session.
+      setBusyId(null);
     }
-    toast.success(next === 'publish' ? `Published “${row.title}”` : `Moved to drafts`);
-    router.refresh();
   };
 
   const handleDelete = async (row: ContentListRow) => {
     // No confirm() here: the row's ConfirmAction only calls this from its
     // inline confirm step, which already named the page and the consequence.
     setBusyId(row.id);
-    const result = await deleteContent(row.id);
-    setBusyId(null);
-    if (!result.success) {
-      toast.error(result.error);
-      return;
+    try {
+      const result = await deleteContent(row.id);
+      if (!result.success) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success('Page deleted');
+      router.refresh();
+    } catch {
+      toast.error('Page could not be deleted');
+    } finally {
+      setBusyId(null);
     }
-    toast.success('Page deleted');
-    router.refresh();
   };
 
   return (

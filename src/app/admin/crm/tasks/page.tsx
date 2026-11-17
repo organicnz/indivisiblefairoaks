@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { CRMTasksClient } from '@/components/admin/crm/CRMTasksClient';
 import { getCRMTasks, type TaskScope } from '@/lib/actions/crm';
 import { requireAdminPage } from '@/lib/admin-auth';
+import { CRM_TASKS_PAGE_SIZE } from '@/lib/crm-limits';
 
 // Deliberate Cache Components opt-out (Block): admin surface behind requireAdmin() session gate.
 export const instant = false;
@@ -28,7 +29,7 @@ export default async function AdminCRMTasksPage({
     ? (params.scope as TaskScope)
     : 'open';
   const page = Math.max(1, parseInt(params.page || '1', 10) || 1);
-  const pageSize = 100;
+  const pageSize = CRM_TASKS_PAGE_SIZE;
 
   const { tasks, totalCount } = await getCRMTasks({ scope, page, pageSize });
 

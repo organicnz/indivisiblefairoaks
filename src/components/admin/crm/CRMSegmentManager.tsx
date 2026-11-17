@@ -3,6 +3,7 @@
 import { Layers, Trash2, Users } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import {
   deleteCRMSegment,
@@ -158,9 +159,14 @@ export function CRMSegmentManager({
         consent: form.consent || undefined,
       });
       if (res.success) {
+        toast.success(editingId ? 'Segment updated' : 'Segment created');
         reset();
         router.refresh();
+      } else {
+        toast.error(res.error || 'Failed to save segment');
       }
+    } catch {
+      toast.error('Failed to save segment');
     } finally {
       setSaving(false);
     }
@@ -169,8 +175,15 @@ export function CRMSegmentManager({
   const remove = async (id: string) => {
     setDeletingId(id);
     try {
-      await deleteCRMSegment(id);
-      router.refresh();
+      const res = await deleteCRMSegment(id);
+      if (res.success) {
+        toast.success('Segment deleted');
+        router.refresh();
+      } else {
+        toast.error(res.error || 'Failed to delete segment');
+      }
+    } catch {
+      toast.error('Failed to delete segment');
     } finally {
       setDeletingId(null);
     }

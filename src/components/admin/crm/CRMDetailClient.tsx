@@ -344,6 +344,10 @@ export function CRMDetailClient({
         zip_code: editZipCode.trim() || null,
         notes: editNotes.trim() || null,
         tags: contact.tags,
+        // The version this form was rendered from. Omitting it makes the
+        // action's optimistic-concurrency guard treat the edit as based on a
+        // never-updated row, so every real contact refuses the save.
+        updated_at: contact.updated_at,
       });
       if (res.success) {
         toast.success('Constituent updated');
@@ -380,6 +384,7 @@ export function CRMDetailClient({
         id: contact.id,
         email: contact.email,
         tags: updatedTags,
+        updated_at: contact.updated_at,
       });
       if (res.success) {
         toast.success(`Tag #${raw} added`);
@@ -408,6 +413,7 @@ export function CRMDetailClient({
         id: contact.id,
         email: contact.email,
         tags: updatedTags,
+        updated_at: contact.updated_at,
       });
       if (res.success) {
         toast.success(`Tag #${tagToRemove} removed`);

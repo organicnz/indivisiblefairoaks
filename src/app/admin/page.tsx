@@ -51,17 +51,24 @@ export default async function AdminDashboardPage() {
 
   const [
     { count: eventCount },
+    { count: contentCount },
+    { count: publishedCount },
     { data: content },
     { count: memberCount },
     { data: upcomingEvents },
     dataPoints,
   ] = await Promise.all([
     adminClient.from('events').select('slug', { count: 'exact', head: true }),
+    adminClient.from('content').select('id', { count: 'exact', head: true }),
+    adminClient
+      .from('content')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'publish'),
     adminClient
       .from('content')
       .select('id, title, slug, status, type, updated_at')
       .order('updated_at', { ascending: false })
-      .limit(500),
+      .limit(5),
     adminClient.from('profiles').select('id', { count: 'exact', head: true }),
     eventsClient
       .from('events')
@@ -74,10 +81,13 @@ export default async function AdminDashboardPage() {
   ]);
 
   const eventRows = (upcomingEvents || []) as EventRow[];
-  const contentRows = (content || []) as ContentRow[];
-  const recentContent = contentRows.slice(0, 5);
-  const published = contentRows.filter((c) => c.status === 'publish').length;
-  const drafts = contentRows.length - published;
+  const recentContent = (content || []) as ContentRow[];
+  // Exact counts, not a count of the most recent 500 rows. The cards read
+  // "Published" and "Drafts", so a chapter past 500 pages silently saw the
+  // totals of a different, truncated set. `max` only guards against the two
+  // count queries observing different snapshots while a page is being written.
+  const published = publishedCount ?? 0;
+  const drafts = Math.max((contentCount ?? 0) - published, 0);
 
   return (
     <div>

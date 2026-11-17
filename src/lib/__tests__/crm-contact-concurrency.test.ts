@@ -278,6 +278,36 @@ describe('saveCRMContact: optimistic concurrency', () => {
     expect(res.success).toBe(true);
     expect(tables.crm_contacts.rows?.[0]?.city).toBe('Carmichael');
   });
+
+  /**
+   * An edit is a patch. The schema used to apply create defaults on update, so a
+   * caller changing one tag also wrote `status: 'supporter'` and
+   * `district: 'CA-06'` — resetting fields it had never read. That is worse than
+   * a failed save: the toast says the tag was added, and the organizer has no
+   * reason to re-check the status they set last week.
+   */
+  it('leaves fields the caller did not send untouched', async () => {
+    const row = baseRow({
+      status: 'donor',
+      district: 'CA-03',
+      tags: ['choir'],
+      notes: 'keep this note',
+    });
+    tables.crm_contacts = { rows: [row], onUpdate: touchUpdatedAt() };
+
+    const res = await saveCRMContact({
+      id: CONTACT_ID,
+      email: 'alice@example.com',
+      tags: ['choir', 'postcards'],
+      updated_at: T0,
+    });
+
+    expect(res.success).toBe(true);
+    expect(row.tags).toEqual(['choir', 'postcards']);
+    expect(row.status).toBe('donor');
+    expect(row.district).toBe('CA-03');
+    expect(row.notes).toBe('keep this note');
+  });
 });
 
 describe('saveCRMContact: failure paths', () => {
