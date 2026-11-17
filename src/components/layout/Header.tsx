@@ -237,23 +237,21 @@ function HeaderInner() {
               })}
             </nav>
 
-            <div className="flex h-full shrink-0 items-center gap-3">
-              {alertRoute ? (
-                <Link
-                  href={alertRoute.href}
-                  aria-current={isActiveRoute(pathname, alertRoute) ? 'page' : undefined}
-                  className={`relative inline-flex h-full items-center whitespace-nowrap rounded-sm px-1 text-[11px] font-bold uppercase tracking-[0.1em] text-accent transition-colors duration-300 ease-out hover:text-foreground ${FOCUS_RING}`}
-                >
-                  {alertRoute.short ?? alertRoute.label}
-                  {isActiveRoute(pathname, alertRoute) ? (
-                    <span
-                      aria-hidden="true"
-                      className="absolute inset-x-1 bottom-0 h-0.5 bg-accent"
-                    />
-                  ) : null}
-                </Link>
-              ) : null}
-            </div>
+            {alertRoute ? (
+              <Link
+                href={alertRoute.href}
+                aria-current={isActiveRoute(pathname, alertRoute) ? 'page' : undefined}
+                className={`relative inline-flex h-full shrink-0 items-center whitespace-nowrap rounded-sm px-1 text-[11px] font-bold uppercase tracking-[0.1em] text-accent transition-colors duration-300 ease-out hover:text-foreground ${FOCUS_RING}`}
+              >
+                {alertRoute.short ?? alertRoute.label}
+                {isActiveRoute(pathname, alertRoute) ? (
+                  <span
+                    aria-hidden="true"
+                    className="absolute inset-x-1 bottom-0 h-0.5 bg-accent"
+                  />
+                ) : null}
+              </Link>
+            ) : null}
           </div>
         </div>
       </header>
