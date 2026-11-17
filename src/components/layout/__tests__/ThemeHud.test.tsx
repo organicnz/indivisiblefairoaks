@@ -365,7 +365,7 @@ describe('ThemeHud component', () => {
       emitThemeHud('system', 'light');
     });
 
-    const darkBtn = container.querySelector('button[data-theme-mode="dark"]');
+    const darkBtn = container.querySelector('button[data-theme-choice="dark"]');
     expect(darkBtn).not.toBeNull();
 
     await act(async () => {
@@ -376,7 +376,7 @@ describe('ThemeHud component', () => {
 
     expect(setThemeMode).toHaveBeenCalledWith('dark', { x: 200, y: 400 });
 
-    const lightBtn = container.querySelector('button[data-theme-mode="light"]');
+    const lightBtn = container.querySelector('button[data-theme-choice="light"]');
     expect(lightBtn).not.toBeNull();
 
     await act(async () => {
@@ -503,7 +503,7 @@ describe('ThemeHud component', () => {
     const hud = container.querySelector('[role="status"]');
     expect(hud).not.toBeNull();
 
-    const button = container.querySelector('button[data-theme-mode="system"]') as HTMLButtonElement;
+    const button = container.querySelector('button[data-theme-choice="system"]') as HTMLButtonElement;
     expect(button).not.toBeNull();
 
     // Focus occurs inside the HUD
@@ -543,12 +543,12 @@ describe('ThemeHud component', () => {
     });
 
     const systemBtn = container.querySelector(
-      'button[data-theme-mode="system"]'
+      'button[data-theme-choice="system"]'
     ) as HTMLButtonElement;
     const lightBtn = container.querySelector(
-      'button[data-theme-mode="light"]'
+      'button[data-theme-choice="light"]'
     ) as HTMLButtonElement;
-    const darkBtn = container.querySelector('button[data-theme-mode="dark"]') as HTMLButtonElement;
+    const darkBtn = container.querySelector('button[data-theme-choice="dark"]') as HTMLButtonElement;
     expect(systemBtn).not.toBeNull();
     expect(lightBtn).not.toBeNull();
     expect(darkBtn).not.toBeNull();

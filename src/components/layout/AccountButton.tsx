@@ -252,7 +252,7 @@ export function AccountButton({ variant = 'pill', onNavigate }: AccountButtonPro
       <DropdownMenu>
         <DropdownMenuTrigger
           className="flex w-full items-center gap-3 rounded-sm border border-white/15 bg-white/5 p-3 text-left text-ink-on-dark transition-colors duration-300 ease-out hover:border-primary-on-dark/50 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold/70"
-          aria-label="User menu"
+          aria-label={`User menu, ${displayName}`}
         >
           {renderAvatar('h-9 w-9 shrink-0', 'text-[11px]')}
           <span className="flex-1 min-w-0 text-left text-sm font-bold uppercase tracking-wider truncate">
@@ -270,7 +270,7 @@ export function AccountButton({ variant = 'pill', onNavigate }: AccountButtonPro
     <DropdownMenu>
       <DropdownMenuTrigger
         className="inline-flex h-9 w-9 items-center justify-center rounded-full transition-colors duration-300 ease-out hover:opacity-80"
-        aria-label="User menu"
+        aria-label={`User menu, ${initials}`}
       >
         {renderAvatar('h-9 w-9', 'text-xs')}
       </DropdownMenuTrigger>

@@ -268,7 +268,7 @@ export function ThemeHud() {
     if (targetIndex >= 0) {
       const targetMode = THEME_ORDER[targetIndex];
       const targetBtn = e.currentTarget.parentElement?.querySelector<HTMLButtonElement>(
-        `button[data-theme-mode="${targetMode}"]`
+        `button[data-theme-choice="${targetMode}"]`
       );
       targetBtn?.focus();
       const rect = targetBtn?.getBoundingClientRect();
@@ -364,7 +364,7 @@ export function ThemeHud() {
                 key={m}
                 type="button"
                 aria-pressed={isActive}
-                data-theme-mode={m}
+                data-theme-choice={m}
                 onClick={(e) => {
                   e.stopPropagation();
                   setThemeMode(m, { x: e.clientX, y: e.clientY });

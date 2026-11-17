@@ -135,7 +135,7 @@ export function ThemeToggle({
     if (targetIndex >= 0) {
       const targetMode = THEME_ORDER[targetIndex];
       const targetBtn = e.currentTarget.parentElement?.querySelector<HTMLButtonElement>(
-        `button[data-theme-mode="${targetMode}"]`
+        `button[data-theme-choice="${targetMode}"]`
       );
       targetBtn?.focus();
       const rect = targetBtn?.getBoundingClientRect();
@@ -176,7 +176,7 @@ export function ThemeToggle({
                 }
               }}
               onKeyDown={(e) => handleSegmentKeyDown(e, m)}
-              data-theme-mode={m}
+              data-theme-choice={m}
               className={`relative z-10 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors duration-200 ease-out active:scale-95 cursor-pointer ${FOCUS_RING} ${
                 isActive
                   ? 'text-ink-strong font-black'
@@ -232,7 +232,7 @@ export function ThemeToggle({
             cycle('prev');
           }
         }}
-        data-theme-mode={mode}
+        data-theme-choice={mode}
         data-theme-effective={effective}
         aria-label={label}
         title={label}
@@ -292,7 +292,7 @@ export function ThemeToggle({
             cycle();
           }
         }}
-        data-theme-mode={mode}
+        data-theme-choice={mode}
         aria-label={label}
         title={label}
         className={`group flex w-full items-center gap-3 px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-ink-on-dark hover:text-white transition-all duration-300 ease-out text-sm font-medium active:scale-[0.99] cursor-pointer ${FOCUS_RING}`}
@@ -335,7 +335,7 @@ export function ThemeToggle({
                 }
               }}
               onKeyDown={(e) => handleSegmentKeyDown(e, m)}
-              data-theme-mode={m}
+              data-theme-choice={m}
               className={`relative z-10 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-bold transition-colors duration-200 ease-out active:scale-95 cursor-pointer ${FOCUS_RING} ${
                 isSelected
                   ? 'text-ink-strong font-black'

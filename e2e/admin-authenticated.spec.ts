@@ -57,13 +57,13 @@ test.describe('admin surfaces with a seeded session', () => {
   test('constituent directory renders for an admin', async ({ page }) => {
     await page.goto('/admin/crm');
     await expect(page).toHaveURL(/\/admin\/crm/);
-    await expect(page.locator('body')).toContainText('Constituent Directory');
+    await expect(page.locator('body')).toContainText(/constituent directory/i);
   });
 
   test('broadcast composer renders for an admin', async ({ page }) => {
     await page.goto('/admin/crm/broadcasts');
     await expect(page).toHaveURL(/\/admin\/crm\/broadcasts/);
-    await expect(page.locator('body')).toContainText('Campaign Broadcasts');
+    await expect(page.locator('body')).toContainText(/campaign broadcasts/i);
   });
 
   /**

@@ -76,7 +76,7 @@ test.describe('theme toggle', () => {
     // Back to system: the key is removed rather than set to 'system', so the
     // OS is consulted again — and here it still asks for dark.
     await toggle.click();
-    await expect(toggle).toHaveAttribute('data-theme-mode', 'system');
+    await expect(toggle).toHaveAttribute('data-theme-choice', 'system');
     expect(await page.evaluate(() => localStorage.getItem('indivisible:theme-mode'))).toBeNull();
     await expect(html).toHaveAttribute('data-theme', 'dark');
   });
@@ -113,19 +113,19 @@ test.describe('theme toggle', () => {
 
     await page.getByRole('button', { name: 'Open navigation menu' }).click();
     const drawerToggle = page.getByRole('button', { name: /^Color theme:/ });
-    await expect(drawerToggle).toHaveAttribute('data-theme-mode', 'system');
+    await expect(drawerToggle).toHaveAttribute('data-theme-choice', 'system');
     await drawerToggle.click();
 
     // One click from system (with light effective) cycles to light (explicit pin).
     // The header's control reads the same store and stays in sync.
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
     await expect(page.getByRole('button', { name: /^Color theme:/ }).first()).toHaveAttribute(
-      'data-theme-mode',
+      'data-theme-choice',
       'light'
     );
     await page.getByRole('button', { name: 'Close menu' }).click();
     await expect(page.getByRole('button', { name: /^Color theme:/ }).first()).toHaveAttribute(
-      'data-theme-mode',
+      'data-theme-choice',
       'light'
     );
   });
@@ -160,7 +160,7 @@ test.describe('theme toggle', () => {
     await expect(hud).toBeVisible();
 
     // Click 'Dark' button inside HUD
-    const darkBtn = hud.locator('button[data-theme-mode="dark"]');
+    const darkBtn = hud.locator('button[data-theme-choice="dark"]');
     await darkBtn.click();
 
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');

@@ -13,8 +13,8 @@ test.describe('Civic CRM admin gate', () => {
       await page.goto(route);
       await expect(page).toHaveURL(/\/login/);
       // Must not leak CRM chrome/content while logged out.
-      await expect(page.locator('body')).not.toContainText('Constituent Directory');
-      await expect(page.locator('body')).not.toContainText('Campaign Broadcasts');
+      await expect(page.locator('body')).not.toContainText(/constituent directory/i);
+      await expect(page.locator('body')).not.toContainText(/campaign broadcasts/i);
       await expect(page.locator('body')).not.toContainText('Follow-ups');
     });
   }

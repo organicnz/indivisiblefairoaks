@@ -50,18 +50,17 @@ setup.describe('seeded admin session', () => {
     // sign-in, on the other hand, throws above and fails the gate, because
     // that is a product regression rather than an incomplete environment.
     await page.goto('/admin/crm');
-    try {
-      // Same marker the consuming suite asserts on.
-      await expect(page.locator('body')).toContainText('Constituent Directory', {
-        timeout: 15_000,
-      });
-      // `Bun.file(x).unlink()` removes the marker. The `force` semantics of
-      // `rmSync` — do not fail when the file is already gone — are what the
-      // marker wants, because a previous run may have left it behind.
-      await Bun.file(GRANT_MARKER)
-        .unlink()
-        .catch(() => {});
-    } catch {
+    // A missing grant redirects to `/account?error=admin_required`. Treat only
+    // that outcome as an environment problem. A copy or render regression must
+    // fail this setup: catching every expectation failure made the suite report
+    // "not an admin" for a page that simply no longer said "Constituent
+    // Directory" in title case, so the admin surfaces were never exercised.
+    const pageText = await page.locator('body').innerText();
+    const adminRequired =
+      page.url().includes('error=admin_required') ||
+      pageText.includes('Administrator Privileges Required');
+
+    if (adminRequired) {
       console.log('');
       console.log('ADMIN SEED INCOMPLETE — skipping seeded admin coverage.');
       console.log('e2e-admin signed in but is not an admin.');
@@ -84,6 +83,18 @@ setup.describe('seeded admin session', () => {
         'seeded e2e-admin lacks the profiles grant — run the dashboard statement above'
       );
     }
+
+    // The CRM heading is sentence case today. Matching it case-insensitively
+    // keeps the gate on the admin surface rather than on one editorial choice.
+    await expect(page.locator('body')).toContainText(/constituent directory/i, {
+      timeout: 15_000,
+    });
+    // `Bun.file(x).unlink()` removes the marker. The `force` semantics of
+    // `rmSync` — do not fail when the file is already gone — are what the
+    // marker wants, because a previous run may have left it behind.
+    await Bun.file(GRANT_MARKER)
+      .unlink()
+      .catch(() => {});
     // No `mkdir` here: Playwright's own `storageState({ path })` creates the
     // parent directory (verified), so the explicit call was doing nothing but
     // adding a second way to make a directory.

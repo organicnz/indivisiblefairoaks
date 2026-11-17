@@ -43,7 +43,7 @@ describe('ThemeToggle component', () => {
       root.render(<ThemeToggle variant="icon" />);
     });
 
-    const button = container.querySelector<HTMLButtonElement>('button[data-theme-mode="system"]');
+    const button = container.querySelector<HTMLButtonElement>('button[data-theme-choice="system"]');
     expect(button).not.toBeNull();
     expect(button?.getAttribute('aria-label')).toContain('Color theme:');
 
@@ -92,7 +92,7 @@ describe('ThemeToggle component', () => {
       root.render(<ThemeToggle variant="segmented" />);
     });
 
-    const darkButton = container.querySelector<HTMLButtonElement>('button[data-theme-mode="dark"]');
+    const darkButton = container.querySelector<HTMLButtonElement>('button[data-theme-choice="dark"]');
     expect(darkButton).not.toBeNull();
 
     await act(async () => {
@@ -107,7 +107,7 @@ describe('ThemeToggle component', () => {
     });
 
     const systemButton = container.querySelector<HTMLButtonElement>(
-      'button[data-theme-mode="system"]'
+      'button[data-theme-choice="system"]'
     );
     expect(systemButton).not.toBeNull();
 
