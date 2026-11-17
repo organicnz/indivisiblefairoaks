@@ -10,6 +10,8 @@ export type SourceReportPlacePoint = SourceReportPlace & {
 };
 
 const EARTH_RADIUS_MILES = 3958.7613;
+const NEARBY_BAND_MILES = 8;
+const NEARBY_COUNT_SHARE = 0.5;
 
 function cityKey(value: string) {
   return value.normalize('NFKC').trim().replace(/\s+/g, ' ').toLowerCase();
@@ -67,33 +69,54 @@ export function distanceMilesBetween(
 }
 
 /**
- * Nearest city with both a verified coordinate and at least one published
- * source report. Ties prefer the city with more reports, then alphabetical
- * order, so the result is deterministic.
+ * Choose a city with both a verified coordinate and published reports.
+ *
+ * Strict nearest-distance can send a user in Manhattan to a one-report
+ * Jersey City row while 14 Queens reports sit two miles farther away. So we
+ * keep the nearest city's immediate neighborhood, then prefer the closest
+ * city that carries a substantial share of the local report volume. This
+ * still returns the true nearest city when the local counts are comparable.
  */
 export function nearestSourceReportPlace(
   places: readonly SourceReportPlacePoint[],
   lat: number,
   lng: number
 ): { place: SourceReportPlacePoint; distanceMiles: number } | null {
-  let best: { place: SourceReportPlacePoint; distanceMiles: number } | null = null;
+  const ranked = places
+    .map((place) => ({
+      place,
+      distanceMiles: distanceMilesBetween(lat, lng, place.lat, place.lng),
+    }))
+    .filter((candidate) => Number.isFinite(candidate.distanceMiles))
+    .sort(
+      (a, b) =>
+        a.distanceMiles - b.distanceMiles ||
+        b.place.count - a.place.count ||
+        sourceReportPlaceKey(a.place.city, a.place.stateCode).localeCompare(
+          sourceReportPlaceKey(b.place.city, b.place.stateCode)
+        )
+    );
 
-  for (const place of places) {
-    const distanceMiles = distanceMilesBetween(lat, lng, place.lat, place.lng);
-    if (!Number.isFinite(distanceMiles)) continue;
+  const nearest = ranked[0];
+  if (!nearest) return null;
 
-    if (
-      !best ||
-      distanceMiles < best.distanceMiles ||
-      (distanceMiles === best.distanceMiles &&
-        (place.count > best.place.count ||
-          (place.count === best.place.count &&
-            sourceReportPlaceKey(place.city, place.stateCode) <
-              sourceReportPlaceKey(best.place.city, best.place.stateCode))))
-    ) {
-      best = { place, distanceMiles };
-    }
-  }
+  const neighborhood = ranked.filter(
+    (candidate) =>
+      candidate.distanceMiles <= nearest.distanceMiles + NEARBY_BAND_MILES
+  );
+  const maxCount = neighborhood.reduce(
+    (max, candidate) => Math.max(max, candidate.place.count),
+    0
+  );
+  const meaningfulCount = Math.max(
+    1,
+    Math.ceil(maxCount * NEARBY_COUNT_SHARE)
+  );
+  const meaningful = neighborhood.filter(
+    (candidate) => candidate.place.count >= meaningfulCount
+  );
 
-  return best;
+  // The list is already distance-sorted, so the first meaningful city is the
+  // closest one with enough local volume.
+  return meaningful[0] ?? nearest;
 }

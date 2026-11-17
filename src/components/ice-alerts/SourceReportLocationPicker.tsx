@@ -13,6 +13,7 @@ import { useEffect, useRef, useState, useTransition } from 'react';
 import type { FormEvent } from 'react';
 import { isUsPoint } from '@/lib/geo/us-boundary';
 import {
+  cleanIceSourceReportCityName,
   iceSourceReportFilterParams,
   type IceSourceReportFilters,
 } from '@/lib/ice-source-report-search';
@@ -235,7 +236,9 @@ export function SourceReportLocationPicker({
   const pathname = usePathname();
   const [isPending, startTransition] = useTransition();
   const [place, setPlace] = useState(
-    filters.city ? `${filters.city}${filters.stateCode ? `, ${filters.stateCode}` : ''}` : ''
+    filters.city
+      ? `${cleanIceSourceReportCityName(filters.city)}${filters.stateCode ? `, ${filters.stateCode}` : ''}`
+      : ''
   );
   const [status, setStatus] = useState<PickerStatus>({ kind: 'idle' });
   const requestRef = useRef<AbortController | null>(null);
@@ -243,7 +246,7 @@ export function SourceReportLocationPicker({
   useEffect(() => {
     setPlace(
       filters.city
-        ? `${filters.city}${filters.stateCode ? `, ${filters.stateCode}` : ''}`
+        ? `${cleanIceSourceReportCityName(filters.city)}${filters.stateCode ? `, ${filters.stateCode}` : ''}`
         : ''
     );
     setStatus({ kind: 'idle' });
@@ -281,11 +284,12 @@ export function SourceReportLocationPicker({
       located.distanceMiles === null
         ? null
         : `${located.distanceMiles.toLocaleString('en-US')} mi`;
+    const placeLabel = `${cleanIceSourceReportCityName(located.city)}, ${located.stateCode}`;
     const message = located.exact
-      ? `Showing reports in ${located.city}, ${located.stateCode}.`
+      ? `Showing reports in ${placeLabel}.`
       : distance
-        ? `Showing reports near ${located.city}, ${located.stateCode} (${distance} away).`
-        : `Showing reports near ${located.city}, ${located.stateCode}.`;
+        ? `Showing reports near ${placeLabel} (${distance} away).`
+        : `Showing reports near ${placeLabel}.`;
 
     navigateTo({ city: located.city, stateCode: located.stateCode });
     setStatus({ kind: 'message', tone: 'success', text: message });
@@ -467,7 +471,7 @@ export function SourceReportLocationPicker({
 
   const busy = status.kind === 'locating' || status.kind === 'searching' || isPending;
   const currentArea = filters.city
-    ? `${filters.city}${filters.stateCode ? `, ${filters.stateCode}` : ''}`
+    ? `${cleanIceSourceReportCityName(filters.city)}${filters.stateCode ? `, ${filters.stateCode}` : ''}`
     : filters.stateCode
       ? stateLabel(filters.stateCode)
       : 'Nationwide';

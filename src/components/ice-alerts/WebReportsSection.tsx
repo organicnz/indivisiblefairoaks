@@ -9,6 +9,7 @@ import {
   iceSourceKindLabel,
   type IceSourceReport,
 } from '@/lib/ice-crawl-types';
+import { iceSourceReportPlaceLabel } from '@/lib/ice-source-report-search';
 
 async function readWebReports() {
   const store = getIceCrawlStore();
@@ -90,10 +91,7 @@ export async function WebReportsSection() {
 }
 
 export function WebReportCard({ report }: { report: IceSourceReport }) {
-  const place =
-    report.city && report.state_code
-      ? `${report.city}, ${report.state_code}`
-      : report.state_code || 'Location not stated';
+  const place = iceSourceReportPlaceLabel(report.city, report.state_code);
 
   return (
     <article className="border border-border bg-surface-card p-5">

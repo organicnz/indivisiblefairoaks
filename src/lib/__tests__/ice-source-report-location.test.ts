@@ -60,6 +60,43 @@ describe('source report location resolver', () => {
     expect(nearest?.distanceMiles).toBeLessThan(5);
   });
 
+  it('prefers a substantial nearby city over a one-report border city', () => {
+    const points: SourceReportPlacePoint[] = [
+      {
+        city: 'Jersey City',
+        stateCode: 'NJ',
+        count: 1,
+        lat: 40.71142,
+        lng: -74.06476,
+      },
+      {
+        city: 'New York',
+        stateCode: 'NY',
+        count: 9,
+        lat: 40.66271,
+        lng: -73.93868,
+      },
+      {
+        city: 'Queens',
+        stateCode: 'NY',
+        count: 14,
+        lat: 40.7282,
+        lng: -73.7949,
+      },
+      {
+        city: 'Bronx',
+        stateCode: 'NY',
+        count: 7,
+        lat: 40.8448,
+        lng: -73.8648,
+      },
+    ];
+
+    const nearest = nearestSourceReportPlace(points, 40.7128, -74.006);
+    expect(nearest?.place.city).toBe('New York');
+    expect(nearest?.place.stateCode).toBe('NY');
+  });
+
   it('returns null when no candidate has a coordinate', () => {
     expect(nearestSourceReportPlace([], 38.6, -121.5)).toBeNull();
   });

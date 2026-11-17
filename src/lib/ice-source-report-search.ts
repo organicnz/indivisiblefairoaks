@@ -58,6 +58,23 @@ export function normalizeIceSourceReportQuery(value: unknown): string {
     .trim();
 }
 
+export function cleanIceSourceReportCityName(value: string): string {
+  return value
+    .normalize('NFKC')
+    .replace(/^[\s\-–—'.,]+/u, '')
+    .replace(/[\s\-–—'.,]+$/u, '')
+    .trim();
+}
+
+export function iceSourceReportPlaceLabel(
+  city: string | null,
+  stateCode: string | null
+): string {
+  const cleanCity = city ? cleanIceSourceReportCityName(city) : '';
+  if (cleanCity && stateCode) return `${cleanCity}, ${stateCode}`;
+  return cleanCity || stateCode || 'Location not stated';
+}
+
 export function normalizeIceSourceReportCity(value: unknown): string {
   const raw = Array.isArray(value) ? value[0] : value;
   if (typeof raw !== 'string') return '';

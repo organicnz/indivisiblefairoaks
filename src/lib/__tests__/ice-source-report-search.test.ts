@@ -1,8 +1,10 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import {
+  cleanIceSourceReportCityName,
   iceSourceReportArchiveHref,
   iceSourceReportExportHref,
+  iceSourceReportPlaceLabel,
   normalizeIceSourceReportCity,
   normalizeIceSourceReportQuery,
   parseIceSourceReportFilters,
@@ -20,6 +22,14 @@ describe('source report search filters', () => {
     expect(normalizeIceSourceReportCity('  West St. Paul, MN  ')).toBe('West St. Paul MN');
     expect(normalizeIceSourceReportCity('Sacramento')).toBe('Sacramento');
     expect(normalizeIceSourceReportCity(null)).toBe('');
+  });
+
+  it('cleans punctuation that leaks into a displayed city label', () => {
+    expect(cleanIceSourceReportCityName('New York-')).toBe('New York');
+    expect(cleanIceSourceReportCityName("Dallas'")).toBe('Dallas');
+    expect(iceSourceReportPlaceLabel('New York-', 'NY')).toBe('New York, NY');
+    expect(iceSourceReportPlaceLabel(null, 'CA')).toBe('CA');
+    expect(iceSourceReportPlaceLabel(null, null)).toBe('Location not stated');
   });
 
   it('accepts only known kinds and state codes', () => {

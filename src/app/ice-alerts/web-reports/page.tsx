@@ -20,6 +20,7 @@ import {
   getPublishedSourceReports,
 } from '@/lib/ice-crawl-store';
 import {
+  cleanIceSourceReportCityName,
   hasIceSourceReportFilters,
   iceSourceReportArchiveHref,
   iceSourceReportExportHref,
@@ -74,7 +75,7 @@ async function readArchive(page: number, filters: IceSourceReportFilters) {
 
 function FilterSummary({ filters }: { filters: IceSourceReportFilters }) {
   const area = filters.city
-    ? `${filters.city}${filters.stateCode ? `, ${filters.stateCode}` : ''}`
+    ? `${cleanIceSourceReportCityName(filters.city)}${filters.stateCode ? `, ${filters.stateCode}` : ''}`
     : filters.stateCode || null;
   const labels = [
     filters.query ? `“${filters.query}”` : null,
