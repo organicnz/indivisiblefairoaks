@@ -78,9 +78,15 @@ on:
 # `experimental.cpus: 1` and Playwright's `--workers=1` exist for, and they are
 # load-bearing. See docs/ci-runners.md.
 
+# Pull-request iteration should supersede the previous run. Production pushes
+# must not: GitHub keeps only one *pending* run per concurrency group and
+# cancels an older pending run even when `cancel-in-progress` is false, so a
+# shared `ci-refs/heads/main` group can silently drop pushes. Key every
+# non-PR run by its unique run id; PRs keep their branch-scoped group and
+# still cancel.
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read

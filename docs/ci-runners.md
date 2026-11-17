@@ -157,9 +157,10 @@ system. This is the record, because the failure mode is what generalises.
 
 1. **A `runs-on` selector that matches nothing does not error.** The job waits
    indefinitely. There is no error to notice.
-2. **`concurrency: cancel-in-progress: true` cancels the previous run** as the next
-   push lands, so the queue never visibly grows past one entry. The run history
-   reads as a calm series of `cancelled` runs.
+2. **`concurrency: cancel-in-progress: true` cancelled the previous run** as the
+   next push landed, so the queue never visibly grew past one entry. The run
+   history read as a calm series of `cancelled` runs. Production pushes now use
+   a per-run group; PR runs still cancel their predecessors.
 3. **A merged PR shows a green tick from `Vercel`, `GitGuardian` and `CodeRabbit`**,
    which are separate checks that do run. So a PR looks healthy.
 
@@ -351,7 +352,7 @@ never finishes" to "the build is killed", and each step has been measured:
 | `tsc` aborts, `Reached heap limit` (exit 134) | Node's ~448 MB default cap < 598 MB measured peak | **Fixed** by the 768 MB cap |
 | `bun run build` killed, exit 137 | The cgroup OOM-killer: SIGKILL once RSS passes the container's total `MEMORY + MEMORY_SWAP` ceiling. V8 grows the heap rather than collecting | **Partly fixable** — see below |
 | Lint passes sometimes, cancelled other times | `tsc` takes 8m28s here against **1.4 s** locally. The host runs at load ~12 on 2 vCPU | **Wall clock fixed** (15 → 25 → 120 min); the load itself is not — shared, undersized host |
-| Queue never drains | One runner for all four workflows, five jobs per run, and `cancel-in-progress` only cancels within a single ref — so main and every open PR compete | **Workaround only** — cancel superseded runs by hand |
+| Queue never drains | One runner for all four workflows, five jobs per run; main and every open PR compete for it. Superseded PR runs cancel, while main runs now queue independently instead of cancelling each other | **Partly fixed** — production runs finish; cancel superseded PR runs manually if the queue is long |
 
 ### What a passing run costs
 
@@ -549,11 +550,13 @@ Nothing in this repository can fix that. Every lever is outside it:
 Until one of those happens, expect `Lint & Types` to pass intermittently and
 `Tests & Coverage` to pass reliably — it is the lighter job and tolerates sharing.
 
-**Do not merge to `main` while a run you care about is in flight.** The third row
-above is self-inflicted: a docs commit landed while the run testing the build cap
-was executing, the new push joined the same `ci-refs/heads/main` concurrency
-group, and `cancel-in-progress: true` killed all five jobs of the run in flight —
-including the one that would have answered the open question.
+**This was the old cancellation policy.** The third row above was self-inflicted:
+a docs commit landed while the run testing the build cap was executing, the new
+push joined the same `ci-refs/heads/main` concurrency group, and
+`cancel-in-progress: true` killed all five jobs of the run in flight — including
+the one that would have answered the open question. Production pushes now use a
+per-run concurrency group and queue instead of cancelling; PR runs still cancel
+their predecessors.
 
 ### Do not read `cancelled` as `failed`
 
@@ -573,25 +576,23 @@ warm (~21m cold) with zero OOM events, unblocking the downstream E2E suite.
 
 ### Draining the queue by hand
 
-`concurrency: cancel-in-progress: true` is scoped to `ci-${{ github.ref }}`, so it
-only ever cancels a *previous run on the same ref*. A push to `main` and the
-`pull_request` run for every open PR are different refs, so they all queue against
-the same single runner and none of them cancel the others. Five runs were observed
-queued at once, and the runner worked them oldest-first regardless of which commit
-was current.
+`concurrency` is now split by event. Pull-request runs use their branch ref as
+the group and still cancel a previous run on the same PR. Production pushes use a
+unique run-id group, so a new push no longer cancels a run already testing an
+earlier commit. Main and every open PR still queue against the same single
+runner, and the runner works them oldest-first.
 
-When that happens, the superseded runs are safe to cancel — they are for branches
-already merged, so their verdicts describe code identical to `main`:
+If the queue is long, cancel superseded **pull-request** runs only; never cancel
+a main run you are waiting on:
 
 ```bash
 gh run list --limit 10 --json databaseId,status,event,headBranch \
   -q '.[] | "\(.databaseId) \(.status) \(.event) \(.headBranch)"'
-gh run cancel <id>            # only for merged branches
+gh run cancel <id>            # only for superseded PR runs
 ```
 
-This buys time; it does not make a run succeed. It is worth knowing precisely
-*why* — a `cancelled` job here means the box is too small, and reading it as a
-red build sends you looking for a defect that does not exist.
+This buys time; it does not make a run succeed. A `cancelled` job can still mean
+the box ran out of room, so check the logs before treating it as a code failure.
 
 So the honest current state is: **lint, unit tests, migration history,
 and Next.js production build pass consistently in CI.** The 120-minute ceiling
@@ -600,8 +601,10 @@ tooling allow the full Next.js build and E2E browser tests to execute on-host.
 
 ## What this means for the delivery gates
 
-The local gates are real, they run on every push, and they are currently the only
-ones that finish:
+The local gates are real and remain the fastest complete signal. Production
+`main` runs now use per-run concurrency groups, so a run that starts can finish
+instead of being cancelled by the next push; the single runner can still make the
+queue long.
 
 | Gate | Command |
 |---|---|
@@ -613,7 +616,7 @@ ones that finish:
 | types | `bunx tsc --noEmit` |
 | production build | `NEXT_E2E_BUILD=true bun run build` |
 | peer deps | `bun scripts/check-peer-deps.mjs --all` |
-| e2e | `playwright test --workers=2` — 107 specs (107 + no running tests) |
+| e2e | `playwright test --workers=2` — 108 specs (108 + no running tests) |
 
 A merge is only as trustworthy as the last full local run, so run all of them
 before merging anything that CI would otherwise have gated.
