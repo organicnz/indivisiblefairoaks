@@ -238,9 +238,6 @@ function HeaderInner() {
             </nav>
 
             <div className="flex h-full shrink-0 items-center gap-3">
-              <span className="hidden border-l border-border pl-4 text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground xl:inline-block">
-                Fair Oaks · Carmichael, CA
-              </span>
               {alertRoute ? (
                 <Link
                   href={alertRoute.href}
