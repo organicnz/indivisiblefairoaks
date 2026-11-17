@@ -55,6 +55,7 @@ type NominatimAddress = {
   hamlet?: string;
   municipality?: string;
   suburb?: string;
+  county?: string;
   state?: string;
   'ISO3166-2-lvl4'?: string;
 };
@@ -140,6 +141,7 @@ function cityFromAddress(address?: NominatimAddress) {
     'hamlet',
     'municipality',
     'suburb',
+    'county',
   ] as const) {
     const value = address[key]?.trim();
     if (value) return value;
