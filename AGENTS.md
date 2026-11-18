@@ -2001,9 +2001,11 @@ own docs, because their failure modes are invisible to review and to unit tests.
     the user to a page that could not read its factors either, then to `/login`,
     then back to a gated route. `state_unknown` fails closed and is *shown* as a
     fault.
-  - **Recovery is a second factor, not a code.** There are no backup codes; losing
-    every authenticator is still an out-of-band dashboard reset, and the panel says
-    so rather than implying otherwise.
+  - **Recovery has two layers.** A second authenticator survives one lost device;
+    one-time recovery codes reset a lost factor. Codes are app-owned, stored only
+    as hashes, generated only at AAL2, and consumed once. Redemption removes the
+    verified TOTP factors and forces re-enrollment; it never becomes an app-level
+    AAL2 cookie.
 
   `/account` and `/auth/mfa` read **live** `listFactors()` rather than AAL alone,
   because AAL comes from the cookie snapshot and the two disagree after 2FA is

@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
+import { redeemMfaRecoveryCodeAction } from '@/lib/actions/mfa-recovery';
 import { getSafeNextPath } from '@/lib/safe-redirect';
 import { createClient } from '@/lib/supabase';
 
@@ -21,7 +22,6 @@ type GateOutcome =
   | { kind: 'challenge' }
   | { kind: 'already-verified' }
   | { kind: 'no-factor'; factorTypes: string[] }
-  | { kind: 'no-session' }
   | { kind: 'unreadable'; detail: string };
 
 /** Only TOTP can be answered with a 6-digit code from an authenticator app. */
@@ -61,6 +61,13 @@ export function MfaChallengePage() {
   const [error, setError] = useState('');
   const [checking, setChecking] = useState(true);
   const [outcome, setOutcome] = useState<GateOutcome | null>(null);
+  const [useRecoveryCode, setUseRecoveryCode] = useState(false);
+  const [recoveryCode, setRecoveryCode] = useState('');
+  const [recoveryReset, setRecoveryReset] = useState(false);
+  const [availableFactors, setAvailableFactors] = useState<
+    { id: string; friendly_name?: string }[]
+  >([]);
+  const [selectedFactorId, setSelectedFactorId] = useState('');
   const router = useRouter();
   const searchParams = useSearchParams();
   // In a ref, not a dep. `createClient()` builds a new object on every render,
@@ -133,6 +140,8 @@ export function MfaChallengePage() {
       // author abandoned, and challenging one of those fails with "Invalid TOTP
       // code" forever.
       if (verified.length === 0) {
+        setAvailableFactors([]);
+        setSelectedFactorId('');
         setOutcome({ kind: 'no-factor', factorTypes: [] });
         setChecking(false);
         return;
@@ -143,12 +152,25 @@ export function MfaChallengePage() {
       // rendering a TOTP box means a phone factor gets an SMS and the typed
       // digits then fail verification permanently, with no explanation. Say what
       // the account actually has instead.
-      if (!verified.some((f) => f.factor_type === TOTP)) {
+      const totpFactors = verified.filter((f) => f.factor_type === TOTP);
+      if (totpFactors.length === 0) {
+        setAvailableFactors([]);
+        setSelectedFactorId('');
         setOutcome({ kind: 'no-factor', factorTypes: factorTypesOf(factors?.all ?? []) });
         setChecking(false);
         return;
       }
 
+      // Keep the user's choice if it still exists (a factor may have been removed
+      // in another tab), otherwise default to the first. The selector below is
+      // what makes multiple authenticators an actual option rather than a list
+      // of names on the account page.
+      setAvailableFactors(
+        totpFactors.map((factor) => ({ id: factor.id, friendly_name: factor.friendly_name }))
+      );
+      setSelectedFactorId((current) =>
+        totpFactors.some((factor) => factor.id === current) ? current : totpFactors[0].id
+      );
       setOutcome({ kind: 'challenge' });
       setChecking(false);
     }
@@ -198,8 +220,29 @@ export function MfaChallengePage() {
   useEffect(() => {
     if (!outcome) return;
     if (outcome.kind === 'already-verified') router.replace(destination);
-    if (outcome.kind === 'no-session') router.replace('/login');
   }, [outcome, destination, router]);
+
+  async function handleRecoverySubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    try {
+      const result = await redeemMfaRecoveryCodeAction(recoveryCode);
+      if ('error' in result) {
+        setError(result.error);
+        setRecoveryCode('');
+        return;
+      }
+      // The recovery action removes the verified TOTP factor through the Admin
+      // API, which signs out the account's other sessions. Do not pretend this
+      // session is AAL2: send the user back through sign-in and enrollment.
+      setRecoveryReset(true);
+    } catch {
+      setError('Could not reach the recovery service. Your code is still on screen — try again.');
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -225,11 +268,28 @@ export function MfaChallengePage() {
       // Re-read and filter by type here too, not only in the mount gate. The
       // challenge is a POST-shaped action against live state, and this is the
       // branch that actually calls `verify()`.
-      const totpFactor = factors.all.find((f) => f.status === 'verified' && f.factor_type === TOTP);
-      if (!totpFactor) {
+      const liveTotpFactors = factors.all.filter(
+        (f) => f.status === 'verified' && f.factor_type === TOTP
+      );
+      if (liveTotpFactors.length === 0) {
+        setAvailableFactors([]);
+        setSelectedFactorId('');
         setError('This account has no authenticator app enrolled. Add one in Account → Settings.');
         return;
       }
+
+      // Use the authenticator the user chose. If it was removed between the
+      // mount read and this submit, fall back to one that still exists and update
+      // the selector rather than challenging a dead factor forever.
+      const totpFactor =
+        liveTotpFactors.find((f) => f.id === selectedFactorId) ?? liveTotpFactors[0];
+      setAvailableFactors(
+        liveTotpFactors.map((factor) => ({
+          id: factor.id,
+          friendly_name: factor.friendly_name,
+        }))
+      );
+      setSelectedFactorId(totpFactor.id);
 
       const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({
         factorId: totpFactor.id,
@@ -267,12 +327,34 @@ export function MfaChallengePage() {
     }
   }
 
-  // `already-verified` and `no-session` have nothing to render: the redirect
-  // effect above is already navigating. Falling through to the form instead is
-  // how a user who is *already* AAL2 could be shown a code box for a step-up
-  // they do not need — the redirect is a navigation, not an instant state
-  // change, so the form would be interactive on the way out.
-  if (checking || !outcome || outcome.kind === 'already-verified' || outcome.kind === 'no-session')
+  // `already-verified` has nothing to render: the redirect effect above is
+  // already navigating. Falling through to the form instead is how a user who
+  // is *already* AAL2 could be shown a code box for a step-up they do not need
+  // — the redirect is a navigation, not an instant state change, so the form
+  // would be interactive on the way out.
+  if (recoveryReset) {
+    const next = `/account?tab=settings&mfa=enroll&next=${encodeURIComponent(destination)}`;
+    return (
+      <Shell
+        heading="Recovery code accepted"
+        tone="normal"
+        icon={<ShieldCheck size={32} aria-hidden="true" />}
+      >
+        <p className="text-muted-foreground mb-8 font-medium leading-relaxed">
+          Your authenticator setup was reset. Sign in again, then enroll a new authenticator
+          before continuing.
+        </p>
+        <a
+          href={`/login?next=${encodeURIComponent(next)}`}
+          className="inline-flex w-full items-center justify-center bg-primary dark:bg-primary-bright text-white font-bold rounded-sm py-5 uppercase tracking-[0.2em] text-sm transition-all hover:bg-primary-dark dark:hover:bg-primary-light"
+        >
+          Sign in and enroll
+        </a>
+      </Shell>
+    );
+  }
+
+  if (checking || !outcome || outcome.kind === 'already-verified')
     return (
       <div className="civic-page min-h-screen flex items-center justify-center">
         <Loader2
@@ -387,26 +469,63 @@ export function MfaChallengePage() {
       icon={<ShieldCheck size={32} aria-hidden="true" />}
     >
       <p className="text-muted-foreground mb-10 font-medium leading-relaxed">
-        <DataPoint as="span" name="auth.mfa.challenge_desc">
-          Please enter the verification code from your authenticator app to continue.
-        </DataPoint>
+        {useRecoveryCode ? (
+          'Enter one of the recovery codes you saved when you enabled two-factor authentication.'
+        ) : (
+          <DataPoint as="span" name="auth.mfa.challenge_desc">
+            Please enter the verification code from your authenticator app to continue.
+          </DataPoint>
+        )}
       </p>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form
+        onSubmit={useRecoveryCode ? handleRecoverySubmit : handleSubmit}
+        className="space-y-6"
+      >
+        {!useRecoveryCode && availableFactors.length > 1 && (
+          <div className="text-left">
+            <label
+              htmlFor="mfa-factor"
+              className="block text-[10px] font-bold text-foreground uppercase tracking-widest mb-2 ml-1"
+            >
+              Authenticator
+            </label>
+            <select
+              id="mfa-factor"
+              value={selectedFactorId}
+              onChange={(event) => setSelectedFactorId(event.target.value)}
+              className="w-full rounded-sm border border-border bg-surface-muted px-4 py-3 text-sm font-bold text-foreground outline-none focus:ring-2 focus:ring-primary dark:bg-slate-800/80 dark:focus:ring-primary-bright"
+            >
+              {availableFactors.map((factor, index) => (
+                <option key={factor.id} value={factor.id}>
+                  {factor.friendly_name || `Authenticator ${index + 1}`}
+                </option>
+              ))}
+            </select>
+            <p className="mt-2 text-xs text-muted-foreground font-medium">
+              Choose the device you have with you, or use a recovery code below.
+            </p>
+          </div>
+        )}
+
         <div className="text-left">
           <label
-            htmlFor="code"
+            htmlFor={useRecoveryCode ? 'recovery-code' : 'code'}
             className="block text-[10px] font-bold text-foreground uppercase tracking-widest mb-2 ml-1"
           >
-            <DataPoint as="span" name="auth.mfa.challenge_code_label">
-              6-Digit Code
-            </DataPoint>
+            {useRecoveryCode ? (
+              'Recovery Code'
+            ) : (
+              <DataPoint as="span" name="auth.mfa.challenge_code_label">
+                6-Digit Code
+              </DataPoint>
+            )}
           </label>
           <input
             type="text"
-            id="code"
-            placeholder="000000"
-            value={code}
+            id={useRecoveryCode ? 'recovery-code' : 'code'}
+            placeholder={useRecoveryCode ? 'XXXX-XXXX-XXXX-XXXX' : '000000'}
+            value={useRecoveryCode ? recoveryCode : code}
             /*
              * Strip everything that is not a digit, before the length cap.
              * A pasted `"123 456"` used to truncate to `"123 45"` at
@@ -415,23 +534,29 @@ export function MfaChallengePage() {
              * the user saw. Authenticator codes are six digits and nothing
              * else, so there is nothing to preserve by being lenient here.
              */
-            onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+            onChange={(e) =>
+              useRecoveryCode
+                ? setRecoveryCode(e.target.value.slice(0, 19))
+                : setCode(e.target.value.replace(/\D/g, '').slice(0, 6))
+            }
             required
             autoFocus
             // `numeric` is what makes iOS and Android show a numeric keypad.
             // Without it the keyboard is alphabetical and the code arrives wrong.
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            pattern="[0-9]*"
-            maxLength={6}
+            inputMode={useRecoveryCode ? 'text' : 'numeric'}
+            autoComplete={useRecoveryCode ? 'off' : 'one-time-code'}
+            pattern={useRecoveryCode ? undefined : '[0-9]*'}
+            maxLength={useRecoveryCode ? 19 : 6}
             aria-invalid={error ? true : undefined}
             aria-describedby={error ? 'mfa-error' : undefined}
-            className="w-full px-5 py-4 bg-surface-muted dark:bg-slate-800/80 border border-border rounded-sm focus:ring-2 focus:ring-primary dark:focus:ring-primary-bright outline-none text-center font-bold text-foreground tracking-[0.5em] text-lg"
+            className="w-full px-5 py-4 bg-surface-muted dark:bg-slate-800/80 border border-border rounded-sm focus:ring-2 focus:ring-primary dark:focus:ring-primary-bright outline-none text-center font-bold text-foreground tracking-[0.25em] text-lg"
           />
         </div>
         <button
           type="submit"
-          disabled={loading || code.length < 6}
+          disabled={
+            loading || (useRecoveryCode ? recoveryCode.trim().length === 0 : code.length < 6)
+          }
           aria-busy={loading}
           className="w-full bg-primary dark:bg-primary-bright text-white font-bold rounded-sm py-5 hover:bg-primary-dark dark:hover:bg-primary-light transition-all uppercase tracking-[0.2em] text-sm disabled:opacity-50"
         >
@@ -439,6 +564,8 @@ export function MfaChallengePage() {
             <DataPoint as="span" name="auth.mfa.challenge_btn_verifying">
               Verifying...
             </DataPoint>
+          ) : useRecoveryCode ? (
+            'Recover account'
           ) : (
             <DataPoint as="span" name="auth.mfa.challenge_btn_verify">
               Verify & Continue
@@ -453,12 +580,27 @@ export function MfaChallengePage() {
           sends a consumed code, and GoTrue answers with "invalid" for a code the
           user never typed.
         */}
-        <p className="text-xs text-muted-foreground dark:text-ink-muted-on-dark font-medium">
-          <DataPoint as="span" name="auth.mfa.challenge_code_hint">
-            Codes change every 30 seconds — type the one showing now.
-          </DataPoint>
-        </p>
+        {!useRecoveryCode && (
+          <p className="text-xs text-muted-foreground dark:text-ink-muted-on-dark font-medium">
+            <DataPoint as="span" name="auth.mfa.challenge_code_hint">
+              Codes change every 30 seconds — type the one showing now.
+            </DataPoint>
+          </p>
+        )}
       </form>
+
+      <button
+        type="button"
+        onClick={() => {
+          setUseRecoveryCode((value) => !value);
+          setError('');
+          setCode('');
+          setRecoveryCode('');
+        }}
+        className="mt-6 text-xs font-bold uppercase tracking-widest text-primary dark:text-primary-on-dark underline"
+      >
+        {useRecoveryCode ? 'Use authenticator code instead' : 'Use a recovery code instead'}
+      </button>
 
       {/*
         `role="alert"` plus `aria-describedby` on the input. The error was

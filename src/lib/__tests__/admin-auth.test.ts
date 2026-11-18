@@ -138,6 +138,9 @@ describe('requireAdmin', () => {
         aal: { currentLevel: 'aal1', nextLevel: 'aal2' },
       })
     );
+    mockCreateAdminClient.mockResolvedValue(
+      mockProfileClient({ is_admin: true, email: 'a@example.com' })
+    );
 
     expect(await redirectUrl(() => requireAdmin())).toBe('/auth/mfa?next=%2Fadmin');
   });
@@ -155,6 +158,9 @@ describe('requireAdmin', () => {
         aal: { currentLevel: 'aal1', nextLevel: 'aal2' },
       })
     );
+    mockCreateAdminClient.mockResolvedValue(
+      mockProfileClient({ is_admin: true, email: 'a@example.com' })
+    );
 
     const url = await redirectUrl(() => requireAdmin());
     expect(url).not.toBe('/auth/mfa');
@@ -165,16 +171,18 @@ describe('requireAdmin', () => {
     mockCreateServerClient.mockResolvedValue(
       mockSessionClient({ factorsError: new Error('socket hang up') })
     );
+    mockCreateAdminClient.mockResolvedValue(
+      mockProfileClient({ is_admin: true, email: 'a@example.com' })
+    );
 
     await expect(requireAdmin()).rejects.toThrow('Unable to verify MFA enrollment.');
     expect(mockRedirect).not.toHaveBeenCalled();
   });
 
-  it('throws for a verified phone-only factor the challenge cannot answer', async () => {
-    // The guard asks the same question the challenge does (TOTP or nothing),
-    // so a phone-only account passes the gate instead of being sent somewhere
-    // it cannot arrive. But `requireAdmin` still needs the admin profile —
-    // hence the admin-client mock below.
+  it('sends an admin whose only verified factor is a phone factor to TOTP enrollment', async () => {
+    // A phone factor cannot answer the six-digit challenge this site renders,
+    // so an admin without a TOTP factor does not have the factor the admin
+    // surface requires — even though the factor is verified.
     mockCreateServerClient.mockResolvedValue(
       mockSessionClient({
         factors: { all: [{ status: 'verified', factor_type: 'phone' }] },
@@ -185,9 +193,9 @@ describe('requireAdmin', () => {
       mockProfileClient({ is_admin: true, email: 'a@example.com' })
     );
 
-    const session = await requireAdmin();
-    expect(session.adminUserId).toBe('user-1');
-    expect(mockRedirect).not.toHaveBeenCalled();
+    expect(await redirectUrl(() => requireAdmin())).toBe(
+      '/account?tab=settings&mfa=enroll&next=%2Fadmin'
+    );
   });
 
   it('returns the session for an AAL2 admin', async () => {
@@ -206,14 +214,15 @@ describe('requireAdmin', () => {
     expect(mockRedirect).not.toHaveBeenCalled();
   });
 
-  it('returns the session for an admin with no enrolled factors', async () => {
+  it('sends an admin with no enrolled factors to TOTP enrollment', async () => {
     mockCreateServerClient.mockResolvedValue(mockSessionClient({ factors: { all: [] } }));
     mockCreateAdminClient.mockResolvedValue(
       mockProfileClient({ is_admin: true, email: 'a@example.com' })
     );
 
-    const session = await requireAdmin();
-    expect(session.adminUserId).toBe('user-1');
+    expect(await redirectUrl(() => requireAdmin())).toBe(
+      '/account?tab=settings&mfa=enroll&next=%2Fadmin'
+    );
   });
 
   it('sends a signed-in non-admin away rather than throwing', async () => {
@@ -232,7 +241,10 @@ describe('requireAdminPage', () => {
     });
     mockCreateServerClient.mockImplementation(async () => {
       order.push('session');
-      return mockSessionClient({ factors: { all: [] } });
+      return mockSessionClient({
+        factors: { all: [{ status: 'verified', factor_type: 'totp' }] },
+        aal: { currentLevel: 'aal2', nextLevel: 'aal2' },
+      });
     });
     mockCreateAdminClient.mockResolvedValue(
       mockProfileClient({ is_admin: true, email: 'a@example.com' })

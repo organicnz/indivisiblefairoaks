@@ -10,6 +10,7 @@ const getAAL = vi.hoisted(() => vi.fn());
 const listFactors = vi.hoisted(() => vi.fn());
 const challenge = vi.hoisted(() => vi.fn());
 const verify = vi.hoisted(() => vi.fn());
+const redeemRecoveryCode = vi.hoisted(() => vi.fn());
 const searchParams = vi.hoisted(() => new URLSearchParams());
 
 vi.mock('next/navigation', () => ({
@@ -28,10 +29,19 @@ vi.mock('@/lib/supabase', () => ({
     },
   }),
 }));
+vi.mock('@/lib/actions/mfa-recovery', () => ({
+  redeemMfaRecoveryCodeAction: redeemRecoveryCode,
+}));
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const TOTP = { id: 'totp-1', status: 'verified', factor_type: 'totp', friendly_name: 'Phone' };
+const TOTP2 = {
+  id: 'totp-2',
+  status: 'verified',
+  factor_type: 'totp',
+  friendly_name: 'Backup device',
+};
 const PHONE = { id: 'ph-1', status: 'verified', factor_type: 'phone', friendly_name: 'SMS' };
 
 /** AAL that says a step-up is possible and not yet done. */
@@ -50,6 +60,7 @@ beforeEach(() => {
   listFactors.mockReset();
   challenge.mockReset();
   verify.mockReset();
+  redeemRecoveryCode.mockReset();
   searchParams.delete('next');
 });
 
@@ -74,9 +85,9 @@ async function render() {
  * hand-rolled `input.value = code; dispatchEvent(...)` leaves a controlled input
  * at its previous value.
  */
-async function submitCode(code: string) {
+async function submitCode(code: string, selector = '#code') {
   const form = document.querySelector('form');
-  const input = document.querySelector('#code');
+  const input = document.querySelector(selector);
   if (!(form instanceof HTMLFormElement) || !(input instanceof HTMLInputElement)) {
     throw new Error('no code form is rendered, so nothing can be submitted');
   }
@@ -90,6 +101,28 @@ async function submitCode(code: string) {
   await act(async () => {
     form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
     await new Promise((r) => setTimeout(r, 20));
+  });
+}
+
+async function chooseFactor(factorId: string) {
+  const select = document.querySelector('#mfa-factor');
+  if (!(select instanceof HTMLSelectElement)) throw new Error('factor selector is missing');
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value')?.set?.call(
+      select,
+      factorId
+    );
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+}
+
+async function useRecoveryCodeMode() {
+  const button = [...document.querySelectorAll('button')].find((candidate) =>
+    candidate.textContent?.includes('Use a recovery code instead')
+  );
+  if (!(button instanceof HTMLButtonElement)) throw new Error('recovery-code toggle is missing');
+  await act(async () => {
+    button.dispatchEvent(new MouseEvent('click', { bubbles: true }));
   });
 }
 
@@ -134,6 +167,32 @@ describe('MfaChallengePage gate', () => {
     await render();
 
     expect(document.body.textContent).toContain('Security Check');
+  });
+
+  it('lets the user choose among several authenticators and challenges the chosen one', async () => {
+    getAAL.mockResolvedValue(stepUpNeeded);
+    listFactors.mockResolvedValue({ data: { all: [TOTP, TOTP2] }, error: null });
+    challenge.mockResolvedValue({ data: { id: 'c2' }, error: null });
+    verify.mockResolvedValue({ data: {}, error: null });
+
+    await render();
+
+    const select = document.querySelector('#mfa-factor');
+    expect(select).toBeInstanceOf(HTMLSelectElement);
+    expect([...(select as HTMLSelectElement).options].map((option) => option.textContent)).toEqual([
+      'Phone',
+      'Backup device',
+    ]);
+
+    await chooseFactor('totp-2');
+    await submitCode('123456');
+
+    expect(challenge).toHaveBeenCalledWith({ factorId: 'totp-2' });
+    expect(verify).toHaveBeenCalledWith({
+      factorId: 'totp-2',
+      challengeId: 'c2',
+      code: '123456',
+    });
   });
 
   /**
@@ -292,6 +351,22 @@ describe('MfaChallengePage submit', () => {
     expect(document.body.textContent).toContain('no authenticator app enrolled');
   });
 
+  it('falls back to a remaining authenticator when the chosen one disappeared', async () => {
+    getAAL.mockResolvedValue(stepUpNeeded);
+    listFactors
+      .mockResolvedValueOnce({ data: { all: [TOTP, TOTP2] }, error: null })
+      .mockResolvedValue({ data: { all: [TOTP2] }, error: null });
+    challenge.mockResolvedValue({ data: { id: 'c2' }, error: null });
+    verify.mockResolvedValue({ data: {}, error: null });
+
+    await render();
+    await chooseFactor('totp-1');
+    await submitCode('123456');
+
+    expect(challenge).toHaveBeenCalledWith({ factorId: 'totp-2' });
+    expect(document.querySelector('#mfa-factor')).toBeNull();
+  });
+
   it('challenges and verifies a verified TOTP factor, then navigates on success', async () => {
     getAAL.mockResolvedValue(stepUpNeeded);
     listFactors.mockResolvedValue({ data: { all: [TOTP] }, error: null });
@@ -323,5 +398,39 @@ describe('MfaChallengePage submit', () => {
     expect(document.querySelector('[role="alert"]')?.textContent).toContain('Invalid TOTP code');
     // The error is wired to the input, not just rendered beside it.
     expect(document.querySelector('#code')?.getAttribute('aria-describedby')).toBe('mfa-error');
+  });
+
+  it('redeems a recovery code and shows the re-enrollment path', async () => {
+    getAAL.mockResolvedValue(stepUpNeeded);
+    listFactors.mockResolvedValue({ data: { all: [TOTP] }, error: null });
+    redeemRecoveryCode.mockResolvedValue({ success: true, removedFactors: 1 });
+
+    await render();
+    await useRecoveryCodeMode();
+
+    expect(document.querySelector('#code')).toBeNull();
+    expect(document.querySelector('#recovery-code')).not.toBeNull();
+
+    await submitCode('ABCD-EFGH-JKLM-NPQR', '#recovery-code');
+
+    expect(redeemRecoveryCode).toHaveBeenCalledWith('ABCD-EFGH-JKLM-NPQR');
+    expect(document.body.textContent).toContain('Recovery code accepted');
+    expect(document.querySelector('a[href^="/login?next="]')).not.toBeNull();
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  it('surfaces a rejected recovery code without resetting the screen', async () => {
+    getAAL.mockResolvedValue(stepUpNeeded);
+    listFactors.mockResolvedValue({ data: { all: [TOTP] }, error: null });
+    redeemRecoveryCode.mockResolvedValue({
+      error: 'That recovery code is not valid or has already been used.',
+    });
+
+    await render();
+    await useRecoveryCodeMode();
+    await submitCode('ABCD-EFGH-JKLM-NPQR', '#recovery-code');
+
+    expect(document.body.textContent).toContain('not valid or has already been used');
+    expect(document.querySelector('#recovery-code')).not.toBeNull();
   });
 });

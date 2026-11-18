@@ -66,7 +66,11 @@ export async function POST(req: NextRequest) {
     const auth = await requireAdminApi();
     if (!auth.ok) {
       return NextResponse.json(
-        { error: auth.error, ...(auth.mfaRequired ? { mfaRequired: true } : {}) },
+        {
+          error: auth.error,
+          ...(auth.mfaRequired ? { mfaRequired: true } : {}),
+          ...(auth.mfaEnrollmentRequired ? { mfaEnrollmentRequired: true } : {}),
+        },
         { status: auth.status }
       );
     }
@@ -136,7 +140,11 @@ export async function DELETE(req: NextRequest) {
     const auth = await requireAdminApi();
     if (!auth.ok) {
       return NextResponse.json(
-        { error: auth.error, ...(auth.mfaRequired ? { mfaRequired: true } : {}) },
+        {
+          error: auth.error,
+          ...(auth.mfaRequired ? { mfaRequired: true } : {}),
+          ...(auth.mfaEnrollmentRequired ? { mfaEnrollmentRequired: true } : {}),
+        },
         { status: auth.status }
       );
     }

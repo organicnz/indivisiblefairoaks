@@ -40,20 +40,25 @@ same account lands differently depending on where it was headed.
 
 ## Where the gate lives
 
-Seven places, and they are not interchangeable.
+The gates, and they are not interchangeable.
 
 | Surface | Gate | On failure |
 |---|---|---|
 | `/account` | `account/page.tsx` | `redirect('/auth/mfa?next=…')`, **or redirect to `/auth/mfa`** when the factor list itself cannot be read |
-| `/admin/*` (pages) | `requireAdmin()` in `lib/admin-auth.ts` | redirect to `/auth/mfa?next=/admin`, **or throw** for a fault |
-| `/admin/*` (actions) | `requireAdminClient()` in `app/admin/actions.ts` | `throw` with `name = 'MfaStepUpRequired'` |
+| `/admin/*` (pages) | `requireAdmin()` in `lib/admin-auth.ts` | redirect to `/auth/mfa?next=/admin`, redirect to enrollment for an admin with no TOTP factor, **or throw** for a fault |
+| `/admin/*` (actions) | `requireAdminClient()` in `app/admin/actions.ts` | `throw` with `name = 'MfaStepUpRequired'` or `name = 'MfaEnrollmentRequired'` |
 | account settings writes | `assertMfaVerified()` via `actions/settings.ts` | `return { error, reason }` |
 | `/account/update-password` | `updatePasswordAction` via `account/update-password/actions.ts` | `return { error, reason }`; the page renders the step-up prompt on `step_up_required` |
 | verified-factor removal | `unenrollMfaFactorAction` via `actions/settings.ts` | `return { error, reason }`; the panel renders the step-up link on `step_up_required` |
+| recovery-code generation | `generateMfaRecoveryCodesAction` via `actions/mfa-recovery.ts` | requires AAL2 and a verified TOTP factor; returns `{ error, reason }` otherwise |
+| recovery-code redemption | `redeemMfaRecoveryCodeAction` via `actions/mfa-recovery.ts` | consumes one code and removes verified TOTP factors; the user must sign in and re-enroll |
 | `/auth/mfa` itself | `middleware.ts` matcher | `redirect('/login?next=…')` for a visitor with no session at all |
 
-All seven go through `assertMfaVerified()` (`src/lib/mfa-guard.ts`). The
-password page and the factor panel are client components, so each has a client
+The account and admin gates go through `assertMfaVerified()` (`src/lib/mfa-guard.ts`).
+Recovery-code redemption is the deliberate exception: its proof is the one-time
+code, not the session's assurance level.
+
+The password page and the factor panel are client components, so each has a client
 gate too — a step-up prompt rendered *before* the volunteer types — but those
 gates are UX, not enforcement: the write goes through the server action either
 way. A table that lists a client gate as if it were a server gate is how the
@@ -66,11 +71,14 @@ type MfaFailureReason =
   | 'not_authenticated'   // no session
   | 'unavailable'         // this client exposes no MFA API
   | 'state_unknown'       // factors or AAL could not be read — a fault
-  | 'step_up_required';   // enrolled, verified factor, AAL1 session
+  | 'step_up_required'    // enrolled, verified factor, AAL1 session
+  | 'enrollment_required'; // admin surface, no verified TOTP factor
 ```
 
-Only `step_up_required` is answerable by a code. Everything else is a fault, and
-`isStepUpChallenge()` is the single place that decides.
+Only `step_up_required` is answerable by a code. `enrollment_required` is
+answerable by enrolling, and everything else is a fault.
+`isStepUpChallenge()` and `isMfaEnrollmentRequired()` are the single places that
+decide, so neither is ever sent to the wrong screen.
 
 **Why this matters.** `requireAdmin()` used to redirect on *every* non-ok result.
 So a `listFactors` failure on an admin page redirected to `/auth/mfa`, which
@@ -149,18 +157,38 @@ so, because a wrong rationale in an authoritative file is worse than no rational
 
 ---
 
-## Recovery is a second factor
+## Recovery is a second factor and a code
 
-There are **no backup codes and no recovery codes**. A volunteer who loses their
-only authenticator is locked out, and the only exit is an out-of-band `unenroll`
-in the Supabase dashboard.
+Two layers keep a lost phone from becoming a permanent lockout:
 
-The mitigation is that a second factor is now supported: `MfaSettings` lists every
-verified TOTP factor with its own removal, and "Add another authenticator" is
-offered alongside. Losing one device is then survivable.
+1. **Multiple authenticators.** `MfaSettings` lists every verified TOTP factor
+   with its own removal, and "Add another authenticator" is offered alongside.
+   When more than one is enrolled, `/auth/mfa` shows a selector and challenges
+   the one the user chooses; a factor removed in another tab falls back to one
+   that still exists.
+2. **One-time recovery codes.** The first authenticator enrollment issues ten
+   80-bit codes, shown once and stored only as SHA-256 hashes in
+   `mfa_recovery_codes`. The table has RLS enabled with no client policies and
+   is reachable only through the service role. Each code can be claimed once.
+   Adding a second authenticator keeps the existing set; replacing it is an
+   explicit action. The save dialog offers copy, download and print, so a
+   volunteer can keep the set in whatever form they will actually find again.
 
-The panel states this conditionally — with one factor enrolled it says so
-explicitly, because the failure it prevents is silent and total.
+Generating a set requires AAL2 and a verified TOTP factor. Redeeming a code
+consumes it and removes the account's verified TOTP factors through the Admin
+API. That signs out the account's other sessions; the user signs in again and
+is sent to enrollment. A recovery code is deliberately **not** an app-level AAL2
+claim: an application cookie must never pretend to be Supabase's assurance
+level. Resetting the factor is the only safe way to turn "I still have the
+recovery sheet" into a session the Auth server will trust.
+
+The hosted Auth server does not currently expose Supabase's native recovery-code
+API, so this set is app-owned. If hosted support arrives, the native API can
+replace the storage layer, but the reset-and-re-enroll semantics must stay: a
+recovery code is not a second factor that GoTrue will accept for AAL2.
+
+The panel states the fallback conditionally — with one factor enrolled it says
+so explicitly, because the failure it prevents is silent and total.
 
 ### Enrollment details worth knowing
 
@@ -177,6 +205,10 @@ explicitly, because the failure it prevents is silent and total.
   factor blocking every later enrollment attempt until someone cleared it. (An
   unverified factor is not a way into the account — the guard ignores it — so
   the stakes were a wedged setup flow, not a lockout.)
+- **Recovery codes are shown once.** The server action returns plaintext only
+  from the generation response; the database stores hashes. The panel opens the
+  save dialog immediately after the first authenticator enrollment and again if
+  the set is explicitly replaced.
 - **The verify button disables while in flight.** It used to stay enabled, so a
   second click issued a second `challenge()` against a factor already mid-challenge.
 
@@ -206,7 +238,9 @@ through a seeded admin rather than a local one.
 | `src/lib/__tests__/mfa-guard.test.ts` | The decision, with a mocked client. Every `reason`, every fail-closed path, TOTP in either bucket — and the phone-only cases asserting *no* step-up, which is what keeps the dead-end loop from returning. |
 | `src/lib/__tests__/admin-auth.test.ts` | The redirect-vs-throw decision: `step_up_required` redirects with `?next=/admin`, a fault throws, a signed-out visitor goes to sign-in. Two of its assertions fail against a bare `/auth/mfa` redirect. |
 | `src/lib/__tests__/mfa.test.ts` | The `otpauth://totp/` prefix validator. |
-| `src/app/auth/mfa/__tests__/MfaChallengePage.test.tsx` | The rendered gate: which factors render a box, the explained (not bounced) `no-factor` state, `?next=` handling including the dot-segment cases, and the submit path's own re-filter. |
+| `src/lib/__tests__/mfa-recovery.test.ts` | Code entropy, normalization, formatting and hashing. |
+| `src/lib/__tests__/mfa-recovery-actions.test.ts` | AAL2-only generation, ten hashes stored, status counts, one-time redemption and TOTP-only factor removal. |
+| `src/app/auth/mfa/__tests__/MfaChallengePage.test.tsx` | The rendered gate: which factors render a box, the explained (not bounced) `no-factor` state, `?next=` handling including the dot-segment cases, the submit path's own re-filter, choosing among multiple authenticators, the disappeared-factor fallback, and recovery-code redemption. |
 | `e2e/mfa-challenge.spec.ts` | The thing no unit test can: that GoTrue actually upgrades the session to AAL2 and the destination gate then lets the page through. |
 
 `mfa.ts`, `mfa-guard.ts` and `admin-auth.ts` are in `vitest.config.mts`'s
@@ -246,3 +280,6 @@ A skipped auth suite is not a passing suite. Treat it as an uncovered path.
 - **Do not treat a `state_unknown` as a prompt for a code.** It is a fault, and a
   volunteer sent to `/auth/mfa` on a Supabase blip is a volunteer who cannot sign
   in and has no idea why.
+- **Do not store recovery codes in plaintext, log them, or turn one into an
+  app-level AAL2 cookie.** They are high-entropy one-time secrets; a successful
+  redemption resets the TOTP factor and forces re-enrollment.

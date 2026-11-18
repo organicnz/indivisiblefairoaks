@@ -31,6 +31,14 @@
  *                              IP rate limiting (5/10min). Targeted upsert to
  *                              crm_contacts and note append to crm_activities
  *                              only — cannot escalate or exfiltrate.
+ *   src/lib/actions/mfa-recovery.ts — recovery-code actions. Every entry
+ *                              point authenticates first and always takes the
+ *                              user id from the verified session, never from
+ *                              the caller. Generation requires AAL2 and a
+ *                              verified TOTP factor; redemption requires an
+ *                              unused code whose hash matches. The table has
+ *                              RLS with no client policies, so the service
+ *                              role is the only reader; only hashes are stored.
  *
  * Test files are excluded, and the reasoning is narrow rather than
  * convenient. A file under `__tests__` is never shipped, so it cannot
@@ -58,7 +66,7 @@
  */
 
 const ALLOWLIST =
-  'src/app/admin/|src/app/api/webhooks/|src/app/api/crm/unsubscribe/|src/app/news/actions.ts|src/app/account/page.tsx|src/lib/supabase-server.ts|src/lib/admin-auth.ts|src/lib/admin-api-auth.ts|src/lib/crm-tag-scan.ts';
+  'src/app/admin/|src/app/api/webhooks/|src/app/api/crm/unsubscribe/|src/app/news/actions.ts|src/app/account/page.tsx|src/lib/supabase-server.ts|src/lib/admin-auth.ts|src/lib/admin-api-auth.ts|src/lib/crm-tag-scan.ts|src/lib/actions/mfa-recovery.ts';
 
 const files = process.argv.slice(2);
 const violations = [];

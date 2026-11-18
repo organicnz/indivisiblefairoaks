@@ -1,13 +1,19 @@
 import { redirect } from 'next/navigation';
 import { connection } from 'next/server';
 import { cache } from 'react';
-import { assertMfaVerified, isStepUpChallenge } from '@/lib/mfa-guard';
+import {
+  assertMfaVerified,
+  isMfaEnrollmentRequired,
+  isStepUpChallenge,
+} from '@/lib/mfa-guard';
 import { getSafeNextPath } from '@/lib/safe-redirect';
 import { createAdminClient, createServerClient } from '@/lib/supabase-server';
 
 export type AdminSession = {
   adminUserId: string;
   adminEmail: string;
+  /** `assertMfaVerified(..., { requireEnrollment: true })` just proved AAL2. */
+  mfaLevel: 'aal2';
   adminClient: Awaited<ReturnType<typeof createAdminClient>>;
 };
 
@@ -61,28 +67,6 @@ async function requireAdminUncached(nextPath = '/admin'): Promise<AdminSession> 
   } = await supabase.auth.getUser();
   if (!user) redirect(`/login?next=${encodeURIComponent(returnTo)}`);
 
-  // Step-up: admins with MFA enrolled must hold an AAL2 session.
-  //
-  // Only `step_up_required` earns a redirect. Redirecting on *every* denial is
-  // what built the loop: a `listFactors` failure on this page pushed the user to
-  // /auth/mfa, which could not read its own factors either, pushed to /login,
-  // and middleware bounced the still-signed-in user off /login back to a gated
-  // route. Four hops, no message. A fault is surfaced as a fault.
-  const mfa = await assertMfaVerified(supabase);
-  if (!mfa.ok) {
-    /*
-     * `?next=/admin`, not a bare `/auth/mfa`. The challenge defaults to
-     * `/account`, so a bare redirect dropped an admin onto their dashboard with
-     * the order status still unsaved and no indication they had to redo it.
-     * Every caller of this function is an admin route — the `/login?next=/admin`
-     * above already says so — which is why the return path is the section
-     * root rather than the exact page. The challenge re-validates it through
-     * `getSafeNextPath`, so nothing untrusted reaches the redirect.
-     */
-    if (isStepUpChallenge(mfa)) redirect(`/auth/mfa?next=${encodeURIComponent(returnTo)}`);
-    throw new Error(mfa.error);
-  }
-
   const adminClient = await createAdminClient();
   const { data: profile } = await adminClient
     .from('profiles')
@@ -94,9 +78,37 @@ async function requireAdminUncached(nextPath = '/admin'): Promise<AdminSession> 
     redirect('/account?error=admin_required');
   }
 
+  // Admin surfaces require both a verified TOTP factor and an AAL2 session.
+  //
+  // Only `step_up_required` earns the challenge redirect. Redirecting on *every*
+  // denial is what built the loop: a `listFactors` failure on this page pushed
+  // the user to /auth/mfa, which could not read its own factors either, pushed
+  // to /login, and middleware bounced the still-signed-in user off /login back
+  // to a gated route. Four hops, no message. A fault is surfaced as a fault.
+  const mfa = await assertMfaVerified(supabase, { requireEnrollment: true });
+  if (!mfa.ok) {
+    /*
+     * `?next=/admin`, not a bare `/auth/mfa`. The challenge defaults to
+     * `/account`, so a bare redirect dropped an admin onto their dashboard with
+     * the order status still unsaved and no indication they had to redo it.
+     * Every caller of this function is an admin route — the `/login?next=/admin`
+     * above already says so — which is why the return path is the section
+     * root rather than the exact page. The challenge re-validates it through
+     * `getSafeNextPath`, so nothing untrusted reaches the redirect.
+     */
+    if (isStepUpChallenge(mfa)) redirect(`/auth/mfa?next=${encodeURIComponent(returnTo)}`);
+    if (isMfaEnrollmentRequired(mfa)) {
+      redirect(
+        `/account?tab=settings&mfa=enroll&next=${encodeURIComponent(returnTo)}`
+      );
+    }
+    throw new Error(mfa.error);
+  }
+
   return {
     adminUserId: user.id,
     adminEmail: profile.email || user.email || '',
+    mfaLevel: 'aal2',
     adminClient,
   };
 }

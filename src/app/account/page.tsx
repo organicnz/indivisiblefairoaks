@@ -9,6 +9,7 @@ import { UserSettings } from '@/components/account/UserSettings';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
 import { getDataPoints } from '@/lib/queries/civic';
+import { getSafeNextPath } from '@/lib/safe-redirect';
 import { createAdminClient, createServerClient } from '@/lib/supabase-server';
 
 // Deliberate Cache Components opt-out (Block): per-user auth + MFA state, entire surface is request-time.
@@ -103,6 +104,8 @@ export default async function AccountPage(props: {
   const isAdmin = profile?.is_admin === true;
 
   const activeTab = sp.tab ?? 'settings';
+  const enrollmentReturnTo =
+    getSafeNextPath(sp.next, '/account?tab=settings') ?? '/account?tab=settings';
 
   const dataPoints = await getDataPoints('account');
 
@@ -116,7 +119,7 @@ export default async function AccountPage(props: {
   const panel = (
     <div className="max-w-2xl space-y-12">
       <UserSettings />
-      <MfaSettings />
+      <MfaSettings autoEnroll={sp.mfa === 'enroll'} returnTo={enrollmentReturnTo} />
       <div className="pt-8 border-t border-border">
         <h3 className="civic-meta text-foreground mb-1">
           <DataPoint name="account.session.title" initialData={dataPoints}>

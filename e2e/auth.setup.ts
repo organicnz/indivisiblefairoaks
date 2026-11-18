@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { expect, test as setup } from '@playwright/test';
-import { GRANT_MARKER } from './helpers/e2e-seeds';
+import { GRANT_MARKER, MFA_ENROLLMENT_MARKER } from './helpers/e2e-seeds';
 
 /**
  * Seeded admin session for the suites that assert on rendered admin surfaces
@@ -13,10 +13,11 @@ import { GRANT_MARKER } from './helpers/e2e-seeds';
  * so every test reports a storage-state ENOENT instead of whatever actually
  * went wrong. This file has no test.use, so a failure here displays as itself.
  *
- * Requires E2E_ADMIN_EMAIL / E2E_ADMIN_PASSWORD for a non-MFA-enrolled admin
- * on the target Supabase project (see scripts/seed-e2e-users.mjs), including
- * the manual profiles grant the priv-esc trigger demands. Without credentials
- * this skips, and the consuming suites skip too.
+ * Requires E2E_ADMIN_EMAIL / E2E_ADMIN_PASSWORD for an admin with a verified
+ * TOTP factor on the target Supabase project. A non-MFA admin is now an
+ * incomplete fixture — admin pages redirect it to enrollment — so the setup
+ * writes MFA_ENROLLMENT_MARKER and the consuming suite skips loudly. Without
+ * credentials this skips, and the consuming suites skip too.
  */
 const ADMIN_EMAIL = Bun.env.E2E_ADMIN_EMAIL;
 const ADMIN_PASSWORD = Bun.env.E2E_ADMIN_PASSWORD;
@@ -50,6 +51,13 @@ setup.describe('seeded admin session', () => {
     // sign-in, on the other hand, throws above and fails the gate, because
     // that is a product regression rather than an incomplete environment.
     await page.goto('/admin/crm');
+    // Wait for the redirect target to render before classifying it. `goto`
+    // resolves on the document load; the account shell can paint after it, and
+    // a snapshot taken too early reads the previous page.
+    await expect(page.locator('body')).toContainText(
+      /constituent directory|enable 2fa|administrator privileges required/i,
+      { timeout: 15_000 }
+    );
     // A missing grant redirects to `/account?error=admin_required`. Treat only
     // that outcome as an environment problem. A copy or render regression must
     // fail this setup: catching every expectation failure made the suite report
@@ -59,6 +67,30 @@ setup.describe('seeded admin session', () => {
     const adminRequired =
       page.url().includes('error=admin_required') ||
       pageText.includes('Administrator Privileges Required');
+    // The redirect can arrive at `/account?tab=settings` after Next resolves the
+    // query, so the URL alone is not a durable signal. The enrollment panel's
+    // own copy is.
+    const enrollmentRequired =
+      page.url().includes('mfa=enroll') || pageText.includes('Enable 2FA');
+
+    if (enrollmentRequired) {
+      console.log('');
+      console.log('ADMIN SEED INCOMPLETE — skipping seeded admin coverage.');
+      console.log('e2e-admin is an admin but has no verified TOTP factor.');
+      console.log('Admin pages now require MFA enrollment, so this fixture cannot reach');
+      console.log('the rendered admin surfaces. Seed a TOTP factor for E2E_ADMIN_EMAIL,');
+      console.log('or point E2E_ADMIN_EMAIL at an admin that already has one.');
+      console.log('');
+      await Bun.write(
+        MFA_ENROLLMENT_MARKER,
+        'seeded e2e-admin has no verified TOTP factor\n'
+      );
+      setup.skip(
+        true,
+        'seeded e2e-admin has no verified TOTP factor — seed one or use an enrolled admin'
+      );
+      return;
+    }
 
     if (adminRequired) {
       console.log('');
@@ -93,6 +125,9 @@ setup.describe('seeded admin session', () => {
     // `rmSync` — do not fail when the file is already gone — are what the
     // marker wants, because a previous run may have left it behind.
     await Bun.file(GRANT_MARKER)
+      .unlink()
+      .catch(() => {});
+    await Bun.file(MFA_ENROLLMENT_MARKER)
       .unlink()
       .catch(() => {});
     // No `mkdir` here: Playwright's own `storageState({ path })` creates the

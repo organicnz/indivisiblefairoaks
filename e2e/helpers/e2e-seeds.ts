@@ -11,3 +11,17 @@ import path from 'node:path';
  * setup project finishes, so a load-time read would race the writer.
  */
 export const GRANT_MARKER = path.join(import.meta.dirname, '..', '.auth', 'no-admin-grant');
+
+/**
+ * Written when e2e-admin signs in but has no verified TOTP factor.
+ *
+ * Admin pages now require enrollment, so the legacy non-MFA seed can no longer
+ * reach the rendered admin surfaces. The setup reports that as an incomplete
+ * fixture and skips the browser admin suite rather than weakening the gate.
+ */
+export const MFA_ENROLLMENT_MARKER = path.join(
+  import.meta.dirname,
+  '..',
+  '.auth',
+  'no-admin-mfa'
+);

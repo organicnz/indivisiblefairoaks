@@ -1,17 +1,18 @@
 import path from 'node:path';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
-import { GRANT_MARKER } from './helpers/e2e-seeds';
+import { GRANT_MARKER, MFA_ENROLLMENT_MARKER } from './helpers/e2e-seeds';
 
 /**
  * Authenticated admin coverage. Seeded once per run through the site's own
  * password sign-in, then every admin surface asserts on the rendered page
  * instead of the login redirect.
  *
- * Requires E2E_ADMIN_EMAIL / E2E_ADMIN_PASSWORD for a non-MFA-enrolled admin
- * user on the target Supabase project. Without them the whole suite skips —
- * admin browser coverage stays opt-in until that user exists, and nothing in
- * the gate silently weakens.
+ * Requires E2E_ADMIN_EMAIL / E2E_ADMIN_PASSWORD for an admin with a verified
+ * TOTP factor on the target Supabase project. Without them, or with a legacy
+ * non-MFA seed that the admin gate now redirects to enrollment, the whole suite
+ * skips — admin browser coverage stays opt-in, and nothing in the gate silently
+ * weakens.
  */
 const ADMIN_EMAIL = Bun.env.E2E_ADMIN_EMAIL;
 const ADMIN_PASSWORD = Bun.env.E2E_ADMIN_PASSWORD;
@@ -38,8 +39,9 @@ test.describe('admin surfaces with a seeded session', () => {
   // file before the setup project finishes.
   test.beforeEach(async () => {
     test.skip(
-      await Bun.file(GRANT_MARKER).exists(),
-      'seeded e2e-admin lacks the profiles grant — see the setup project output'
+      (await Bun.file(GRANT_MARKER).exists()) ||
+        (await Bun.file(MFA_ENROLLMENT_MARKER).exists()),
+      'seeded e2e-admin is missing the profiles grant or a verified TOTP factor — see the setup project output'
     );
   });
 

@@ -4,17 +4,20 @@ import * as Sentry from '@sentry/nextjs';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Copy,
+  Download,
   KeyRound,
   Loader2,
   Plus,
+  Printer,
   Shield,
   ShieldAlert,
   ShieldCheck,
   Trash2,
 } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { QRCodeSVG } from 'qrcode.react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import { Button } from '@/components/ui/Button';
 import { DataPoint } from '@/components/ui/DataPoint';
@@ -26,8 +29,13 @@ import {
   DialogTitle,
 } from '@/components/ui/Dialog';
 import { SITE_NAME } from '@/config/site';
+import {
+  generateMfaRecoveryCodesAction,
+  getMfaRecoveryCodeStatusAction,
+} from '@/lib/actions/mfa-recovery';
 import { unenrollMfaFactorAction } from '@/lib/actions/settings';
 import { getTotpEnrollmentUri } from '@/lib/mfa';
+import { formatRecoveryCode, recoveryCodesText } from '@/lib/mfa-recovery';
 import { createClient } from '@/lib/supabase';
 
 /**
@@ -46,7 +54,14 @@ interface Factor {
   friendly_name?: string;
 }
 
-export function MfaSettings() {
+export function MfaSettings({
+  autoEnroll = false,
+  returnTo = '/account?tab=settings',
+}: {
+  autoEnroll?: boolean;
+  returnTo?: string;
+} = {}) {
+  const router = useRouter();
   const [enrolling, setEnrolling] = useState(false);
   const [totpUri, setTotpUri] = useState('');
   const totpSecret = totpSecretFromUri(totpUri);
@@ -58,6 +73,17 @@ export function MfaSettings() {
   const [showManualEntry, setShowManualEntry] = useState(false);
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
   const [verifying, setVerifying] = useState(false);
+  const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
+  const [recoveryBusy, setRecoveryBusy] = useState(false);
+  const [recoveryError, setRecoveryError] = useState('');
+  const [recoveryCopyState, setRecoveryCopyState] = useState<'idle' | 'copied' | 'failed'>(
+    'idle'
+  );
+  const [recoveryDownloadState, setRecoveryDownloadState] = useState<
+    'idle' | 'downloaded' | 'failed'
+  >('idle');
+  const [recoverySaveError, setRecoverySaveError] = useState('');
+  const autoEnrollmentStarted = useRef(false);
 
   const supabase = createClient();
   const queryClient = useQueryClient();
@@ -70,6 +96,31 @@ export function MfaSettings() {
       return data.all || [];
     },
   });
+
+  const verified = (factors as Factor[]).filter(
+    (f) => f.status === 'verified' && f.factor_type === 'totp'
+  );
+  const hasVerifiedTotp = verified.length > 0;
+
+  const {
+    data: recoveryStatus,
+    error: recoveryStatusError,
+    refetch: refetchRecoveryStatus,
+  } = useQuery({
+    queryKey: ['mfa-recovery-codes'],
+    queryFn: async () => {
+      const result = await getMfaRecoveryCodeStatusAction();
+      if ('error' in result) throw new Error(result.error);
+      return result;
+    },
+    enabled: !isLoading && hasVerifiedTotp,
+  });
+
+  useEffect(() => {
+    if (!autoEnroll || isLoading || autoEnrollmentStarted.current || hasVerifiedTotp) return;
+    autoEnrollmentStarted.current = true;
+    void startEnrollment();
+  }, [autoEnroll, hasVerifiedTotp, isLoading]);
 
   async function startEnrollment() {
     try {
@@ -152,6 +203,10 @@ export function MfaSettings() {
     setErrorReason(null);
     setSuccess('');
     setVerifying(true);
+    // A second authenticator is a backup device, not a new recovery set.
+    // Replacing the existing codes here would silently invalidate the sheet
+    // the user already saved.
+    const addingAdditionalFactor = verified.length > 0;
     try {
       const { data, error } = await supabase.auth.mfa.challenge({ factorId });
       if (error) {
@@ -173,6 +228,20 @@ export function MfaSettings() {
         setTotpUri('');
         setFactorId('');
         await queryClient.invalidateQueries({ queryKey: ['mfa-factors'] });
+
+        // The first authenticator leaves the account one lost phone away from
+        // a lockout, so issue the recovery set while the session is still AAL2
+        // and before any auto-redirect back to the admin surface. Adding a
+        // second authenticator keeps the existing set; if the status has not
+        // loaded, do not replace a set we cannot see — the panel will refetch
+        // and offer Generate if there are none.
+        const shouldGenerate =
+          !addingAdditionalFactor || recoveryStatus?.total === 0;
+        if (shouldGenerate) {
+          await generateAndShowRecoveryCodes();
+        } else {
+          await refetchRecoveryStatus();
+        }
       }
     } catch (err) {
       // The verification path used to have no `catch`, so a dropped connection
@@ -216,6 +285,113 @@ export function MfaSettings() {
     }
   }
 
+  async function generateAndShowRecoveryCodes() {
+    setRecoveryError('');
+    try {
+      const result = await generateMfaRecoveryCodesAction();
+      if ('error' in result) {
+        setRecoveryError(result.error);
+        return;
+      }
+      setRecoveryCodes(result.codes);
+      setRecoveryCopyState('idle');
+      setRecoveryDownloadState('idle');
+      setRecoverySaveError('');
+      await refetchRecoveryStatus();
+    } catch {
+      setRecoveryError('Could not generate recovery codes. Check your connection and try again.');
+    }
+  }
+
+  async function issueRecoveryCodes() {
+    setRecoveryBusy(true);
+    try {
+      await generateAndShowRecoveryCodes();
+    } finally {
+      setRecoveryBusy(false);
+    }
+  }
+
+  function continueToDestination() {
+    if (!autoEnroll) return;
+    router.push(returnTo);
+    router.refresh();
+  }
+
+  function finishRecoveryDialog() {
+    setRecoveryCodes([]);
+    setRecoveryCopyState('idle');
+    setRecoveryDownloadState('idle');
+    setRecoverySaveError('');
+    continueToDestination();
+  }
+
+  async function copyRecoveryCodes() {
+    try {
+      await navigator.clipboard.writeText(recoveryCodesText(recoveryCodes));
+      setRecoveryCopyState('copied');
+      setRecoverySaveError('');
+    } catch {
+      setRecoveryCopyState('failed');
+      setRecoverySaveError(
+        'Copying was blocked. Select the codes and save them by hand, or download them instead.'
+      );
+    }
+  }
+
+  function downloadRecoveryCodes() {
+    try {
+      const blob = new Blob([recoveryCodesText(recoveryCodes)], {
+        type: 'text/plain;charset=utf-8',
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'mfa-recovery-codes.txt';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      // Revoke after the browser has had a turn to start the download.
+      setTimeout(() => URL.revokeObjectURL(url), 0);
+      setRecoveryDownloadState('downloaded');
+      setRecoverySaveError('');
+    } catch {
+      setRecoveryDownloadState('failed');
+      setRecoverySaveError(
+        'The download could not be started. Use copy or print instead.'
+      );
+    }
+  }
+
+  function printRecoveryCodes() {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      setRecoverySaveError('The print window was blocked. Use copy or download instead.');
+      return;
+    }
+
+    try {
+      const doc = printWindow.document;
+      doc.title = 'Recovery codes';
+      const heading = doc.createElement('h1');
+      heading.textContent = 'Two-factor recovery codes';
+      const instructions = doc.createElement('p');
+      instructions.textContent =
+        'Keep this sheet somewhere separate from your authenticator. Each code works once and resets your authenticator setup.';
+      const codes = doc.createElement('pre');
+      codes.style.fontSize = '16px';
+      codes.style.lineHeight = '1.8';
+      codes.textContent = recoveryCodesText(recoveryCodes);
+      doc.body.replaceChildren(heading, instructions, codes);
+      printWindow.focus();
+      printWindow.print();
+      setRecoverySaveError('');
+    } catch {
+      printWindow.close();
+      setRecoverySaveError('The print window could not be prepared. Use copy or download instead.');
+    }
+  }
+
   if (isLoading)
     return (
       <div className="flex justify-center p-8">
@@ -226,9 +402,6 @@ export function MfaSettings() {
       </div>
     );
 
-  const verified = (factors as Factor[]).filter(
-    (f) => f.status === 'verified' && f.factor_type === 'totp'
-  );
   const otherTypes = (factors as Factor[]).filter(
     (f) => f.status === 'verified' && f.factor_type !== 'totp'
   );
@@ -316,8 +489,8 @@ export function MfaSettings() {
             */}
             <p className="mt-4 text-[11px] font-medium text-emerald-900/80 dark:text-emerald-300/80">
               {verified.length === 1
-                ? 'Add a second authenticator — a phone you no longer carry, say — so losing this one does not lock you out. If it already has, a chapter organiser can remove the lost one for you: ask at a meeting or by email.'
-                : 'You can sign in with any of the authenticators above.'}
+                ? 'Add a second authenticator — a phone you no longer carry, say — so losing this one does not lock you out. If you lose every authenticator, use a recovery code to reset the setup and enroll again.'
+                : 'You can sign in with any of the authenticators above, or use a recovery code if you lose all of them.'}
             </p>
           </div>
         )}
@@ -337,6 +510,64 @@ export function MfaSettings() {
               <strong>{[...new Set(otherTypes.map((f) => f.factor_type))].join(', ')}</strong>{' '}
               factor enrolled. This site can only ask for a code from an authenticator app.
             </p>
+          </div>
+        )}
+
+        {hasVerifiedTotp && (
+          <div className="p-4 bg-surface-muted border border-border rounded-2xl">
+            <div className="flex items-start gap-3">
+              <KeyRound
+                size={18}
+                aria-hidden="true"
+                className="text-primary dark:text-primary-on-dark shrink-0 mt-0.5"
+              />
+              <div className="min-w-0 flex-1">
+                <h4 className="text-xs font-black text-foreground uppercase tracking-widest">
+                  Recovery codes
+                </h4>
+                <p className="mt-2 text-xs text-muted-foreground font-medium leading-relaxed">
+                  Use one code if you lose every authenticator. Each code works once and resets
+                  your authenticator setup, so you must enroll a new one afterwards.
+                </p>
+                <p className="mt-2 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                  {recoveryStatusError
+                    ? 'Could not check saved recovery codes.'
+                    : recoveryStatus
+                      ? recoveryStatus.total > 0
+                        ? `${recoveryStatus.remaining} of ${recoveryStatus.total} codes unused`
+                        : 'No recovery codes generated yet'
+                      : 'Checking saved recovery codes...'}
+                </p>
+                {recoveryError && (
+                  <p role="alert" className="mt-2 text-xs font-medium text-accent-red">
+                    {recoveryError}
+                  </p>
+                )}
+                <div className="mt-3">
+                  {recoveryStatus && recoveryStatus.total > 0 ? (
+                    <ConfirmAction
+                      label="Replace recovery codes"
+                      message="Replacing the set makes every unused recovery code stop working. Continue?"
+                      confirmLabel="Replace"
+                      danger
+                      idleClassName="text-[10px] font-black text-primary dark:text-primary-on-dark uppercase tracking-widest hover:underline inline-flex items-center gap-1.5"
+                      onConfirm={() => void issueRecoveryCodes()}
+                    >
+                      <KeyRound size={12} aria-hidden="true" />
+                      Replace recovery codes
+                    </ConfirmAction>
+                  ) : (
+                    <Button
+                      onClick={() => void issueRecoveryCodes()}
+                      variant="secondary"
+                      disabled={recoveryBusy}
+                    >
+                      {recoveryBusy ? 'Generating...' : 'Generate recovery codes'}
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
@@ -363,6 +594,63 @@ export function MfaSettings() {
           </>
         )}
       </div>
+
+      {/*
+        This dialog is deliberately not dismissible except through the button.
+        The codes are returned once and cannot be shown again; an accidental
+        Escape or outside click would otherwise throw them away and, during
+        admin enrollment, send the operator onward without a recovery path.
+      */}
+      <Dialog open={recoveryCodes.length > 0} onOpenChange={() => {}}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Save your recovery codes</DialogTitle>
+            <DialogDescription>
+              These codes are shown once. Store them somewhere separate from your authenticator.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6 py-4">
+            <p className="text-sm text-muted-foreground font-medium leading-relaxed">
+              Each code can be used once to reset your authenticator setup. You will then enroll a
+              new authenticator before continuing.
+            </p>
+            <ol className="grid grid-cols-1 gap-2 rounded-2xl border border-border bg-surface-muted p-4 font-mono text-sm text-foreground sm:grid-cols-2">
+              {recoveryCodes.map((code) => (
+                <li key={code} className="tracking-wider">
+                  {formatRecoveryCode(code)}
+                </li>
+              ))}
+            </ol>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <Button onClick={() => void copyRecoveryCodes()} variant="secondary">
+                <Copy size={14} className="mr-2" aria-hidden="true" />
+                {recoveryCopyState === 'copied'
+                  ? 'Copied'
+                  : recoveryCopyState === 'failed'
+                    ? 'Copy blocked'
+                    : 'Copy'}
+              </Button>
+              <Button onClick={downloadRecoveryCodes} variant="secondary">
+                <Download size={14} className="mr-2" aria-hidden="true" />
+                {recoveryDownloadState === 'downloaded' ? 'Downloaded' : 'Download'}
+              </Button>
+              <Button onClick={printRecoveryCodes} variant="secondary">
+                <Printer size={14} className="mr-2" aria-hidden="true" />
+                Print
+              </Button>
+              <Button onClick={finishRecoveryDialog} className="sm:col-span-3">
+                I have saved these codes
+              </Button>
+            </div>
+            {recoverySaveError && (
+              <p role="alert" className="text-xs font-medium text-accent-red">
+                {recoverySaveError}
+              </p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={enrolling} onOpenChange={(open) => (open ? setEnrolling(true) : closeDialog())}>
         <DialogContent>
@@ -447,7 +735,8 @@ export function MfaSettings() {
                   */}
                   <p className="text-[10px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-widest text-left leading-relaxed">
                     Save this key somewhere safe before continuing. If you lose this device you will
-                    need it, a second authenticator, or a chapter organiser to sign in again.
+                    need it, a second authenticator, or one of the recovery codes issued after
+                    enrollment to sign in again.
                   </p>
                 </div>
               )}
@@ -545,10 +834,17 @@ export function MfaSettings() {
       {success && (
         <div
           role="status"
-          className="mt-6 p-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-2xl flex items-center gap-3 text-emerald-700 dark:text-emerald-400"
+          className="mt-6 p-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-2xl flex items-start gap-3 text-emerald-700 dark:text-emerald-400"
         >
-          <ShieldCheck size={18} aria-hidden="true" className="shrink-0" />
-          <p className="text-sm font-medium">{success}</p>
+          <ShieldCheck size={18} aria-hidden="true" className="shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium">{success}</p>
+            {autoEnroll && recoveryCodes.length === 0 && (
+              <Button onClick={continueToDestination} className="mt-3" variant="secondary">
+                Continue
+              </Button>
+            )}
+          </div>
         </div>
       )}
     </div>
