@@ -313,6 +313,7 @@ describe('getRapidFeed', () => {
     expect(result.meta.source).toBe('live');
     expect(result.meta.ageSeconds).toBeGreaterThanOrEqual(0);
     expect(result.meta.cacheAgeSeconds).toBe(0);
+    expect(result.meta.refreshRecommended).toBe(false);
   });
 
   it('reports a memory hit and its age on the second request', async () => {
@@ -325,6 +326,7 @@ describe('getRapidFeed', () => {
     expect(result.meta.source).toBe('memory');
     expect(result.meta.ageSeconds).toBe(10);
     expect(result.meta.cacheAgeSeconds).toBe(10);
+    expect(result.meta.refreshRecommended).toBe(false);
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
@@ -341,6 +343,27 @@ describe('getRapidFeed', () => {
     expect(result.meta.source).toBe('durable');
     expect(result.meta.ageSeconds).toBe(7_200);
     expect(result.meta.cacheAgeSeconds).toBe(300);
+    expect(result.meta.refreshRecommended).toBe(false);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('serves a stale durable snapshot immediately and recommends a background refresh', async () => {
+    vi.mocked(cacheModule.readPersistedRapidFeed).mockResolvedValue({
+      feed: PERSISTED_FEED,
+      fetchedAt: '2026-11-15T05:44:00.000Z',
+    });
+
+    const { getRapidFeedResult } = await import('@/lib/ice-rapid-feed');
+    const result = await getRapidFeedResult();
+
+    expect(result.feed.alerts).toEqual(PERSISTED_FEED.alerts);
+    expect(result.meta.source).toBe('durable');
+    expect(result.meta.ageSeconds).toBe(7_200);
+    expect(result.meta.cacheAgeSeconds).toBe(960);
+    expect(result.meta.refreshRecommended).toBe(true);
+    expect(result.feed.community.status).toBe('stale');
+    expect(result.feed.official.status).toBe('stale');
+    expect(result.feed.community.note).toContain('while a fresh snapshot is built');
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -380,7 +403,7 @@ describe('getRapidFeed', () => {
     fetchMock.mockResolvedValue(new Response('upstream unavailable', { status: 503 }));
 
     const { getRapidFeed } = await import('@/lib/ice-rapid-feed');
-    const feed = await getRapidFeed();
+    const feed = await getRapidFeed({ fresh: true });
 
     expect(feed.alerts).toEqual(PERSISTED_FEED.alerts);
     expect(feed.officialReleases).toEqual(PERSISTED_FEED.officialReleases);

@@ -6,9 +6,10 @@ import type { RapidFeed, RapidFeedRequestState } from './rapid-types';
 
 const FEED_ENDPOINT = '/api/ice-rapid';
 const REFRESH_INTERVAL_MS = 2 * 60 * 1000;
-// The route aggregates a nightly community export plus the ICE newsroom feed
-// and can take longer than the default 8s service budget on a cold cache.
-const FEED_TIMEOUT_MS = 25_000;
+// The route has a 25s server deadline. Keep the browser deadline above it so a
+// slow route response is not aborted just before it can return; a 504 is then
+// retried using the normal failure policy instead of surfacing as a timeout.
+const FEED_TIMEOUT_MS = 30_000;
 const RETRY_DELAYS_MS = [750, 2_000] as const;
 
 class FeedHttpError extends Error {
@@ -18,12 +19,38 @@ class FeedHttpError extends Error {
   }
 }
 
+class FeedPayloadError extends Error {
+  constructor() {
+    super('Feed response was not valid');
+    this.name = 'FeedPayloadError';
+  }
+}
+
 function retryable(caught: unknown): boolean {
   if (caught instanceof ServiceTimeoutError) return false;
+  if (caught instanceof FeedPayloadError) return true;
   if (caught instanceof FeedHttpError) {
     return caught.status === 429 || caught.status >= 500;
   }
   return caught instanceof TypeError;
+}
+
+function errorMessage(caught: unknown): string {
+  if (caught instanceof ServiceTimeoutError) {
+    return 'The rapid-response feed took too long to load. It will retry automatically.';
+  }
+  if (caught instanceof FeedHttpError && caught.status === 503) {
+    return 'The rapid-response feed is between snapshots. It will retry automatically.';
+  }
+  if (caught instanceof TypeError) {
+    return 'The rapid-response feed could not be reached. It will retry automatically.';
+  }
+  if (caught instanceof FeedPayloadError) {
+    return 'The rapid-response feed returned an unreadable snapshot. It will retry automatically.';
+  }
+  return caught instanceof Error && caught.message
+    ? caught.message
+    : 'The rapid-response feed is temporarily unavailable.';
 }
 
 function wait(ms: number): Promise<void> {
@@ -51,6 +78,7 @@ export function useRapidFeed() {
   const [error, setError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const activeRequestRef = useRef<AbortController | null>(null);
+  const feedRef = useRef<RapidFeed | null>(null);
 
   const load = useCallback(async (options: { silent?: boolean } = {}) => {
     activeRequestRef.current?.abort();
@@ -68,12 +96,19 @@ export function useRapidFeed() {
           }, FEED_TIMEOUT_MS);
           if (!response.ok) throw new FeedHttpError(response.status);
 
-          const payload: unknown = await response.json();
-          if (!isRapidFeed(payload)) throw new Error('Feed response was not valid');
+          let payload: unknown;
+          try {
+            payload = await response.json();
+          } catch {
+            throw new FeedPayloadError();
+          }
+          if (!isRapidFeed(payload)) throw new FeedPayloadError();
 
           // A feed cached before the community-case field was added is still a
           // valid feed; normalize it rather than blanking the map during deploy.
-          setFeed({ ...payload, publicCases: payload.publicCases ?? [] });
+          const nextFeed = { ...payload, publicCases: payload.publicCases ?? [] };
+          feedRef.current = nextFeed;
+          setFeed(nextFeed);
           setStatus('ready');
           setError(null);
           return;
@@ -90,16 +125,13 @@ export function useRapidFeed() {
       }
     } catch (caught) {
       if (controller.signal.aborted) return;
-      setStatus('error');
-      setError(
-        caught instanceof ServiceTimeoutError
-          ? 'The rapid-response feed took too long to load. It will retry automatically.'
-          : caught instanceof FeedHttpError && caught.status === 503
-          ? 'The rapid-response feed is between snapshots. It will retry automatically.'
-          : caught instanceof Error && caught.message
-          ? caught.message
-          : 'The rapid-response feed is temporarily unavailable.'
-      );
+
+      // A failed background refresh must never replace a usable feed with an
+      // error state. Keep the last successful snapshot mounted and surface the
+      // failure as a non-destructive notice above it.
+      const hasLastGoodFeed = feedRef.current !== null;
+      setStatus(hasLastGoodFeed ? 'ready' : 'error');
+      setError(errorMessage(caught));
     } finally {
       if (activeRequestRef.current === controller) {
         activeRequestRef.current = null;

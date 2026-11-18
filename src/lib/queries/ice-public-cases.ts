@@ -11,7 +11,9 @@ import {
  * rather than the card list's shorter page size.
  */
 const PUBLIC_CASE_LIMIT = 100;
-const PUBLIC_CASE_TIMEOUT_MS = 4_000;
+// Public cases enrich the map but are optional. Never let their query dominate
+// the feed response; the feed itself has its own durable fallback.
+const PUBLIC_CASE_TIMEOUT_MS = 2_000;
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;

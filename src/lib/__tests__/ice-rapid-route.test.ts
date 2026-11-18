@@ -2,15 +2,22 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const getRapidFeedResult = vi.hoisted(() => vi.fn());
+const getRapidFeed = vi.hoisted(() => vi.fn());
 const getRapidPublicCases = vi.hoisted(() => vi.fn(async () => []));
+const afterMock = vi.hoisted(() => vi.fn());
 const usable = vi.hoisted(() => vi.fn(() => true));
 
 vi.mock('next/server', async (importOriginal) => {
   const actual = await importOriginal<typeof import('next/server')>();
-  return { ...actual, connection: vi.fn(async () => undefined) };
+  return {
+    ...actual,
+    connection: vi.fn(async () => undefined),
+    after: afterMock,
+  };
 });
 
 vi.mock('@/lib/ice-rapid-feed', () => ({
+  getRapidFeed,
   getRapidFeedResult,
   hasUsableRapidFeed: usable,
 }));
@@ -67,8 +74,14 @@ beforeEach(() => {
   vi.clearAllMocks();
   getRapidFeedResult.mockResolvedValue({
     feed: FEED,
-    meta: { source: 'live', ageSeconds: 12, cacheAgeSeconds: 0 },
+    meta: {
+      source: 'live',
+      ageSeconds: 12,
+      cacheAgeSeconds: 0,
+      refreshRecommended: false,
+    },
   });
+  getRapidFeed.mockResolvedValue(FEED);
   getRapidPublicCases.mockResolvedValue([]);
   usable.mockReturnValue(true);
 });
@@ -92,7 +105,7 @@ describe('GET /api/ice-rapid', () => {
   ] as const)('labels a %s response with its feed and cache age', async (source, age, cacheAge) => {
     getRapidFeedResult.mockResolvedValue({
       feed: FEED,
-      meta: { source, ageSeconds: age, cacheAgeSeconds: cacheAge },
+      meta: { source, ageSeconds: age, cacheAgeSeconds: cacheAge, refreshRecommended: false },
     });
 
     const response = await GET();
@@ -107,7 +120,12 @@ describe('GET /api/ice-rapid', () => {
     usable.mockReturnValue(false);
     getRapidFeedResult.mockResolvedValue({
       feed: { ...FEED, alerts: [], officialReleases: [] },
-      meta: { source: 'live', ageSeconds: 0, cacheAgeSeconds: 0 },
+      meta: {
+        source: 'live',
+        ageSeconds: 0,
+        cacheAgeSeconds: 0,
+        refreshRecommended: false,
+      },
     });
 
     const response = await GET();
@@ -116,5 +134,32 @@ describe('GET /api/ice-rapid', () => {
     expect(response.headers.get('cache-control')).toBe('no-store');
     expect(response.headers.get('retry-after')).toBe('5');
     expect(response.headers.get('x-ice-feed-source')).toBe('live');
+  });
+
+  it('serves a stale durable snapshot immediately and schedules the rebuild after the response', async () => {
+    getRapidFeedResult.mockResolvedValue({
+      feed: FEED,
+      meta: {
+        source: 'durable',
+        ageSeconds: 3_600,
+        cacheAgeSeconds: 1_000,
+        refreshRecommended: true,
+      },
+    });
+
+    const response = await GET();
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('x-ice-feed-refresh')).toBe('background');
+    expect(afterMock).toHaveBeenCalledTimes(1);
+
+    const secondResponse = await GET();
+    expect(secondResponse.headers.get('x-ice-feed-refresh')).toBe('background');
+    expect(afterMock).toHaveBeenCalledTimes(1);
+
+    const task = afterMock.mock.calls[0][0] as () => Promise<void>;
+    await task();
+
+    expect(getRapidFeed).toHaveBeenCalledWith({ fresh: true });
   });
 });

@@ -92,6 +92,12 @@ export type RapidFeedMeta = {
   ageSeconds: number;
   /** Whole seconds since this cache entry was created; 0 for a live build. */
   cacheAgeSeconds: number;
+  /**
+   * True when a usable but stale durable snapshot was served. The route should
+   * return it immediately and rebuild in the background instead of blocking the
+   * visitor on the upstream sources.
+   */
+  refreshRecommended: boolean;
 };
 
 export type RapidFeedResult = {
@@ -691,6 +697,7 @@ export async function getRapidFeedResult(
         source: 'memory',
         ageSeconds: feedAgeSeconds(memoryCache.feed, now),
         cacheAgeSeconds: wholeSeconds(now - memoryCache.at),
+        refreshRecommended: false,
       },
     };
   }
@@ -739,26 +746,62 @@ function fallbackSource(
   };
 }
 
+function staleSource(source: RapidFeedSource, fetchedAt: string): RapidFeedSource {
+  if (source.status === 'unavailable') return source;
+
+  const fetchedLabel = new Date(fetchedAt).toUTCString();
+  return {
+    ...source,
+    status: 'stale',
+    note: `${source.note} Showing the last successful snapshot from ${fetchedLabel} while a fresh snapshot is built.`,
+  };
+}
+
+function markStaleSnapshot(feed: RapidFeedBase, fetchedAt: string): RapidFeedBase {
+  return {
+    ...feed,
+    community: staleSource(feed.community, fetchedAt),
+    official: staleSource(feed.official, fetchedAt),
+  };
+}
+
 async function resolveRapidFeed(fresh: boolean): Promise<RapidFeedResult> {
   const persisted = await readPersistedRapidFeed(PERSISTED_CACHE_MAX_AGE_MS);
   const now = Date.now();
+  const fetchedMs = persisted ? Date.parse(persisted.fetchedAt) : Number.NaN;
+  const cacheAgeMs = Number.isFinite(fetchedMs) ? now - fetchedMs : Number.NaN;
 
-  if (
-    !fresh &&
-    persisted &&
-    hasUsableRapidFeed(persisted.feed) &&
-    now - Date.parse(persisted.fetchedAt) <= PERSISTED_CACHE_FRESH_MS
-  ) {
-    const fetchedMs = Date.parse(persisted.fetchedAt);
-    memoryCache = { at: now, feed: persisted.feed };
-    return {
-      feed: persisted.feed,
-      meta: {
-        source: 'durable',
-        ageSeconds: feedAgeSeconds(persisted.feed, now),
-        cacheAgeSeconds: Number.isFinite(fetchedMs) ? wholeSeconds(now - fetchedMs) : 0,
-      },
-    };
+  if (!fresh && persisted && hasUsableRapidFeed(persisted.feed) && Number.isFinite(cacheAgeMs)) {
+    if (cacheAgeMs <= PERSISTED_CACHE_FRESH_MS) {
+      memoryCache = { at: now, feed: persisted.feed };
+      return {
+        feed: persisted.feed,
+        meta: {
+          source: 'durable',
+          ageSeconds: feedAgeSeconds(persisted.feed, now),
+          cacheAgeSeconds: wholeSeconds(cacheAgeMs),
+          refreshRecommended: false,
+        },
+      };
+    }
+
+    if (cacheAgeMs <= PERSISTED_CACHE_MAX_AGE_MS) {
+      // Serve the usable snapshot immediately. The route schedules a fresh
+      // build after the response, so a stale durable cache can never turn into
+      // a 14-second visitor wait. Mark both source labels stale so the UI does
+      // not present an old snapshot as current while that rebuild runs.
+      const feed = markStaleSnapshot(persisted.feed, persisted.fetchedAt);
+      memoryCache = { at: now, feed };
+      return {
+        feed,
+        meta: {
+          source: 'durable',
+          ageSeconds: feedAgeSeconds(feed, now),
+          cacheAgeSeconds: wholeSeconds(cacheAgeMs),
+          refreshRecommended: true,
+        },
+      };
+    }
   }
 
   return buildRapidFeed(persisted);
@@ -823,6 +866,7 @@ async function buildRapidFeed(
       source: 'live',
       ageSeconds: feedAgeSeconds(feed, Date.now()),
       cacheAgeSeconds: 0,
+      refreshRecommended: false,
     },
   };
 }
