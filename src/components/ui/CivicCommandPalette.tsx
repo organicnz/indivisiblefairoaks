@@ -231,12 +231,12 @@ const ADMIN_PALETTE_ITEMS: PaletteItem[] = [
   },
   {
     id: 'admin-links',
-    title: 'Manage Coalition & Action Links',
+    title: 'Manage Link Tree & Action Links',
     description: 'Curate partner, coalition, and voter action links',
     category: 'Admin & Publishing',
     href: '/admin/links',
     icon: ExternalLink,
-    keywords: ['link', 'coalition', 'allies', 'partner', 'action', 'resource', 'manage', 'edit'],
+    keywords: ['link', 'tree', 'coalition', 'allies', 'partner', 'action', 'resource', 'manage', 'edit'],
   },
   {
     id: 'admin-crm',

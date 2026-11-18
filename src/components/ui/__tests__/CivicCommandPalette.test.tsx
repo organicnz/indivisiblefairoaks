@@ -178,7 +178,7 @@ describe('CivicCommandPalette component', () => {
     expect(newsOption).toBeDefined();
 
     const linksOption = options.find((opt) =>
-      opt.textContent?.includes('Manage Coalition & Action Links')
+      opt.textContent?.includes('Manage Link Tree & Action Links')
     );
     expect(linksOption).toBeDefined();
 

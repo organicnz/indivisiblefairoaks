@@ -12,10 +12,13 @@ import { CopyRegion } from '@/components/cms/CopyRegion';
 import { pageMetadata } from '@/lib/metadata';
 import { getCoalitionLinks, getDataPoints } from '@/lib/queries/civic';
 
+// "Link Tree" is the public name leadership requested in issue #164. The
+// broadsheet redesign substituted "Coalition & Action Directory" without a
+// recorded rename request, so the approved name is restored here.
 export const metadata: Metadata = pageMetadata({
-  title: 'Coalition & Action Directory',
+  title: 'Link Tree & Civic Directory',
   description:
-    'Recommended civic resources, grassroots coalition partners, voter registration links, and democracy defense organizations in California.',
+    'Official chapter Link Tree, recommended civic resources, grassroots coalition partners, voter registration links, and democracy defense organizations in California.',
   path: '/links',
 });
 
@@ -175,7 +178,7 @@ export default async function LinksPage() {
         icon={Compass}
         eyebrow={
           <DataPoint name="links.hero.eyebrow" initialData={dataPoints}>
-            Coalition &amp; Action Directory
+            Link Tree &amp; Civic Directory
           </DataPoint>
         }
         title={
@@ -185,7 +188,7 @@ export default async function LinksPage() {
             initialData={dataPoints}
             className={MASTHEAD_TITLE}
           >
-            Coalition &amp; Action Directory
+            Link Tree &amp; Coalition Directory
           </DataPoint>
         }
         intro={

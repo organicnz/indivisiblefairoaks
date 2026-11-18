@@ -61,6 +61,13 @@ describe('ROUTES', () => {
     expect(new Set(labels).size).toBe(labels.length);
   });
 
+  it('names the /links child as Link Tree', () => {
+    const linksChild = ROUTES.flatMap((route) => route.children ?? []).find(
+      (child) => child.href === '/links'
+    );
+    expect(linksChild?.label).toBe('Link Tree');
+  });
+
   it('uses root-relative hrefs only', () => {
     for (const route of [...ROUTES, ...NOT_FOUND_ROUTES]) {
       expect(route.href.startsWith('/')).toBe(true);

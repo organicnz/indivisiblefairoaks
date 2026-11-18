@@ -49,7 +49,7 @@ describe('VoterInfoPage & 2026 Voter Guides', () => {
     expect(metadata.description).toContain('Sacramento County');
   });
 
-  it('renders official 2026 voter guide and ballot recommendation links', async () => {
+  it('renders official 2026 voter guide, toolkit, and key-date links', async () => {
     const page = await VoterInfoPage();
     await act(async () => {
       root.render(page);
@@ -58,8 +58,12 @@ describe('VoterInfoPage & 2026 Voter Guides', () => {
     expect(container.textContent).toContain('2026 Voter Guide & Ballot Recommendations');
     expect(container.textContent).toContain('Sacramento Voter Guide');
     expect(container.textContent).toContain('Ballot Recommendations');
-    expect(container.textContent).toContain('Candidate & Measure Brief');
-    expect(container.textContent).toContain('Voter Information Doc');
+    expect(container.textContent).toContain('Hands Off Our Vote 2026 Toolkit');
+    expect(container.textContent).toContain('Key Dates for the Election');
+    // No candidate-specific document exists in the archive; do not resurrect
+    // the old Candidate & Measure Brief label around an unrelated file.
+    expect(container.textContent).not.toContain('Candidate & Measure Brief');
+    expect(container.textContent).not.toContain('Voter Information Doc');
     expect(container.textContent).toContain('Voter Information Archives');
     expect(container.textContent).toContain('not a live election guide');
     expect(container.textContent).not.toContain('Voter guides from the old site');
@@ -79,10 +83,20 @@ describe('VoterInfoPage & 2026 Voter Guides', () => {
     const briefLink = links.find((a) => a.href.includes('11Cv8yyuI_jtNet_IFSYHDN5xFr1axfg2'));
     expect(briefLink).toBeDefined();
     expect(briefLink?.target).toBe('_blank');
+    expect(briefLink?.textContent).toContain('Hands Off Our Vote 2026 Toolkit');
+    expect(briefLink?.textContent).toContain(
+      'National election protection and ballot measure toolkit for the 2026 election.'
+    );
+    expect(briefLink?.textContent).toContain('Download Toolkit');
 
     const docLink = links.find((a) => a.href.includes('1XyqCKsSKaQqrrzX7CSl3G3v0ChUtH98U'));
     expect(docLink).toBeDefined();
     expect(docLink?.target).toBe('_blank');
+    expect(docLink?.textContent).toContain('Key Dates for the Election');
+    expect(docLink?.textContent).toContain(
+      'Official election deadline schedule, including voter registration, vote-by-mail, and Election Day dates.'
+    );
+    expect(docLink?.textContent).toContain('View Key Dates');
 
     const fiveCallsLink = links.find((a) => a.href.includes('5calls.org'));
     expect(fiveCallsLink).toBeDefined();

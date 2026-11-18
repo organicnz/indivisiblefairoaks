@@ -337,7 +337,10 @@ export default async function VoterInfoPage() {
                     </div>
                   </a>
 
-                  {/* Card 3: Measure Analysis */}
+                  {/* The archive has no candidate-specific document. This slot links the
+                      actual Hands-Off-Our-Vote toolkit; Erin must supply a candidate
+                      brief before one can be published. */}
+                  {/* Card 3: Hands Off Our Vote Toolkit */}
                   <a
                     href={legacyHref(
                       '11Cv8yyuI_jtNet_IFSYHDN5xFr1axfg2',
@@ -357,7 +360,7 @@ export default async function VoterInfoPage() {
                         as="h3"
                         className="font-bold text-sm text-foreground dark:text-white leading-snug"
                       >
-                        Candidate &amp; Measure Brief
+                        Hands Off Our Vote 2026 Toolkit
                       </DataPoint>
                       <DataPoint
                         initialData={dataPoints}
@@ -365,7 +368,7 @@ export default async function VoterInfoPage() {
                         as="p"
                         className="text-xs text-muted-foreground dark:text-ink-muted-on-dark leading-relaxed"
                       >
-                        Election protection guide and regional ballot measure background report.
+                        National election protection and ballot measure toolkit for the 2026 election.
                       </DataPoint>
                     </div>
                     <div className="pt-3 flex items-center gap-1.5 text-xs font-bold text-primary-ink dark:text-accent-gold group-hover:text-primary dark:group-hover:text-amber-200 transition-colors">
@@ -374,13 +377,13 @@ export default async function VoterInfoPage() {
                         name="voter.guide.candidate_brief.btn"
                         as="span"
                       >
-                        Download Brief
+                        Download Toolkit
                       </DataPoint>
                       <ExternalLink size={13} />
                     </div>
                   </a>
 
-                  {/* Card 4: Voter Information Document */}
+                  {/* Card 4: Key Dates for the Election */}
                   <a
                     href={legacyHref(
                       '1XyqCKsSKaQqrrzX7CSl3G3v0ChUtH98U',
@@ -400,7 +403,7 @@ export default async function VoterInfoPage() {
                         as="h3"
                         className="font-bold text-sm text-foreground dark:text-white leading-snug"
                       >
-                        Voter Information Doc &amp; Deadlines
+                        Key Dates for the Election
                       </DataPoint>
                       <DataPoint
                         initialData={dataPoints}
@@ -408,7 +411,7 @@ export default async function VoterInfoPage() {
                         as="p"
                         className="text-xs text-muted-foreground dark:text-ink-muted-on-dark leading-relaxed"
                       >
-                        Official schedule of voter registration deadlines and vote-by-mail dates.
+                        Official election deadline schedule, including voter registration, vote-by-mail, and Election Day dates.
                       </DataPoint>
                     </div>
                     <div className="pt-3 flex items-center gap-1.5 text-xs font-bold text-primary-ink dark:text-accent-gold group-hover:text-primary dark:group-hover:text-amber-200 transition-colors">
@@ -417,7 +420,7 @@ export default async function VoterInfoPage() {
                         name="voter.guide.voter_doc.btn"
                         as="span"
                       >
-                        View Deadlines
+                        View Key Dates
                       </DataPoint>
                       <ExternalLink size={13} />
                     </div>

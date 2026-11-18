@@ -6,7 +6,7 @@ export const instant = false;
 
 export async function generateMetadata() {
   return {
-    title: 'Coalition Links — Admin · Indivisible Fair Oaks',
+    title: 'Link Tree — Admin · Indivisible Fair Oaks',
     description:
       'Manage vetted coalition partners, voter resource links, and civic action websites.',
     robots: { index: false, follow: false },
@@ -24,16 +24,16 @@ export default async function AdminLinksPage() {
             <Link2 size={20} />
           </div>
           <span className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em]">
-            Admin Panel · Civic Directory
+            Admin Panel · Link Tree
           </span>
         </div>
         <h1 className="font-display text-3xl font-semibold tracking-[-0.03em] text-foreground sm:text-4xl">
-          Coalition &amp; action links
+          Link Tree &amp; Action Links
         </h1>
         <div className="h-1.5 w-24 bg-primary mt-3" />
         <p className="mt-3 text-xs font-bold text-muted-foreground max-w-2xl">
           Publish, edit, and reorganize vetted grassroots coalition partners, ballot trackers, and
-          civic education links displayed on the public links directory.
+          civic education links displayed on the public Link Tree.
         </p>
       </div>
 

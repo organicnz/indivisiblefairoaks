@@ -116,7 +116,7 @@ export const ROUTES: readonly NavLink[] = [
     matchPrefixes: ['/gallery', '/links', '/archive', '/faqs', '/partners'],
     children: [
       { label: 'Gallery', href: '/gallery' },
-      { label: 'Coalition Links', href: '/links' },
+      { label: 'Link Tree', href: '/links' },
       { label: 'Chapter Archive', href: '/archive' },
       { label: 'Frequently Asked Questions', href: '/faqs' },
       { label: 'Coalition Partners', href: '/partners' },
