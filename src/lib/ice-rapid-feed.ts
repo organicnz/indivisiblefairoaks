@@ -4,6 +4,7 @@ import type {
   RapidAlertKind,
   RapidAlertStatus,
   RapidFeed,
+  RapidFeedBase,
   RapidFeedSource,
 } from '@/components/ice-alerts/rapid-types';
 import type { CityPoint } from '@/components/ice-alerts/types';
@@ -60,7 +61,7 @@ type OfficialParseResult = {
   latestAt: string | null;
 };
 
-let memoryCache: { at: number; feed: RapidFeed } | null = null;
+let memoryCache: { at: number; feed: RapidFeedBase } | null = null;
 
 function decodeXml(value: string) {
   return value
@@ -543,7 +544,7 @@ async function fetchOfficial(now: Date) {
  * Build the public feed. A source failure never turns into invented data; it is
  * reported as unavailable so the UI can be explicit about what is missing.
  */
-export async function getRapidFeed(): Promise<RapidFeed> {
+export async function getRapidFeed(): Promise<RapidFeedBase> {
   if (memoryCache && Date.now() - memoryCache.at < 60_000) {
     return memoryCache.feed;
   }
@@ -561,7 +562,7 @@ export async function getRapidFeed(): Promise<RapidFeed> {
     fetchOfficial(now),
   ]);
 
-  const feed: RapidFeed = {
+  const feed: RapidFeedBase = {
     generatedAt: now.toISOString(),
     community: community.source,
     official: official.source,

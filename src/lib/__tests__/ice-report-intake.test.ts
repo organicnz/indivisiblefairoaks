@@ -1,11 +1,13 @@
 // @vitest-environment node
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
+  getPublishedIceReports,
   iceReportInputSchema,
   iceReportReferenceFromBytes,
   isAcceptableObservedAt,
   reportTextIssue,
   stripReportHtml,
+  type IceReportStore,
 } from '@/lib/ice-report-intake';
 import { isSameOriginRequest } from '@/lib/same-origin';
 
@@ -66,6 +68,31 @@ describe('ice report intake validation', () => {
     const reference = iceReportReferenceFromBytes(new Uint8Array([0, 1, 2, 3, 4, 5, 6]));
     expect(reference).toMatch(/^C-[A-Z0-9]{7}$/);
     expect(reference).toHaveLength(9);
+  });
+});
+
+describe('published public reports query', () => {
+  it('reads only rows published now and not expired', async () => {
+    const calls: unknown[][] = [];
+    const builder = {} as Record<string, unknown>;
+
+    for (const method of ['select', 'lte', 'gt', 'order', 'limit']) {
+      builder[method] = vi.fn((...args: unknown[]) => {
+        calls.push([method, ...args]);
+        return builder;
+      });
+    }
+    builder.then = (resolve: (value: { data: never[]; error: null }) => unknown) =>
+      Promise.resolve({ data: [], error: null }).then(resolve);
+
+    const store = { from: vi.fn(() => builder) } as unknown as IceReportStore;
+    await getPublishedIceReports(store, 7);
+
+    expect(calls).toContainEqual(['select', '*']);
+    expect(calls).toContainEqual(['lte', 'published_at', expect.any(String)]);
+    expect(calls).toContainEqual(['gt', 'expires_at', expect.any(String)]);
+    expect(calls).toContainEqual(['order', 'observed_at', { ascending: false }]);
+    expect(calls).toContainEqual(['limit', 7]);
   });
 });
 

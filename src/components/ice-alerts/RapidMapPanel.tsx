@@ -40,6 +40,7 @@ type RapidMapPanelProps = {
   points: RapidMapPoint[];
   filteredCount: number;
   activeCount: number;
+  publicCaseCount: number;
   community: RapidFeedSource | null;
   requestStatus: RapidFeedRequestState;
   now: number;
@@ -73,6 +74,7 @@ export function RapidMapPanel({
   points,
   filteredCount,
   activeCount,
+  publicCaseCount,
   community,
   requestStatus,
   now,
@@ -157,6 +159,11 @@ export function RapidMapPanel({
               </span>
               <p className="font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
                 {formatNumber(filteredCount)} reports · {formatNumber(cityCount)} cities
+                {publicCaseCount > 0
+                  ? ` · ${formatNumber(publicCaseCount)} community ${
+                      publicCaseCount === 1 ? 'case' : 'cases'
+                    }`
+                  : ''}
               </p>
             </div>
           </div>
@@ -249,9 +256,11 @@ export function RapidMapPanel({
             className="h-[clamp(30rem,68vh,52rem)] w-full"
           />
           <p id="ice-rapid-map-help" className="sr-only">
-            {rapidMapHelpText(filteredCount, cityCount)} Use the plus and minus buttons to zoom,
-            U.S. overview to reset, and Near me to center on your approximate area. Pins are
-            keyboard accessible; select a pin for details.
+            {rapidMapHelpText(filteredCount, cityCount, publicCaseCount)} Use the plus and minus
+            buttons to zoom, U.S. overview to reset, and Near me to center on your approximate
+            area. Pins are keyboard accessible; select a pin for an on-map popup and the detail
+            panel below. Published community cases open their Supabase-backed popup. FOIA city
+            points open their historical total.
           </p>
 
           <div className="pointer-events-none absolute inset-0 z-[900]">
@@ -401,6 +410,13 @@ export function RapidMapPanel({
             <span className="size-2 rounded-full border border-border bg-muted-foreground/40" aria-hidden="true" />
             Earlier
           </span>
+          {publicCaseCount > 0 ? (
+            <span className="inline-flex items-center gap-1.5">
+              <span className="ice-public-case-swatch" aria-hidden="true" />
+              {formatNumber(publicCaseCount)} community{' '}
+              {publicCaseCount === 1 ? 'case' : 'cases'}
+            </span>
+          ) : null}
           <span className="ml-auto inline-flex items-center gap-1.5 normal-case tracking-normal">
             <ShieldCheck className="size-3.5" aria-hidden="true" />
             City-level locations only
@@ -480,7 +496,7 @@ export function RapidMapPanel({
               <MapPin className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
               <div>
                 <p className="text-xs font-semibold text-foreground">
-                  Select a pin or a feed item.
+                  Select a pin or a feed item for details.
                 </p>
                 <p className="mt-0.5 text-[10px] leading-relaxed text-muted-foreground">
                   The detail view shows the city, source status, and time. It never reveals a street

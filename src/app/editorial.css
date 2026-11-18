@@ -516,6 +516,57 @@
   transform: scale(1.06);
 }
 
+.civic-page .ice-public-case-shell {
+  border: 0;
+  background: transparent;
+}
+
+.civic-page .ice-public-case-marker {
+  display: flex;
+  width: 26px;
+  height: 26px;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--primary);
+  background: var(--surface-card);
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--background) 82%, transparent),
+    0 1px 5px color-mix(in srgb, var(--foreground) 30%, transparent);
+  cursor: pointer;
+  transform: rotate(45deg);
+  transition: background-color 120ms ease, transform 120ms ease;
+}
+
+.civic-page .ice-public-case-marker__dot {
+  width: 8px;
+  height: 8px;
+  background: var(--primary);
+}
+
+.civic-page .ice-public-case-marker:hover {
+  background: color-mix(in srgb, var(--primary) 12%, var(--surface-card));
+  transform: rotate(45deg) scale(1.08);
+}
+
+.civic-page .leaflet-marker-icon:focus-visible .ice-public-case-marker {
+  outline: 2px solid var(--foreground);
+  outline-offset: 2px;
+}
+
+.civic-page .ice-public-case-swatch {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border: 1.5px solid var(--primary);
+  background: var(--surface-card);
+  transform: rotate(45deg);
+}
+
+.civic-page .ice-public-case-popup .ice-map-popup__note {
+  max-height: 9rem;
+  overflow-y: auto;
+}
+
 /* Map popups: editorial card, not a default Leaflet bubble. */
 .civic-page .ice-map-popup-shell .leaflet-popup-content-wrapper {
   border: 1px solid var(--border);
@@ -606,6 +657,10 @@
   letter-spacing: 0.04em;
   line-height: 1.35;
   text-transform: uppercase;
+}
+
+.civic-page .ice-map-popup__rank--strongest {
+  color: var(--foreground);
 }
 
 .civic-page .ice-map-popup__note {

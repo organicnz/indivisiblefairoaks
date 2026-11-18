@@ -14,6 +14,7 @@ function isRapidFeed(value: unknown): value is RapidFeed {
     typeof candidate.generatedAt === 'string' &&
     Array.isArray(candidate.alerts) &&
     Array.isArray(candidate.officialReleases) &&
+    (candidate.publicCases === undefined || Array.isArray(candidate.publicCases)) &&
     typeof candidate.community === 'object' &&
     candidate.community !== null &&
     typeof candidate.official === 'object' &&
@@ -45,7 +46,9 @@ export function useRapidFeed() {
       const payload: unknown = await response.json();
       if (!isRapidFeed(payload)) throw new Error('Feed response was not valid');
 
-      setFeed(payload);
+      // A feed cached before the community-case field was added is still a
+      // valid feed; normalize it rather than blanking the map during deploy.
+      setFeed({ ...payload, publicCases: payload.publicCases ?? [] });
       setStatus('ready');
       setError(null);
     } catch (caught) {

@@ -51,12 +51,29 @@ export type RapidFeedSource = {
   note: string;
 };
 
-export type RapidFeed = {
+export type RapidFeedBase = {
   generatedAt: string;
   community: RapidFeedSource;
   official: RapidFeedSource;
   alerts: RapidAlert[];
   officialReleases: OfficialRelease[];
+};
+
+export type RapidFeed = RapidFeedBase & {
+  publicCases: PublicCase[];
+};
+
+export type PublicCase = {
+  id: string;
+  city: string;
+  stateCode: string;
+  place: string;
+  kind: Exclude<RapidAlertKind, 'official'>;
+  observedAt: string;
+  summary: string;
+  lat: number;
+  lng: number;
+  corroborationCount: number;
 };
 
 export type RapidMapPoint = {
@@ -71,6 +88,9 @@ export type RapidMapPoint = {
   latestAlertId: string;
   latestAt: string;
   kind: RapidAlertKind;
+  /** Status of the latest report, kept separate from the city's strongest status. */
+  latestStatus: RapidAlertStatus;
+  /** Strongest source status in the city; drives the marker treatment. */
   status: RapidAlertStatus;
   hasActive: boolean;
 };

@@ -295,10 +295,12 @@ export async function publishIceReport(
 }
 
 export async function getPublishedIceReports(store: IceReportStore, limit = 20) {
+  const now = new Date().toISOString();
   const { data, error } = await store
     .from('ice_public_reports')
     .select('*')
-    .gt('expires_at', new Date().toISOString())
+    .lte('published_at', now)
+    .gt('expires_at', now)
     .order('observed_at', { ascending: false })
     .limit(limit);
   if (error) throw new Error(`public ice reports failed: ${error.message}`);

@@ -146,6 +146,7 @@ export function groupRapidAlerts(alerts: RapidAlert[], now: number): RapidMapPoi
       latestAlertId: latest.id,
       latestAt: latest.observedAt,
       kind: latest.kind,
+      latestStatus: latest.status,
       status: confirmed ? 'source-confirmed' : latest.status,
       hasActive,
     });
@@ -169,3 +170,25 @@ export const STATUS_LABELS: Record<RapidAlertStatus, string> = {
   sighting: 'Sighting',
   official: 'Official release',
 };
+
+/**
+ * The popup describes the latest report and the city's strongest status as
+ * separate facts. Keeping them apart prevents an older confirmed report from
+ * making a newer sighting look confirmed.
+ */
+export function rapidPopupSummary(
+  point: Pick<RapidMapPoint, 'status' | 'latestStatus' | 'kind' | 'latestAt'>,
+  now: number
+) {
+  const kind = KIND_LABELS[point.kind].toLowerCase();
+  return {
+    latest: `Latest report: ${STATUS_LABELS[point.latestStatus]} ${kind} · ${formatRelativeTime(
+      point.latestAt,
+      now
+    )}`,
+    strongest:
+      point.status === point.latestStatus
+        ? null
+        : `Strongest source status in this city: ${STATUS_LABELS[point.status]}`,
+  };
+}

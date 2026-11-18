@@ -94,6 +94,63 @@ function rapidFeedFixture() {
         publishedAt: recent,
       },
     ],
+    publicCases: [
+      {
+        id: 'public-sacramento-1',
+        city: 'Sacramento',
+        stateCode: 'CA',
+        place: 'Sacramento, CA',
+        kind: 'enforcement',
+        observedAt: recent,
+        summary:
+          'Community report of enforcement activity in Sacramento, CA. City-level only; not independently verified.',
+        lat: 38.5816,
+        lng: -121.4944,
+        corroborationCount: 2,
+      },
+    ],
+  };
+}
+
+function mixedStatusRapidFeedFixture() {
+  const fixture = rapidFeedFixture();
+  const now = Date.now();
+  const latest = new Date(now - 20 * 60 * 1000).toISOString();
+  const older = new Date(now - 60 * 60 * 1000).toISOString();
+
+  return {
+    ...fixture,
+    community: {
+      ...fixture.community,
+      latestAt: latest,
+      itemCount: 3,
+    },
+    alerts: [
+      {
+        ...fixture.alerts[1],
+        id: 'test-santa-ana-latest-sighting',
+        kind: 'enforcement',
+        status: 'sighting',
+        title: 'Community enforcement report',
+        observedAt: latest,
+        expiresAt: new Date(now + 3 * 60 * 60 * 1000).toISOString(),
+      },
+      {
+        ...fixture.alerts[0],
+        id: 'test-santa-ana-older-confirmed',
+        kind: 'detention',
+        status: 'source-confirmed',
+        title: 'Source-confirmed detention report',
+        observedAt: older,
+        expiresAt: new Date(now + 2 * 60 * 60 * 1000).toISOString(),
+      },
+      {
+        ...fixture.alerts[2],
+        id: 'test-chicago-1',
+        observedAt: new Date(now - 25 * 60 * 1000).toISOString(),
+        expiresAt: new Date(now + 3 * 60 * 60 * 1000).toISOString(),
+      },
+    ],
   };
 }
 
@@ -541,6 +598,109 @@ test.describe('ICE Alert national rapid-response dashboard', () => {
     await expect(panel.getByText(/identities are not republished/)).toBeVisible();
     await expect.poll(() => new URL(page.url()).searchParams.get('alert')).toBe(
       'test-santa-ana-1'
+    );
+  });
+
+  test('opens an on-map popup for a report pin', async ({ page }) => {
+    await mockRapidFeed(page);
+    await page.goto('/ice-alerts');
+
+    const pin = page.locator('.ice-rapid-marker.is-live').first();
+    await expect(pin).toBeVisible({ timeout: 15_000 });
+    await pin.click();
+
+    const popup = page.locator('#ice-rapid-map-panel .ice-map-popup');
+    await expect(popup).toBeVisible();
+    await expect(popup).toContainText('Santa Ana, CA');
+    await expect(popup).toContainText('2 reports');
+
+    await popup.getByRole('button', { name: 'View latest report' }).click();
+    await expect(popup).toBeHidden();
+    await expect(
+      page.locator('#ice-rapid-map-panel').getByRole('heading', { name: 'Santa Ana, CA' })
+    ).toBeVisible();
+  });
+
+  test('opens a popup from every rapid pin and from the FOIA overlay', async ({ page }) => {
+    await mockRapidFeed(page, mixedStatusRapidFeedFixture());
+    await page.goto('/ice-alerts');
+
+    const markers = page.locator('.leaflet-marker-icon:has(.ice-rapid-marker)');
+    const overview = page
+      .getByRole('group', { name: 'Map coverage' })
+      .getByRole('button', { name: 'U.S. overview' });
+    await expect(markers).toHaveCount(2);
+    await expect(markers.first()).toBeVisible({ timeout: 15_000 });
+
+    const pinCount = await markers.count();
+    let checkedMixedStatus = false;
+    for (let index = 0; index < pinCount; index += 1) {
+      const marker = markers.nth(index);
+      const label = await marker.getAttribute('aria-label');
+      const place = label?.split(':')[0] ?? '';
+      expect(place).not.toBe('');
+
+      await marker.locator('.ice-rapid-marker').click();
+
+      const popup = page
+        .locator('#ice-rapid-map-panel .ice-map-popup')
+        .filter({ hasText: place });
+      await expect(popup).toBeVisible();
+      await expect(popup.locator('.ice-map-popup__title')).toHaveText(place);
+
+      if (place === 'Santa Ana, CA') {
+        checkedMixedStatus = true;
+        await expect(marker.locator('.ice-rapid-marker')).toHaveClass(
+          /ice-rapid-marker--confirmed/
+        );
+        await expect(popup.locator('.ice-map-popup__rank').first()).toHaveText(
+          /^Latest report: Sighting enforcement · /
+        );
+        await expect(popup.locator('.ice-map-popup__rank--strongest')).toHaveText(
+          'Strongest source status in this city: Source-confirmed'
+        );
+        await expect(popup).not.toContainText('Source-confirmed enforcement · Latest');
+      }
+
+      await overview.click();
+      if (index + 1 < pinCount) {
+        await expect(markers.nth(index + 1)).toBeInViewport();
+      }
+    }
+    expect(checkedMixedStatus).toBe(true);
+
+    await page.getByRole('button', { name: 'FOIA context' }).click();
+
+    const foiaMarker = page.locator('.ice-historical-city[data-city="Conroe"]');
+    await expect(foiaMarker).toBeVisible();
+    await foiaMarker.click();
+
+    const foiaPopup = page
+      .locator('#ice-rapid-map-panel .ice-map-popup')
+      .filter({ hasText: 'FOIA context' });
+    await expect(foiaPopup).toBeVisible();
+    await expect(foiaPopup).toContainText('FOIA context');
+    await expect(foiaPopup).toContainText('Conroe, TX');
+    await expect(foiaPopup).toContainText('29,537 records');
+  });
+
+  test('opens a Supabase-backed popup for a published community case', async ({ page }) => {
+    await mockRapidFeed(page);
+    await page.goto('/ice-alerts');
+
+    const caseMarker = page.locator('.ice-public-case-marker');
+    await expect(caseMarker).toHaveCount(1);
+    await caseMarker.click();
+
+    const popup = page.locator('#ice-rapid-map-panel .ice-map-popup');
+    await expect(popup).toBeVisible();
+    await expect(popup).toContainText('Published community case');
+    await expect(popup).toContainText('Sacramento, CA');
+    await expect(popup).toContainText('Enforcement');
+    await expect(popup).toContainText('Combined from 2 reports');
+    await expect(popup.getByRole('link', { name: 'Read all community reports' })).toHaveAttribute(
+      'href',
+      '#reviewed-reports'
     );
   });
 

@@ -51,6 +51,7 @@ export function IceRapidResponse({ snapshot, initialState, children }: IceRapidR
 
   const alerts = feed?.alerts ?? [];
   const officialReleases = feed?.officialReleases ?? [];
+  const publicCases = feed?.publicCases ?? [];
 
   const filteredAlerts = useMemo(
     () => filterAlerts(alerts, filters, now),
@@ -91,6 +92,7 @@ export function IceRapidResponse({ snapshot, initialState, children }: IceRapidR
   } = useRapidMap({
     snapshot,
     points,
+    publicCases,
     selectedAlertId: selectedId,
     searchTarget,
     userLocation,
@@ -255,7 +257,7 @@ export function IceRapidResponse({ snapshot, initialState, children }: IceRapidR
             <AlertTriangle className="size-4 shrink-0 text-accent" aria-hidden="true" />
             <p className="min-w-0 flex-1">
               The rapid-response feed is temporarily unavailable. The historical FOIA map is still
-              available, and no replacement reports are being invented.
+              available, and we will not show substitute reports while the feed is down.
             </p>
             <a
               href="/ice-alerts?view=history"
@@ -274,6 +276,7 @@ export function IceRapidResponse({ snapshot, initialState, children }: IceRapidR
             points={points}
             filteredCount={filteredAlerts.length}
             activeCount={activeFilteredCount}
+            publicCaseCount={publicCases.length}
             community={feed?.community ?? null}
             requestStatus={status}
             now={now}

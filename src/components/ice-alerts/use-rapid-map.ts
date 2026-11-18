@@ -1,6 +1,6 @@
 'use client';
 
-import type { LayerGroup, Map as LeafletMap } from 'leaflet';
+import type { LayerGroup, Map as LeafletMap, PopupOptions } from 'leaflet';
 import { useEffect, useRef, useState } from 'react';
 import {
   CITY_FOCUS_ZOOM,
@@ -13,8 +13,10 @@ import {
   TILE_URL,
 } from './constants';
 import { formatNumber } from './data';
-import type { RapidMapPoint } from './rapid-types';
+import type { PublicCase, RapidMapPoint } from './rapid-types';
+import { formatRelativeTime, KIND_LABELS, rapidPopupSummary } from './rapid-alert-utils';
 import type {
+  CityPoint,
   HeatmapSnapshot,
   MapView,
   MapViewport,
@@ -25,6 +27,7 @@ import type {
 type UseRapidMapOptions = {
   snapshot: HeatmapSnapshot;
   points: RapidMapPoint[];
+  publicCases: PublicCase[];
   selectedAlertId: string | null;
   searchTarget: SearchTarget | null;
   userLocation: UserLocation | null;
@@ -60,9 +63,169 @@ function pointLabel(point: RapidMapPoint) {
   return `${point.place}: ${count}, ${status}. Open alert details.`;
 }
 
+const POPUP_OPTIONS: PopupOptions = {
+  className: 'ice-map-popup-shell',
+  maxWidth: 288,
+  minWidth: 220,
+  autoPan: true,
+  closeButton: true,
+  offset: [0, -12],
+};
+
+function popupText(className: string, text: string) {
+  const element = document.createElement('p');
+  element.className = className;
+  element.textContent = text;
+  return element;
+}
+
+type PopupAction = { label: string; onClick: () => void };
+type PopupLink = { label: string; href: string };
+type PopupContent = {
+  className?: string;
+  kicker: string;
+  title: string;
+  count: string;
+  rank: string;
+  strongest?: string | null;
+  note: string;
+  action?: PopupAction;
+  link?: PopupLink;
+};
+
+function buildPopup({
+  className,
+  kicker,
+  title,
+  count,
+  rank,
+  strongest,
+  note,
+  action,
+  link,
+}: PopupContent) {
+  const root = document.createElement('div');
+  root.className = className ? `ice-map-popup ${className}` : 'ice-map-popup';
+  root.append(
+    popupText('ice-map-popup__kicker', kicker),
+    popupText('ice-map-popup__title', title),
+    popupText('ice-map-popup__count', count),
+    popupText('ice-map-popup__rank', rank)
+  );
+
+  if (strongest) {
+    root.append(
+      popupText('ice-map-popup__rank ice-map-popup__rank--strongest', strongest)
+    );
+  }
+
+  root.append(popupText('ice-map-popup__note', note));
+
+  if (action) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'ice-map-popup__action';
+    button.textContent = action.label;
+    button.addEventListener('click', action.onClick);
+    root.append(button);
+  }
+
+  if (link) {
+    const anchor = document.createElement('a');
+    anchor.href = link.href;
+    anchor.className = 'ice-map-popup__link';
+    anchor.textContent = link.label;
+    root.append(anchor);
+  }
+
+  return root;
+}
+
+function buildRapidPopup(
+  point: RapidMapPoint,
+  onViewLatest: () => void,
+  onClose: () => void
+) {
+  const countLabel = `${formatNumber(point.count)} ${
+    point.count === 1 ? 'report' : 'reports'
+  }`;
+  const popupSummary = rapidPopupSummary(point, Date.now());
+
+  return buildPopup({
+    className: 'ice-rapid-popup',
+    kicker: point.hasActive ? 'Active community report' : 'Community report',
+    title: point.place,
+    count: countLabel,
+    rank: popupSummary.latest,
+    strongest: popupSummary.strongest,
+    note: 'City-level location, not a street address. Open the latest report for source and safety details.',
+    action: {
+      label: 'View latest report',
+      onClick: () => {
+        onClose();
+        onViewLatest();
+      },
+    },
+  });
+}
+
+function publicCaseLabel(report: PublicCase) {
+  return `${report.place}: published ${KIND_LABELS[report.kind].toLowerCase()} community case. Open popup.`;
+}
+
+function buildPublicCasePopup(report: PublicCase) {
+  const combined =
+    report.corroborationCount > 1
+      ? ` · Combined from ${formatNumber(report.corroborationCount)} reports`
+      : '';
+
+  return buildPopup({
+    className: 'ice-public-case-popup',
+    kicker: 'Published community case',
+    title: report.place,
+    count: KIND_LABELS[report.kind],
+    rank: `${formatRelativeTime(report.observedAt, Date.now())}${combined}`,
+    note: report.summary,
+    link: { label: 'Read all community reports', href: '#reviewed-reports' },
+  });
+}
+
+/**
+ * City-level cases share a centroid. Nudge coincident markers onto a small
+ * ring so every published case remains individually clickable; the popup still
+ * describes a city-level location, never a street address.
+ */
+function publicCasePosition(
+  lat: number,
+  lng: number,
+  index: number
+): [number, number] {
+  if (index === 0) return [lat, lng];
+  const angle = ((index - 1) % 8) * (Math.PI / 4);
+  const ring = Math.floor((index - 1) / 8) + 1;
+  const radius = 0.006 * ring;
+  return [lat + Math.cos(angle) * radius, lng + Math.sin(angle) * radius];
+}
+
+function buildHistoricalCityPopup(city: CityPoint) {
+  const cityKey = `city=${encodeURIComponent(city.city)}&state=${encodeURIComponent(
+    city.stateCode
+  )}`;
+
+  return buildPopup({
+    kicker: 'FOIA context',
+    title: `${city.city}, ${city.stateCode}`,
+    count: `${formatNumber(city.count)} records`,
+    rank: 'Historical city total',
+    note: 'From the latest published FOIA release. Not a live alert or a street address.',
+    link: { label: 'Open historical map', href: `/ice-alerts?view=history&${cityKey}` },
+  });
+}
+
 export function useRapidMap({
   snapshot,
   points,
+  publicCases,
   selectedAlertId,
   searchTarget,
   userLocation,
@@ -80,6 +243,7 @@ export function useRapidMap({
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<LeafletMap | null>(null);
   const alertLayerRef = useRef<LayerGroup | null>(null);
+  const publicCaseLayerRef = useRef<LayerGroup | null>(null);
   const historicalLayerRef = useRef<LayerGroup | null>(null);
   const searchLayerRef = useRef<LayerGroup | null>(null);
   const userLayerRef = useRef<LayerGroup | null>(null);
@@ -88,6 +252,7 @@ export function useRapidMap({
   const userLocationRef = useRef<UserLocation | null>(userLocation);
   const onSelectAlertRef = useRef(onSelectAlert);
   const onMapInteractionRef = useRef(onMapInteraction);
+  const selectedAlertIdRef = useRef(selectedAlertId);
   const initialViewRef = useRef(initialView);
 
   useEffect(() => {
@@ -97,6 +262,10 @@ export function useRapidMap({
   useEffect(() => {
     onMapInteractionRef.current = onMapInteraction;
   }, [onMapInteraction]);
+
+  useEffect(() => {
+    selectedAlertIdRef.current = selectedAlertId;
+  }, [selectedAlertId]);
 
   useEffect(() => {
     userLocationRef.current = userLocation;
@@ -118,7 +287,10 @@ export function useRapidMap({
         minZoom: MIN_ZOOM,
         maxZoom: MAX_ZOOM,
         zoomControl: false,
-        preferCanvas: true,
+        // The rapid map's historical overlay is capped at 360 points. SVG keeps
+        // each city point addressable while the report and case markers remain
+        // HTML markers on their own layers.
+        preferCanvas: false,
         scrollWheelZoom: true,
         keyboard: true,
         attributionControl: true,
@@ -132,6 +304,7 @@ export function useRapidMap({
 
       historicalLayerRef.current = L.layerGroup().addTo(map);
       alertLayerRef.current = L.layerGroup().addTo(map);
+      publicCaseLayerRef.current = L.layerGroup().addTo(map);
       searchLayerRef.current = L.layerGroup().addTo(map);
       userLayerRef.current = L.layerGroup().addTo(map);
 
@@ -202,6 +375,7 @@ export function useRapidMap({
       map?.remove();
       mapRef.current = null;
       alertLayerRef.current = null;
+      publicCaseLayerRef.current = null;
       historicalLayerRef.current = null;
       searchLayerRef.current = null;
       userLayerRef.current = null;
@@ -225,13 +399,14 @@ export function useRapidMap({
       markerPositionsRef.current = {};
 
       for (const point of points) {
+        const selectedId = selectedAlertIdRef.current;
         const classes = [
           'ice-rapid-marker',
           `ice-rapid-marker--${point.status === 'source-confirmed' ? 'confirmed' : 'sighting'}`,
         ];
         if (point.hasActive) classes.push('is-live');
         else classes.push('is-earlier');
-        if (selectedAlertId && point.alertIds.includes(selectedAlertId)) {
+        if (selectedId && point.alertIds.includes(selectedId)) {
           classes.push('is-selected');
         }
 
@@ -255,6 +430,14 @@ export function useRapidMap({
         marker.on('click', () => {
           onSelectAlertRef.current(point.latestAlertId);
         });
+        marker.bindPopup(
+          buildRapidPopup(
+            point,
+            () => onSelectAlertRef.current(point.latestAlertId),
+            () => mapRef.current?.closePopup()
+          ),
+          POPUP_OPTIONS
+        );
 
         const element = marker.getElement();
         if (element) {
@@ -262,7 +445,7 @@ export function useRapidMap({
           element.setAttribute('aria-label', pointLabel(point));
           element.setAttribute(
             'aria-pressed',
-            String(Boolean(selectedAlertId && point.alertIds.includes(selectedAlertId)))
+            String(Boolean(selectedId && point.alertIds.includes(selectedId)))
           );
           markerElementsRef.current[point.id] = element;
           markerPositionsRef.current[point.id] = [point.lat, point.lng];
@@ -282,7 +465,7 @@ export function useRapidMap({
     return () => {
       disposed = true;
     };
-  }, [isReady, points, selectedAlertId]);
+  }, [isReady, points]);
 
   useEffect(() => {
     for (const [id, element] of Object.entries(markerElementsRef.current)) {
@@ -303,6 +486,56 @@ export function useRapidMap({
     void (async () => {
       const L = (await import('leaflet')).default;
       if (disposed) return;
+      const layer = publicCaseLayerRef.current;
+      if (!layer) return;
+
+      layer.clearLayers();
+      const placed = new Map<string, number>();
+
+      for (const report of publicCases) {
+        const placeKey = `${report.city}|${report.stateCode}`;
+        const index = placed.get(placeKey) ?? 0;
+        placed.set(placeKey, index + 1);
+        const [lat, lng] = publicCasePosition(report.lat, report.lng, index);
+
+        const marker = L.marker([lat, lng], {
+          icon: L.divIcon({
+            className: 'ice-public-case-shell',
+            html: '<span class="ice-public-case-marker" aria-hidden="true"><span class="ice-public-case-marker__dot"></span></span>',
+            iconSize: [36, 36],
+            iconAnchor: [18, 18],
+          }),
+          keyboard: true,
+          title: publicCaseLabel(report),
+          riseOnHover: true,
+        }).addTo(layer);
+
+        marker.bindTooltip(
+          `${report.place} · ${KIND_LABELS[report.kind]} community case`,
+          { direction: 'top', offset: [0, -12] }
+        );
+        marker.bindPopup(buildPublicCasePopup(report), POPUP_OPTIONS);
+
+        const element = marker.getElement();
+        if (element) {
+          element.setAttribute('role', 'button');
+          element.setAttribute('aria-label', publicCaseLabel(report));
+        }
+      }
+    })();
+
+    return () => {
+      disposed = true;
+    };
+  }, [isReady, publicCases]);
+
+  useEffect(() => {
+    if (!isReady) return;
+    let disposed = false;
+
+    void (async () => {
+      const L = (await import('leaflet')).default;
+      if (disposed) return;
       const layer = historicalLayerRef.current;
       if (!layer) return;
 
@@ -310,17 +543,32 @@ export function useRapidMap({
       if (!showHistorical) return;
 
       const maxCount = snapshot.meta.maxCityCount;
-      for (const city of snapshot.cities.slice(0, 360)) {
+      // Render larger totals last so an overlapping small point cannot steal
+      // the click from the city a reader is trying to inspect.
+      const historicalCities = snapshot.cities
+        .slice(0, 360)
+        .sort((a, b) => a.count - b.count);
+      for (const city of historicalCities) {
         const radius = 2 + Math.sqrt(city.count / maxCount) * 9;
-        L.circleMarker([city.lat, city.lng], {
+        const marker = L.circleMarker([city.lat, city.lng], {
+          className: 'ice-historical-city',
           radius,
           color: '#64120d',
           weight: 1,
           opacity: 0.22,
           fillColor: '#b42318',
           fillOpacity: 0.08,
-          interactive: false,
-        }).addTo(layer);
+          interactive: true,
+        })
+          .bindTooltip(
+            `${city.city}, ${city.stateCode} · ${formatNumber(
+              city.count
+            )} historical records`,
+            { direction: 'top' }
+          )
+          .bindPopup(buildHistoricalCityPopup(city), POPUP_OPTIONS)
+          .addTo(layer);
+        marker.getElement()?.setAttribute('data-city', city.city);
       }
     })();
 
@@ -440,10 +688,21 @@ export function useRapidMap({
   };
 }
 
-export function rapidMapHelpText(alertCount: number, cityCount: number) {
+export function rapidMapHelpText(
+  alertCount: number,
+  cityCount: number,
+  publicCaseCount = 0
+) {
+  const cases =
+    publicCaseCount > 0
+      ? ` ${formatNumber(
+          publicCaseCount
+        )} published community cases are separate diamond markers; select one for its own popup.`
+      : '';
+
   return `Interactive national rapid-response map with ${formatNumber(
     alertCount
   )} community reports grouped across ${formatNumber(
     cityCount
-  )} cities. Pulsing pins mark reports received in the last four hours. Select a pin or a feed item for details. Locations are city centroids, not street addresses. This is not an emergency service.`;
+  )} cities.${cases} Pulsing pins mark reports received in the last four hours. Select a report pin for an on-map popup, or a feed item for the detail panel. With FOIA context on, select a city point for its historical total. Locations are city centroids, not street addresses. This is not an emergency service.`;
 }
