@@ -1,4 +1,5 @@
 import { ArrowRight, CalendarDays, Database, Phone } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { formatDateLabel } from '@/components/ice-alerts/data';
 import type { HeatmapSnapshot } from '@/components/ice-alerts/types';
 import { DataPoint } from '@/components/ui/DataPoint';
@@ -8,9 +9,11 @@ const numberFormatter = new Intl.NumberFormat('en-US');
 export function IceHistoricalHeader({
   snapshot,
   dataPoints,
+  action,
 }: {
   snapshot: HeatmapSnapshot;
   dataPoints: Record<string, string>;
+  action?: ReactNode;
 }) {
   const iceMeta = snapshot.meta;
 
@@ -31,6 +34,7 @@ export function IceHistoricalHeader({
           </DataPoint>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {action}
           <span className="civic-stamp">ICE FOIA data</span>
           <span className="civic-stamp">Not live</span>
         </div>
@@ -39,10 +43,11 @@ export function IceHistoricalHeader({
       <div className="mt-5 grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-end">
         <div className="min-w-0">
           <DataPoint
-            as="h1"
+            as="h2"
+            id="historical-foia-title"
             name="ice.history.title"
             initialData={dataPoints}
-            className="max-w-4xl font-display text-[clamp(2.75rem,7vw,5.5rem)] font-semibold leading-[0.88] tracking-[-0.05em]"
+            className="max-w-4xl font-display text-[clamp(2.5rem,6vw,4.5rem)] font-semibold leading-[0.9] tracking-[-0.05em]"
           >
             ICE arrests, mapped
           </DataPoint>
@@ -91,7 +96,7 @@ export function IceHistoricalHeader({
             Filming in public is generally protected by the First Amendment.
           </DataPoint>
           <a
-            href="/ice-alerts"
+            href="#ice-rapid-map-panel"
             className="mt-3 inline-flex items-center gap-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.09em] text-foreground underline underline-offset-2"
           >
             <DataPoint as="span" name="ice.history.back" initialData={dataPoints}>

@@ -71,8 +71,9 @@ const PALETTE_ITEMS: PaletteItem[] = [
   },
   {
     id: 'ice-alerts',
-    title: 'ICE Arrest Heat Map',
-    description: 'Historical city-level ICE arrest totals from the latest verified FOIA release',
+    title: 'ICE Rapid-Response & Historical Map',
+    description:
+      'Live community and official ICE alerts, with a historical city-level FOIA baseline',
     category: 'Civic Resources',
     href: '/ice-alerts',
     icon: MapPin,

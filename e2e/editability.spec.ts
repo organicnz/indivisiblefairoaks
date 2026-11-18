@@ -39,7 +39,6 @@ const EDITORIAL_ROUTES = [
   { path: '/terms-and-conditions', name: 'Terms' },
   { path: '/search', name: 'Search' },
   { path: '/ice-alerts', name: 'ICE rapid-response map' },
-  { path: '/ice-alerts?view=history', name: 'ICE historical map' },
   { path: '/ice-alerts/data', name: 'ICE open data' },
   { path: '/ice-alerts/report', name: 'ICE private report' },
   { path: '/ice-alerts/reunification', name: 'ICE reunification request' },

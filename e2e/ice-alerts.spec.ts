@@ -186,8 +186,12 @@ test.describe('ICE arrest city map', () => {
     const map = page.getByRole('region', { name: MAP_LABEL });
     const coverage = panel.getByRole('group', { name: 'Map coverage' });
 
-    await expect(page.getByRole('heading', { level: 1, name: 'ICE arrests, mapped' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 2, name: 'ICE arrests, mapped' })).toBeVisible();
     await expect(page.getByText(/Historical data, not a live alert map/)).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Hide historical map' })).toHaveAttribute(
+      'aria-expanded',
+      'true'
+    );
     await expect(map).toBeVisible();
     await expect(panel.getByRole('heading', { level: 2, name: 'U.S. overview' })).toBeVisible();
     await expect(coverage.getByRole('button', { name: 'U.S. overview' })).toHaveAttribute(
@@ -267,14 +271,14 @@ test.describe('ICE arrest city map', () => {
     );
     await expect(panel.getByRole('button', { name: 'Use precise location' })).toHaveCount(0);
     await expect(panel.getByRole('heading', { level: 2, name: 'Your area' })).toBeVisible();
-    await expect(page.locator('.ice-user-location.is-approximate')).toHaveCount(1);
+    await expect(panel.locator('.ice-user-location.is-approximate')).toHaveCount(1);
     await expect(myArea).toHaveAttribute('aria-pressed', 'true');
     await expect(overview).toHaveAttribute('aria-pressed', 'false');
 
     await overview.click();
     await expect(panel.getByRole('heading', { level: 2, name: 'U.S. overview' })).toBeVisible();
     await expect(overview).toHaveAttribute('aria-pressed', 'true');
-    await expect(page.locator('.ice-user-location.is-approximate')).toHaveCount(1);
+    await expect(panel.locator('.ice-user-location.is-approximate')).toHaveCount(1);
 
     await myArea.click();
     await expect(panel.getByRole('heading', { level: 2, name: 'Your area' })).toBeVisible();
@@ -302,7 +306,7 @@ test.describe('ICE arrest city map', () => {
 
     await expect(panel.getByText('Using your current location')).toBeVisible();
     await expect(panel.getByRole('heading', { level: 2, name: 'Your area' })).toBeVisible();
-    await expect(page.locator('.ice-user-location.is-precise')).toHaveCount(1);
+    await expect(panel.locator('.ice-user-location.is-precise')).toHaveCount(1);
     await expect(coverage.getByRole('button', { name: 'My area' })).toHaveAttribute(
       'aria-pressed',
       'true'
@@ -346,7 +350,7 @@ test.describe('ICE arrest city map', () => {
       'aria-pressed',
       'true'
     );
-    await expect(page.locator('.ice-user-location.is-approximate')).toHaveCount(1);
+    await expect(panel.locator('.ice-user-location.is-approximate')).toHaveCount(1);
   });
 
   test('searches a U.S. address without changing the snapshot', async ({ page }) => {
@@ -384,10 +388,13 @@ test.describe('ICE arrest city map', () => {
     await expect(panel.getByRole('heading', { level: 2, name: 'Custom U.S. view' })).toBeVisible();
     await expect(page.locator('.leaflet-pane canvas')).toHaveCount(1);
 
-    await expect.poll(() => new URL(page.url()).searchParams.get('pin')).toBe(
+    await expect.poll(() => new URL(page.url()).searchParams.get('foiaPin')).toBe(
       '40.7484,-73.9857'
     );
-    expect(new URL(page.url()).searchParams.get('q')).toBe('350 5th Ave, New York, NY');
+    expect(new URL(page.url()).searchParams.get('foiaQ')).toBe(
+      '350 5th Ave, New York, NY'
+    );
+    expect(new URL(page.url()).searchParams.get('pin')).toBeNull();
 
     await page.reload();
     await expect(search.getByRole('status')).toContainText('Moved map to 350 5th Avenue');
@@ -779,7 +786,7 @@ test.describe('ICE Alert national rapid-response dashboard', () => {
     await expect(page.getByRole('heading', { level: 2, name: 'U.S. overview' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Historical map' })).toHaveAttribute(
       'href',
-      '/ice-alerts?view=history'
+      '#historical-foia'
     );
   });
 
@@ -797,11 +804,21 @@ test.describe('ICE Alert national rapid-response dashboard', () => {
       'test-chicago-1'
     );
 
-    await page.getByRole('link', { name: 'Historical FOIA', exact: true }).click();
-    await expect(page.getByRole('heading', { level: 1, name: 'ICE arrests, mapped' })).toBeVisible();
-    await expect(
-      page.getByRole('link', { name: 'Historical FOIA', exact: true })
-    ).toHaveAttribute('aria-current', 'page');
+    const historicalLink = page.getByRole('link', { name: 'Historical FOIA', exact: true });
+    await expect(historicalLink).toHaveAttribute('href', '#historical-foia');
+    await expect(page.getByRole('button', { name: 'Explore historical map' })).toHaveAttribute(
+      'aria-expanded',
+      'false'
+    );
+    await expect(page.locator('#historical-foia-panel')).toBeHidden();
+    await historicalLink.click();
+    await expect(page.getByRole('heading', { level: 1, name: 'ICE Alert' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 2, name: 'ICE arrests, mapped' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Hide historical map' })).toHaveAttribute(
+      'aria-expanded',
+      'true'
+    );
+    await expect(page.locator('#historical-foia')).toBeVisible();
   });
 
   test('offers a private reunification request without publishing identities', async ({

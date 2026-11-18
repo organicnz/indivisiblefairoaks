@@ -1,12 +1,10 @@
-import { AlertTriangle, ArrowRight, Shield, Users } from 'lucide-react';
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { connection } from 'next/server';
+import { AccountAdminBridge } from '@/components/account/AccountAdminBridge';
+import { AccountAdminNotice } from '@/components/account/AccountAdminNotice';
+import { AccountHeading } from '@/components/account/AccountHeading';
+import { AccountPanel } from '@/components/account/AccountPanel';
 import { AccountTabShell } from '@/components/account/AccountTabShell';
-import { LogoutButton } from '@/components/account/LogoutButton';
-import { MfaSettings } from '@/components/account/MfaSettings';
-import { UserSettings } from '@/components/account/UserSettings';
-import { DataPoint } from '@/components/ui/DataPoint';
 import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
 import { getDataPoints } from '@/lib/queries/civic';
 import { getSafeNextPath } from '@/lib/safe-redirect';
@@ -116,141 +114,25 @@ export default async function AccountPage(props: {
     },
   ];
 
-  const panel = (
-    <div className="max-w-2xl space-y-12">
-      <UserSettings />
-      <MfaSettings autoEnroll={sp.mfa === 'enroll'} returnTo={enrollmentReturnTo} />
-      <div className="pt-8 border-t border-border">
-        <h3 className="civic-meta text-foreground mb-1">
-          <DataPoint name="account.session.title" initialData={dataPoints}>
-            Session Control
-          </DataPoint>
-        </h3>
-        <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mb-6">
-          <DataPoint name="account.session.signed_in_as" as="span" initialData={dataPoints}>
-            Signed in as
-          </DataPoint>{' '}
-          <span className="text-foreground font-medium">{user.email}</span>
-        </p>
-        <LogoutButton />
-      </div>
-    </div>
-  );
-
   return (
     <div className="civic-page relative overflow-hidden bg-background min-h-screen pt-(--header-clearance) pb-16 text-foreground transition-colors duration-300">
       <VgpuCivicConstellation className="pointer-events-none opacity-20" />
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Admin Restricted Notice */}
         {sp.error === 'admin_required' && (
-          <div className="mb-8 flex items-start gap-4 rounded-sm border border-amber-200 bg-amber-50 p-5 text-amber-950 animate-in fade-in dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-200">
-            <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-            <div>
-              <h3 className="mb-1 font-display text-sm font-semibold tracking-[-0.01em] text-amber-900 dark:text-amber-200">
-                <DataPoint name="account.admin_required.title" initialData={dataPoints}>
-                  Administrator privileges required
-                </DataPoint>
-              </h3>
-              <DataPoint
-                name="account.admin_required.desc"
-                as="p"
-                initialData={dataPoints}
-                className="text-xs text-amber-800 dark:text-amber-300"
-              >
-                The administrative panel is strictly restricted to verified chapter organizers. If
-                you are a chapter lead, please ensure you are signed in with your authorized
-                administrator email.
-              </DataPoint>
-              {/*
-                The sentence above is CMS copy and has to read for every visitor,
-                so it says "ensure you are signed in". This reader already is —
-                which made the notice a dead end: it named no account and no next
-                step. The app knows both, so it says them, outside the editable
-                copy so a copy edit cannot remove the diagnosis.
-              */}
-              <p className="mt-2 text-xs text-amber-800 dark:text-amber-300">
-                You are signed in as{' '}
-                <span className="font-semibold">{user.email ?? 'this account'}</span>, and this
-                account does not have administrator access. Ask a chapter lead to grant it, or sign
-                out and sign in with an administrator account.
-              </p>
-            </div>
-          </div>
+          <AccountAdminNotice email={user.email} dataPoints={dataPoints} />
         )}
 
-        {/* Administrator Portal Bridge */}
-        {isAdmin && (
-          <div className="civic-panel mb-10 flex flex-col items-start justify-between gap-6 p-6 animate-in fade-in md:flex-row md:items-center">
-            <div className="flex items-center gap-4">
-              <div className="flex size-12 shrink-0 items-center justify-center rounded-sm border border-primary/20 bg-primary/10 text-primary-ink dark:border-primary/30 dark:bg-primary/20 dark:text-primary-on-dark">
-                <Shield className="w-6 h-6" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-[10px] font-bold uppercase tracking-[0.25em] text-primary-ink dark:text-primary-on-dark-muted">
-                    <DataPoint name="account.admin_bridge.badge" initialData={dataPoints}>
-                      Chapter Leadership
-                    </DataPoint>
-                  </span>
-                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse" />
-                </div>
-                <h2 className="font-display text-lg font-semibold tracking-[-0.02em] text-foreground">
-                  <DataPoint name="account.admin_bridge.title" initialData={dataPoints}>
-                    Admin control & civic CRM
-                  </DataPoint>
-                </h2>
-                <p className="text-xs text-muted-foreground dark:text-ink-muted-on-dark font-medium">
-                  <DataPoint name="account.admin_bridge.desc" initialData={dataPoints}>
-                    Manage chapter constituents, target volunteer rings, and dispatch Resend
-                    broadcasts.
-                  </DataPoint>
-                </p>
-              </div>
-            </div>
+        {isAdmin && <AccountAdminBridge dataPoints={dataPoints} />}
 
-            <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-              <Link
-                href="/admin/crm"
-                className="inline-flex items-center gap-2 rounded-sm bg-primary px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white transition-colors hover:bg-primary-dark dark:bg-primary-bright dark:hover:bg-primary-light"
-              >
-                <Users className="w-4 h-4" />
-                <span>
-                  <DataPoint name="account.admin_bridge.crm_btn" initialData={dataPoints}>
-                    Open CRM
-                  </DataPoint>
-                </span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
-              <Link
-                href="/admin"
-                className="inline-flex items-center gap-2 rounded-sm border border-border bg-surface-muted px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-foreground transition-colors hover:bg-surface-muted/80 dark:border-white/10 dark:bg-white/10 dark:text-ink-on-dark dark:hover:bg-white/15 dark:hover:text-white"
-              >
-                <span>
-                  <DataPoint name="account.admin_bridge.control_btn" initialData={dataPoints}>
-                    Control Center
-                  </DataPoint>
-                </span>
-              </Link>
-            </div>
-          </div>
-        )}
+        <AccountHeading isAdmin={isAdmin} dataPoints={dataPoints} />
 
-        <div className="flex flex-col mb-10">
-          <p className="civic-kicker mb-4">
-            {isAdmin ? 'Chapter operations' : 'Member account'}
-          </p>
-          <h1 className="font-display text-4xl font-semibold tracking-[-0.03em] text-foreground">
-            <DataPoint
-              name={isAdmin ? 'account.title.dashboard' : 'account.title.my_account'}
-              initialData={dataPoints}
-            >
-              {isAdmin ? 'Dashboard' : 'My account'}
-            </DataPoint>
-          </h1>
-          <div className="h-1.5 w-24 bg-primary dark:bg-primary-bright mt-3" />
-        </div>
         <AccountTabShell tabs={tabs} activeTab={activeTab}>
-          {panel}
+          <AccountPanel
+            email={user.email}
+            autoEnroll={sp.mfa === 'enroll'}
+            returnTo={enrollmentReturnTo}
+            dataPoints={dataPoints}
+          />
         </AccountTabShell>
       </div>
     </div>

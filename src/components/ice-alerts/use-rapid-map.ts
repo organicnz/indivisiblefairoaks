@@ -208,7 +208,7 @@ function publicCasePosition(
 }
 
 function buildHistoricalCityPopup(city: CityPoint) {
-  const cityKey = `city=${encodeURIComponent(city.city)}&state=${encodeURIComponent(
+  const cityKey = `foiaCity=${encodeURIComponent(city.city)}&foiaState=${encodeURIComponent(
     city.stateCode
   )}`;
 
@@ -218,7 +218,10 @@ function buildHistoricalCityPopup(city: CityPoint) {
     count: `${formatNumber(city.count)} records`,
     rank: 'Historical city total',
     note: 'From the latest published FOIA release. Not a live alert or a street address.',
-    link: { label: 'Open historical map', href: `/ice-alerts?view=history&${cityKey}` },
+    link: {
+      label: 'Open historical map',
+      href: `/ice-alerts?view=history&${cityKey}#historical-foia`,
+    },
   });
 }
 

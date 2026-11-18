@@ -345,11 +345,11 @@ export function RapidResponseGuide({
             ))}
           </ul>
           <a
-            href="/ice-alerts?view=history"
+            href="#historical-foia"
             className="mt-4 inline-flex min-h-9 items-center gap-1.5 border border-border px-3 py-1.5 font-mono text-[8px] font-bold uppercase tracking-[0.1em] text-foreground transition-colors hover:border-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             <MapPin className="size-3" aria-hidden="true" />
-            Open the historical FOIA map
+            Explore the historical FOIA map
           </a>
         </div>
 

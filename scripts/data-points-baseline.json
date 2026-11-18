@@ -280,6 +280,6 @@
   },
   "acceptedUnseededReads": {},
   "acceptedMismatches": {
-    "links.hero.intro @ src/app/links/page.tsx (jsx)": "superseded: updated to highlight Link Tree and quick-access tools (issue #164)"
+    "links.hero.intro @ src/components/links/LinksMasthead.tsx (jsx)": "superseded: updated to highlight Link Tree and quick-access tools (issue #164)"
   }
 }

@@ -19,6 +19,10 @@ import { useUserLocation } from './use-user-location';
 type IceArrestHeatMapProps = {
   snapshot: HeatmapSnapshot;
   initialState?: IceMapUrlState;
+  /** Prefix URL state when this map shares a page with another Leaflet map. */
+  urlKeyPrefix?: string;
+  /** Recalculate the map size when an enclosing disclosure opens. */
+  isActive?: boolean;
 };
 
 /**
@@ -29,7 +33,12 @@ type IceArrestHeatMapProps = {
  * location and place-search logic live in their own hooks so each can be
  * reasoned about — and tested — without the other two.
  */
-export function IceArrestHeatMap({ snapshot, initialState }: IceArrestHeatMapProps) {
+export function IceArrestHeatMap({
+  snapshot,
+  initialState,
+  urlKeyPrefix,
+  isActive = true,
+}: IceArrestHeatMapProps) {
   const [selectedCity, setSelectedCity] = useState<CityPoint | null>(
     initialState?.selectedCity ?? null
   );
@@ -104,13 +113,17 @@ export function IceArrestHeatMap({ snapshot, initialState }: IceArrestHeatMapPro
     if (!urlSyncEnabledRef.current || !mapViewport) return;
 
     const current = new URLSearchParams(window.location.search);
-    const params = serializeIceMapUrlState(current, {
-      selectedCity,
-      searchTarget,
-      searchQuery: locationInput,
-      viewport: mapViewport,
-      mapView,
-    });
+    const params = serializeIceMapUrlState(
+      current,
+      {
+        selectedCity,
+        searchTarget,
+        searchQuery: locationInput,
+        viewport: mapViewport,
+        mapView,
+      },
+      { keyPrefix: urlKeyPrefix }
+    );
     const query = params.toString();
     const next = `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`;
     const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
@@ -120,7 +133,13 @@ export function IceArrestHeatMap({ snapshot, initialState }: IceArrestHeatMapPro
       // shareable without turning every pan into a Back-button entry.
       window.history.replaceState(window.history.state, '', next);
     }
-  }, [locationInput, mapView, mapViewport, searchTarget, selectedCity]);
+  }, [locationInput, mapView, mapViewport, searchTarget, selectedCity, urlKeyPrefix]);
+
+  useEffect(() => {
+    if (!isActive) return;
+    const frame = requestAnimationFrame(() => mapRef.current?.invalidateSize());
+    return () => cancelAnimationFrame(frame);
+  }, [isActive, mapRef]);
 
   const isLocating = userLocationStatus === 'locating' || userLocationStatus === 'checking';
 

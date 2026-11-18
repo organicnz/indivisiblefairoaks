@@ -260,7 +260,7 @@ export function IceRapidResponse({ snapshot, initialState, children }: IceRapidR
               available, and we will not show substitute reports while the feed is down.
             </p>
             <a
-              href="/ice-alerts?view=history"
+              href="#historical-foia"
               className="inline-flex min-h-8 items-center border border-border bg-background px-2.5 py-1 font-mono text-[8px] font-bold uppercase tracking-[0.09em] text-foreground transition-colors hover:border-foreground"
             >
               Historical map

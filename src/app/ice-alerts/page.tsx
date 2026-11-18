@@ -1,9 +1,8 @@
 import 'leaflet/dist/leaflet.css';
 
 import type { Metadata } from 'next';
+import { HistoricalFoiaModule } from '@/components/ice-alerts/HistoricalFoiaModule';
 import { IceAlertsTopBar } from '@/components/ice-alerts/IceAlertsTopBar';
-import { IceArrestHeatMap } from '@/components/ice-alerts/IceArrestHeatMap';
-import { IceHistoricalHeader } from '@/components/ice-alerts/IceHistoricalHeader';
 import { IceRapidResponse } from '@/components/ice-alerts/IceRapidResponse';
 import { ReviewedReportsSection } from '@/components/ice-alerts/ReviewedReportsSection';
 import { WebReportsSection } from '@/components/ice-alerts/WebReportsSection';
@@ -21,7 +20,7 @@ export const instant = false;
 export const metadata: Metadata = pageMetadata({
   title: 'ICE Alert — National Rapid-Response Map',
   description:
-    'A nationwide rapid-response map of community-reported ICE activity from the Stop ICE Alerts Network and official ICE newsroom releases, with city-level locations, source labels, and safety guidance. This is not an emergency service.',
+    'A nationwide rapid-response map of community-reported ICE activity from the Stop ICE Alerts Network and official ICE newsroom releases, with city-level locations, source labels, and safety guidance. Includes a separate historical FOIA city-level baseline from the Deportation Data Project. This is not an emergency service.',
   path: '/ice-alerts',
   robots: { index: false, follow: false },
 });
@@ -36,31 +35,35 @@ function readView(params: Record<string, string | string[] | undefined>) {
 export default async function IceAlertsPage({ searchParams }: { searchParams: PageSearchParams }) {
   const params = await searchParams;
   const view = readView(params);
-  const hasHistoricalParams = Boolean(params.city || params.pin || params.q);
-  const isHistory = view === 'history' || (view !== 'rapid' && hasHistoricalParams);
+  const hasLegacyHistoricalParams = Boolean(
+    params.city || params.state || params.pin || params.q
+  );
+  const initialHistoryOpen =
+    view === 'history' || (view !== 'rapid' && hasLegacyHistoricalParams);
   const [snapshot, dataPoints] = await Promise.all([
     getIceHeatmapSnapshot(),
     getDataPoints('ice'),
   ]);
-  const historicalState = parseIceMapUrlState(params, snapshot.cities);
+  const historicalState = parseIceMapUrlState(params, snapshot.cities, {
+    keyPrefix: 'foia',
+    includeUnprefixed: initialHistoryOpen,
+  });
   const rapidState = parseRapidUrlState(params);
 
   return (
     <div className="civic-page min-h-screen w-full bg-background text-foreground">
-      <IceAlertsTopBar isHistory={isHistory} dataPoints={dataPoints}>
-        {isHistory ? <IceHistoricalHeader snapshot={snapshot} dataPoints={dataPoints} /> : null}
-      </IceAlertsTopBar>
+      <IceAlertsTopBar dataPoints={dataPoints} />
 
-      {isHistory ? (
-        <IceArrestHeatMap snapshot={snapshot} initialState={historicalState} />
-      ) : (
-        <>
-          <IceRapidResponse snapshot={snapshot} initialState={rapidState}>
-            <WebReportsSection />
-          </IceRapidResponse>
-          <ReviewedReportsSection />
-        </>
-      )}
+      <IceRapidResponse snapshot={snapshot} initialState={rapidState}>
+        <HistoricalFoiaModule
+          snapshot={snapshot}
+          initialState={historicalState}
+          initialOpen={initialHistoryOpen}
+          dataPoints={dataPoints}
+        />
+        <WebReportsSection />
+        <ReviewedReportsSection />
+      </IceRapidResponse>
     </div>
   );
 }

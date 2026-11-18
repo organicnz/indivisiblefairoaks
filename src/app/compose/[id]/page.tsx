@@ -1,7 +1,8 @@
-import { AlertTriangle, ArrowLeft, ExternalLink, Paintbrush } from 'lucide-react';
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
+import { ComposerEmptyState } from '@/components/compose/ComposerEmptyState';
+import { ComposerSlugConflict } from '@/components/compose/ComposerSlugConflict';
+import { ComposerWorkspaceHeader } from '@/components/compose/ComposerWorkspaceHeader';
 import { ContentSurface } from '@/components/content/ContentSurface';
 import { ComposerWorkspaceBoot } from '@/components/visual-edit/ComposerWorkspaceBoot';
 import { getContentForEdit } from '@/lib/actions/content';
@@ -92,84 +93,18 @@ export default async function ComposerWorkspacePage({ params }: PageProps) {
       {/* Same column width as the public page: a canvas one size wider would
           preview line breaks the saved page will not have. */}
       <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-wrap items-end justify-between gap-5 border-b-2 border-foreground/15 py-8">
-          <div className="min-w-0">
-            <p className="civic-kicker">
-              <Paintbrush size={12} aria-hidden="true" />
-              Composer workspace
-            </p>
-            <h1 className="mt-3 max-w-3xl text-4xl font-semibold leading-[0.95] tracking-[-0.045em] text-foreground sm:text-5xl">
-              {content.title}
-            </h1>
-            <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-              <span className="font-mono font-medium normal-case tracking-normal">
-                Row #{content.id}
-              </span>
-              <span aria-hidden="true">·</span>
-              <span className="font-mono font-medium normal-case tracking-normal">
-                /{content.slug}
-              </span>
-              <span aria-hidden="true">·</span>
-              <span
-                className={
-                  content.status === 'publish'
-                    ? 'text-primary-ink'
-                    : 'text-accent-gold'
-                }
-              >
-                {content.status === 'publish' ? 'Published' : 'Draft'}
-              </span>
-              {!publicHref && !conflict ? (
-                <>
-                  <span aria-hidden="true">·</span>
-                  <span className="text-accent-gold">No public route</span>
-                </>
-              ) : null}
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Link
-              href={`/admin/content/${content.id}`}
-              className="inline-flex items-center gap-1.5 border border-border bg-surface-card px-3 py-2 text-[11px] font-bold uppercase tracking-[0.12em] text-foreground transition-colors hover:bg-surface-muted focus-visible:ring-2 focus-visible:ring-primary"
-            >
-              <ArrowLeft size={14} aria-hidden="true" />
-              Back to editor
-            </Link>
-            {publicHref ? (
-              <Link
-                href={publicHref}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1.5 bg-primary px-3 py-2 text-[11px] font-bold uppercase tracking-[0.12em] text-white transition-colors hover:bg-primary-dark focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-              >
-                View page
-                <ExternalLink size={12} aria-hidden="true" />
-              </Link>
-            ) : null}
-          </div>
-        </div>
+        <ComposerWorkspaceHeader
+          id={content.id}
+          title={content.title}
+          slug={content.slug}
+          status={content.status}
+          publicHref={publicHref}
+          hasConflict={Boolean(conflict)}
+        />
 
         <ComposerWorkspaceBoot />
 
-        {conflict ? (
-          <p
-            role="status"
-            className="mt-4 flex items-start gap-2 border-l-2 border-accent-gold bg-accent-gold/10 px-4 py-3 text-xs font-medium text-foreground"
-          >
-            <AlertTriangle
-              size={15}
-              className="mt-0.5 shrink-0 text-accent-gold"
-              aria-hidden="true"
-            />
-            <span>
-              <strong className="font-semibold">
-                This row is not what /{content.slug} serves.
-              </strong>{' '}
-              {conflict} Edits still save to the CMS row; change the slug in the editor to publish
-              it at a reachable path.
-            </span>
-          </p>
-        ) : null}
+        {conflict ? <ComposerSlugConflict slug={content.slug} conflict={conflict} /> : null}
 
         <p className="mt-5 max-w-2xl text-sm leading-relaxed text-muted-foreground">
           Select any block on the canvas to edit it in the composer rail. Saves write to row #
@@ -179,21 +114,7 @@ export default async function ComposerWorkspacePage({ params }: PageProps) {
         {/* Sanitized inside ContentSurface; `html` above is only the emptiness probe. */}
         <ContentSurface html={content.body || ''} contentId={content.id} className="mt-8" />
 
-        {html.trim().length === 0 ? (
-          <div className="mt-8 border border-dashed border-border bg-surface-muted/40 px-6 py-8 text-center">
-            <p className="text-xl font-semibold text-foreground">This row has no copy yet.</p>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Add the first block in the visual editor, or build the page in the content editor.
-            </p>
-            <Link
-              href={`/admin/content/${content.id}`}
-              className="mt-4 inline-flex items-center gap-1.5 border border-border bg-surface-card px-3 py-2 text-[11px] font-bold uppercase tracking-[0.12em] text-foreground transition-colors hover:bg-surface-muted focus-visible:ring-2 focus-visible:ring-primary"
-            >
-              Open content editor
-              <ExternalLink size={12} aria-hidden="true" />
-            </Link>
-          </div>
-        ) : null}
+        {html.trim().length === 0 ? <ComposerEmptyState contentId={content.id} /> : null}
       </div>
     </div>
   );

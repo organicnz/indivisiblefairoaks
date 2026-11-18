@@ -4,7 +4,6 @@ import {
   Phone,
   Radio,
 } from 'lucide-react';
-import type { ReactNode } from 'react';
 import { ReportSightingButton } from '@/components/ice-alerts/ReportSightingDialog';
 import { SurgeAlertsButton } from '@/components/ice-alerts/SurgeAlertsDialog';
 import { DataPoint } from '@/components/ui/DataPoint';
@@ -40,13 +39,9 @@ function RapidActions() {
 }
 
 export function IceAlertsTopBar({
-  isHistory,
   dataPoints,
-  children,
 }: {
-  isHistory: boolean;
   dataPoints: Record<string, string>;
-  children?: ReactNode;
 }) {
   return (
     <header className="border-b border-border pt-(--header-clearance)">
@@ -62,7 +57,7 @@ export function IceAlertsTopBar({
             <span className="min-w-0">
               <span className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5">
                 <DataPoint
-                  as={isHistory ? 'span' : 'h1'}
+                  as="h1"
                   name="ice.header.title"
                   initialData={dataPoints}
                   className="font-display text-xl font-semibold tracking-[-0.03em]"
@@ -78,16 +73,14 @@ export function IceAlertsTopBar({
                   National rapid response
                 </DataPoint>
               </span>
-              {!isHistory ? (
-                <DataPoint
-                  as="span"
-                  name="ice.header.descriptor"
-                  initialData={dataPoints}
-                  className="mt-0.5 block font-mono text-[8px] font-bold uppercase tracking-[0.08em] text-muted-foreground sm:text-[9px]"
-                >
-                  Community + official / city-level only / not 911
-                </DataPoint>
-              ) : null}
+              <DataPoint
+                as="span"
+                name="ice.header.descriptor"
+                initialData={dataPoints}
+                className="mt-0.5 block font-mono text-[8px] font-bold uppercase tracking-[0.08em] text-muted-foreground sm:text-[9px]"
+              >
+                Community + official / city-level only / not 911
+              </DataPoint>
             </span>
           </a>
 
@@ -98,23 +91,14 @@ export function IceAlertsTopBar({
             >
               <a
                 href="/ice-alerts"
-                aria-current={isHistory ? undefined : 'page'}
-                className={`inline-flex min-h-8 items-center px-2.5 py-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.09em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary ${
-                  isHistory
-                    ? 'text-muted-foreground hover:bg-surface-muted hover:text-foreground'
-                    : 'bg-foreground text-background'
-                }`}
+                aria-current="page"
+                className="inline-flex min-h-8 items-center bg-foreground px-2.5 py-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.09em] text-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
               >
                 Rapid response
               </a>
               <a
-                href="/ice-alerts?view=history"
-                aria-current={isHistory ? 'page' : undefined}
-                className={`inline-flex min-h-8 items-center border-l border-border px-2.5 py-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.09em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary ${
-                  isHistory
-                    ? 'bg-foreground text-background'
-                    : 'text-muted-foreground hover:bg-surface-muted hover:text-foreground'
-                }`}
+                href="#historical-foia"
+                className="inline-flex min-h-8 items-center border-l border-border px-2.5 py-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.09em] text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
               >
                 Historical FOIA
               </a>
@@ -125,11 +109,10 @@ export function IceAlertsTopBar({
                 Web reports
               </a>
             </nav>
-            {!isHistory ? <RapidActions /> : null}
+            <RapidActions />
           </div>
         </div>
       </div>
-      {children}
     </header>
   );
 }

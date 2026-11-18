@@ -72,13 +72,15 @@ describe('CivicCommandPalette component', () => {
     expect(trigger).not.toBeNull();
   });
 
-  it('includes the ICE arrest heat map and navigates to it', async () => {
+  it('includes the ICE rapid-response and historical map and navigates to it', async () => {
     await act(async () => {
       root.render(<CivicCommandPalette isOpen={true} setIsOpen={vi.fn()} />);
     });
 
     const options = Array.from(document.querySelectorAll('li[role="option"]'));
-    const iceOption = options.find((opt) => opt.textContent?.includes('ICE Arrest Heat Map'));
+    const iceOption = options.find((opt) =>
+      opt.textContent?.includes('ICE Rapid-Response & Historical Map')
+    );
     expect(iceOption).toBeDefined();
 
     await act(async () => {

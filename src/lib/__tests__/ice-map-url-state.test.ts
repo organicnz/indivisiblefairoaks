@@ -140,6 +140,44 @@ describe('parseIceMapUrlState', () => {
     expect(state.searchTarget).toBeNull();
     expect(state.hasUrlState).toBe(false);
   });
+
+  it('reads namespaced historical state without consuming the rapid viewport', () => {
+    const state = parseIceMapUrlState(
+      new URLSearchParams(
+        'lat=39&lng=-98&z=5&foiaCity=Conroe&foiaState=TX'
+      ),
+      CITIES,
+      { keyPrefix: 'foia' }
+    );
+
+    expect(state.selectedCity).toEqual(conroe);
+    expect(state.initialView).toEqual({
+      center: [conroe.lat, conroe.lng],
+      zoom: CITY_FOCUS_ZOOM,
+    });
+    expect(state.hasUrlState).toBe(true);
+
+    const rapidOnly = parseIceMapUrlState(
+      new URLSearchParams('lat=39&lng=-98&z=5'),
+      CITIES,
+      { keyPrefix: 'foia' }
+    );
+    expect(rapidOnly.hasUrlState).toBe(false);
+  });
+
+  it('can read legacy unprefixed history keys for old links', () => {
+    const state = parseIceMapUrlState(
+      new URLSearchParams('city=Conroe&state=TX'),
+      CITIES,
+      { keyPrefix: 'foia', includeUnprefixed: true }
+    );
+
+    expect(state.selectedCity).toEqual(conroe);
+    expect(state.initialView).toEqual({
+      center: [conroe.lat, conroe.lng],
+      zoom: CITY_FOCUS_ZOOM,
+    });
+  });
 });
 
 describe('serializeIceMapUrlState', () => {
@@ -193,6 +231,66 @@ describe('serializeIceMapUrlState', () => {
     );
 
     expect([...params.keys()]).toEqual(['utm']);
+  });
+
+  it('namespaces historical keys and leaves the rapid viewport intact', () => {
+    const params = serializeIceMapUrlState(
+      new URLSearchParams('view=history&city=Conroe&state=TX&lat=39&lng=-98&z=5'),
+      {
+        selectedCity: conroe,
+        searchTarget: null,
+        searchQuery: '',
+        viewport: { center: [conroe.lat, conroe.lng], zoom: CITY_FOCUS_ZOOM },
+        mapView: 'free',
+      },
+      { keyPrefix: 'foia' }
+    );
+
+    expect(params.get('view')).toBe('history');
+    expect(params.get('foiaCity')).toBe('Conroe');
+    expect(params.get('foiaState')).toBe('TX');
+    expect(params.get('foiaLat')).toBe('30.32872');
+    expect(params.get('foiaZ')).toBe('9');
+    // The rapid map's own viewport and the legacy history keys do not collide.
+    expect(params.get('lat')).toBe('39');
+    expect(params.get('lng')).toBe('-98');
+    expect(params.get('z')).toBe('5');
+    expect(params.get('city')).toBeNull();
+    expect(params.get('state')).toBeNull();
+  });
+
+  it('round-trips namespaced historical state', () => {
+    const original = parseIceMapUrlState(
+      new URLSearchParams(
+        'foiaCity=Conroe&foiaState=TX&foiaPin=40.7484,-73.9857&foiaPinLabel=350+5th+Avenue&foiaQ=350+5th+Ave&foiaLat=38.5816&foiaLng=-121.4944&foiaZ=7'
+      ),
+      CITIES,
+      { keyPrefix: 'foia' }
+    );
+    const params = serializeIceMapUrlState(
+      new URLSearchParams(),
+      {
+        selectedCity: original.selectedCity,
+        searchTarget: original.searchTarget,
+        searchQuery: original.searchQuery,
+        viewport: original.initialView,
+        mapView: original.initialMapView,
+      },
+      { keyPrefix: 'foia' }
+    );
+    const restored = parseIceMapUrlState(params, CITIES, { keyPrefix: 'foia' });
+
+    expect(restored.selectedCity).toEqual(conroe);
+    expect(restored.searchTarget).toEqual({
+      lat: 40.7484,
+      lng: -73.9857,
+      label: '350 5th Avenue',
+    });
+    expect(restored.searchQuery).toBe('350 5th Ave');
+    expect(restored.initialView).toEqual({
+      center: [38.5816, -121.4944],
+      zoom: 7,
+    });
   });
 
   it('round-trips a city, pin, query, and viewport', () => {

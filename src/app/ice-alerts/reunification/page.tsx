@@ -1,15 +1,10 @@
-import {
-  ArrowLeft,
-  ExternalLink,
-  HeartHandshake,
-  LockKeyhole,
-  Phone,
-  Search,
-  ShieldCheck,
-} from 'lucide-react';
+import { ExternalLink, HeartHandshake, LockKeyhole, Search, ShieldCheck } from 'lucide-react';
 import type { Metadata } from 'next';
 import { CopyRegion } from '@/components/cms/CopyRegion';
 import { ReunificationForm } from '@/components/ice-alerts/ReunificationForm';
+import { IntakeFormPanel } from '@/components/ice-alerts/intake/IntakeFormPanel';
+import { IntakeHeader } from '@/components/ice-alerts/intake/IntakeHeader';
+import { IntakeSteps } from '@/components/ice-alerts/intake/IntakeSteps';
 import { pageMetadata } from '@/lib/metadata';
 
 export const metadata: Metadata = pageMetadata({
@@ -59,129 +54,37 @@ const RESOURCES = [
 export default function ReunificationPage() {
   return (
     <div className="civic-page min-h-screen w-full bg-background text-foreground">
-      <header className="border-b border-border pt-(--header-clearance)">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
-          <a
-            href="/ice-alerts"
-            className="inline-flex min-h-8 items-center gap-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-          >
-            <ArrowLeft className="size-3.5" aria-hidden="true" />
-            Back to the rapid-response map
-          </a>
-          <span className="civic-stamp">Private intake / not a public alert</span>
-        </div>
-
-        <div className="mx-auto grid max-w-7xl gap-8 px-4 pb-8 pt-5 sm:px-6 sm:pb-10 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-end lg:px-8">
-          <div className="min-w-0">
-            <div className="flex items-center gap-3">
-              <span className="flex size-10 shrink-0 items-center justify-center border border-primary/30 bg-primary/10">
-                <HeartHandshake className="size-5 text-primary" aria-hidden="true" />
-              </span>
-              <p className="civic-kicker">Consent-based family support</p>
-            </div>
-            <CopyRegion id="ice-reunification-intro">
-              <div>
-                <h1 className="mt-4 max-w-4xl font-display text-[clamp(2.75rem,7vw,5.5rem)] font-semibold leading-[0.88] tracking-[-0.05em]">
-                  Family reunification
-                </h1>
-                <p className="mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg">
-                  A private request for help finding or contacting someone in immigration custody.
-                  It is not a public alert, a person profile, or a promise of release. Names, photos,
-                  and case details are never shown on the map.
-                </p>
-              </div>
-            </CopyRegion>
-            <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
-              <span className="inline-flex items-center gap-1.5">
-                <LockKeyhole className="size-3.5" aria-hidden="true" />
-                Private by default
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <ShieldCheck className="size-3.5" aria-hidden="true" />
-                No public faces or identities
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <Search className="size-3.5" aria-hidden="true" />
-                Manual verification
-              </span>
-            </div>
-          </div>
-
-          <div className="border-l-2 border-accent pl-4">
-            <a
-              href="tel:911"
-              className="inline-flex items-start gap-2.5 text-sm font-semibold leading-snug text-foreground transition-colors hover:text-accent"
-            >
-              <Phone className="mt-0.5 size-4 shrink-0 text-accent" aria-hidden="true" />
-              Immediate danger? Call 911.
-            </a>
-            <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-              This form cannot dispatch help, provide legal advice, or guarantee an outcome. If
-              someone is in immediate danger, call 911 first. For a person already in custody, use
-              the official locator as well.
-            </p>
-            <a
-              href="https://locator.ice.gov/odls/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-3 inline-flex items-center gap-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.09em] text-foreground underline underline-offset-2"
-            >
-              Official ICE locator
-              <ExternalLink className="size-3" aria-hidden="true" />
-            </a>
-          </div>
-        </div>
-      </header>
+      <IntakeHeader
+        backHref="/ice-alerts"
+        backLabel="Back to the rapid-response map"
+        stamp="Private intake / not a public alert"
+        icon={HeartHandshake}
+        kicker="Consent-based family support"
+        copyRegionId="ice-reunification-intro"
+        title="Family reunification"
+        intro="A private request for help finding or contacting someone in immigration custody. It is not a public alert, a person profile, or a promise of release. Names, photos, and case details are never shown on the map."
+        badges={[
+          { icon: LockKeyhole, label: 'Private by default' },
+          { icon: ShieldCheck, label: 'No public faces or identities' },
+          { icon: Search, label: 'Manual verification' },
+        ]}
+        emergencyBody="This form cannot dispatch help, provide legal advice, or guarantee an outcome. If someone is in immediate danger, call 911 first. For a person already in custody, use the official locator as well."
+        emergencyHref="https://locator.ice.gov/odls/"
+        emergencyLabel="Official ICE locator"
+      />
 
       <main className="mx-auto grid max-w-7xl gap-8 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,1.45fr)_minmax(18rem,0.55fr)] lg:gap-12 lg:px-8 lg:py-10">
-        <section aria-labelledby="reunification-form-title" className="min-w-0">
-          <div className="border border-border bg-surface-card p-5 sm:p-7">
-            <p className="civic-section-index">Private request</p>
-            <h2
-              id="reunification-form-title"
-              className="mt-1.5 font-display text-3xl font-semibold leading-tight tracking-[-0.035em] sm:text-4xl"
-            >
-              Start a request
-            </h2>
-            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-              Share only what you can confirm. A volunteer will review it and may contact you. It
-              usually takes a few minutes. Requests are kept for 90 days unless you ask us to
-              delete them.
-            </p>
-            <div className="mt-5 border-t border-border pt-5">
-              <ReunificationForm />
-            </div>
-          </div>
-        </section>
+        <IntakeFormPanel
+          eyebrow="Private request"
+          titleId="reunification-form-title"
+          title="Start a request"
+          description="Share only what you can confirm. A volunteer will review it and may contact you. It usually takes a few minutes. Requests are kept for 90 days unless you ask us to delete them."
+        >
+          <ReunificationForm />
+        </IntakeFormPanel>
 
         <aside className="space-y-5">
-          <section className="border border-border bg-surface-muted p-5">
-            <CopyRegion id="ice-reunification-steps">
-              <div>
-                <p className="civic-section-index">What happens next</p>
-                <ol className="mt-4 space-y-4">
-                  {STEPS.map((step) => (
-                    <li
-                      key={step.number}
-                      className="border-t border-border pt-3 first:border-t-0 first:pt-0"
-                    >
-                      <div className="flex items-baseline gap-2">
-                        <span className="font-mono text-[9px] font-bold tracking-[0.14em] text-accent">
-                          {step.number}
-                        </span>
-                        <h3 className="font-display text-lg font-semibold leading-tight tracking-[-0.02em]">
-                          {step.title}
-                        </h3>
-                      </div>
-                      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                        {step.body}
-                      </p>
-                    </li>
-                  ))}
-                </ol>
-              </div>
-            </CopyRegion>
-          </section>
+          <IntakeSteps copyRegionId="ice-reunification-steps" steps={STEPS} />
 
           <section className="border border-border bg-surface-card p-5">
             <div className="flex items-start gap-3">

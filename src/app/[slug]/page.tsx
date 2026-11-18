@@ -1,10 +1,11 @@
 import type { Metadata } from 'next';
-import Image from 'next/image';
-import Link from 'next/link';
 import { Suspense } from 'react';
 import NotFoundPage from '@/app/not-found';
+import { ContentBackLink } from '@/components/content/ContentBackLink';
+import { ContentHero } from '@/components/content/ContentHero';
+import { ContentPageHeader } from '@/components/content/ContentPageHeader';
+import { ContentPageSkeleton } from '@/components/content/ContentPageSkeleton';
 import { ContentSurface } from '@/components/content/ContentSurface';
-import { DataPoint } from '@/components/ui/DataPoint';
 import { ROBOTS, siteUrl } from '@/config/site';
 import { isCopyRegionSlug } from '@/lib/copy-regions';
 import { pageMetadata } from '@/lib/metadata';
@@ -78,27 +79,9 @@ export async function generateMetadata({
  */
 export default function ContentPage({ params }: { params: Promise<{ slug: string }> }) {
   return (
-    <Suspense fallback={<ContentSkeleton />}>
+    <Suspense fallback={<ContentPageSkeleton />}>
       <ContentBody params={params} />
     </Suspense>
-  );
-}
-
-function ContentSkeleton() {
-  return (
-    <div className="bg-background min-h-screen pt-(--header-clearance) pb-16 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-4xl mx-auto animate-pulse">
-        <div className="flex flex-col mb-12">
-          <div className="h-12 w-3/4 bg-surface-muted rounded" />
-          <div className="h-2 w-24 bg-surface-muted mt-4" />
-        </div>
-        <div className="space-y-4">
-          {['95%', '88%', '81%', '74%', '67%', '60%', '53%', '40%'].map((width) => (
-            <div key={width} className="h-4 bg-surface-muted rounded" style={{ width }} />
-          ))}
-        </div>
-      </div>
-    </div>
   );
 }
 
@@ -179,70 +162,22 @@ async function ContentBody({ params }: { params: Promise<{ slug: string }> }) {
         />
       )}
       <div className="relative z-10 max-w-4xl mx-auto">
-        <div className="flex flex-col mb-12">
-          <h1 className="mb-4 font-display text-4xl font-semibold leading-[1.02] tracking-[-0.04em] text-foreground md:text-5xl">
-            {content.title}
-          </h1>
-          <div className="h-2 w-24 bg-primary dark:bg-primary-bright" />
-          {content.type === 'post' && content.created_at && (
-            <time
-              dateTime={content.created_at}
-              className="civic-meta mt-6"
-            >
-              <DataPoint as="span" name="content.published_prefix" initialData={dataPoints}>
-                Published
-              </DataPoint>{' '}
-              {new Date(content.created_at).toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-              })}
-            </time>
-          )}
-        </div>
+        <ContentPageHeader
+          title={content.title}
+          type={content.type}
+          createdAt={content.created_at}
+          dataPoints={dataPoints}
+        />
 
-        {/*
-          The hero. `featured_image` was stored, revision-tracked, reference-
-          checked on delete and rendered in the editor's preview — and read by no
-          public route at all, so the field was a control that did nothing
-          visible. The preview showing an image the published page would not have
-          is exactly the "a control must do what it says" failure.
-
-          `fill` inside a fixed `aspect-[16/9]` frame rather than width/height:
-          the CMS accepts an arbitrary upload and nothing measures one, so an
-          intrinsic size would be a guess. The frame reserves the space up front,
-          which is what keeps this from introducing layout shift.
-        */}
-        {heroSrc && (
-          <div className="relative mb-12 aspect-[16/9] w-full overflow-hidden border border-border bg-surface-muted">
-            <Image
-              src={heroSrc}
-              alt=""
-              fill
-              sizes="(max-width: 768px) 100vw, 896px"
-              className="object-cover"
-              priority={content.type === 'post'}
-            />
-          </div>
-        )}
+        {/* The hero is a fixed aspect frame so an arbitrary CMS upload cannot
+            introduce layout shift. */}
+        {heroSrc && <ContentHero src={heroSrc} priority={content.type === 'post'} />}
 
         {/* The body surface is shared with the composer workspace, so the page
-            and the editor cannot disagree about classes or the root marker. */}
-        {/* ContentSurface sanitizes; the body is passed through as stored. */}
+            and the editor cannot disagree about classes or the root marker.
+            ContentSurface sanitizes; the body is passed through as stored. */}
         <ContentSurface html={content.body || ''} />
-        {content.type === 'post' && (
-          <div className="mt-20 pt-10 border-t border-border flex justify-between items-center">
-            <Link
-              href="/"
-              className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.12em] text-foreground transition-colors hover:text-primary-ink"
-            >
-              <span>&larr;</span>{' '}
-              <DataPoint as="span" name="content.back_home" initialData={dataPoints}>
-                Back to Home
-              </DataPoint>
-            </Link>
-          </div>
-        )}
+        {content.type === 'post' && <ContentBackLink dataPoints={dataPoints} />}
       </div>
     </div>
   );
