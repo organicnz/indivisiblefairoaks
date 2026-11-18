@@ -1,4 +1,9 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import {
+  canonicalizeDiscoveryUrl,
+  dedupeDiscoveryCandidates,
+  discoveryStoryKey,
+} from '@/lib/ice-crawl-discovery';
 import { env } from '@/lib/env';
 import {
   normalizeIceSourceReportQuery,
@@ -115,6 +120,7 @@ type IceCrawlDatabase = {
           publisher?: string | null;
           published_at?: string | null;
           discovery_query: string;
+          story_key?: string | null;
           status?: IceCrawlDiscoveryStatus;
           source_id?: string | null;
           reviewed_at?: string | null;
@@ -165,7 +171,21 @@ type IceCrawlDatabase = {
       };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      insert_ice_crawl_discoveries: {
+        Args: {
+          p_rows: Array<{
+            url: string;
+            title: string;
+            publisher: string | null;
+            published_at: string | null;
+            discovery_query: string;
+            story_key: string;
+          }>;
+        };
+        Returns: number;
+      };
+    };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
   };
@@ -228,15 +248,47 @@ export async function insertIceCrawlDiscoveries(
   }>
 ) {
   if (rows.length === 0) return 0;
+
+  // Canonicalize and dedupe inside the store as well as in the discovery
+  // providers. This protects the queue if a caller passes a batch assembled by
+  // an older route, a retry, or two overlapping scans.
+  const candidates = rows.flatMap((row) => {
+    const url = canonicalizeDiscoveryUrl(row.url);
+    const title = row.title.trim().slice(0, 300);
+    if (!url || !title) return [];
+
+    const parsedPublishedAt = row.published_at ? Date.parse(row.published_at) : NaN;
+    const publishedAt = Number.isNaN(parsedPublishedAt)
+      ? null
+      : new Date(parsedPublishedAt).toISOString();
+    const publisher = row.publisher?.trim().slice(0, 120) || null;
+    return [
+      {
+        url,
+        title,
+        publisher,
+        published_at: publishedAt,
+        discovery_query: row.discovery_query.trim().slice(0, 120) || 'discovery',
+        story_key: discoveryStoryKey(title, publisher, publishedAt),
+      },
+    ];
+  });
+  const unique = dedupeDiscoveryCandidates(candidates).map((candidate) => ({
+    ...candidate,
+    story_key: discoveryStoryKey(candidate.title, candidate.publisher, candidate.published_at),
+  }));
+  if (unique.length === 0) return 0;
+
   let inserted = 0;
-  for (let offset = 0; offset < rows.length; offset += 50) {
-    const chunk = rows.slice(offset, offset + 50);
-    const { data, error } = await store
-      .from('ice_crawl_discoveries')
-      .upsert(chunk, { onConflict: 'url', ignoreDuplicates: true })
-      .select('id');
+  for (let offset = 0; offset < unique.length; offset += 50) {
+    const chunk = unique.slice(offset, offset + 50);
+    // The SQL function uses `on conflict do nothing` without a target, so a
+    // URL duplicate OR a story-key duplicate is ignored atomically.
+    const { data, error } = await store.rpc('insert_ice_crawl_discoveries', {
+      p_rows: chunk,
+    });
     if (error) throw new Error(`crawl discovery insert failed: ${error.message}`);
-    inserted += data?.length ?? 0;
+    inserted += Number(data ?? 0);
   }
   return inserted;
 }
@@ -272,6 +324,16 @@ export async function getIceCrawlSource(store: IceCrawlStore, id: string) {
   return data;
 }
 
+export async function getIceCrawlSourceByUrl(store: IceCrawlStore, url: string) {
+  const { data, error } = await store
+    .from('ice_crawl_sources')
+    .select('*')
+    .eq('url', url)
+    .maybeSingle();
+  if (error) throw new Error(`crawl source lookup failed: ${error.message}`);
+  return data;
+}
+
 export async function insertIceCrawlSource(
   store: IceCrawlStore,
   row: {
@@ -281,12 +343,23 @@ export async function insertIceCrawlSource(
     rights_confirmed_at: string;
   }
 ) {
+  const url = canonicalizeDiscoveryUrl(row.url);
+  if (!url) {
+    throw new Error('crawl source URL is not a canonical public https URL.');
+  }
+
   const { data, error } = await store
     .from('ice_crawl_sources')
-    .insert(row)
+    .insert({ ...row, url })
     .select('*')
     .single();
-  if (error) throw new Error(`crawl source insert failed: ${error.message}`);
+  if (error) {
+    const wrapped = new Error(`crawl source insert failed: ${error.message}`) as Error & {
+      code?: string;
+    };
+    wrapped.code = error.code;
+    throw wrapped;
+  }
   return data;
 }
 
@@ -346,9 +419,14 @@ export async function insertIceSourceReports(
   store: IceCrawlStore,
   rows: IceSourceReportInput[]
 ) {
+  const unique = new Map<string, IceSourceReportInput>();
+  for (const row of rows) {
+    if (row.dedupe_key && !unique.has(row.dedupe_key)) unique.set(row.dedupe_key, row);
+  }
+  const uniqueRows = [...unique.values()];
   let inserted = 0;
-  for (let offset = 0; offset < rows.length; offset += 50) {
-    const chunk = rows.slice(offset, offset + 50);
+  for (let offset = 0; offset < uniqueRows.length; offset += 50) {
+    const chunk = uniqueRows.slice(offset, offset + 50);
     if (chunk.length === 0) continue;
     const { data, error } = await store
       .from('ice_source_reports')

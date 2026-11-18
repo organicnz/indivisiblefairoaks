@@ -84,10 +84,10 @@ export function IceCrawlDiscovery({
               </span>
             </div>
             <p className="mt-1 max-w-3xl text-xs leading-relaxed text-muted-foreground">
-              Searches the GDELT U.S. news index for new ICE enforcement, detention and checkpoint
-              coverage across the country. If the article API is rate-limited, it uses the latest
-              GDELT GKG snapshot. Discovery only stores a headline and link; a candidate is fetched
-              and run through AI extraction only after an admin confirms republication rights.
+              Searches GDELT, Bing News, major-outlet RSS and public Mastodon timelines for new
+              ICE enforcement, detention and checkpoint coverage across the country. Discovery
+              only stores a headline and link; a candidate is fetched and run through AI extraction
+              only after an admin confirms republication rights.
             </p>
           </div>
         </div>
@@ -218,8 +218,9 @@ export function IceCrawlDiscovery({
 
       <p className="flex items-start gap-2 px-5 py-4 text-[10px] leading-relaxed text-muted-foreground">
         <ShieldCheck className="mt-0.5 size-3.5 shrink-0 text-primary" aria-hidden="true" />
-        GDELT is an index, not a complete copy of the internet. Private, login-gated, social-only
-        and unindexed pages are not discoverable here; add those publishers as approved sources.
+        Coverage is broad but not a literal copy of the internet: public news indexes, major-outlet
+        feeds and public Mastodon posts. Private, login-gated and unindexed pages, plus Facebook,
+        Instagram, TikTok, X and Bluesky posts, require an official API or an approved source.
       </p>
     </section>
   );

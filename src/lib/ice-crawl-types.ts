@@ -44,6 +44,7 @@ export type IceCrawlDiscovery = {
   publisher: string | null;
   published_at: string | null;
   discovery_query: string;
+  story_key: string | null;
   status: IceCrawlDiscoveryStatus;
   source_id: string | null;
   discovered_at: string;

@@ -39,6 +39,7 @@ export async function POST(req: Request) {
       ok: true,
       query: discovery.query,
       provider: discovery.provider,
+      providers: discovery.providers,
       found: discovery.candidates.length,
       queued,
       errors: discovery.errors,

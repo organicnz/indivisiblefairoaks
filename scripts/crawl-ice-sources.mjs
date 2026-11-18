@@ -26,6 +26,7 @@ try {
       discovery = {
         query: found.query,
         provider: found.provider,
+        providers: found.providers,
         found: found.candidates.length,
         queued: await insertIceCrawlDiscoveries(store, found.candidates),
         errors: found.errors,

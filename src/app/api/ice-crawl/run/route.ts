@@ -33,6 +33,7 @@ export async function POST(req: Request) {
 
   let discovery: {
     provider: string;
+    providers: string[];
     found: number;
     queued: number;
     errors: string[];
@@ -43,6 +44,7 @@ export async function POST(req: Request) {
       const candidates = await discoverNationwideIceCandidates({ forceGkg: true });
       discovery = {
         provider: candidates.provider,
+        providers: candidates.providers,
         found: candidates.candidates.length,
         queued: await insertIceCrawlDiscoveries(store, candidates.candidates),
         errors: candidates.errors,
@@ -52,6 +54,7 @@ export async function POST(req: Request) {
     // A discovery outage must not stop the approved-source crawl.
     discovery = {
       provider: 'none',
+      providers: [],
       found: 0,
       queued: 0,
       errors: ['Nationwide discovery failed.'],
