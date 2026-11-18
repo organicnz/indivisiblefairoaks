@@ -1,25 +1,16 @@
 'use client';
 
 import {
-  Activity,
-  AlertCircle,
   ArrowLeft,
   Check,
   Copy,
-  Download,
   ExternalLink,
   Loader2,
   Mail,
-  MapPin,
   MessageSquare,
   PenLine,
-  Phone,
-  Plus,
-  RotateCcw,
-  Search,
   Tag,
   Trash2,
-  X,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -28,6 +19,12 @@ import { CivicEventManager } from '@/components/admin/civic/CivicEventManager';
 import { CivicLinkManager } from '@/components/admin/civic/CivicLinkManager';
 import { CivicNewsletterManager } from '@/components/admin/civic/CivicNewsletterManager';
 import { CRMContactEditorModal } from '@/components/admin/crm/CRMContactEditorModal';
+import { CRMPanelContactFilters } from '@/components/visual-edit/CRMPanelContactFilters';
+import { CRMPanelContactOverview } from '@/components/visual-edit/CRMPanelContactOverview';
+import { CRMPanelContactTasks } from '@/components/visual-edit/CRMPanelContactTasks';
+import { CRMPanelContactTimeline } from '@/components/visual-edit/CRMPanelContactTimeline';
+import { CRMPanelHeader } from '@/components/visual-edit/CRMPanelHeader';
+import { CONSENT_COLORS, STATUS_COLORS } from '@/components/visual-edit/crm-panel-styles';
 import { CRMTaskForm } from '@/components/admin/crm/CRMTaskForm';
 import {
   Dialog,
@@ -41,8 +38,6 @@ import {
   bulkDeleteCRMContacts,
   bulkUpdateCRMContacts,
   deleteCRMContact,
-  deleteCRMNote,
-  deleteCRMTask,
   exportCRMContacts,
   getCRMContactDetail,
   getCRMContacts,
@@ -51,7 +46,6 @@ import {
   getCRMTasksForContact,
   saveCRMContact,
   setCRMEmailConsent,
-  setCRMTaskStatus,
   updateCRMNote,
 } from '@/lib/actions/crm';
 import { consentLabel, filtersFromSegment, splitActiveValues } from '@/lib/crm-filters';
@@ -87,35 +81,6 @@ function segmentSummary(segment: CRMSegment): string {
   return parts.length > 0 ? parts.join(' · ') : 'all constituents';
 }
 
-const CONSENT_COLORS: Record<string, string> = {
-  opted_in: 'bg-emerald-500/10 text-emerald-400',
-  opted_out: 'bg-rose-500/10 text-rose-400',
-  unasked: 'bg-amber-500/10 text-amber-400',
-};
-
-const STATUS_COLORS: Record<string, string> = {
-  active_volunteer: 'bg-emerald-500/10 text-emerald-400',
-  supporter: 'bg-slate-500/10 text-slate-400',
-  donor: 'bg-amber-500/10 text-amber-400',
-  choir: 'bg-purple-500/10 text-purple-400',
-  organizer: 'bg-blue-500/10 text-blue-400',
-  inactive: 'bg-rose-500/10 text-rose-400',
-};
-
-const STATUS_FILTER_LABELS: Record<string, string> = {
-  active_volunteer: 'Active volunteer',
-  supporter: 'Supporter',
-  donor: 'Donor',
-  choir: 'Choir',
-  organizer: 'Organizer',
-  inactive: 'Inactive',
-};
-
-const CONSENT_FILTER_LABELS: Record<string, string> = {
-  opted_in: 'Opted in',
-  opted_out: 'Opted out',
-  unasked: 'Never asked',
-};
 
 export const CRMPanel: React.FC<CRMPanelProps> = ({
   isOpen,
@@ -834,106 +799,20 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="max-w-4xl max-h-[85vh] bg-surface-card text-foreground p-0 overscroll-contain">
           <DialogHeader className="p-4 border-b border-border bg-surface-muted/30">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="inline-flex items-center gap-1 p-1 bg-surface-muted rounded-xl border border-border">
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('constituents')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors focus-visible:ring-2 focus-visible:ring-primary ${
-                      activeTab === 'constituents'
-                        ? 'bg-primary text-white shadow-xs font-black'
-                        : 'text-muted-foreground hover:text-foreground'
-                    }`}
-                  >
-                    Constituents
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('events')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors focus-visible:ring-2 focus-visible:ring-primary ${
-                      activeTab === 'events'
-                        ? 'bg-primary text-white shadow-xs font-black'
-                        : 'text-muted-foreground hover:text-foreground'
-                    }`}
-                  >
-                    Events
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('news')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors focus-visible:ring-2 focus-visible:ring-primary ${
-                      activeTab === 'news'
-                        ? 'bg-primary text-white shadow-xs font-black'
-                        : 'text-muted-foreground hover:text-foreground'
-                    }`}
-                  >
-                    Newsletters
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('links')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors focus-visible:ring-2 focus-visible:ring-primary ${
-                      activeTab === 'links'
-                        ? 'bg-primary text-white shadow-xs font-black'
-                        : 'text-muted-foreground hover:text-foreground'
-                    }`}
-                  >
-                    Links
-                  </button>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                {activeTab === 'constituents' && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => setShowSegments(!showSegments)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
-                        showSegments
-                          ? 'bg-primary text-white shadow-xs'
-                          : 'bg-muted text-muted-foreground hover:bg-muted/50'
-                      }`}
-                    >
-                      Segments
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleExportCSV}
-                      disabled={isExporting || totalCount === 0}
-                      title="Export filtered constituents to CSV"
-                      aria-label="Export CSV"
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-background text-xs font-bold text-foreground hover:bg-muted transition-colors disabled:opacity-50 shadow-2xs"
-                    >
-                      {isExporting ? (
-                        <Loader2 size={12} className="animate-spin" />
-                      ) : (
-                        <Download size={12} />
-                      )}
-                      <span>Export</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedContact(null);
-                        setIsEditorOpen(true);
-                      }}
-                      className="px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary-light transition-colors shadow-xs"
-                    >
-                      <Plus size={12} className="mr-1" /> Add
-                    </button>
-                  </>
-                )}
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-                  aria-label="Close CRM panel"
-                >
-                  <X size={20} />
-                </button>
-              </div>
-            </div>
+            <CRMPanelHeader
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
+              showSegments={showSegments}
+              onToggleSegments={() => setShowSegments(!showSegments)}
+              onExportCsv={() => void handleExportCSV()}
+              isExporting={isExporting}
+              totalCount={totalCount}
+              onAddContact={() => {
+                setSelectedContact(null);
+                setIsEditorOpen(true);
+              }}
+              onClose={onClose}
+            />
           </DialogHeader>
 
           {activeTab === 'events' ? (
@@ -957,294 +836,39 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({
                 }`}
               >
                 {/* Search & Filters */}
-                <div className="p-3 border-b border-border space-y-2">
-                  <div className="relative">
-                    <Search
-                      className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
-                      size={16}
-                    />
-                    <input
-                      ref={searchInputRef}
-                      type="text"
-                      placeholder="Search constituents… (/)"
-                      value={searchQuery}
-                      onChange={(e) => {
-                        setSearchQuery(e.target.value);
-                        setPage(1);
-                      }}
-                      disabled={appliedSegment !== null}
-                      title={
-                        appliedSegment ? 'Clear the applied segment to search manually' : undefined
-                      }
-                      className="w-full pl-10 pr-8 py-2 rounded-lg border border-border bg-background text-sm focus:ring-2 focus:ring-primary focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
-                    />
-                    {searchQuery && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSearchQuery('');
-                          setPage(1);
-                          searchInputRef.current?.focus();
-                        }}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground rounded"
-                        aria-label="Clear search"
-                      >
-                        <X size={14} />
-                      </button>
-                    )}
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <select
-                      value={consentFilter}
-                      onChange={(e) => {
-                        setConsentFilter(
-                          e.target.value as 'all' | 'opted_in' | 'opted_out' | 'unasked'
-                        );
-                        setPage(1);
-                      }}
-                      aria-label="Filter by email consent"
-                      disabled={appliedSegment !== null}
-                      title={
-                        appliedSegment ? 'Clear the applied segment to filter manually' : undefined
-                      }
-                      className="w-full px-2.5 py-1.5 rounded-lg border border-border bg-background text-xs focus:ring-2 focus:ring-primary truncate disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <option value="all">All consent</option>
-                      <option value="opted_in">Opted in</option>
-                      <option value="opted_out">Opted out</option>
-                      <option value="unasked">Never asked</option>
-                    </select>
-                    <select
-                      value={statusFilter}
-                      onChange={(e) => {
-                        setStatusFilter(e.target.value as CRMContact['status'] | 'all');
-                        setPage(1);
-                      }}
-                      aria-label="Filter by constituent status"
-                      disabled={appliedSegment !== null}
-                      title={
-                        appliedSegment ? 'Clear the applied segment to filter manually' : undefined
-                      }
-                      className="w-full px-2.5 py-1.5 rounded-lg border border-border bg-background text-xs focus:ring-2 focus:ring-primary truncate disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <option value="all">All statuses</option>
-                      <option value="active_volunteer">Active volunteer</option>
-                      <option value="supporter">Supporter</option>
-                      <option value="donor">Donor</option>
-                      <option value="choir">Choir</option>
-                      <option value="organizer">Organizer</option>
-                      <option value="inactive">Inactive</option>
-                    </select>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <select
-                      value={selectedTag}
-                      onChange={(e) => {
-                        setSelectedTag(e.target.value);
-                        setPage(1);
-                      }}
-                      aria-label="Filter by tag"
-                      disabled={appliedSegment !== null}
-                      title={
-                        appliedSegment ? 'Clear the applied segment to filter manually' : undefined
-                      }
-                      className="w-full px-2.5 py-1.5 rounded-lg border border-border bg-background text-xs focus:ring-2 focus:ring-primary truncate disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <option value="">
-                        All tags{availableTags.length > 0 ? ` (${availableTags.length})` : ''}
-                      </option>
-                      {availableTags.map((tag) => (
-                        <option key={tag} value={tag}>
-                          #{tag}
-                        </option>
-                      ))}
-                    </select>
-                    {selectedTag && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedTag('');
-                          setPage(1);
-                        }}
-                        className="px-2 py-1.5 rounded-lg border border-border bg-muted/50 hover:bg-muted text-xs text-muted-foreground hover:text-foreground shrink-0 flex items-center gap-1 transition-colors"
-                        aria-label="Clear tag filter"
-                        title="Clear tag filter"
-                      >
-                        <X size={12} />
-                        <span>Clear</span>
-                      </button>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <div className="relative w-full">
-                      <MapPin
-                        size={12}
-                        className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
-                      />
-                      <input
-                        type="text"
-                        value={districtFilter}
-                        onChange={(e) => {
-                          setDistrictFilter(e.target.value);
-                          setPage(1);
-                        }}
-                        placeholder="Filter by district (e.g. CA-06)…"
-                        aria-label="Filter by district"
-                        disabled={appliedSegment !== null}
-                        title={
-                          appliedSegment
-                            ? 'Clear the applied segment to filter manually'
-                            : undefined
-                        }
-                        className="w-full pl-7 pr-2.5 py-1.5 rounded-lg border border-border bg-background text-xs focus:ring-2 focus:ring-primary focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
-                      />
-                    </div>
-                    {districtFilter && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setDistrictFilter('');
-                          setPage(1);
-                        }}
-                        className="px-2 py-1.5 rounded-lg border border-border bg-muted/50 hover:bg-muted text-xs text-muted-foreground hover:text-foreground shrink-0 flex items-center gap-1 transition-colors"
-                        aria-label="Clear district filter"
-                        title="Clear district filter"
-                      >
-                        <X size={12} />
-                        <span>Clear</span>
-                      </button>
-                    )}
-                  </div>
-                  {hasActiveFilters && (
-                    <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-                      {appliedSegment && (
-                        <div className="flex items-center justify-between gap-1 px-2 py-0.5 rounded-md bg-primary text-white text-xs max-w-full">
-                          <span className="font-semibold truncate">
-                            Segment: {appliedSegment.name}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={handleClearSegment}
-                            className="hover:text-white/70 p-0.5 rounded shrink-0"
-                            aria-label="Clear applied segment"
-                            title="Clear the applied segment and return to manual filters"
-                          >
-                            <X size={11} />
-                          </button>
-                        </div>
-                      )}
-                      {searchQuery.trim() && (
-                        <div className="flex items-center justify-between gap-1 px-2 py-0.5 rounded-md bg-primary/10 border border-primary/20 text-primary text-xs max-w-full">
-                          <span className="flex items-center gap-1 truncate">
-                            <Search size={11} className="shrink-0" />
-                            <span className="font-semibold truncate">
-                              Search: &ldquo;{searchQuery.trim()}&rdquo;
-                            </span>
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSearchQuery('');
-                              setPage(1);
-                            }}
-                            className="text-primary hover:text-primary-dark p-0.5 rounded shrink-0"
-                            aria-label="Remove search filter"
-                          >
-                            <X size={11} />
-                          </button>
-                        </div>
-                      )}
-                      {statusFilter !== 'all' && (
-                        <div className="flex items-center justify-between gap-1 px-2 py-0.5 rounded-md bg-primary/10 border border-primary/20 text-primary text-xs">
-                          <span className="font-semibold truncate">
-                            Status: {STATUS_FILTER_LABELS[statusFilter] ?? statusFilter}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setStatusFilter('all');
-                              setPage(1);
-                            }}
-                            className="text-primary hover:text-primary-dark p-0.5 rounded shrink-0"
-                            aria-label="Remove status filter"
-                          >
-                            <X size={11} />
-                          </button>
-                        </div>
-                      )}
-                      {consentFilter !== 'all' && (
-                        <div className="flex items-center justify-between gap-1 px-2 py-0.5 rounded-md bg-primary/10 border border-primary/20 text-primary text-xs">
-                          <span className="font-semibold truncate">
-                            Consent: {CONSENT_FILTER_LABELS[consentFilter] ?? consentFilter}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setConsentFilter('all');
-                              setPage(1);
-                            }}
-                            className="text-primary hover:text-primary-dark p-0.5 rounded shrink-0"
-                            aria-label="Remove consent filter"
-                          >
-                            <X size={11} />
-                          </button>
-                        </div>
-                      )}
-                      {selectedTag && (
-                        <div className="flex items-center justify-between gap-1.5 px-2 py-1 rounded-md bg-primary/10 border border-primary/20 text-primary text-xs">
-                          <span className="flex items-center gap-1.5 truncate">
-                            <Tag size={12} className="shrink-0" />
-                            <span className="font-semibold truncate">
-                              Filtered by #{selectedTag}
-                            </span>
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSelectedTag('');
-                              setPage(1);
-                            }}
-                            className="text-primary hover:text-primary-dark p-0.5 rounded"
-                            aria-label="Remove active tag filter"
-                          >
-                            <X size={11} />
-                          </button>
-                        </div>
-                      )}
-                      {districtFilter.trim() && (
-                        <div className="flex items-center justify-between gap-1.5 px-2 py-1 rounded-md bg-primary/10 border border-primary/20 text-primary text-xs">
-                          <span className="flex items-center gap-1.5 truncate">
-                            <MapPin size={12} className="shrink-0" />
-                            <span className="font-semibold truncate">
-                              District: {districtFilter}
-                            </span>
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setDistrictFilter('');
-                              setPage(1);
-                            }}
-                            className="text-primary hover:text-primary-dark p-0.5 rounded"
-                            aria-label="Remove active district filter"
-                          >
-                            <X size={11} />
-                          </button>
-                        </div>
-                      )}
-                      <button
-                        type="button"
-                        onClick={handleResetFilters}
-                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border border-border bg-background hover:bg-muted text-[11px] font-semibold text-muted-foreground hover:text-foreground transition-colors shrink-0"
-                        aria-label="Reset all filters"
-                        title="Reset all filters"
-                      >
-                        <RotateCcw size={10} />
-                        <span>Reset all</span>
-                      </button>
-                    </div>
-                  )}
-                </div>
+                <CRMPanelContactFilters
+                  searchInputRef={searchInputRef}
+                  searchQuery={searchQuery}
+                  onSearchChange={(value) => {
+                    setSearchQuery(value);
+                    setPage(1);
+                  }}
+                  consentFilter={consentFilter}
+                  onConsentChange={(value) => {
+                    setConsentFilter(value);
+                    setPage(1);
+                  }}
+                  statusFilter={statusFilter}
+                  onStatusChange={(value) => {
+                    setStatusFilter(value);
+                    setPage(1);
+                  }}
+                  selectedTag={selectedTag}
+                  onTagChange={(value) => {
+                    setSelectedTag(value);
+                    setPage(1);
+                  }}
+                  districtFilter={districtFilter}
+                  onDistrictChange={(value) => {
+                    setDistrictFilter(value);
+                    setPage(1);
+                  }}
+                  availableTags={availableTags}
+                  appliedSegment={appliedSegment}
+                  hasActiveFilters={hasActiveFilters}
+                  onClearSegment={handleClearSegment}
+                  onResetFilters={handleResetFilters}
+                />
 
                 {/* Select All & Multi-Select Toolbar */}
                 {contacts.length > 0 && (
@@ -1729,590 +1353,62 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({
                       </div>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto overscroll-contain p-4 space-y-4">
-                      {/* Contact Details */}
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        {selectedContact.phone && (
-                          <div className="flex items-center gap-2 text-sm">
-                            <Phone size={14} className="text-muted-foreground shrink-0" />
-                            <span>{selectedContact.phone}</span>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (selectedContact.phone) {
-                                  handleCopy(selectedContact.phone, 'phone');
-                                }
-                              }}
-                              title="Copy phone number"
-                              aria-label="Copy phone"
-                              className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                            >
-                              {copiedField === 'phone' ? (
-                                <Check size={13} className="text-emerald-500" />
-                              ) : (
-                                <Copy size={13} />
-                              )}
-                            </button>
-                            <a
-                              href={`tel:${selectedContact.phone}`}
-                              title="Call phone number"
-                              aria-label="Call phone"
-                              className="p-1 rounded text-muted-foreground hover:text-primary transition-colors"
-                            >
-                              <Phone size={13} />
-                            </a>
-                          </div>
-                        )}
-                        {selectedContact.address && (
-                          <div className="flex items-center gap-2 text-sm">
-                            <MapPin size={14} className="text-muted-foreground shrink-0" />
-                            <span className="truncate">
-                              {selectedContact.address}, {selectedContact.city}{' '}
-                              {selectedContact.zip_code}
-                            </span>
-                            <a
-                              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-                                `${selectedContact.address}, ${selectedContact.city || ''} ${selectedContact.zip_code || ''}`
-                              )}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              title="View on Google Maps"
-                              aria-label="View on Google Maps"
-                              className="p-1 rounded text-muted-foreground hover:text-primary transition-colors"
-                            >
-                              <ExternalLink size={13} />
-                            </a>
-                          </div>
-                        )}
-                        {selectedContact.district && (
-                          <div className="flex items-center gap-2 text-sm">
-                            <MapPin size={14} className="text-muted-foreground shrink-0" />
-                            <span>
-                              District:{' '}
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setDistrictFilter(selectedContact.district ?? '');
-                                  setSelectedContact(null);
-                                  setPage(1);
-                                }}
-                                className="font-semibold text-primary hover:text-primary-light hover:underline inline-flex items-center gap-1"
-                                title={`Filter directory by district ${selectedContact.district}`}
-                                aria-label={`Filter directory by district ${selectedContact.district}`}
-                              >
-                                <span>{selectedContact.district}</span>
-                              </button>
-                            </span>
-                          </div>
-                        )}
-                        <div className="flex items-center gap-2 text-sm">
-                          <Mail size={14} className="text-muted-foreground shrink-0" />
-                          <span>Source: {selectedContact.source}</span>
-                        </div>
-                        {selectedContact.total_donated_cents &&
-                          selectedContact.total_donated_cents > 0 && (
-                            <div className="flex items-center gap-2 text-sm">
-                              <Tag size={14} className="text-muted-foreground shrink-0" />
-                              <span>
-                                Donated: ${(selectedContact.total_donated_cents / 100).toFixed(2)}
-                              </span>
-                            </div>
-                          )}
-                        <div className="sm:col-span-2 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                              <Tag size={12} />
-                              <span>Tags ({selectedContact.tags.length})</span>
-                            </span>
-                            {!isAddingTag && (
-                              <button
-                                type="button"
-                                onClick={() => setIsAddingTag(true)}
-                                className="text-xs font-bold text-primary hover:text-primary-light transition-colors inline-flex items-center gap-1"
-                              >
-                                <Plus size={11} /> Add Tag
-                              </button>
-                            )}
-                          </div>
-                          <div className="flex flex-wrap gap-1.5 items-center">
-                            {selectedContact.tags.map((tag) => (
-                              <span
-                                key={tag}
-                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-surface-muted border border-border text-xs font-semibold text-foreground group"
-                              >
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setSelectedTag(tag);
-                                    setPage(1);
-                                    toast.info(`Filtered by tag #${tag}`);
-                                  }}
-                                  className="hover:text-primary hover:underline transition-colors flex items-center gap-1 cursor-pointer"
-                                  title={`Filter constituents by #${tag}`}
-                                  aria-label={`Filter constituents by tag ${tag}`}
-                                >
-                                  <span>#{tag}</span>
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveTag(tag)}
-                                  title={`Remove tag ${tag}`}
-                                  aria-label={`Remove tag ${tag}`}
-                                  className="text-muted-foreground hover:text-rose-400 transition-colors"
-                                >
-                                  <X size={11} />
-                                </button>
-                              </span>
-                            ))}
-                            {isAddingTag && (
-                              <form
-                                onSubmit={(e) => {
-                                  e.preventDefault();
-                                  handleAddTag(newTagInput);
-                                }}
-                                className="inline-flex items-center gap-1"
-                              >
-                                <input
-                                  type="text"
-                                  value={newTagInput}
-                                  onChange={(e) => setNewTagInput(e.target.value)}
-                                  placeholder="New tag…"
-                                  autoFocus
-                                  className="px-2 py-0.5 text-xs rounded-lg border border-primary bg-background text-foreground focus:outline-none w-28"
-                                />
-                                <button
-                                  type="submit"
-                                  aria-label="Add tag"
-                                  className="p-1 rounded bg-primary text-white text-xs font-bold hover:bg-primary-light"
-                                  title="Add tag"
-                                >
-                                  <Check size={12} />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setIsAddingTag(false);
-                                    setNewTagInput('');
-                                  }}
-                                  className="p-1 rounded text-muted-foreground hover:text-foreground"
-                                  title="Cancel"
-                                  aria-label="Cancel adding tag"
-                                >
-                                  <X size={12} />
-                                </button>
-                              </form>
-                            )}
-                          </div>
-                        </div>
-                      </div>
+                    <CRMPanelContactOverview
+                      selectedContact={selectedContact}
+                      copiedField={copiedField}
+                      handleCopy={handleCopy}
+                      setSelectedContact={setSelectedContact}
+                      setDistrictFilter={setDistrictFilter}
+                      setSelectedTag={setSelectedTag}
+                      setPage={setPage}
+                      consentOptions={consentOptions}
+                      handleSetConsent={(id, consent) => void handleSetConsent(id, consent)}
+                      loading={loading}
+                      isAddingTag={isAddingTag}
+                      setIsAddingTag={setIsAddingTag}
+                      newTagInput={newTagInput}
+                      setNewTagInput={setNewTagInput}
+                      handleAddTag={(tag) => void handleAddTag(tag)}
+                      handleRemoveTag={(tag) => void handleRemoveTag(tag)}
+                    >
+                      <CRMPanelContactTasks
+                        contactId={selectedContact?.id ?? null}
+                        tasks={tasks}
+                        tasksLoading={tasksLoading}
+                        taskFilter={taskFilter}
+                        setTaskFilter={setTaskFilter}
+                        filteredTasks={filteredTasks}
+                        setIsTaskFormOpen={setIsTaskFormOpen}
+                        loadTasks={loadTasks}
+                      />
 
-                      {/* Consent Control */}
-                      <div className="border-t border-border pt-4">
-                        <h4 className="font-bold text-sm mb-2">Email Consent</h4>
-                        <div className="flex flex-wrap gap-2">
-                          {consentOptions.map((opt) => {
-                            const currentConsent = consentLabel(selectedContact.do_not_email);
-                            const isActive = currentConsent === opt.value;
-                            return (
-                              <button
-                                type="button"
-                                key={opt.value}
-                                onClick={() => handleSetConsent(selectedContact.id, opt.value)}
-                                disabled={loading}
-                                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                                  isActive
-                                    ? `${CONSENT_COLORS[opt.value]} ring-2 ring-offset-2 ring-offset-background`
-                                    : 'bg-muted text-muted-foreground hover:bg-muted/50'
-                                }`}
-                              >
-                                {opt.label}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
+                      <CRMPanelContactTimeline
+                        selectedContact={selectedContact}
+                        activities={activities}
+                        activitiesLoading={activitiesLoading}
+                        activityFilter={activityFilter}
+                        setActivityFilter={setActivityFilter}
+                        filteredActivities={filteredActivities}
+                        notesCount={notesCount}
+                        systemCount={systemCount}
+                        editingNoteId={editingNoteId}
+                        setEditingNoteId={setEditingNoteId}
+                        editingNoteTitle={editingNoteTitle}
+                        setEditingNoteTitle={setEditingNoteTitle}
+                        editingNoteDesc={editingNoteDesc}
+                        setEditingNoteDesc={setEditingNoteDesc}
+                        handleUpdateNote={(id) => void handleUpdateNote(id)}
+                        newNoteTitle={newNoteTitle}
+                        setNewNoteTitle={setNewNoteTitle}
+                        newNoteDesc={newNoteDesc}
+                        setNewNoteDesc={setNewNoteDesc}
+                        isAddingNote={isAddingNote}
+                        handleAddNote={(e) => void handleAddNote(e)}
+                        newNoteInputRef={newNoteInputRef}
+                        loadActivities={loadActivities}
+                      />
 
-                      {/* Follow-ups */}
-                      <div className="border-t border-border pt-4">
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-2">
-                            <h4 className="font-bold text-sm">Follow-ups</h4>
-                            {tasks.length > 0 && (
-                              <div className="flex items-center gap-1">
-                                <button
-                                  type="button"
-                                  onClick={() => setTaskFilter('all')}
-                                  className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-colors ${
-                                    taskFilter === 'all'
-                                      ? 'bg-primary text-white shadow-2xs'
-                                      : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                                  }`}
-                                >
-                                  All ({tasks.length})
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setTaskFilter('open')}
-                                  className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-colors ${
-                                    taskFilter === 'open'
-                                      ? 'bg-primary text-white shadow-2xs'
-                                      : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                                  }`}
-                                >
-                                  Open ({tasks.filter((t) => t.status !== 'done').length})
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setTaskFilter('done')}
-                                  className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-colors ${
-                                    taskFilter === 'done'
-                                      ? 'bg-primary text-white shadow-2xs'
-                                      : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                                  }`}
-                                >
-                                  Done ({tasks.filter((t) => t.status === 'done').length})
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => setIsTaskFormOpen(true)}
-                            className="px-2 py-1 text-xs font-bold rounded bg-primary text-white hover:bg-primary-light transition-colors"
-                          >
-                            <Plus size={12} className="mr-1" /> Add
-                          </button>
-                        </div>
-                        <div className="space-y-2 max-h-48 overflow-y-auto overscroll-contain">
-                          {tasksLoading ? (
-                            <div className="text-center py-4">
-                              <Loader2 className="mx-auto h-5 w-5 animate-spin text-muted-foreground" />
-                            </div>
-                          ) : tasks.length === 0 ? (
-                            <p className="text-xs text-muted-foreground text-center py-4">
-                              No follow-ups yet
-                            </p>
-                          ) : filteredTasks.length === 0 ? (
-                            <p className="text-xs text-muted-foreground text-center py-4">
-                              No {taskFilter} follow-ups
-                            </p>
-                          ) : (
-                            filteredTasks.map((task) => {
-                              const isOverdue =
-                                task.due_at &&
-                                task.status !== 'done' &&
-                                new Date(task.due_at).getTime() < Date.now();
-                              return (
-                                <div
-                                  key={task.id}
-                                  className="p-2.5 rounded-xl border border-border bg-background transition-colors hover:border-primary/30"
-                                >
-                                  <div className="flex items-center justify-between gap-2">
-                                    <p className="text-sm font-medium truncate text-foreground">
-                                      {task.title}
-                                    </p>
-                                    <div className="flex items-center gap-1.5 shrink-0">
-                                      {isOverdue && (
-                                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-500/15 text-rose-500">
-                                          <AlertCircle size={10} />
-                                          <span>Overdue</span>
-                                        </span>
-                                      )}
-                                      <span
-                                        className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                                          task.status === 'done'
-                                            ? 'bg-emerald-500/10 text-emerald-400'
-                                            : task.status === 'in_progress'
-                                              ? 'bg-amber-500/10 text-amber-400'
-                                              : 'bg-slate-500/10 text-slate-400'
-                                        }`}
-                                      >
-                                        {task.status.replace('_', ' ')}
-                                      </span>
-                                    </div>
-                                  </div>
-                                  <div className="flex items-center justify-between mt-2 pt-1 border-t border-border/50 text-[10px]">
-                                    {task.due_at ? (
-                                      <span
-                                        className={
-                                          isOverdue
-                                            ? 'font-bold text-rose-500'
-                                            : 'text-muted-foreground'
-                                        }
-                                      >
-                                        Due: {new Date(task.due_at).toLocaleDateString()}
-                                      </span>
-                                    ) : (
-                                      <span className="text-muted-foreground">No due date</span>
-                                    )}
-                                    <div className="flex items-center gap-1">
-                                      <button
-                                        type="button"
-                                        onClick={async () => {
-                                          const contactId = selectedContact?.id;
-                                          if (!contactId) return;
-                                          await setCRMTaskStatus({
-                                            id: task.id,
-                                            status: task.status === 'done' ? 'open' : 'done',
-                                          });
-                                          loadTasks(contactId);
-                                        }}
-                                        className="font-bold px-2 py-0.5 rounded bg-surface-muted hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                                        aria-label={task.status === 'done' ? 'Reopen' : 'Complete'}
-                                      >
-                                        {task.status === 'done' ? 'Reopen' : 'Done'}
-                                      </button>
-                                      <ConfirmAction
-                                        label="Delete task"
-                                        message={`Delete "${task.title}"?`}
-                                        confirmLabel="Delete"
-                                        danger
-                                        idleClassName="font-bold px-2 py-0.5 rounded hover:text-rose-600 text-muted-foreground hover:bg-rose-500/10 transition-colors"
-                                        onConfirm={async () => {
-                                          const contactId = selectedContact?.id;
-                                          if (!contactId) return;
-                                          await deleteCRMTask(task.id);
-                                          loadTasks(contactId);
-                                          toast.success('Task deleted');
-                                        }}
-                                      >
-                                        Del
-                                      </ConfirmAction>
-                                    </div>
-                                  </div>
-                                </div>
-                              );
-                            })
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Timeline & Notes — from crm_activities with note edit/delete and event history */}
-                      <div className="border-t border-border pt-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            <h4 className="font-bold text-sm">Timeline & Notes</h4>
-                            {activities.length > 0 && (
-                              <div className="flex items-center gap-1">
-                                <button
-                                  type="button"
-                                  onClick={() => setActivityFilter('all')}
-                                  className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-colors ${
-                                    activityFilter === 'all'
-                                      ? 'bg-primary text-white shadow-2xs'
-                                      : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                                  }`}
-                                >
-                                  All ({activities.length})
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setActivityFilter('notes')}
-                                  className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-colors ${
-                                    activityFilter === 'notes'
-                                      ? 'bg-primary text-white shadow-2xs'
-                                      : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                                  }`}
-                                >
-                                  Notes ({notesCount})
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setActivityFilter('system')}
-                                  className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-colors ${
-                                    activityFilter === 'system'
-                                      ? 'bg-primary text-white shadow-2xs'
-                                      : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                                  }`}
-                                >
-                                  System ({systemCount})
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEditingNoteId(null);
-                              setEditingNoteTitle('');
-                              setEditingNoteDesc('');
-                              newNoteInputRef.current?.focus();
-                              newNoteInputRef.current?.scrollIntoView?.({
-                                behavior: 'smooth',
-                                block: 'nearest',
-                              });
-                            }}
-                            className="text-xs font-bold text-primary dark:text-primary-on-dark hover:underline"
-                            aria-label="Add new note"
-                          >
-                            <Plus size={10} className="inline mr-0.5" /> New Note
-                          </button>
-                        </div>
-                        {activitiesLoading ? (
-                          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                        ) : activities.length === 0 ? (
-                          <p className="text-xs text-muted-foreground">No activity recorded yet.</p>
-                        ) : filteredActivities.length === 0 ? (
-                          <p className="text-xs text-muted-foreground">
-                            {activityFilter === 'notes'
-                              ? 'No notes recorded yet.'
-                              : activityFilter === 'system'
-                                ? 'No system events recorded yet.'
-                                : 'No activity recorded yet.'}
-                          </p>
-                        ) : (
-                          <div className="space-y-3 max-h-56 overflow-y-auto overscroll-contain">
-                            {filteredActivities.map((act) => {
-                              const isNote = act.type === 'note';
-                              return (
-                                <div
-                                  key={act.id}
-                                  className="p-3 rounded-xl bg-surface-muted border border-border transition-colors hover:border-primary/20"
-                                >
-                                  {editingNoteId === act.id ? (
-                                    <div className="space-y-2">
-                                      <input
-                                        type="text"
-                                        value={editingNoteTitle}
-                                        onChange={(e) => setEditingNoteTitle(e.target.value)}
-                                        className="w-full px-2.5 py-1.5 rounded-lg border border-border bg-background text-xs font-bold focus:ring-2 focus:ring-primary focus:outline-none"
-                                        placeholder="Note title"
-                                      />
-                                      <textarea
-                                        value={editingNoteDesc}
-                                        onChange={(e) => setEditingNoteDesc(e.target.value)}
-                                        rows={2}
-                                        className="w-full px-2.5 py-1.5 rounded-lg border border-border bg-background text-xs text-foreground focus:ring-2 focus:ring-primary focus:outline-none resize-none"
-                                        placeholder="Note details"
-                                      />
-                                      <div className="flex gap-2 justify-end">
-                                        <button
-                                          type="button"
-                                          className="text-xs text-muted-foreground hover:text-foreground px-2 py-1"
-                                          onClick={() => setEditingNoteId(null)}
-                                        >
-                                          Cancel
-                                        </button>
-                                        <button
-                                          type="button"
-                                          disabled={!editingNoteTitle.trim()}
-                                          onClick={() => handleUpdateNote(act.id)}
-                                          className="text-xs font-bold bg-primary text-white px-3 py-1 rounded-lg hover:bg-primary-light disabled:opacity-50 transition-colors shadow-xs"
-                                        >
-                                          Save Note
-                                        </button>
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <div>
-                                      <div className="flex items-center justify-between gap-2">
-                                        <div className="flex items-center gap-1.5 min-w-0">
-                                          {!isNote && (
-                                            <span className="shrink-0 p-1 rounded bg-background border border-border text-muted-foreground">
-                                              {act.type.includes('email') ||
-                                              act.type.includes('broadcast') ? (
-                                                <Mail size={11} className="text-blue-400" />
-                                              ) : (
-                                                <Activity size={11} className="text-emerald-400" />
-                                              )}
-                                            </span>
-                                          )}
-                                          <span className="text-xs font-bold text-foreground truncate">
-                                            {act.title ||
-                                              (isNote ? '(no title)' : act.type.replace(/_/g, ' '))}
-                                          </span>
-                                          {!isNote && (
-                                            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-muted text-muted-foreground shrink-0">
-                                              {act.type.replace(/_/g, ' ')}
-                                            </span>
-                                          )}
-                                        </div>
-                                        {isNote && (
-                                          <div className="flex gap-1 shrink-0">
-                                            <button
-                                              type="button"
-                                              className="p-1 text-[11px] text-muted-foreground hover:text-primary rounded transition-colors"
-                                              title="Edit note"
-                                              aria-label="Edit note"
-                                              onClick={() => {
-                                                setEditingNoteId(act.id);
-                                                setEditingNoteTitle(act.title || '');
-                                                setEditingNoteDesc(act.description || '');
-                                              }}
-                                            >
-                                              <PenLine size={12} />
-                                            </button>
-                                            <ConfirmAction
-                                              label="Delete Note"
-                                              message={`Delete note "${act.title}"?`}
-                                              confirmLabel="Delete"
-                                              danger
-                                              idleClassName="p-1 text-[11px] text-muted-foreground hover:text-rose-600 rounded transition-colors"
-                                              onConfirm={async () => {
-                                                const contactId = selectedContact?.id;
-                                                if (!contactId) return;
-                                                await deleteCRMNote(act.id);
-                                                loadActivities(contactId);
-                                                toast.success('Note deleted');
-                                              }}
-                                            >
-                                              <Trash2 size={12} />
-                                            </ConfirmAction>
-                                          </div>
-                                        )}
-                                      </div>
-                                      {act.description && (
-                                        <p className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap leading-relaxed">
-                                          {act.description}
-                                        </p>
-                                      )}
-                                      {act.created_at && (
-                                        <p className="text-[10px] text-muted-foreground/70 mt-1.5">
-                                          {new Date(act.created_at).toLocaleDateString()}
-                                        </p>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-
-                        {/* Add form */}
-                        <form
-                          onSubmit={handleAddNote}
-                          className="mt-3 p-3 rounded-xl bg-surface-muted border border-border space-y-2"
-                        >
-                          <input
-                            ref={newNoteInputRef}
-                            type="text"
-                            value={newNoteTitle}
-                            onChange={(e) => setNewNoteTitle(e.target.value)}
-                            placeholder="Note title (e.g. Call summary)…"
-                            className="w-full px-2.5 py-1.5 text-xs font-semibold rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:outline-none"
-                            required
-                          />
-                          <textarea
-                            value={newNoteDesc}
-                            onChange={(e) => setNewNoteDesc(e.target.value)}
-                            placeholder="Details or action items (optional)…"
-                            rows={2}
-                            className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-border bg-background resize-none focus:ring-2 focus:ring-primary focus:outline-none"
-                          />
-                          <div className="flex justify-end">
-                            <button
-                              type="submit"
-                              disabled={isAddingNote || !newNoteTitle.trim()}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary-light disabled:opacity-50 transition-colors shadow-xs"
-                            >
-                              {isAddingNote && <Loader2 size={12} className="animate-spin" />}
-                              <span>Add Note</span>
-                            </button>
-                          </div>
-                        </form>
-                      </div>
-                    </div>
+                    </CRMPanelContactOverview>
                   </>
                 ) : (
                   <div className="flex-1 flex items-center justify-center text-muted-foreground">

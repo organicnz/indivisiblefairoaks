@@ -1,40 +1,21 @@
 'use client';
 
-import {
-  ArrowLeft,
-  Code,
-  Eye,
-  Loader2,
-  Mail,
-  Megaphone,
-  PenTool,
-  Radio,
-  RefreshCw,
-  Save,
-  Send,
-  SendHorizonal,
-  Sparkles,
-  Trash2,
-  Users,
-} from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { toast } from 'sonner';
 import { ConfirmAction } from '@/components/admin/ConfirmAction';
+import { BroadcastAudiencePanel } from '@/components/admin/crm/BroadcastAudiencePanel';
+import { BroadcastDispatchBar } from '@/components/admin/crm/BroadcastDispatchBar';
+import { BroadcastMessageEditor } from '@/components/admin/crm/BroadcastMessageEditor';
+import { BroadcastComposerHeader } from '@/components/admin/crm/BroadcastComposerHeader';
 import { BroadcastConfirmationDialog } from '@/components/admin/crm/BroadcastConfirmationDialog';
 import { BroadcastDraftsList } from '@/components/admin/crm/BroadcastDraftsList';
 import { BroadcastHistoryTable } from '@/components/admin/crm/BroadcastHistoryTable';
 import { CampaignTemplateDialog } from '@/components/admin/crm/CampaignTemplateDialog';
-import {
-  AVAILABLE_DISTRICTS,
-  AVAILABLE_STATUSES,
-  FALLBACK_TAGS,
-} from '@/components/admin/crm/broadcast-options';
-import { DevicePreviewFrame } from '@/components/admin/crm/composer/DevicePreviewFrame';
+import { FALLBACK_TAGS } from '@/components/admin/crm/broadcast-options';
 import { parseBodyToBlocks, serializeBlocksToBody } from '@/components/admin/crm/composer/parser';
 import { CAMPAIGN_TEMPLATES } from '@/components/admin/crm/composer/templates';
-import { VisualComposerCanvas } from '@/components/admin/crm/composer/VisualComposerCanvas';
 import {
   deleteCRMBroadcastDraft,
   getBroadcastProgress,
@@ -798,643 +779,74 @@ export function CRMBroadcastComposer({
 
   return (
     <div className="space-y-12">
-      {/* Header & Breadcrumb */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-6">
-        <div>
-          <Link
-            href="/admin/crm"
-            className="inline-flex items-center gap-2 text-xs font-black text-muted-foreground hover:text-primary dark:hover:text-primary-on-dark uppercase tracking-widest transition-colors mb-2"
-          >
-            <ArrowLeft size={14} /> Back to Constituent Directory
-          </Link>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-white shadow-xs">
-              <Megaphone size={20} />
-            </div>
-            <div>
-              <h1 className="font-display text-2xl font-semibold tracking-[-0.03em] text-foreground sm:text-3xl">
-                Campaign broadcasts
-              </h1>
-              <p className="text-xs font-bold text-muted-foreground">
-                Segment and dispatch branded chapter email broadcasts via Resend.
-              </p>
-              {backendStatus && (
-                <div className="flex flex-wrap items-center gap-2 mt-2 pt-2 border-t border-border">
-                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    Database: Connected
-                  </span>
-                  <span
-                    className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                      backendStatus.storage
-                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                        : 'bg-amber-50 text-amber-700 border border-amber-200'
-                    }`}
-                  >
-                    <span
-                      className={`w-1.5 h-1.5 rounded-full ${backendStatus.storage ? 'bg-emerald-500' : 'bg-amber-500'}`}
-                    />
-                    Supabase S3 Media: {backendStatus.storage ? 'Online' : 'Degraded'}
-                  </span>
-                  <span
-                    className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                      backendStatus.edgeFunction
-                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                        : 'bg-blue-50 text-blue-700 border border-blue-200'
-                    }`}
-                  >
-                    <span
-                      className={`w-1.5 h-1.5 rounded-full ${backendStatus.edgeFunction ? 'bg-emerald-500' : 'bg-blue-500'}`}
-                    />
-                    Edge Function: {backendStatus.edgeFunction ? 'Ready' : 'Direct Mode'}
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Live Audience Badge */}
-        <div className="bg-slate-900 text-white px-5 py-3 rounded-2xl flex items-center gap-3 border border-slate-800 shadow-sm self-start sm:self-auto">
-          <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary-light">
-            <Users size={16} />
-          </div>
-          <div>
-            <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-              Matched Audience
-            </div>
-            <div className="text-lg font-black text-white">
-              {calculatingCount ? (
-                <span className="text-muted-foreground text-sm">Calculating...</span>
-              ) : countFailed ? (
-                <span className="text-accent-red text-sm font-bold">Count unavailable</span>
-              ) : (
-                <span>{recipientCount ?? 0} constituents</span>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
+      <BroadcastComposerHeader
+        backendStatus={backendStatus}
+        calculatingCount={calculatingCount}
+        countFailed={countFailed}
+        recipientCount={recipientCount}
+      />
 
       {/* Main Grid: Targeting & Composer */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* Left Column: Audience Targeting (5 cols) */}
-        <div className="lg:col-span-5 space-y-6">
-          <div className="bg-surface-card p-6 rounded-2xl border border-border shadow-xs space-y-6">
-            <div className="flex items-center gap-2">
-              <Radio size={16} className="text-primary dark:text-primary-on-dark" />
-              <h2 className="font-display text-xs font-semibold tracking-[-0.01em] text-foreground">
-                1. Audience segmentation
-              </h2>
-            </div>
-
-            {/*
-              Saved-segment prefill.
-
-              A segment with a search term cannot be pre-filled here, and this is
-              the second half of that: the old `onChange` set the status, district
-              and tag chips, ignored `seg.query`, and then announced success
-              *specifically when a query existed* — so the toast fired exactly
-              when the applied audience was wrong. A segment saved from a directory
-              search became a whole-segment blast in the composer, announced as
-              applied.
-
-              Now the audience that cannot be represented is named, and the live
-              count beside it is the real check: applying a query-only segment
-              leaves every chip empty, and an empty chip set against a saved
-              search segment is visibly not the same audience.
-            */}
-            {segments.length > 0 && (
-              <div className="space-y-2">
-                {segmentsTruncated && (
-                  <p
-                    role="status"
-                    className="text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5"
-                  >
-                    Showing the 500 most recent saved segments — older ones exist but are not listed
-                    here.
-                  </p>
-                )}
-                <label
-                  htmlFor="segment-prefill"
-                  className="block text-[11px] font-black uppercase tracking-wider text-muted-foreground"
-                >
-                  Apply Saved Segment
-                </label>
-                <select
-                  id="segment-prefill"
-                  value=""
-                  onChange={(e) => {
-                    const seg = segments.find((s) => s.id === e.target.value);
-                    if (!seg) return;
-                    setSelectedStatuses(seg.statuses);
-                    setSelectedDistricts(seg.districts);
-                    setSelectedTags(seg.tags);
-                    /*
-                     * Consent is a directory filter, not a broadcast chip — the
-                     * composer has no control for it, because broadcasts only
-                     * reach people who agreed. Applying a segment saved from an
-                     * "Opted Out" view without saying so produces chips that
-                     * resolve to the *opted-in* people: the exact opposite of
-                     * the segment, announced with a success toast. `seg.query`
-                     * got this warning and a label; `seg.consent` got neither.
-                     */
-                    const inapplicable: string[] = [];
-                    if (seg.query) inapplicable.push(`text search "${seg.query}"`);
-                    if (seg.consent && seg.consent !== 'opted_in') {
-                      inapplicable.push(
-                        seg.consent === 'opted_out'
-                          ? 'the "Opted Out of Email" filter (broadcasts only reach people who agreed)'
-                          : `the "${seg.consent}" consent filter (broadcasts only reach people who agreed)`
-                      );
-                      // Persistent rather than toast-only, and Send is withheld
-                      // until a chip changes: the chips left behind resolve to
-                      // the opted-in subset — the opposite of this segment — and
-                      // a transient toast is not where that misunderstanding
-                      // should live.
-                      setSegmentConsentMismatch(
-                        `"${seg.name}" partially applied — it also filters on ${inapplicable.join(' and ')}, which broadcasts cannot target. The audience above is the opted-in subset, not that segment.`
-                      );
-                    } else {
-                      setSegmentConsentMismatch(null);
-                      if (inapplicable.length > 0) {
-                        toast.message(
-                          `"${seg.name}" partially applied — it also filters on ${inapplicable.join(' and ')}, which broadcasts cannot target. Check the recipient count before sending.`
-                        );
-                      } else {
-                        toast.message(`Segment "${seg.name}" applied`);
-                      }
-                    }
-                  }}
-                  className="w-full px-3 py-2.5 rounded-xl border border-border text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary bg-surface-muted/50"
-                >
-                  <option value="">Choose a saved segment…</option>
-                  {segments.map((seg) => (
-                    <option key={seg.id} value={seg.id}>
-                      {seg.name}
-                      {seg.query || (seg.consent && seg.consent !== 'opted_in')
-                        ? ' (partly not applicable here — see note after applying)'
-                        : ''}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {/* Engagement Statuses */}
-            <div>
-              <div className="block text-[11px] font-black uppercase tracking-wider text-muted-foreground mb-2">
-                By Engagement Status (Leave empty for all)
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {AVAILABLE_STATUSES.map((st) => {
-                  const isSelected = selectedStatuses.includes(st.id);
-                  return (
-                    <button
-                      key={st.id}
-                      type="button"
-                      onClick={() => toggleStatus(st.id)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
-                        isSelected
-                          ? 'bg-primary text-white'
-                          : 'bg-surface-muted text-muted-foreground hover:bg-surface-muted'
-                      }`}
-                    >
-                      {st.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Districts */}
-            <div>
-              <div className="block text-[11px] font-black uppercase tracking-wider text-muted-foreground mb-2">
-                By Congressional District (Leave empty for all)
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {AVAILABLE_DISTRICTS.map((d) => {
-                  const isSelected = selectedDistricts.includes(d.id);
-                  return (
-                    <button
-                      key={d.id}
-                      type="button"
-                      onClick={() => toggleDistrict(d.id)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
-                        isSelected
-                          ? 'bg-primary text-white'
-                          : 'bg-surface-muted text-muted-foreground hover:bg-surface-muted'
-                      }`}
-                    >
-                      {d.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Tags */}
-            <div>
-              <div className="block text-[11px] font-black uppercase tracking-wider text-muted-foreground mb-2">
-                By Interest Tags (Must match all selected)
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {tagChips.map((t) => {
-                  const isSelected = selectedTags.includes(t);
-                  return (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() => toggleTag(t)}
-                      aria-pressed={isSelected}
-                      className={`px-2.5 py-1 rounded-md text-xs font-bold transition-colors ${
-                        isSelected
-                          ? 'bg-primary text-white'
-                          : 'bg-surface-muted text-muted-foreground hover:bg-surface-muted'
-                      }`}
-                    >
-                      #{t}
-                    </button>
-                  );
-                })}
-
-                {/* Tags that would otherwise be unreachable. A cap that hides a
-                    tag means a constituent carrying only that tag cannot be
-                    targeted, which is a silent hole in the audience rather than a
-                    cosmetic one. */}
-                {hiddenTagCount > 0 && (
-                  <p className="w-full text-[11px] font-medium text-muted-foreground mt-1">
-                    {hiddenTagCount} more tag{hiddenTagCount === 1 ? '' : 's'} not shown — this
-                    panel lists the first {TAG_CHIP_CAP} alphabetically. Target one from the{' '}
-                    <Link
-                      href="/admin/crm"
-                      className="text-primary dark:text-primary-on-dark font-bold hover:underline"
-                    >
-                      directory
-                    </Link>
-                    .
-                  </p>
-                )}
-
-                {/*
-   A stronger claim than the cap above, and it has to be worded differently.
-
-   The cap hides tags that were *read* and remain reachable from the directory. An
-   exhausted scan hides tags that were never read: no chip, no suggestion, no
-   discovery route. So this does not point at the directory — a tag missing from
-   this list may be missing from the directory's filter too, since both read the
-   same scan — and it says the list may be incomplete rather than that tags are
-   hidden, because the chapter genuinely does not know which ones.
-*/}
-                {tagsMayBeIncomplete && (
-                  <p className="w-full text-[11px] font-bold text-accent-red mt-1">
-                    This chapter’s directory is too large to list every tag, so this list may be
-                    incomplete. A tag you cannot see here cannot be targeted from here — narrow the
-                    audience with status or district filters, or search the{' '}
-                    <Link
-                      href="/admin/crm"
-                      className="text-primary dark:text-primary-on-dark font-bold hover:underline"
-                    >
-                      directory
-                    </Link>{' '}
-                    by name.
-                  </p>
-                )}
-
-                {tagsMissingFromChips.length > 0 && (
-                  <div className="w-full flex flex-wrap items-center gap-1.5 mt-2">
-                    <span className="text-[11px] font-bold text-primary dark:text-primary-on-dark">
-                      Also targeting:
-                    </span>
-                    {tagsMissingFromChips.map((t) => (
-                      <button
-                        key={t}
-                        type="button"
-                        onClick={() => toggleTag(t)}
-                        aria-pressed
-                        className="px-2.5 py-1 rounded-md bg-primary text-white text-xs font-bold"
-                      >
-                        #{t} ×
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Filter Summary */}
-            <div className="p-4 bg-surface-muted rounded-xl border border-border text-xs text-muted-foreground space-y-1">
-              <div className="font-bold text-foreground">Targeting Rules Applied:</div>
-              <div>
-                Status: {selectedStatuses.length > 0 ? selectedStatuses.join(', ') : 'All Statuses'}
-              </div>
-              <div>
-                Districts:{' '}
-                {selectedDistricts.length > 0 ? selectedDistricts.join(', ') : 'All Districts'}
-              </div>
-              <div>Tags: {selectedTags.length > 0 ? selectedTags.join(', ') : 'None'}</div>
-            </div>
-          </div>
-        </div>
+        <BroadcastAudiencePanel
+          segments={segments}
+          segmentsTruncated={segmentsTruncated ?? false}
+          selectedStatuses={selectedStatuses}
+          selectedDistricts={selectedDistricts}
+          selectedTags={selectedTags}
+          onStatusesChange={setSelectedStatuses}
+          onDistrictsChange={setSelectedDistricts}
+          onTagsChange={setSelectedTags}
+          onToggleStatus={toggleStatus}
+          onToggleDistrict={toggleDistrict}
+          onToggleTag={toggleTag}
+          tagChips={tagChips}
+          hiddenTagCount={hiddenTagCount}
+          tagsMayBeIncomplete={tagsMayBeIncomplete ?? false}
+          tagsMissingFromChips={tagsMissingFromChips}
+          onSegmentConsentMismatch={setSegmentConsentMismatch}
+        />
 
         {/* Right Column: Message Composer & Live Preview (7 cols) */}
         <div className="lg:col-span-7 space-y-6">
           <div className="bg-surface-card p-6 rounded-2xl border border-border shadow-xs space-y-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <Mail size={16} className="text-primary dark:text-primary-on-dark" />
-                <h2 className="font-display text-xs font-semibold tracking-[-0.01em] text-foreground">
-                  2. Message content
-                </h2>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsTemplatesOpen(true)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 transition-colors"
-                >
-                  <Sparkles size={13} />
-                  Templates
-                </button>
+            <BroadcastMessageEditor
+              setIsTemplatesOpen={setIsTemplatesOpen}
+              composerMode={composerMode}
+              handleSwitchComposerMode={handleSwitchComposerMode}
+              handleSelfTest={handleSelfTest}
+              isSelfTesting={isSelfTesting}
+              subject={subject}
+              setSubject={setSubject}
+              body={body}
+              setBody={setBody}
+              setBlocks={setBlocks}
+              previewMode={previewMode}
+              setPreviewMode={setPreviewMode}
+              blocks={blocks}
+              handleBlocksChange={handleBlocksChange}
+              previewHtml={previewHtml}
+              previewLoading={previewLoading}
+              previewFailed={previewFailed}
+            />
 
-                <div className="flex items-center p-0.5 rounded-lg bg-surface-muted border border-border">
-                  <button
-                    type="button"
-                    onClick={() => handleSwitchComposerMode('visual')}
-                    className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold transition-all ${
-                      composerMode === 'visual'
-                        ? 'bg-surface-card text-foreground shadow-2xs'
-                        : 'text-muted-foreground hover:text-foreground'
-                    }`}
-                  >
-                    <PenTool size={12} />
-                    Visual Canvas
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleSwitchComposerMode('text')}
-                    className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold transition-all ${
-                      composerMode === 'text'
-                        ? 'bg-surface-card text-foreground shadow-2xs'
-                        : 'text-muted-foreground hover:text-foreground'
-                    }`}
-                  >
-                    <Code size={12} />
-                    Raw Text
-                  </button>
-                </div>
+            <BroadcastDispatchBar
+              recipientCount={recipientCount}
+              excludedCount={excludedCount}
+              countFailed={countFailed}
+              overCeiling={overCeiling}
+              segmentConsentMismatch={segmentConsentMismatch}
+              draftId={draftId}
+              handleDiscardDraft={(id) => void handleDiscardDraft(id)}
+              handleSaveDraft={() => void handleSaveDraft()}
+              savingDraft={savingDraft}
+              subject={subject}
+              body={body}
+              setIsConfirmOpen={setIsConfirmOpen}
+              progress={progress}
+              handleResumeProgress={handleResumeProgress}
+            />
 
-                <button
-                  type="button"
-                  onClick={handleSelfTest}
-                  disabled={isSelfTesting || !subject.trim() || !body.trim()}
-                  title="Send this message to your own inbox. Nobody else receives it."
-                  aria-label="Send test to self"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-muted-foreground bg-surface-muted hover:bg-surface-muted transition-colors disabled:opacity-40 disabled:hover:bg-surface-muted"
-                >
-                  {isSelfTesting ? (
-                    <Loader2 size={14} className="animate-spin" />
-                  ) : (
-                    <SendHorizonal size={14} />
-                  )}
-                  Send a test to me
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPreviewMode(!previewMode)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-muted-foreground bg-surface-muted hover:bg-surface-muted transition-colors"
-                >
-                  <Eye size={14} />
-                  {previewMode ? 'Edit Draft' : 'Sensory Preview'}
-                </button>
-              </div>
-            </div>
-
-            {!previewMode ? (
-              <div className="space-y-4">
-                <div>
-                  <label
-                    htmlFor="broadcast-subject"
-                    className="block text-[11px] font-black uppercase tracking-wider text-muted-foreground mb-1.5"
-                  >
-                    Subject Line
-                  </label>
-                  <input
-                    id="broadcast-subject"
-                    type="text"
-                    value={subject}
-                    onChange={(e) => setSubject(e.target.value)}
-                    placeholder="e.g. Urgent Action: Stop H.R. 1 Rally at Carmichael Park"
-                    className="w-full px-4 py-2.5 rounded-xl border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm font-bold text-foreground placeholder:font-normal placeholder:text-muted-foreground"
-                  />
-                </div>
-
-                {composerMode === 'visual' ? (
-                  <div>
-                    <span className="block text-[11px] font-black uppercase tracking-wider text-muted-foreground mb-1.5">
-                      Visual Block Canvas
-                    </span>
-                    <VisualComposerCanvas blocks={blocks} onChange={handleBlocksChange} />
-                  </div>
-                ) : null}
-
-                <div className={composerMode === 'text' ? 'block' : 'sr-only'}>
-                  <label
-                    htmlFor="broadcast-body"
-                    className="block text-[11px] font-black uppercase tracking-wider text-muted-foreground mb-1.5"
-                  >
-                    Message Body
-                  </label>
-                  <textarea
-                    id="broadcast-body"
-                    rows={10}
-                    value={body}
-                    onChange={(e) => {
-                      const next = e.target.value;
-                      setBody(next);
-                      setBlocks(parseBodyToBlocks(next));
-                    }}
-                    placeholder="Dear Neighbor,&#10;&#10;Join us this Saturday at Carmichael Park as we rally for democracy...&#10;&#10;Here are the three ways to take immediate action..."
-                    aria-describedby="broadcast-body-hint"
-                    className="w-full px-4 py-3 rounded-xl border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm text-foreground leading-relaxed font-sans placeholder:text-muted-foreground"
-                  />
-                  <p id="broadcast-body-hint" className="mt-1.5 text-[11px] text-muted-foreground">
-                    Plain text / Markdown. Blank lines become paragraph breaks; URLs become
-                    clickable in recipient email clients.
-                  </p>
-                </div>
-              </div>
-            ) : null}
-
-            {previewMode && (
-              <DevicePreviewFrame
-                previewHtml={previewHtml || ''}
-                previewLoading={previewLoading}
-                previewFailed={previewFailed}
-                subject={subject}
-              />
-            )}
-
-            {/* Dispatch Action Bar */}
-            <div className="pt-4 border-t border-border flex flex-wrap items-center justify-between gap-3">
-              <div className="text-xs text-muted-foreground">
-                Will be delivered to{' '}
-                <strong className="text-foreground">{recipientCount ?? 0}</strong> constituents.
-                <span className="block text-[11px] text-muted-foreground mt-0.5">
-                  {excludedCount > 0 ? (
-                    <>
-                      {excludedCount.toLocaleString()} matching{' '}
-                      {excludedCount === 1 ? 'contact is' : 'contacts are'} opted out and excluded.
-                      {recipientCount === 0
-                        ? ' Nobody on this list will receive it.'
-                        : ' Every email includes a one-click unsubscribe link.'}
-                    </>
-                  ) : (
-                    <>
-                      Opted-out contacts are excluded automatically. Every email includes a
-                      one-click unsubscribe link.
-                    </>
-                  )}
-                </span>
-                {countFailed && (
-                  <span role="alert" className="mt-1 block font-bold text-accent-red">
-                    The audience could not be counted, so Send is withheld until it can be. Change a
-                    filter to try again.
-                  </span>
-                )}
-                {overCeiling && (
-                  <span role="alert" className="mt-1 block font-bold text-accent-red">
-                    This is over the {BROADCAST_RECIPIENT_CEILING.toLocaleString()}-recipient limit
-                    for a single broadcast. Narrow the audience before sending.
-                  </span>
-                )}
-                {segmentConsentMismatch && (
-                  <span role="alert" className="mt-1 block font-bold text-accent-red">
-                    {segmentConsentMismatch} Change any audience filter above to confirm you have
-                    reviewed it — Send stays withheld until then.
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                {draftId ? (
-                  <ConfirmAction
-                    label="Discard draft"
-                    message="Delete this unsent draft. Anything written in it is gone."
-                    confirmLabel="Delete draft"
-                    danger
-                    idleClassName="inline-flex items-center gap-1.5 px-4 py-2.5 text-muted-foreground hover:text-accent-red text-xs font-black uppercase tracking-wider rounded-xl transition-colors"
-                    onConfirm={() => {
-                      if (draftId) void handleDiscardDraft(draftId);
-                    }}
-                  >
-                    <Trash2 size={14} /> Discard draft
-                  </ConfirmAction>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={handleSaveDraft}
-                    disabled={savingDraft || !subject.trim() || !body.trim()}
-                    className="inline-flex items-center gap-1.5 px-4 py-2.5 border border-border text-foreground hover:border-border disabled:opacity-50 text-xs font-black uppercase tracking-wider rounded-xl transition-colors"
-                  >
-                    {savingDraft ? (
-                      <Loader2 size={14} className="animate-spin" />
-                    ) : (
-                      <Save size={14} />
-                    )}
-                    Save draft
-                  </button>
-                )}
-                <button
-                  type="button"
-                  disabled={
-                    !subject.trim() ||
-                    !body.trim() ||
-                    !recipientCount ||
-                    recipientCount === 0 ||
-                    overCeiling ||
-                    segmentConsentMismatch !== null
-                  }
-                  onClick={() => setIsConfirmOpen(true)}
-                  className="inline-flex items-center gap-2 px-6 py-2.5 bg-primary text-white hover:bg-primary-light disabled:bg-surface-muted disabled:text-muted-foreground text-xs font-black uppercase tracking-wider rounded-xl transition-colors shadow-xs"
-                >
-                  <Send size={14} /> Send Broadcast Now
-                </button>
-              </div>
-            </div>
-
-            {/*
-              Live progress. The send no longer runs inside the request that
-              started it, so without this the button would return and the admin
-              would have no idea whether anything was going out.
-
-              Two states, not one. "Sending" is a claim about the database. Once
-              the poll gives up — a 5,000-recipient campaign is five hundred
-              round-trips in the sender — the number here stops moving while the
-              send carries on, so continuing to say "Sending" is a lie about
-              this view. The second branch says plainly that the send may well be
-              fine and that this tab has stopped watching, and offers the refresh
-              rather than leaving the operator to guess which kind of stuck it is.
-            */}
-            {progress && (progress.status === 'queued' || progress.status === 'sending') && (
-              <div
-                role="status"
-                aria-live="polite"
-                className={`rounded-xl border px-4 py-3 ${
-                  progress.stillWatching
-                    ? 'border-blue-200 bg-blue-50'
-                    : 'border-accent-gold/40 bg-surface-muted'
-                }`}
-              >
-                <p
-                  className={`text-sm font-semibold ${
-                    progress.stillWatching ? 'text-blue-900' : 'text-foreground'
-                  }`}
-                >
-                  {progress.stillWatching ? (
-                    <>
-                      Sending “{progress.subject}” — {progress.sentCount} of{' '}
-                      {progress.recipientCount} accepted
-                    </>
-                  ) : (
-                    <>Still sending, but this view has stopped updating</>
-                  )}
-                </p>
-                {!progress.stillWatching && (
-                  <>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {progress.sentCount} of {progress.recipientCount} accepted as of the last
-                      check. The send continues in the background — it is not stuck. Resume
-                      updates here, or refresh the page, to pick it up again.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={handleResumeProgress}
-                      className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-card px-3 py-1.5 text-xs font-bold text-muted-foreground transition-colors hover:bg-surface-muted focus-visible:ring-2 focus-visible:ring-primary"
-                    >
-                      <RefreshCw size={14} />
-                      Resume updates
-                    </button>
-                  </>
-                )}
-                <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-blue-200">
-                  <div
-                    className="h-full rounded-full bg-primary transition-[width] duration-500 ease-sensory"
-                    style={{
-                      width: `${
-                        progress.recipientCount > 0
-                          ? Math.min(100, (progress.sentCount / progress.recipientCount) * 100)
-                          : 0
-                      }%`,
-                    }}
-                  />
-                </div>
-                {progress.failedCount > 0 && (
-                  <p className="mt-2 text-xs text-blue-800">
-                    {progress.failedCount} rejected by the provider.
-                  </p>
-                )}
-              </div>
-            )}
           </div>
         </div>
       </div>

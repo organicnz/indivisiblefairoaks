@@ -2,20 +2,9 @@
 
 import {
   AlertCircle,
-  ArrowLeft,
-  Check,
-  Copy,
-  Eye,
-  History,
   Loader2,
-  Paintbrush,
-  Redo2,
   RotateCcw,
-  Save,
-  Trash2,
-  Undo2,
 } from 'lucide-react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -32,7 +21,6 @@ import {
 } from '@/lib/actions/content';
 import { type Block, isTransient, parseHtml, serializeBlocks } from '@/lib/blocks';
 import {
-  CONTENT_TYPES,
   type ContentType,
   contentComposeHref,
   readingStats,
@@ -52,7 +40,8 @@ import { htmlToExcerpt } from '@/lib/sanitize';
 import { isStaleConflict } from '@/lib/visual-edit/conflict';
 import type { EditorFields } from './editor-fields';
 import { BlockEditor } from './BlockEditor';
-import { ContentImageInput } from './ContentImageInput';
+import { ContentEditorHeader } from './ContentEditorHeader';
+import { ContentEditorSettingsPanel } from './ContentEditorSettingsPanel';
 import { ContentPreview } from './ContentPreview';
 import { RevisionsPanel } from './RevisionsPanel';
 
@@ -838,167 +827,28 @@ export function ContentEditor({ initial, siteHost }: Props) {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <Link
-          href="/admin/content"
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-primary dark:text-primary-on-dark transition-colors hover:text-primary-dark focus-visible:ring-2 focus-visible:ring-primary"
-        >
-          <ArrowLeft size={16} aria-hidden="true" />
-          All pages
-        </Link>
-        <div className="flex flex-wrap items-center gap-2">
-          {/*
-            One indicator, and it never lies. Autosave writes a draft 2.5s after
-            the last keystroke, so the honest report is which of those is true
-            right now — including when autosave failed, which is the case that
-            matters most and the one a plain "saved" tick would hide.
-          */}
-          {/*
-            Undo and redo are buttons as well as shortcuts. A keyboard-only
-            feature is a feature nobody discovers, and a discoverable one also
-            tells the author whether there is anything to take back — which a
-            shortcut cannot.
-          */}
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={handleUndo}
-              disabled={!canUndo(undoStack)}
-              title="Undo (Ctrl/Cmd+Z)"
-              aria-label="Undo"
-              className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-30 disabled:hover:bg-transparent"
-            >
-              <Undo2 size={15} aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              onClick={handleRedo}
-              disabled={!canRedo(undoStack)}
-              title="Redo (Ctrl/Cmd+Shift+Z)"
-              aria-label="Redo"
-              className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-30 disabled:hover:bg-transparent"
-            >
-              <Redo2 size={15} aria-hidden="true" />
-            </button>
-          </div>
-
-          <span
-            role="status"
-            aria-live="polite"
-            className={`inline-flex items-center gap-1.5 text-xs ${
-              activeSaveFailure
-                ? 'font-semibold text-accent-red'
-                : dirty || saveState === 'saving'
-                  ? 'font-semibold text-accent-gold'
-                  : 'text-muted-foreground'
-            }`}
-          >
-            {activeSaveFailure ? (
-              <>
-                <AlertCircle size={13} aria-hidden="true" />
-                {/* The banner is shared by the button and the autosave effect. The old
-                    label named only the smaller of the two, so a failed Cmd+S read as
-                    "Autosave failed" — the failure the author had just hit was mislabelled
-                    as one the editor hit on its own. */}
-                {saveFailureLabel}
-              </>
-            ) : saveState === 'saving' ? (
-              <>
-                <Loader2 size={13} className="animate-spin" aria-hidden="true" />
-                Saving…
-              </>
-            ) : dirty ? (
-              <>
-                <AlertCircle size={13} aria-hidden="true" />
-                Unsaved changes
-              </>
-            ) : (
-              <>
-                <Check size={13} aria-hidden="true" />
-                {initial.id ? 'All changes saved' : 'Not saved yet'}
-              </>
-            )}
-          </span>
-          {initial.id && (
-            <>
-              <button
-                type="button"
-                onClick={() => handleSetStatus(status === 'publish' ? 'draft' : 'publish')}
-                className="rounded-xl border border-border px-3 py-2 text-sm font-medium text-foreground transition-colors hover:border-border focus-visible:ring-2 focus-visible:ring-primary"
-              >
-                {status === 'publish' ? 'Move to draft' : 'Publish'}
-              </button>
-              <button
-                type="button"
-                onClick={handleDuplicate}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-sm font-medium text-foreground transition-colors hover:border-border focus-visible:ring-2 focus-visible:ring-primary"
-              >
-                <Copy size={15} aria-hidden="true" />
-                Duplicate
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowRevisions((v) => !v)}
-                aria-expanded={showRevisions}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-sm font-medium text-foreground transition-colors hover:border-border focus-visible:ring-2 focus-visible:ring-primary"
-              >
-                <History size={15} aria-hidden="true" />
-                History
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowPreview(true)}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-sm font-medium text-foreground transition-colors hover:border-border focus-visible:ring-2 focus-visible:ring-primary"
-              >
-                <Eye size={15} aria-hidden="true" />
-                Preview
-              </button>
-              {/*
-                The canvas lives outside `/admin` so it can render the row at
-                its real width with the site's own chrome. A new tab keeps this
-                editor's unsaved state and its autosave loop intact.
-              */}
-              <Link
-                href={contentComposeHref({ id: initial.id, slug })}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-sm font-medium text-foreground transition-colors hover:border-border focus-visible:ring-2 focus-visible:ring-primary"
-                title={
-                  contentComposeHref({ id: initial.id, slug }).startsWith('/compose/')
-                    ? 'Open the full-page visual composer'
-                    : 'Open the page this copy region renders into, with the region selected'
-                }
-              >
-                <Paintbrush size={15} aria-hidden="true" />
-                Compose
-              </Link>
-              <ConfirmAction
-                label={`Delete ${title}`}
-                message={`Delete “${title}”? This cannot be undone.`}
-                danger
-                idleClassName="rounded-xl border border-border p-2 text-accent-red transition-colors hover:bg-rose-50 focus-visible:ring-2 focus-visible:ring-primary"
-                onConfirm={() => void handleDelete()}
-              >
-                <Trash2 size={15} aria-hidden="true" />
-                <span className="sr-only">Delete page</span>
-              </ConfirmAction>
-            </>
-          )}
-          <button
-            type="button"
-            onClick={() => handleSave()}
-            disabled={saving}
-            className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-primary-dark focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:opacity-60"
-          >
-            {saving ? (
-              <Loader2 size={15} className="animate-spin" aria-hidden="true" />
-            ) : (
-              <Save size={15} aria-hidden="true" />
-            )}
-            Save
-          </button>
-        </div>
-      </div>
+      <ContentEditorHeader
+        title={title}
+        initialId={initial.id}
+        slug={slug}
+        status={status}
+        saveState={saveState}
+        dirty={dirty}
+        activeSaveFailure={Boolean(activeSaveFailure)}
+        saveFailureLabel={saveFailureLabel}
+        canUndo={canUndo(undoStack)}
+        canRedo={canRedo(undoStack)}
+        onUndo={handleUndo}
+        onRedo={handleRedo}
+        onSetStatus={(next) => void handleSetStatus(next)}
+        onDuplicate={() => void handleDuplicate()}
+        showRevisions={showRevisions}
+        onToggleRevisions={() => setShowRevisions((v) => !v)}
+        onPreview={() => setShowPreview(true)}
+        onDelete={() => void handleDelete()}
+        onSave={() => void handleSave()}
+        saving={saving}
+      />
 
       {error && (
         <p
@@ -1167,176 +1017,40 @@ export function ContentEditor({ initial, siteHost }: Props) {
           </div>
         </div>
 
-        <aside className="space-y-4">
-          <div className="space-y-3 rounded-2xl border border-border bg-surface-card p-5 shadow-xs">
-            <h2 className="font-display text-xs font-semibold tracking-[-0.01em] text-muted-foreground">
-              Page settings
-            </h2>
-
-            <label className="block text-xs font-medium text-muted-foreground">
-              Status
-              {/* This control and the Publish button both name a publish state,
-                  so both route through `handleSetStatus`. It previously called
-                  `setStatus` — local state only — which flipped `dirty` and let
-                  the autosave effect publish or unpublish 2.5s later, taking a
-                  live page down from a dropdown with no confirmation and no
-                  toast. Selecting a value here now gets the same guard, the same
-                  unsaved-edits handling and the same confirmation toast as the
-                  button. */}
-              <select
-                value={status}
-                onChange={(e) => void handleSetStatus(e.target.value as 'publish' | 'draft')}
-                className="mt-1 w-full rounded-lg border border-border bg-surface-card px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-primary"
-              >
-                <option value="draft">Draft</option>
-                <option value="publish">Published</option>
-              </select>
-            </label>
-
-            <label className="block text-xs font-medium text-muted-foreground">
-              Type
-              <select
-                value={type}
-                onChange={(e) => setType(e.target.value as ContentType)}
-                className="mt-1 w-full rounded-lg border border-border bg-surface-card px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-primary"
-              >
-                {CONTENT_TYPES.map((option) => (
-                  <option key={option} value={option}>
-                    {option[0].toUpperCase() + option.slice(1)}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="block text-xs font-medium text-muted-foreground">
-              URL slug
-              <div className="mt-1 flex items-center gap-1 rounded-lg border border-border bg-surface-muted px-2 py-1.5">
-                <span className="shrink-0 text-xs text-muted-foreground">/</span>
-                <input
-                  type="text"
-                  value={slug}
-                  onChange={(e) => {
-                    setSlugTouched(true);
-                    setSlug(e.target.value);
-                  }}
-                  className="w-full bg-transparent text-sm outline-none"
-                />
-              </div>
-            </label>
-
-            {/*
-              The hero uses the same uploader as an image block, not a bare URL
-              field. A URL box was the only way to set it, and the only URLs that
-              pass `saveContent`'s production host check are this site's own —
-              which the CMS's own uploader produces. So the control the author was
-              offered could not be satisfied by the tool sitting next to it.
-            */}
-            <ContentImageInput
-              value={featuredImage}
-              onChange={(url) => {
-                noteEdit('type:featuredImage');
-                setFeaturedImage(url);
-              }}
-              label="Featured image"
-              hint="The hero at the top of the page, and the share card on social media."
-              aspect="wide"
-            />
-          </div>
-
-          {/*
-            SEO meta fields. Stored in content.metadata as meta_title /
-            meta_description; generateMetadata uses them when present and falls
-            back to the derived title / body excerpt when not. The character
-            counts are Google's SERP budgets — a title past ~60 is truncated in
-            the results, a description past ~155 is cut mid-sentence.
-          */}
-          <div className="space-y-3 rounded-2xl border border-border bg-surface-card p-5 shadow-xs">
-            <h2 className="font-display text-xs font-semibold tracking-[-0.01em] text-muted-foreground">
-              SEO
-            </h2>
-            <label className="block text-xs font-medium text-muted-foreground">
-              Meta title
-              <input
-                type="text"
-                value={metaTitle}
-                onChange={(e) => {
-                  noteEdit('type:metaTitle');
-                  setMetaTitle(e.target.value);
-                }}
-                placeholder={title || 'Untitled page'}
-                maxLength={80}
-                className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-primary"
-              />
-              <span
-                className={`mt-0.5 block text-right text-[11px] ${
-                  metaTitle.length > 60 ? 'font-bold text-accent-red' : 'text-muted-foreground'
-                }`}
-              >
-                {metaTitle.length}/60
-              </span>
-            </label>
-            <label className="block text-xs font-medium text-muted-foreground">
-              Meta description
-              <textarea
-                value={metaDescription}
-                onChange={(e) => {
-                  noteEdit('type:metaDescription');
-                  setMetaDescription(e.target.value);
-                }}
-                placeholder={derivedExcerpt || 'No summary yet.'}
-                maxLength={200}
-                rows={3}
-                className="mt-1 w-full resize-none rounded-lg border border-border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-primary"
-              />
-              <span
-                className={`mt-0.5 block text-right text-[11px] ${
-                  metaDescription.length > 155
-                    ? 'font-bold text-accent-red'
-                    : 'text-muted-foreground'
-                }`}
-              >
-                {metaDescription.length}/155
-              </span>
-            </label>
-          </div>
-
-          {/*
-            A search-result preview, not a claim about Google's output — the
-            layout mirrors the familiar blue-title / green-URL / grey-snippet
-            shape so the author can sanity-check the title and description they
-            are about to ship. It shows the meta fields when set, because that
-            is what Google will actually use.
-          */}
-          <div className="space-y-2 rounded-2xl border border-border bg-surface-card p-5 shadow-xs">
-            <div className="flex items-center justify-between">
-              <h2 className="font-display text-xs font-semibold tracking-[-0.01em] text-muted-foreground">
-                Search preview
-              </h2>
-              <Eye size={14} className="text-muted-foreground" aria-hidden="true" />
-            </div>
-            <p className="truncate text-sm font-medium text-[#1a0dab]">
-              {metaTitle.trim() || title || 'Untitled page'}
-            </p>
-            <p className="truncate text-xs text-[#0d6528]">
-              {siteHost}/{slug || '…'}
-            </p>
-            <p className="text-xs leading-relaxed text-muted-foreground">
-              {metaDescription.trim() || excerpt.trim() || derivedExcerpt || 'No summary yet.'}
-            </p>
-            {!metaDescription.trim() && !excerpt.trim() && derivedExcerpt && (
-              <button
-                type="button"
-                onClick={() => {
-                  noteEdit(null);
-                  setExcerpt(derivedExcerpt.replace(/…$/, ''));
-                }}
-                className="text-xs font-medium text-primary dark:text-primary-on-dark underline underline-offset-2 focus-visible:ring-2 focus-visible:ring-primary"
-              >
-                Use the generated summary
-              </button>
-            )}
-          </div>
-        </aside>
+        <ContentEditorSettingsPanel
+          title={title}
+          status={status}
+          onStatusChange={(next) => void handleSetStatus(next)}
+          type={type}
+          onTypeChange={setType}
+          slug={slug}
+          onSlugChange={(next) => {
+            setSlugTouched(true);
+            setSlug(next);
+          }}
+          featuredImage={featuredImage}
+          onFeaturedImageChange={(url) => {
+            noteEdit('type:featuredImage');
+            setFeaturedImage(url);
+          }}
+          metaTitle={metaTitle}
+          onMetaTitleChange={(value) => {
+            noteEdit('type:metaTitle');
+            setMetaTitle(value);
+          }}
+          metaDescription={metaDescription}
+          onMetaDescriptionChange={(value) => {
+            noteEdit('type:metaDescription');
+            setMetaDescription(value);
+          }}
+          siteHost={siteHost}
+          derivedExcerpt={derivedExcerpt}
+          excerpt={excerpt}
+          onUseGeneratedSummary={() => {
+            noteEdit(null);
+            setExcerpt(derivedExcerpt.replace(/…$/, ''));
+          }}
+        />
       </div>
     </div>
   );
