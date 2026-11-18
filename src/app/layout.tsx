@@ -150,6 +150,7 @@ const GLOBAL_DATA_POINT_GROUPS = [
   'auth',
   'login',
   'gallery',
+  'ice',
   'contact',
   'notfound',
   'error',

@@ -84,10 +84,37 @@ export const PAGE_COPY_REGIONS: Readonly<Record<string, readonly CopyRegionDefin
   '/voter-info': [
     { id: 'voter-guides', label: 'Voter Rights & Guides' },
     { id: 'voter-hotlines', label: 'Elections & Hotlines' },
+    { id: 'voter-archive', label: 'Voter Information Archive' },
   ],
   '/choir': [{ id: 'choir-schedule', label: 'Rehearsal Schedule' }],
   '/donate': [{ id: 'donate-impact', label: 'Where Your Donation Goes' }],
   '/events': [{ id: 'events-trainings', label: 'Trainings & Action Labs' }],
+  '/links': [{ id: 'links-archive', label: 'Link Tree Archive Callout' }],
+  '/archive': [
+    { id: 'archive-intro', label: 'Archive Introduction' },
+    { id: 'archive-empty', label: 'Empty Archive Notice' },
+  ],
+  '/ice-alerts/report': [
+    { id: 'ice-report-intro', label: 'Report Intake Header' },
+    { id: 'ice-report-steps', label: 'What Happens Next' },
+    { id: 'ice-report-limits', label: 'Report Limits' },
+    { id: 'ice-report-privacy', label: 'Report Privacy Boundary' },
+  ],
+  '/ice-alerts/reunification': [
+    { id: 'ice-reunification-intro', label: 'Reunification Header' },
+    { id: 'ice-reunification-steps', label: 'What Happens Next' },
+    { id: 'ice-reunification-privacy', label: 'Reunification Privacy Boundary' },
+  ],
+  '/ice-alerts/web-reports': [
+    { id: 'ice-web-reports-intro', label: 'Web Reports Header' },
+  ],
+  '/ice-alerts/data': [{ id: 'ice-data-intro', label: 'Open Data Header' }],
+  '/ice-alerts': [
+    { id: 'ice-rapid-web-reports-intro', label: 'Web Reports Feature' },
+    { id: 'ice-rapid-community-reports-intro', label: 'Community Reports Feature' },
+  ],
+  '/privacy-policy': [{ id: 'privacy-body', label: 'Privacy Policy' }],
+  '/terms-and-conditions': [{ id: 'terms-body', label: 'Terms & Conditions' }],
 } as const;
 
 /** The region a plain `content.slug` addresses, or null when it is not one. */

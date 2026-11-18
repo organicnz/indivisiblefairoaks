@@ -1,4 +1,5 @@
 import { Database, ExternalLink, MapPin, X } from 'lucide-react';
+import { DataPoint } from '@/components/ui/DataPoint';
 import { IceCaseBrief } from './IceCaseBrief';
 import { TOP_CITY_LIMIT } from './constants';
 import {
@@ -34,77 +35,115 @@ export function IceSidebar({
       <section className="border border-border bg-surface-card p-4 sm:p-5">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="civic-section-index">Snapshot at a glance</p>
-            <h2 className="mt-2 font-display text-2xl font-semibold leading-[1.02] tracking-[-0.035em] sm:text-3xl">
+            <p className="civic-section-index">
+              <DataPoint name="ice.sidebar.snapshot.eyebrow">Snapshot at a glance</DataPoint>
+            </p>
+            <DataPoint
+              as="h2"
+              name="ice.sidebar.snapshot.title"
+              className="mt-2 font-display text-2xl font-semibold leading-[1.02] tracking-[-0.035em] sm:text-3xl"
+            >
               A national picture, city by city.
-            </h2>
+            </DataPoint>
           </div>
           <MapPin className="size-6 shrink-0 text-accent" aria-hidden="true" />
         </div>
-        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+        <DataPoint
+          as="p"
+          name="ice.sidebar.snapshot.body"
+          className="mt-2 text-sm leading-relaxed text-muted-foreground"
+        >
           The circles group nearby city totals built from the city named in each ICE arrest
           record. They are not a record of where every enforcement action happened, and they are
           not live.
-        </p>
+        </DataPoint>
 
         <div className="mt-4 grid grid-cols-2 gap-px border border-border bg-border">
           <div className="bg-surface-muted p-3">
-            <p className="font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+            <DataPoint
+              as="p"
+              name="ice.sidebar.metric.mapped"
+              className="font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground"
+            >
               Mapped records
-            </p>
+            </DataPoint>
             <p className="mt-1 font-display text-2xl font-semibold tracking-[-0.03em] text-foreground">
               {formatNumber(snapshot.meta.mappedRecords)}
             </p>
           </div>
           <div className="bg-surface-muted p-3">
-            <p className="font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+            <DataPoint
+              as="p"
+              name="ice.sidebar.metric.cities"
+              className="font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground"
+            >
               City points
-            </p>
+            </DataPoint>
             <p className="mt-1 font-display text-2xl font-semibold tracking-[-0.03em] text-foreground">
               {formatNumber(snapshot.meta.mappedCities)}
             </p>
           </div>
           <div className="bg-surface-muted p-3">
-            <p className="font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+            <DataPoint
+              as="p"
+              name="ice.sidebar.metric.coverage"
+              className="font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground"
+            >
               Coverage
-            </p>
+            </DataPoint>
             <p className="mt-1 font-display text-2xl font-semibold tracking-[-0.03em] text-foreground">
               {(snapshot.meta.mappedShareOfAll * 100).toFixed(1)}%
             </p>
           </div>
           <div className="bg-surface-muted p-3">
-            <p className="font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+            <DataPoint
+              as="p"
+              name="ice.sidebar.metric.max"
+              className="font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground"
+            >
               Highest city total
-            </p>
+            </DataPoint>
             <p className="mt-1 font-display text-2xl font-semibold tracking-[-0.03em] text-foreground">
               {formatNumber(snapshot.meta.maxCityCount)}
             </p>
           </div>
         </div>
-        <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+        <DataPoint
+          as="p"
+          name="ice.sidebar.coverage.note"
+          className="mt-2 text-[11px] leading-relaxed text-muted-foreground"
+        >
           Coverage is the share of all de-duplicated arrest records with a usable U.S. city
           and coordinates. The rest remain in the source data but are not on this map.
-        </p>
+        </DataPoint>
       </section>
 
       <section aria-labelledby="ice-top-cities-title" className="border border-border bg-surface-card">
         <div className="border-b border-border p-4 sm:p-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <p className="civic-section-index">Highest assigned counts</p>
-              <h2
+              <p className="civic-section-index">
+                <DataPoint name="ice.sidebar.cities.eyebrow">Highest assigned counts</DataPoint>
+              </p>
+              <DataPoint
+                as="h2"
                 id="ice-top-cities-title"
+                name="ice.sidebar.cities.title"
                 className="mt-2 font-display text-2xl font-semibold leading-tight tracking-[-0.035em] sm:text-3xl"
               >
                 Cities in the snapshot
-              </h2>
+              </DataPoint>
             </div>
             <span className="civic-stamp">Top {TOP_CITY_LIMIT}</span>
           </div>
-          <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+          <DataPoint
+            as="p"
+            name="ice.sidebar.cities.body"
+            className="mt-2 text-xs leading-relaxed text-muted-foreground"
+          >
             Select a city in this list or open a city dot or cluster popup on the map to see
             its assigned count and context brief.
-          </p>
+          </DataPoint>
         </div>
 
         <div className="max-h-96 overflow-y-auto">
@@ -153,7 +192,9 @@ export function IceSidebar({
         >
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="civic-section-index">Selected city</p>
+              <p className="civic-section-index">
+                <DataPoint name="ice.sidebar.selected.eyebrow">Selected city</DataPoint>
+              </p>
               <h2
                 id="ice-selected-city-title"
                 className="mt-2 font-display text-2xl font-semibold leading-tight tracking-[-0.035em]"
@@ -172,31 +213,45 @@ export function IceSidebar({
           </div>
           <div className="mt-3 grid grid-cols-2 gap-3">
             <div>
-              <p className="font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+              <DataPoint
+                as="p"
+                name="ice.sidebar.selected.assigned"
+                className="font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground"
+              >
                 Assigned records
-              </p>
+              </DataPoint>
               <p className="mt-1 font-display text-3xl font-semibold tracking-[-0.03em]">
                 {formatNumber(selectedCity.count)}
               </p>
             </div>
             <div>
-              <p className="font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+              <DataPoint
+                as="p"
+                name="ice.sidebar.selected.rank"
+                className="font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground"
+              >
                 National rank
-              </p>
+              </DataPoint>
               <p className="mt-1 font-display text-3xl font-semibold tracking-[-0.03em]">
                 #{selectedRank}
               </p>
             </div>
           </div>
           <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-            {selectedShare}% of mapped records. The circle is a Census place point, not an exact
-            arrest address.
+            {selectedShare}% of mapped records.{' '}
+            <DataPoint as="span" name="ice.sidebar.selected.note">
+              The circle is a Census place point, not an exact arrest address.
+            </DataPoint>
           </p>
-          <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+          <DataPoint
+            as="p"
+            name="ice.sidebar.selected.detail"
+            className="mt-2 text-[11px] leading-relaxed text-muted-foreground"
+          >
             This FOIA extract is aggregated by city; it does not include individual names, case
             narratives, or photographs. Every record represents a person, and the brief below
             explains the selected total without inventing their identity. It is not a case file.
-          </p>
+          </DataPoint>
           <IceCaseBrief city={selectedCity} />
         </section>
       ) : null}
@@ -205,7 +260,9 @@ export function IceSidebar({
         <div className="flex items-start gap-3">
           <Database className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
           <div className="min-w-0">
-            <p className="civic-section-index">Source &amp; release</p>
+            <p className="civic-section-index">
+              <DataPoint name="ice.sidebar.source.eyebrow">Source &amp; release</DataPoint>
+            </p>
             <h2 className="mt-1.5 font-display text-xl font-semibold leading-tight tracking-[-0.02em]">
               Latest FOIA release: {formatDateLabel(snapshot.meta.periodEnd)}.
             </h2>
@@ -227,7 +284,9 @@ export function IceSidebar({
               rel="noopener noreferrer"
               className="mt-3 inline-flex min-h-9 items-center gap-1.5 border border-border bg-background px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-[0.1em] text-foreground transition-colors hover:border-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
-              Read the source
+              <DataPoint as="span" name="ice.sidebar.source.link">
+                Read the source
+              </DataPoint>
               <ExternalLink className="size-3" aria-hidden="true" />
             </a>
           </div>

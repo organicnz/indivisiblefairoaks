@@ -1,4 +1,5 @@
 import { Bell, ExternalLink, MessageSquareText, Radio } from 'lucide-react';
+import { DataPoint } from '@/components/ui/DataPoint';
 import { SurgeAlertsButton } from './SurgeAlertsDialog';
 
 const TEXT_ALERTS_HREF = 'sms:8773222299?body=JOIN';
@@ -15,30 +16,46 @@ export function RapidAlertChannels() {
       <div className="border-t border-foreground/20 pt-8">
         <div className="grid gap-6 lg:grid-cols-[0.8fr_1.2fr] lg:gap-10">
           <div>
-            <p className="civic-section-index">Alert channels</p>
-            <h2
+            <p className="civic-section-index">
+              <DataPoint name="ice.rapid.channels.eyebrow">Alert channels</DataPoint>
+            </p>
+            <DataPoint
+              as="h2"
               id="ice-alert-channels-title"
+              name="ice.rapid.channels.title"
               className="mt-2 max-w-lg font-display text-4xl font-semibold leading-[0.95] tracking-[-0.045em] sm:text-5xl"
             >
               Choose how you hear about a surge.
-            </h2>
-            <p className="mt-4 max-w-md text-sm leading-relaxed text-muted-foreground">
+            </DataPoint>
+            <DataPoint
+              as="p"
+              name="ice.rapid.channels.intro"
+              className="mt-4 max-w-md text-sm leading-relaxed text-muted-foreground"
+            >
               This chapter runs email and browser alerts. The national Stop ICE Alerts Network runs
               text and Signal alerts. They are separate services, so review their privacy and
               security terms before joining.
-            </p>
+            </DataPoint>
           </div>
 
           <div className="grid gap-px border border-border bg-border sm:grid-cols-3">
             <div className="flex flex-col bg-surface-card p-4 sm:p-5">
               <Bell className="size-4 text-accent" aria-hidden="true" />
-              <h3 className="mt-3 font-display text-lg font-semibold leading-tight tracking-[-0.02em]">
+              <DataPoint
+                as="h3"
+                name="ice.rapid.channels.email.title"
+                className="mt-3 font-display text-lg font-semibold leading-tight tracking-[-0.02em]"
+              >
                 Email + browser
-              </h3>
-              <p className="mt-1.5 flex-1 text-[11px] leading-relaxed text-muted-foreground">
+              </DataPoint>
+              <DataPoint
+                as="p"
+                name="ice.rapid.channels.email.body"
+                className="mt-1.5 flex-1 text-[11px] leading-relaxed text-muted-foreground"
+              >
                 City-level surge alerts from this chapter, with email confirmation and one-click
                 unsubscribe.
-              </p>
+              </DataPoint>
               <div className="mt-3">
                 <SurgeAlertsButton />
               </div>
@@ -46,13 +63,21 @@ export function RapidAlertChannels() {
 
             <div className="flex flex-col bg-surface-card p-4 sm:p-5">
               <MessageSquareText className="size-4 text-accent" aria-hidden="true" />
-              <h3 className="mt-3 font-display text-lg font-semibold leading-tight tracking-[-0.02em]">
+              <DataPoint
+                as="h3"
+                name="ice.rapid.channels.text.title"
+                className="mt-3 font-display text-lg font-semibold leading-tight tracking-[-0.02em]"
+              >
                 Text alerts
-              </h3>
-              <p className="mt-1.5 flex-1 text-[11px] leading-relaxed text-muted-foreground">
+              </DataPoint>
+              <DataPoint
+                as="p"
+                name="ice.rapid.channels.text.body"
+                className="mt-1.5 flex-1 text-[11px] leading-relaxed text-muted-foreground"
+              >
                 Receive national alerts by SMS, or report a sighting to the national network. Never
                 send names, plates, or addresses.
-              </p>
+              </DataPoint>
               <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1.5">
                 <a
                   href={TEXT_ALERTS_HREF}
@@ -79,13 +104,21 @@ export function RapidAlertChannels() {
               className="group flex flex-col bg-surface-card p-4 transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary sm:p-5"
             >
               <Radio className="size-4 text-accent" aria-hidden="true" />
-              <h3 className="mt-3 font-display text-lg font-semibold leading-tight tracking-[-0.02em]">
+              <DataPoint
+                as="h3"
+                name="ice.rapid.channels.signal.title"
+                className="mt-3 font-display text-lg font-semibold leading-tight tracking-[-0.02em]"
+              >
                 Signal alerts
-              </h3>
-              <p className="mt-1.5 flex-1 text-[11px] leading-relaxed text-muted-foreground">
+              </DataPoint>
+              <DataPoint
+                as="p"
+                name="ice.rapid.channels.signal.body"
+                className="mt-1.5 flex-1 text-[11px] leading-relaxed text-muted-foreground"
+              >
                 Find the nationwide or local read-only alert group run by Stop ICE. Review the
                 network&apos;s security notes before joining.
-              </p>
+              </DataPoint>
               <span className="mt-3 inline-flex items-center gap-1 font-mono text-[8px] font-bold uppercase tracking-[0.09em] text-foreground underline underline-offset-2">
                 Find your group
                 <ExternalLink className="size-2.5" aria-hidden="true" />
@@ -94,13 +127,17 @@ export function RapidAlertChannels() {
           </div>
         </div>
 
-        <p className="mt-4 max-w-3xl text-[10px] leading-relaxed text-muted-foreground">
+        <DataPoint
+          as="p"
+          name="ice.rapid.channels.footnote"
+          className="mt-4 max-w-3xl text-[10px] leading-relaxed text-muted-foreground"
+        >
           The text and Signal links leave this site. Indivisible Fair Oaks-Carmichael does not
           operate or monitor those national channels and does not receive the messages you send
           there. This chapter accepts private reports only through its intake form. Raw reports are
           never published; a unique, low-risk report may publish only a generated city-level
           summary, and similar reports are combined.
-        </p>
+        </DataPoint>
       </div>
     </section>
   );

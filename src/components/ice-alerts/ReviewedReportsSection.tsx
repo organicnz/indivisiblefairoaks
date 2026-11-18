@@ -1,5 +1,6 @@
 import { ArrowRight, ShieldCheck } from 'lucide-react';
 import { connection } from 'next/server';
+import { CopyRegion } from '@/components/cms/CopyRegion';
 import { getIceReportStore, getPublishedIceReports } from '@/lib/ice-report-intake';
 import {
   iceReportKindLabel,
@@ -35,19 +36,23 @@ export async function ReviewedReportsSection() {
       <div className="border-t border-foreground/20 pt-8">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="civic-section-index">Community reports</p>
-            <h2
-              id="ice-reviewed-reports-title"
-              className="mt-2 max-w-lg font-display text-4xl font-semibold leading-[0.95] tracking-[-0.045em] sm:text-5xl"
-            >
-              City-level community reports.
-            </h2>
-            <p className="mt-4 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-              These are generated, city-level summaries from private community reports. Unique
-              low-risk reports may publish automatically; similar reports are combined. Raw text,
-              names, plates, addresses, and reporter details are never published. These are not
-              verified incidents or active alerts.
-            </p>
+            <CopyRegion id="ice-rapid-community-reports-intro">
+              <div>
+                <p className="civic-section-index">Community reports</p>
+                <h2
+                  id="ice-reviewed-reports-title"
+                  className="mt-2 max-w-lg font-display text-4xl font-semibold leading-[0.95] tracking-[-0.045em] sm:text-5xl"
+                >
+                  City-level community reports.
+                </h2>
+                <p className="mt-4 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+                  These are generated, city-level summaries from private community reports. Unique
+                  low-risk reports may publish automatically; similar reports are combined. Raw
+                  text, names, plates, addresses, and reporter details are never published. These
+                  are not verified incidents or active alerts.
+                </p>
+              </div>
+            </CopyRegion>
           </div>
           <a
             href="/ice-alerts/report"

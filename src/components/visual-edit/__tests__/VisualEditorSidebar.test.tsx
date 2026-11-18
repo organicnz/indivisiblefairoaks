@@ -566,7 +566,7 @@ describe('VisualEditorSidebar', () => {
 
     const dot = container.querySelector<HTMLElement>('aside span.size-2');
     expect(dot?.getAttribute('aria-label')).toBe(
-      'Page-level copy is not savable — edit a copy region'
+      'Page-level copy is not savable — edit inline text or a copy region'
     );
     expect(dot?.className).toContain('bg-amber-400');
   });

@@ -20,7 +20,9 @@ import { formatDateLabel } from '@/components/ice-alerts/data';
 import { parseIceMapUrlState } from '@/components/ice-alerts/map-url-state';
 import { parseRapidUrlState } from '@/components/ice-alerts/rapid-url-state';
 import type { HeatmapSnapshot } from '@/components/ice-alerts/types';
+import { DataPoint } from '@/components/ui/DataPoint';
 import { pageMetadata } from '@/lib/metadata';
+import { getDataPoints } from '@/lib/queries/civic';
 import { getIceHeatmapSnapshot } from '@/lib/queries/ice-heatmap';
 
 const numberFormatter = new Intl.NumberFormat('en-US');
@@ -75,7 +77,13 @@ function RapidActions() {
   );
 }
 
-function HistoricalHeader({ snapshot }: { snapshot: HeatmapSnapshot }) {
+function HistoricalHeader({
+  snapshot,
+  dataPoints,
+}: {
+  snapshot: HeatmapSnapshot;
+  dataPoints: Record<string, string>;
+}) {
   const iceMeta = snapshot.meta;
 
   return (
@@ -85,7 +93,14 @@ function HistoricalHeader({ snapshot }: { snapshot: HeatmapSnapshot }) {
           <span className="flex size-10 shrink-0 items-center justify-center border border-accent/40 bg-accent/10">
             <Database className="size-5 text-accent" aria-hidden="true" />
           </span>
-          <p className="civic-kicker">Historical FOIA release / Interactive city map</p>
+          <DataPoint
+            as="p"
+            name="ice.history.kicker"
+            initialData={dataPoints}
+            className="civic-kicker"
+          >
+            Historical FOIA release / Interactive city map
+          </DataPoint>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <span className="civic-stamp">ICE FOIA data</span>
@@ -95,9 +110,14 @@ function HistoricalHeader({ snapshot }: { snapshot: HeatmapSnapshot }) {
 
       <div className="mt-5 grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-end">
         <div className="min-w-0">
-          <h1 className="max-w-4xl font-display text-[clamp(2.75rem,7vw,5.5rem)] font-semibold leading-[0.88] tracking-[-0.05em]">
+          <DataPoint
+            as="h1"
+            name="ice.history.title"
+            initialData={dataPoints}
+            className="max-w-4xl font-display text-[clamp(2.75rem,7vw,5.5rem)] font-semibold leading-[0.88] tracking-[-0.05em]"
+          >
             ICE arrests, mapped
-          </h1>
+          </DataPoint>
           <p className="mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg">
             A national, interactive map of {numberFormatter.format(iceMeta.mappedRecords)} ICE
             arrest records assigned to {numberFormatter.format(iceMeta.mappedCities)} U.S. city
@@ -131,17 +151,24 @@ function HistoricalHeader({ snapshot }: { snapshot: HeatmapSnapshot }) {
             <Phone className="mt-0.5 size-4 shrink-0 text-accent" aria-hidden="true" />
             Immediate danger? Call 911.
           </a>
-          <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+          <DataPoint
+            as="p"
+            name="ice.history.safety"
+            initialData={dataPoints}
+            className="mt-2 text-xs leading-relaxed text-muted-foreground"
+          >
             This map is historical and interactive. It cannot show current enforcement activity,
             identify a street-level event, or dispatch help. If you encounter enforcement activity,
             you can carefully observe or film from a safe distance; do not interfere or obstruct.
             Filming in public is generally protected by the First Amendment.
-          </p>
+          </DataPoint>
           <a
             href="/ice-alerts"
             className="mt-3 inline-flex items-center gap-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.09em] text-foreground underline underline-offset-2"
           >
-            Back to the rapid-response map
+            <DataPoint as="span" name="ice.history.back" initialData={dataPoints}>
+              Back to the rapid-response map
+            </DataPoint>
             <ArrowRight className="size-3" aria-hidden="true" />
           </a>
         </div>
@@ -155,7 +182,10 @@ export default async function IceAlertsPage({ searchParams }: { searchParams: Pa
   const view = readView(params);
   const hasHistoricalParams = Boolean(params.city || params.pin || params.q);
   const isHistory = view === 'history' || (view !== 'rapid' && hasHistoricalParams);
-  const snapshot = await getIceHeatmapSnapshot();
+  const [snapshot, dataPoints] = await Promise.all([
+    getIceHeatmapSnapshot(),
+    getDataPoints('ice'),
+  ]);
   const historicalState = parseIceMapUrlState(params, snapshot.cities);
   const rapidState = parseRapidUrlState(params);
 
@@ -173,23 +203,32 @@ export default async function IceAlertsPage({ searchParams }: { searchParams: Pa
               </span>
               <span className="min-w-0">
                 <span className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5">
-                  {isHistory ? (
-                    <span className="font-display text-xl font-semibold tracking-[-0.03em]">
-                      ICE Alert
-                    </span>
-                  ) : (
-                    <h1 className="font-display text-xl font-semibold tracking-[-0.03em]">
-                      ICE Alert
-                    </h1>
-                  )}
-                  <span className="hidden font-mono text-[8px] font-bold uppercase tracking-[0.12em] text-muted-foreground sm:inline">
+                  <DataPoint
+                    as={isHistory ? 'span' : 'h1'}
+                    name="ice.header.title"
+                    initialData={dataPoints}
+                    className="font-display text-xl font-semibold tracking-[-0.03em]"
+                  >
+                    ICE Alert
+                  </DataPoint>
+                  <DataPoint
+                    as="span"
+                    name="ice.header.tagline"
+                    initialData={dataPoints}
+                    className="hidden font-mono text-[8px] font-bold uppercase tracking-[0.12em] text-muted-foreground sm:inline"
+                  >
                     National rapid response
-                  </span>
+                  </DataPoint>
                 </span>
                 {!isHistory ? (
-                  <span className="mt-0.5 block font-mono text-[8px] font-bold uppercase tracking-[0.08em] text-muted-foreground sm:text-[9px]">
+                  <DataPoint
+                    as="span"
+                    name="ice.header.descriptor"
+                    initialData={dataPoints}
+                    className="mt-0.5 block font-mono text-[8px] font-bold uppercase tracking-[0.08em] text-muted-foreground sm:text-[9px]"
+                  >
                     Community + official / city-level only / not 911
-                  </span>
+                  </DataPoint>
                 ) : null}
               </span>
             </a>
@@ -233,7 +272,7 @@ export default async function IceAlertsPage({ searchParams }: { searchParams: Pa
           </div>
         </div>
 
-        {isHistory ? <HistoricalHeader snapshot={snapshot} /> : null}
+        {isHistory ? <HistoricalHeader snapshot={snapshot} dataPoints={dataPoints} /> : null}
       </header>
 
       {isHistory ? (

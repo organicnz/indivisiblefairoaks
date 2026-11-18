@@ -14,6 +14,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { useState } from 'react';
+import { DataPoint } from '@/components/ui/DataPoint';
 import type {
   OfficialRelease,
   RapidAlert,
@@ -111,7 +112,9 @@ function CommunityCard({
           </span>
           {!active ? (
             <span className="font-mono text-[8px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
-              Earlier
+              <DataPoint as="span" name="ice.feed.card.earlier">
+                Earlier
+              </DataPoint>
             </span>
           ) : null}
         </span>
@@ -122,7 +125,9 @@ function CommunityCard({
 
         <span className="mt-2 flex items-center gap-1.5 font-mono text-[8px] font-bold uppercase tracking-[0.09em] text-muted-foreground">
           <MapPin className="size-2.5" aria-hidden="true" />
-          City-level location
+          <DataPoint as="span" name="ice.feed.card.location">
+            City-level location
+          </DataPoint>
           <ChevronRight className="ml-auto size-3.5 text-foreground" aria-hidden="true" />
         </span>
       </button>
@@ -138,7 +143,9 @@ function CommunityCard({
           title="Opens the original network in a new tab; it may show more detail."
           className="inline-flex items-center gap-1 font-mono text-[8px] font-bold uppercase tracking-[0.08em] text-muted-foreground underline underline-offset-2 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >
-          Source report
+          <DataPoint as="span" name="ice.feed.card.source_link">
+            Source report
+          </DataPoint>
           <ExternalLink className="size-2.5" aria-hidden="true" />
         </a>
       </div>
@@ -152,7 +159,9 @@ function OfficialCard({ release }: { release: OfficialRelease }) {
       <div className="flex flex-wrap items-center gap-2">
         <span className="inline-flex items-center gap-1 border border-primary/35 bg-primary/10 px-1.5 py-0.5 font-mono text-[8px] font-bold uppercase tracking-[0.08em] text-primary dark:text-primary-on-dark">
           <Landmark className="size-2.5" aria-hidden="true" />
-          Official ICE release
+          <DataPoint as="span" name="ice.feed.official.badge">
+            Official ICE release
+          </DataPoint>
         </span>
         <span className="ml-auto font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
           {formatShortDate(release.publishedAt)}
@@ -168,7 +177,9 @@ function OfficialCard({ release }: { release: OfficialRelease }) {
         rel="noopener noreferrer"
         className="mt-3 inline-flex min-h-8 items-center gap-1.5 border border-border px-2.5 py-1 font-mono text-[8px] font-bold uppercase tracking-[0.09em] text-foreground transition-colors hover:border-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       >
-        Read the official release
+        <DataPoint as="span" name="ice.feed.official.link">
+          Read the official release
+        </DataPoint>
         <ExternalLink className="size-3" aria-hidden="true" />
       </a>
     </article>
@@ -219,13 +230,17 @@ export function RapidAlertFeed({
       <div className="border-b border-border p-4 sm:p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="civic-section-index">Community + official feed</p>
-            <h2
+            <p className="civic-section-index">
+              <DataPoint name="ice.feed.eyebrow">Community + official feed</DataPoint>
+            </p>
+            <DataPoint
+              as="h2"
               id="ice-feed-title"
+              name="ice.feed.title"
               className="mt-1.5 font-display text-2xl font-semibold leading-tight tracking-[-0.035em] sm:text-3xl"
             >
               Recent reports
-            </h2>
+            </DataPoint>
           </div>
           <div className="flex items-center gap-2">
             <span className="civic-stamp">{shownCount} shown</span>
@@ -331,12 +346,20 @@ export function RapidAlertFeed({
         ) : alerts.length === 0 ? (
           <div className="p-6 text-center">
             <SearchX className="mx-auto size-5 text-muted-foreground" aria-hidden="true" />
-            <p className="mt-3 font-display text-xl font-semibold tracking-[-0.02em]">
+            <DataPoint
+              as="p"
+              name="ice.feed.empty.community.title"
+              className="mt-3 font-display text-xl font-semibold tracking-[-0.02em]"
+            >
               No reports match this view.
-            </p>
-            <p className="mx-auto mt-1.5 max-w-xs text-xs leading-relaxed text-muted-foreground">
+            </DataPoint>
+            <DataPoint
+              as="p"
+              name="ice.feed.empty.community.body"
+              className="mx-auto mt-1.5 max-w-xs text-xs leading-relaxed text-muted-foreground"
+            >
               Try a different time window, status, or search. The map uses the same filters.
-            </p>
+            </DataPoint>
             {hasFilters ? (
               <button
                 type="button"
@@ -372,13 +395,21 @@ export function RapidAlertFeed({
         ) : officialReleases.length === 0 ? (
           <div className="p-6 text-center">
             <Landmark className="mx-auto size-5 text-muted-foreground" aria-hidden="true" />
-            <p className="mt-3 font-display text-xl font-semibold tracking-[-0.02em]">
+            <DataPoint
+              as="p"
+              name="ice.feed.empty.official.title"
+              className="mt-3 font-display text-xl font-semibold tracking-[-0.02em]"
+            >
               Official releases are unavailable.
-            </p>
-            <p className="mx-auto mt-1.5 max-w-xs text-xs leading-relaxed text-muted-foreground">
+            </DataPoint>
+            <DataPoint
+              as="p"
+              name="ice.feed.empty.official.body"
+              className="mx-auto mt-1.5 max-w-xs text-xs leading-relaxed text-muted-foreground"
+            >
               The ICE newsroom feed did not return any releases. No replacement content is being
               invented.
-            </p>
+            </DataPoint>
           </div>
         ) : (
           officialReleases.map((release) => (
@@ -392,14 +423,14 @@ export function RapidAlertFeed({
           className={`mt-0.5 size-3 shrink-0 ${isRefreshing ? 'animate-spin' : 'opacity-0'}`}
           aria-hidden="true"
         />
-        <span>
+        <DataPoint as="span" name="ice.feed.footer">
           This page checks for a new public export every 2 minutes; the community source compiles
           its export nightly. Source links open the original network, which may show more detail,
           including any community comments or updates. Official releases are summarized by topic
           so names and case details are not reproduced; open the release for the agency&apos;s full
           text. They are not live enforcement locations. Source-confirmed means the reporting
           network&apos;s label, not independent verification by this page.
-        </span>
+        </DataPoint>
       </div>
     </section>
   );

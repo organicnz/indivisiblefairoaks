@@ -12,6 +12,7 @@ import {
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { connection } from 'next/server';
+import { CopyRegion } from '@/components/cms/CopyRegion';
 import {
   getIceCrawlStore,
   getPublishedSourceReportCount,
@@ -149,15 +150,19 @@ export default async function IceSourceDataPage() {
             <ArrowLeft className="size-3" aria-hidden="true" />
             Back to ICE Alert
           </Link>
-          <p className="civic-section-index mt-6">Open data &amp; public API</p>
-          <h1 className="mt-2 max-w-4xl font-display text-4xl font-semibold leading-[0.95] tracking-[-0.045em] sm:text-6xl">
-            The source data, not just a feed.
-          </h1>
-          <p className="mt-4 max-w-3xl text-sm leading-relaxed text-muted-foreground">
-            Download or query the same source-attributed reports shown in the archive. Every record
-            keeps its original URL, publisher label, publication time, and retrieval time. No API key
-            is required for this read-only public dataset.
-          </p>
+          <CopyRegion id="ice-data-intro">
+            <div>
+              <p className="civic-section-index mt-6">Open data &amp; public API</p>
+              <h1 className="mt-2 max-w-4xl font-display text-4xl font-semibold leading-[0.95] tracking-[-0.045em] sm:text-6xl">
+                The source data, not just a feed.
+              </h1>
+              <p className="mt-4 max-w-3xl text-sm leading-relaxed text-muted-foreground">
+                Download or query the same source-attributed reports shown in the archive. Every
+                record keeps its original URL, publisher label, publication time, and retrieval
+                time. No API key is required for this read-only public dataset.
+              </p>
+            </div>
+          </CopyRegion>
 
           <div className="mt-5 flex flex-wrap gap-2">
             <a

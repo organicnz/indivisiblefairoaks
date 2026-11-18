@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import type { FormEvent, RefObject } from 'react';
 import { Button } from '@/components/ui/Button';
+import { DataPoint } from '@/components/ui/DataPoint';
 import { formatNumber } from './data';
 import type {
   RapidAlert,
@@ -135,16 +136,20 @@ export function RapidMapPanel({
             <div>
               <p className="civic-section-index inline-flex items-center gap-1.5">
                 <Layers3 className="size-3.5" aria-hidden="true" />
-                National rapid-response map
+                <DataPoint name="ice.map.eyebrow">National rapid-response map</DataPoint>
               </p>
               <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
                 <h2 className="font-display text-xl font-semibold leading-tight tracking-[-0.035em] sm:text-2xl">
                   {VIEW_HEADINGS[mapView]}
                 </h2>
-                <p className="max-w-xl text-[10px] leading-relaxed text-muted-foreground">
+                <DataPoint
+                  as="p"
+                  name="ice.map.hint"
+                  className="max-w-xl text-[10px] leading-relaxed text-muted-foreground"
+                >
                   Pulsing = report under 4h. Pins are city centroids; the community export is
                   nightly.
-                </p>
+                </DataPoint>
               </div>
             </div>
             <div className="flex flex-col items-end gap-1.5 text-right">
@@ -332,7 +337,9 @@ export function RapidMapPanel({
             htmlFor="ice-rapid-location"
             className="block font-mono text-[9px] font-bold uppercase tracking-[0.13em] text-muted-foreground"
           >
-            Find a U.S. city or address
+            <DataPoint as="span" name="ice.map.search.label">
+              Find a U.S. city or address
+            </DataPoint>
           </label>
           <div className="mt-1.5 flex flex-col gap-2 sm:flex-row">
             <input
@@ -358,7 +365,10 @@ export function RapidMapPanel({
             id="ice-rapid-location-help"
             className="mt-1.5 text-[10px] leading-relaxed text-muted-foreground"
           >
-            Search moves the map only. It never creates or changes a report. Search text is sent to{' '}
+            <DataPoint as="span" name="ice.map.search.help">
+              Search moves the map only. It never creates or changes a report. Search text is sent
+              to
+            </DataPoint>{' '}
             <a
               href="https://www.openstreetmap.org/copyright"
               className="font-semibold underline underline-offset-2 hover:text-foreground"
@@ -396,19 +406,27 @@ export function RapidMapPanel({
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border bg-surface-muted px-4 py-2.5 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-muted-foreground sm:px-5">
           <span className="inline-flex items-center gap-1.5">
             <span className="size-2 rounded-full border border-accent bg-accent/25 ice-live-dot" aria-hidden="true" />
-            Active &lt;4h
+            <DataPoint as="span" name="ice.map.legend.active">
+              Active &lt;4h
+            </DataPoint>
           </span>
           <span className="inline-flex items-center gap-1.5">
             <span className="size-2 rounded-full border border-accent bg-accent" aria-hidden="true" />
-            Source-confirmed
+            <DataPoint as="span" name="ice.map.legend.source_confirmed">
+              Source-confirmed
+            </DataPoint>
           </span>
           <span className="inline-flex items-center gap-1.5">
             <span className="size-2 rounded-full border border-accent-gold bg-accent-gold" aria-hidden="true" />
-            Sighting
+            <DataPoint as="span" name="ice.map.legend.sighting">
+              Sighting
+            </DataPoint>
           </span>
           <span className="inline-flex items-center gap-1.5">
             <span className="size-2 rounded-full border border-border bg-muted-foreground/40" aria-hidden="true" />
-            Earlier
+            <DataPoint as="span" name="ice.map.legend.earlier">
+              Earlier
+            </DataPoint>
           </span>
           {publicCaseCount > 0 ? (
             <span className="inline-flex items-center gap-1.5">
@@ -419,7 +437,9 @@ export function RapidMapPanel({
           ) : null}
           <span className="ml-auto inline-flex items-center gap-1.5 normal-case tracking-normal">
             <ShieldCheck className="size-3.5" aria-hidden="true" />
-            City-level locations only
+            <DataPoint as="span" name="ice.map.legend.city_level">
+              City-level locations only
+            </DataPoint>
           </span>
         </div>
 
@@ -468,7 +488,9 @@ export function RapidMapPanel({
               <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
                 <span className="inline-flex items-center gap-1.5">
                   <MapPin className="size-3" aria-hidden="true" />
-                  City centroid, not a street address
+                  <DataPoint as="span" name="ice.map.selected.location_note">
+                    City centroid, not a street address
+                  </DataPoint>
                 </span>
                 <span className="inline-flex items-center gap-1.5">
                   <CalendarDays className="size-3" aria-hidden="true" />
@@ -495,13 +517,21 @@ export function RapidMapPanel({
             <div className="flex items-start gap-2.5">
               <MapPin className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
               <div>
-                <p className="text-xs font-semibold text-foreground">
+                <DataPoint
+                  as="p"
+                  name="ice.map.empty.title"
+                  className="text-xs font-semibold text-foreground"
+                >
                   Select a pin or a feed item for details.
-                </p>
-                <p className="mt-0.5 text-[10px] leading-relaxed text-muted-foreground">
+                </DataPoint>
+                <DataPoint
+                  as="p"
+                  name="ice.map.empty.body"
+                  className="mt-0.5 text-[10px] leading-relaxed text-muted-foreground"
+                >
                   The detail view shows the city, source status, and time. It never reveals a street
                   address, plate, name, or immigration status.
-                </p>
+                </DataPoint>
               </div>
             </div>
           )}

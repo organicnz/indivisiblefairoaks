@@ -106,6 +106,7 @@ describe('useDataPoints and Edge API Integration', () => {
     expect(el).not.toBeNull();
     expect(el?.tagName).toBe('H1');
     expect(el?.textContent).toBe('Upcoming Events & Actions');
+    expect(el?.getAttribute('data-data-point-baseline')).toBeNull();
     expect(el?.className).toContain('text-3xl font-bold');
   });
 
@@ -129,6 +130,9 @@ describe('useDataPoints and Edge API Integration', () => {
 
     const el = container.querySelector('[data-data-point="footer.tagline"]');
     expect(el?.textContent).toBe('Grassroots movement defending democracy.');
+    expect(el?.getAttribute('data-data-point-baseline')).toBe(
+      'Grassroots movement defending democracy.'
+    );
   });
 
   it('reactively updates DataPoint text when data-point-saved event is fired', async () => {
@@ -156,6 +160,7 @@ describe('useDataPoints and Edge API Integration', () => {
 
     const el = container.querySelector('[data-data-point="news.hero.headline"]');
     expect(el?.textContent).toBe('Breaking Grassroots Bulletin');
+    expect(el?.getAttribute('data-data-point-baseline')).toBe('Breaking Grassroots Bulletin');
   });
 
   it('renders store, search, wishlist, and login DataPoint tags correctly', async () => {

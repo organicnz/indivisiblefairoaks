@@ -796,17 +796,21 @@ export default async function VoterInfoPage() {
                 <Archive className="size-3.5" aria-hidden="true" />
                 2026 archive
               </p>
-              <h2
-                id="voter-archives-heading"
-                className="mt-2 font-display text-3xl font-semibold leading-tight tracking-[-0.03em] sm:text-4xl"
-              >
-                Voter Information Archives
-              </h2>
-              <p className="mt-3 text-sm leading-relaxed text-muted-foreground dark:text-ink-on-dark">
-                The 2026 voter guides and nonpartisan documents from the chapter’s previous site
-                are preserved in the Chapter Archive. They are historical reference, not a live
-                election guide or a current recommendation.
-              </p>
+              <CopyRegion id="voter-archive">
+                <div>
+                  <h2
+                    id="voter-archives-heading"
+                    className="mt-2 font-display text-3xl font-semibold leading-tight tracking-[-0.03em] sm:text-4xl"
+                  >
+                    Voter Information Archives
+                  </h2>
+                  <p className="mt-3 text-sm leading-relaxed text-muted-foreground dark:text-ink-on-dark">
+                    The 2026 voter guides and nonpartisan documents from the chapter’s previous
+                    site are preserved in the Chapter Archive. They are historical reference, not
+                    a live election guide or a current recommendation.
+                  </p>
+                </div>
+              </CopyRegion>
             </div>
 
             <Link

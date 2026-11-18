@@ -5,6 +5,7 @@ import {
   MASTHEAD_TITLE_DOCUMENT,
   PageMasthead,
 } from '@/components/layout/PageMasthead';
+import { CopyRegion } from '@/components/cms/CopyRegion';
 import { pageMetadata } from '@/lib/metadata';
 
 export const metadata: Metadata = pageMetadata({
@@ -32,7 +33,8 @@ export default function TermsPage() {
       />
 
       <div className="mx-auto max-w-5xl px-4 py-14 sm:px-6 lg:px-8 lg:py-20">
-        <div className="civic-prose">
+        <CopyRegion id="terms-body">
+          <div className="civic-prose">
           <h2>Using this site</h2>
           <p>
             You may use this site for lawful civic and educational purposes. Do not attempt to
@@ -70,7 +72,8 @@ export default function TermsPage() {
             of this page is the current version. Questions can be sent to{' '}
             <a href="mailto:contact@indivisiblefairoaks.org">contact@indivisiblefairoaks.org</a>.
           </p>
-        </div>
+          </div>
+        </CopyRegion>
       </div>
     </div>
   );

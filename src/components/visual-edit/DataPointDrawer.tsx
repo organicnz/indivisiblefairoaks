@@ -18,7 +18,7 @@ import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { dataPointGroup } from '@/lib/data-point-groups';
-import { saveDataPoint } from '@/lib/queries/civic-client';
+import { getDataPoints, saveDataPoint } from '@/lib/queries/civic-client';
 
 export interface ScannedDataPoint {
   key: string;
@@ -27,6 +27,8 @@ export interface ScannedDataPoint {
   currentValue: string;
   isDirty: boolean;
   element: HTMLElement | null;
+  /** Every rendered node for this key; repeated labels share one CMS row. */
+  elements: HTMLElement[];
 }
 
 interface DataPointDrawerProps {
@@ -45,33 +47,55 @@ export const DataPointDrawer: React.FC<DataPointDrawerProps> = ({
   const [selectedGroup, setSelectedGroup] = useState<string>('all');
   const [savingKeys, setSavingKeys] = useState<Set<string>>(new Set());
   const [isSavingAll, setIsSavingAll] = useState(false);
+  const [closePrompt, setClosePrompt] = useState(false);
+  const [labels, setLabels] = useState<Record<string, string>>({});
 
   // Scan live DOM for all [data-data-point] elements
-  const scanDataPoints = useCallback(() => {
+  const scanDataPoints = useCallback((preserveEdits = false) => {
     if (typeof document === 'undefined') return;
     const elements = Array.from(document.querySelectorAll<HTMLElement>('[data-data-point]'));
     const scanned: ScannedDataPoint[] = [];
-    const seen = new Set<string>();
+    const byKey = new Map<string, { text: string; elements: HTMLElement[] }>();
 
     for (const el of elements) {
       const key = el.getAttribute('data-data-point')?.trim();
-      if (!key || seen.has(key)) continue;
-      seen.add(key);
-
-      const group = dataPointGroup(key);
+      if (!key) continue;
       const text = el.textContent?.trim() || '';
+      const entry = byKey.get(key);
+      if (entry) {
+        entry.elements.push(el);
+        continue;
+      }
+      byKey.set(key, { text, elements: [el] });
+    }
 
+    for (const [key, entry] of byKey) {
       scanned.push({
         key,
-        group,
-        initialValue: text,
-        currentValue: text,
+        group: dataPointGroup(key),
+        initialValue: entry.text,
+        currentValue: entry.text,
         isDirty: false,
-        element: el,
+        element: entry.elements[0] ?? null,
+        elements: entry.elements,
       });
     }
 
-    setDataPoints(scanned);
+    setDataPoints((previous) => {
+      if (!preserveEdits) return scanned;
+      const previousByKey = new Map(previous.map((dp) => [dp.key, dp]));
+      return scanned.map((dp) => {
+        const existing = previousByKey.get(dp.key);
+        return existing
+          ? {
+              ...dp,
+              initialValue: existing.initialValue,
+              currentValue: existing.currentValue,
+              isDirty: existing.isDirty,
+            }
+          : dp;
+      });
+    });
   }, []);
 
   useEffect(() => {
@@ -88,6 +112,34 @@ export const DataPointDrawer: React.FC<DataPointDrawerProps> = ({
     return ['all', ...Array.from(set).sort()];
   }, [dataPoints]);
 
+  const groupSignature = useMemo(
+    () => groups.filter((group) => group !== 'all').sort().join('|'),
+    [groups]
+  );
+
+  /** Map each key to the label editors see in the CMS, not just its raw key. */
+  useEffect(() => {
+    if (!isOpen || !groupSignature) return;
+    let cancelled = false;
+    void Promise.all(groupSignature.split('|').map((group) => getDataPoints(group).catch(() => null)))
+      .then((results) => {
+        if (cancelled) return;
+        const next: Record<string, string> = {};
+        for (const result of results) {
+          for (const row of result?.rows ?? []) {
+            if (row.key && row.label) next[row.key] = row.label;
+          }
+        }
+        setLabels(next);
+      })
+      .catch(() => {
+        if (!cancelled) setLabels({});
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [groupSignature, isOpen]);
+
   const filtered = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
     return dataPoints.filter((dp) => {
@@ -100,6 +152,32 @@ export const DataPointDrawer: React.FC<DataPointDrawerProps> = ({
 
   const dirtyCount = useMemo(() => dataPoints.filter((dp) => dp.isDirty).length, [dataPoints]);
 
+  useEffect(() => {
+    if (dirtyCount === 0) setClosePrompt(false);
+  }, [dirtyCount]);
+
+  const requestClose = useCallback(() => {
+    if (dirtyCount > 0) {
+      setClosePrompt(true);
+      return;
+    }
+    onClose();
+  }, [dirtyCount, onClose]);
+
+  const discardUnsavedAndClose = useCallback(() => {
+    for (const dp of dataPoints) {
+      if (!dp.isDirty) continue;
+      for (const element of dp.elements) element.textContent = dp.initialValue;
+    }
+    setDataPoints((prev) =>
+      prev.map((dp) =>
+        dp.isDirty ? { ...dp, currentValue: dp.initialValue, isDirty: false } : dp
+      )
+    );
+    setClosePrompt(false);
+    onClose();
+  }, [dataPoints, onClose]);
+
   const handleValueChange = (key: string, newValue: string) => {
     setDataPoints((prev) =>
       prev.map((dp) => {
@@ -107,9 +185,7 @@ export const DataPointDrawer: React.FC<DataPointDrawerProps> = ({
         const isDirty = newValue !== dp.initialValue;
 
         // Two-way DOM sync so the user sees live edits immediately on the page
-        if (dp.element) {
-          dp.element.textContent = newValue;
-        }
+        for (const element of dp.elements) element.textContent = newValue;
 
         return {
           ...dp,
@@ -125,6 +201,7 @@ export const DataPointDrawer: React.FC<DataPointDrawerProps> = ({
       const liveEl = document.querySelector<HTMLElement>(`[data-data-point="${dp.key}"]`);
       if (liveEl) {
         dp.element = liveEl;
+        dp.elements = [liveEl];
       }
     }
 
@@ -168,7 +245,9 @@ export const DataPointDrawer: React.FC<DataPointDrawerProps> = ({
         toast.success(`Saved "${dp.key}"`);
         setDataPoints((prev) =>
           prev.map((item) =>
-            item.key === dp.key ? { ...item, initialValue: dp.currentValue, isDirty: false } : item
+            item.key === dp.key && item.currentValue === dp.currentValue
+              ? { ...item, initialValue: dp.currentValue, isDirty: false }
+              : item
           )
         );
         window.dispatchEvent(
@@ -191,41 +270,65 @@ export const DataPointDrawer: React.FC<DataPointDrawerProps> = ({
   };
 
   const handleSaveAllModified = async () => {
-    const dirtyItems = dataPoints.filter((dp) => dp.isDirty);
+    const dirtyItems = dataPoints
+      .filter((dp) => dp.isDirty)
+      .map((dp) => ({ key: dp.key, value: dp.currentValue }));
     if (dirtyItems.length === 0) return;
+    const savedValues = new Map(dirtyItems.map((dp) => [dp.key, dp.value]));
 
     setIsSavingAll(true);
-    let successCount = 0;
+    const savedKeys = new Set<string>();
+    const failedKeys: string[] = [];
 
     for (const dp of dirtyItems) {
       try {
         const groupName = dataPointGroup(dp.key);
         const res = await saveDataPoint({
           key: dp.key,
-          value: dp.currentValue,
+          value: dp.value,
           group_name: groupName,
           label: dp.key,
         });
         if (res.success) {
-          successCount++;
+          savedKeys.add(dp.key);
           window.dispatchEvent(
             new CustomEvent('data-point-saved', {
-              detail: { key: dp.key, value: dp.currentValue },
+              detail: { key: dp.key, value: dp.value },
             })
           );
+        } else {
+          failedKeys.push(dp.key);
         }
       } catch {
-        // Continue saving remaining
+        failedKeys.push(dp.key);
       }
     }
 
     setDataPoints((prev) =>
       prev.map((item) =>
-        item.isDirty ? { ...item, initialValue: item.currentValue, isDirty: false } : item
+        savedKeys.has(item.key) && item.currentValue === savedValues.get(item.key)
+          ? { ...item, initialValue: item.currentValue, isDirty: false }
+          : item
       )
     );
     setIsSavingAll(false);
-    toast.success(`Saved ${successCount} data point${successCount === 1 ? '' : 's'} to database`);
+    if (failedKeys.length === 0) {
+      toast.success(
+        `Saved ${savedKeys.size} data point${savedKeys.size === 1 ? '' : 's'} to database`
+      );
+      return;
+    }
+    if (savedKeys.size > 0) {
+      toast.error(
+        `Saved ${savedKeys.size}; ${failedKeys.length} failed. Still modified: ${failedKeys.join(', ')}`
+      );
+      return;
+    }
+    toast.error(
+      `Could not save ${failedKeys.length} data point${
+        failedKeys.length === 1 ? '' : 's'
+      }. Nothing was marked saved.`
+    );
   };
 
   const handleResetOne = (dp: ScannedDataPoint) => {
@@ -234,7 +337,7 @@ export const DataPointDrawer: React.FC<DataPointDrawerProps> = ({
   };
 
   return (
-    <Dialog.Root open={isOpen} onOpenChange={(open) => !open && onClose()}>
+    <Dialog.Root open={isOpen} onOpenChange={(open) => !open && requestClose()}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs transition-opacity animate-in fade-in-0" />
         <Dialog.Content
@@ -260,22 +363,21 @@ export const DataPointDrawer: React.FC<DataPointDrawerProps> = ({
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={scanDataPoints}
+                onClick={() => scanDataPoints(true)}
                 title="Rescan page for DataPoints"
                 aria-label="Rescan page"
                 className="rounded-lg border border-white/10 bg-white/5 p-2 text-slate-300 hover:bg-white/10 hover:text-white transition-colors focus-visible:ring-2 focus-visible:ring-accent-gold"
               >
                 <RefreshCw size={14} />
               </button>
-              <Dialog.Close asChild>
-                <button
-                  type="button"
-                  aria-label="Close DataPoints drawer"
-                  className="rounded-lg border border-white/10 bg-white/5 p-2 text-slate-300 hover:bg-white/10 hover:text-white transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-accent-gold"
-                >
-                  <X size={15} />
-                </button>
-              </Dialog.Close>
+              <button
+                type="button"
+                onClick={requestClose}
+                aria-label="Close DataPoints drawer"
+                className="rounded-lg border border-white/10 bg-white/5 p-2 text-slate-300 hover:bg-white/10 hover:text-white transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-accent-gold"
+              >
+                <X size={15} />
+              </button>
             </div>
           </div>
 
@@ -357,18 +459,28 @@ export const DataPointDrawer: React.FC<DataPointDrawerProps> = ({
                   >
                     {/* Card Top */}
                     <div className="flex items-center justify-between gap-2 mb-2">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <span
-                          className="font-mono text-xs font-bold text-sky-400 truncate"
-                          title={dp.key}
-                        >
-                          {dp.key}
-                        </span>
-                        {dp.isDirty && (
-                          <span className="shrink-0 rounded bg-accent-gold/20 border border-accent-gold/40 px-1.5 py-0.2 text-[9px] font-bold text-accent-gold uppercase">
-                            Modified
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span
+                            className={`truncate text-xs font-bold ${labels[dp.key] ? 'text-white' : 'font-mono text-sky-400'}`}
+                            title={dp.key}
+                          >
+                            {labels[dp.key] ?? dp.key}
                           </span>
-                        )}
+                          {dp.isDirty && (
+                            <span className="shrink-0 rounded bg-accent-gold/20 border border-accent-gold/40 px-1.5 py-0.2 text-[9px] font-bold text-accent-gold uppercase">
+                              Modified
+                            </span>
+                          )}
+                        </div>
+                        {labels[dp.key] ? (
+                          <p
+                            className="mt-0.5 truncate font-mono text-[10px] text-sky-400/80"
+                            title={dp.key}
+                          >
+                            {dp.key}
+                          </p>
+                        ) : null}
                       </div>
 
                       <div className="flex items-center gap-1 shrink-0">
@@ -449,6 +561,38 @@ export const DataPointDrawer: React.FC<DataPointDrawerProps> = ({
             )}
           </div>
 
+          {closePrompt ? (
+            <div
+              role="alertdialog"
+              aria-label="Unsaved DataPoint changes"
+              className="shrink-0 border-t border-amber-500/35 bg-amber-500/10 px-5 py-3"
+            >
+              <p className="text-xs font-bold text-accent-gold">
+                Close with {dirtyCount} unsaved field{dirtyCount === 1 ? '' : 's'}?
+              </p>
+              <p className="mt-0.5 text-[11px] leading-relaxed text-ink-muted-on-dark">
+                Closing now restores those fields on the page. Saved fields are not affected.
+              </p>
+              <div className="mt-2 flex flex-wrap justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setClosePrompt(false)}
+                  autoFocus
+                  className="rounded-lg border border-white/15 px-3 py-1.5 text-xs font-bold text-slate-200 transition-colors hover:bg-white/10"
+                >
+                  Keep editing
+                </button>
+                <button
+                  type="button"
+                  onClick={discardUnsavedAndClose}
+                  className="rounded-lg border border-accent/40 bg-accent/15 px-3 py-1.5 text-xs font-bold text-accent transition-colors hover:bg-accent/25"
+                >
+                  Discard and close
+                </button>
+              </div>
+            </div>
+          ) : null}
+
           {/* Drawer Footer with Batch Save */}
           <div className="shrink-0 flex items-center justify-between border-t border-white/10 bg-secondary px-6 py-3.5">
             <span className="text-xs text-ink-muted-on-dark font-mono">
@@ -464,7 +608,7 @@ export const DataPointDrawer: React.FC<DataPointDrawerProps> = ({
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={onClose}
+                onClick={requestClose}
                 className="rounded-lg border border-white/15 px-3 py-1.5 text-xs font-bold text-slate-300 hover:bg-white/10 hover:text-white transition-colors"
               >
                 Close

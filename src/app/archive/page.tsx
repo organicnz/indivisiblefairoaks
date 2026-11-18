@@ -18,6 +18,7 @@ import {
   MASTHEAD_TITLE,
   PageMasthead,
 } from '@/components/layout/PageMasthead';
+import { CopyRegion } from '@/components/cms/CopyRegion';
 import { LiteYouTube } from '@/components/ui/LiteYouTube';
 import { pageMetadata } from '@/lib/metadata';
 import { getLegacyArchive, legacyAssetUrl, legacyDocumentUrl } from '@/lib/queries/legacy';
@@ -91,11 +92,13 @@ export default async function ArchivePage() {
         eyebrow="Legacy Google Sites Archive"
         title={<h1 className={MASTHEAD_TITLE}>Chapter Archive</h1>}
         intro={
-          <p className={MASTHEAD_INTRO}>
-            The public record of our earlier Google Sites — voter guides, newsletters, event flyers,
-            choir films, and the links we used to organize. Raw site captures and uncleared files stay
-            in a private preservation archive.
-          </p>
+          <CopyRegion id="archive-intro">
+            <p className={MASTHEAD_INTRO}>
+              The public record of our earlier Google Sites — voter guides, newsletters, event flyers,
+              choir films, and the links we used to organize. Raw site captures and uncleared files
+              stay in a private preservation archive.
+            </p>
+          </CopyRegion>
         }
         meta={
           pages.length > 0 ? (
@@ -124,12 +127,19 @@ export default async function ArchivePage() {
         {pages.length === 0 ? (
           <div className="border-y border-border bg-surface-card p-8 text-center sm:p-12">
             <Archive className="mx-auto text-accent-gold" size={32} />
-            <h2 className="mt-4 font-display text-3xl font-semibold tracking-[-0.03em]">
-              The archive is being prepared
-            </h2>
+            <CopyRegion id="archive-empty">
+              <div>
+                <h2 className="mt-4 font-display text-3xl font-semibold tracking-[-0.03em]">
+                  The archive is being prepared
+                </h2>
+                <p className="mt-2 max-w-xl mx-auto text-sm text-muted-foreground dark:text-ink-on-dark leading-relaxed">
+                  The public index will appear after the legacy migration is applied and the
+                  read-only capture has been reviewed.
+                </p>
+              </div>
+            </CopyRegion>
             <p className="mt-2 max-w-xl mx-auto text-sm text-muted-foreground dark:text-ink-on-dark leading-relaxed">
-              The public index will appear after the legacy migration is applied and the read-only
-              capture has been reviewed. The original pages are still available on{' '}
+              The original pages are still available on{' '}
               <a
                 href="https://sites.google.com/indivisiblefairoaks.org/indivisiblefairoaks/"
                 target="_blank"

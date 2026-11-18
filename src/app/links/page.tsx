@@ -8,6 +8,7 @@ import {
 } from '@/components/layout/PageMasthead';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { InteractiveLinksDirectory } from '@/components/ui/InteractiveLinksDirectory';
+import { CopyRegion } from '@/components/cms/CopyRegion';
 import { pageMetadata } from '@/lib/metadata';
 import { getCoalitionLinks, getDataPoints } from '@/lib/queries/civic';
 
@@ -208,16 +209,18 @@ export default async function LinksPage() {
             <span className="flex size-10 shrink-0 items-center justify-center border border-border bg-background text-accent">
               <Archive size={20} />
             </span>
-            <div>
-              <h2 className="font-display text-2xl font-semibold tracking-[-0.03em]">
-                Looking for an older link?
-              </h2>
-              <p className="mt-1 max-w-xl text-xs sm:text-sm leading-relaxed text-muted-foreground dark:text-ink-on-dark">
-                The complete link list from the chapter’s Google Sites — including organization
-                sites that are no longer active — is preserved in the archive with its original page
-                context.
-              </p>
-            </div>
+            <CopyRegion id="links-archive">
+              <div>
+                <h2 className="font-display text-2xl font-semibold tracking-[-0.03em]">
+                  Looking for an older link?
+                </h2>
+                <p className="mt-1 max-w-xl text-xs sm:text-sm leading-relaxed text-muted-foreground dark:text-ink-on-dark">
+                  The complete link list from the chapter’s Google Sites — including organization
+                  sites that are no longer active — is preserved in the archive with its original
+                  page context.
+                </p>
+              </div>
+            </CopyRegion>
           </div>
           <Link
             href="/archive"

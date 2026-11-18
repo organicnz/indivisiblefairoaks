@@ -1,4 +1,6 @@
 // @vitest-environment node
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   COPY_REGION_SLUG_PREFIX,
@@ -69,6 +71,24 @@ describe('resolving a region row back to its page', () => {
 });
 
 describe('page copy region registry', () => {
+  it('keeps rendered regions and the registry in exact agreement', () => {
+    const registered = new Set(
+      Object.values(PAGE_COPY_REGIONS).flatMap((regions) => regions.map((region) => region.id))
+    );
+    const rendered = new Set<string>();
+
+    for (const file of readdirSync(join(process.cwd(), 'src'), { recursive: true })) {
+      if (!String(file).endsWith('.tsx')) continue;
+      const source = readFileSync(join(process.cwd(), 'src', String(file)), 'utf8');
+      for (const match of source.matchAll(/<CopyRegion\s+id="([^"]+)"/g)) {
+        rendered.add(match[1]);
+      }
+    }
+
+    expect([...rendered].filter((id) => !registered.has(id))).toEqual([]);
+    expect([...registered].filter((id) => !rendered.has(id))).toEqual([]);
+  });
+
   it('returns regions only for registered paths', () => {
     expect(getPageCopyRegions('/').map((r) => r.id)).toEqual([
       'home-hero',

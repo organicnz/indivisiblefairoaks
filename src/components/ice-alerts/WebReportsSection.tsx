@@ -10,6 +10,7 @@ import {
   type IceSourceReport,
 } from '@/lib/ice-crawl-types';
 import { iceSourceReportPlaceLabel } from '@/lib/ice-source-report-search';
+import { CopyRegion } from '@/components/cms/CopyRegion';
 
 async function readWebReports() {
   const store = getIceCrawlStore();
@@ -43,19 +44,23 @@ export async function WebReportsSection() {
       <div className="border-t border-foreground/20 pt-8">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="civic-section-index">Republished from the web</p>
-            <h2
-              id="ice-web-reports-title"
-              className="mt-2 max-w-2xl font-display text-4xl font-semibold leading-[0.95] tracking-[-0.045em] sm:text-5xl"
-            >
-              Republished from the web. Kept with its source.
-            </h2>
-            <p className="mt-4 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-              These full readable passages are republished from approved public sources. Every
-              entry keeps its original URL, source label, source page title, publication time,
-              and retrieval time. They are not independently verified by this chapter, and the
-              source&apos;s own terms may apply.
-            </p>
+            <CopyRegion id="ice-rapid-web-reports-intro">
+              <div>
+                <p className="civic-section-index">Republished from the web</p>
+                <h2
+                  id="ice-web-reports-title"
+                  className="mt-2 max-w-2xl font-display text-4xl font-semibold leading-[0.95] tracking-[-0.045em] sm:text-5xl"
+                >
+                  Republished from the web. Kept with its source.
+                </h2>
+                <p className="mt-4 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+                  These full readable passages are republished from approved public sources. Every
+                  entry keeps its original URL, source label, source page title, publication time,
+                  and retrieval time. They are not independently verified by this chapter, and the
+                  source&apos;s own terms may apply.
+                </p>
+              </div>
+            </CopyRegion>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center gap-1.5 border border-border bg-surface-card px-2.5 py-1.5 font-mono text-[8px] font-bold uppercase tracking-[0.09em] text-muted-foreground">

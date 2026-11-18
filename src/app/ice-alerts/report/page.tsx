@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import type { Metadata } from 'next';
 import { IceReportForm } from '@/components/ice-alerts/IceReportForm';
+import { CopyRegion } from '@/components/cms/CopyRegion';
 import { pageMetadata } from '@/lib/metadata';
 
 export const metadata: Metadata = pageMetadata({
@@ -67,16 +68,20 @@ export default function IceReportPage() {
               </span>
               <p className="civic-kicker">Private report intake</p>
             </div>
-            <h1 className="mt-4 max-w-4xl font-display text-[clamp(2.75rem,7vw,5.5rem)] font-semibold leading-[0.88] tracking-[-0.05em]">
-              Report what you saw.
-            </h1>
-            <p className="mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg">
-              This is a private, text-only report. Raw reports are never published. A unique,
-              low-risk report may automatically publish a generated city-level summary; similar
-              reports are combined. Reports with safety flags or no verified city are held for
-              chapter review. Only the city, state, rough time, category, and a short unverified
-              summary can appear on the ICE Alert page.
-            </p>
+            <CopyRegion id="ice-report-intro">
+              <div>
+                <h1 className="mt-4 max-w-4xl font-display text-[clamp(2.75rem,7vw,5.5rem)] font-semibold leading-[0.88] tracking-[-0.05em]">
+                  Report what you saw.
+                </h1>
+                <p className="mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg">
+                  This is a private, text-only report. Raw reports are never published. A unique,
+                  low-risk report may automatically publish a generated city-level summary; similar
+                  reports are combined. Reports with safety flags or no verified city are held for
+                  chapter review. Only the city, state, rough time, category, and a short unverified
+                  summary can appear on the ICE Alert page.
+                </p>
+              </div>
+            </CopyRegion>
             <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
               <span className="inline-flex items-center gap-1.5">
                 <LockKeyhole className="size-3.5" aria-hidden="true" />
@@ -140,52 +145,68 @@ export default function IceReportPage() {
 
         <aside className="space-y-5">
           <section className="border border-border bg-surface-muted p-5">
-            <p className="civic-section-index">What happens next</p>
-            <ol className="mt-4 space-y-4">
-              {STEPS.map((step) => (
-                <li key={step.number} className="border-t border-border pt-3 first:border-t-0 first:pt-0">
-                  <div className="flex items-baseline gap-2">
-                    <span className="font-mono text-[9px] font-bold tracking-[0.14em] text-accent">
-                      {step.number}
-                    </span>
-                    <h3 className="font-display text-lg font-semibold leading-tight tracking-[-0.02em]">
-                      {step.title}
-                    </h3>
-                  </div>
-                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{step.body}</p>
-                </li>
-              ))}
-            </ol>
+            <CopyRegion id="ice-report-steps">
+              <div>
+                <p className="civic-section-index">What happens next</p>
+                <ol className="mt-4 space-y-4">
+                  {STEPS.map((step) => (
+                    <li
+                      key={step.number}
+                      className="border-t border-border pt-3 first:border-t-0 first:pt-0"
+                    >
+                      <div className="flex items-baseline gap-2">
+                        <span className="font-mono text-[9px] font-bold tracking-[0.14em] text-accent">
+                          {step.number}
+                        </span>
+                        <h3 className="font-display text-lg font-semibold leading-tight tracking-[-0.02em]">
+                          {step.title}
+                        </h3>
+                      </div>
+                      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                        {step.body}
+                      </p>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            </CopyRegion>
           </section>
 
           <section className="border border-border bg-surface-card p-5">
             <div className="flex items-start gap-3">
               <LockKeyhole className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden="true" />
-              <div>
-                <p className="civic-section-index">Hard limits</p>
-                <h2 className="mt-1.5 font-display text-2xl font-semibold leading-tight tracking-[-0.03em]">
-                  What this form will not do.
-                </h2>
-              </div>
+              <CopyRegion id="ice-report-limits">
+                <div>
+                  <p className="civic-section-index">Hard limits</p>
+                  <h2 className="mt-1.5 font-display text-2xl font-semibold leading-tight tracking-[-0.03em]">
+                    What this form will not do.
+                  </h2>
+                  <ul className="mt-4 space-y-2 text-xs leading-relaxed text-muted-foreground">
+                    {LIMITS.map((limit) => (
+                      <li key={limit}>{limit}</li>
+                    ))}
+                  </ul>
+                </div>
+              </CopyRegion>
             </div>
-            <ul className="mt-4 space-y-2 text-xs leading-relaxed text-muted-foreground">
-              {LIMITS.map((limit) => (
-                <li key={limit}>{limit}</li>
-              ))}
-            </ul>
           </section>
 
           <section className="border border-border bg-surface-card p-5">
-            <p className="civic-section-index">Privacy boundary</p>
-            <h2 className="mt-1.5 font-display text-2xl font-semibold leading-tight tracking-[-0.03em]">
-              Minimized, not anonymous.
-            </h2>
-            <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-              We do not ask for your name or contact details. Hosting and abuse-prevention systems
-              may still process limited technical data. We cannot promise technical anonymity. Raw
-              reports are retained for up to 30 days and may be disclosed if required by law. If a
-              city-level summary is published, it contains no raw report text.
-            </p>
+            <CopyRegion id="ice-report-privacy">
+              <div>
+                <p className="civic-section-index">Privacy boundary</p>
+                <h2 className="mt-1.5 font-display text-2xl font-semibold leading-tight tracking-[-0.03em]">
+                  Minimized, not anonymous.
+                </h2>
+                <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+                  We do not ask for your name or contact details. Hosting and abuse-prevention
+                  systems may still process limited technical data. We cannot promise technical
+                  anonymity. Raw reports are retained for up to 30 days and may be disclosed if
+                  required by law. If a city-level summary is published, it contains no raw report
+                  text.
+                </p>
+              </div>
+            </CopyRegion>
           </section>
         </aside>
       </main>

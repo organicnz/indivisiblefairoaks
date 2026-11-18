@@ -600,6 +600,48 @@ export function VisualEditOverlay() {
   );
 
   /**
+   * Which registered regions this view actually renders.
+   *
+   * A pathname can own more than one view (the ICE map toggles between its
+   * rapid-response and historical layouts without changing the URL). Offering
+   * a region that is not in the DOM loads its copy but leaves nothing to frame
+   * or edit, which reads as a broken editor. Track the markers instead: a
+   * streamed or toggled-in region appears in the selector as soon as it exists.
+   */
+  const [renderedRegionIds, setRenderedRegionIds] = useState<ReadonlySet<string>>(
+    () => new Set()
+  );
+  useEffect(() => {
+    if (!enabled || !isAdmin) return;
+
+    const syncRenderedRegions = () => {
+      const next = new Set<string>();
+      for (const region of pageRegions) {
+        if (document.querySelector(`[data-copy-region="${region.id}"]`)) next.add(region.id);
+      }
+      setRenderedRegionIds((previous) =>
+        previous.size === next.size && [...next].every((id) => previous.has(id))
+          ? previous
+          : next
+      );
+    };
+
+    syncRenderedRegions();
+    const observer = new MutationObserver(syncRenderedRegions);
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['data-copy-region'],
+    });
+    return () => observer.disconnect();
+  }, [enabled, isAdmin, pageRegions]);
+  const renderedPageRegions = useMemo(
+    () => pageRegions.filter((region) => renderedRegionIds.has(region.id)),
+    [pageRegions, renderedRegionIds]
+  );
+
+  /**
    * The next region the operator asked for, held until the active document's
    * guards answer. `stage` records which guard owns it: the open composer's
    * discard prompt, or the page-level unsaved-edits dialog. `null` is a valid
@@ -731,11 +773,18 @@ export function VisualEditOverlay() {
               .toLowerCase();
     }
     if (!describeSlugConflict(slug)) return null;
-    const labels = pageRegions.map((region) => region.label).filter(Boolean);
+    const labels = renderedPageRegions.map((region) => region.label).filter(Boolean);
     return labels.length > 0
-      ? `This page’s text is written in code, so page-level edits cannot be saved. Edit one of its copy regions instead: ${labels.join(', ')}.`
-      : 'This page’s text is written in code, so page-level edits cannot be saved. This page has no editable copy regions.';
-  }, [contentRow, activeRegionId, documentReadRefusal, documentSlug, pathname, pageRegions]);
+      ? `This page’s text is written in code, so page-level edits cannot be saved. Edit one of its copy regions instead: ${labels.join(', ')}. Inline text fields are editable too.`
+      : 'This page’s layout is written in code, so page-level edits cannot be saved. Edit its inline text fields directly, or open the DataPoints Matrix (⌘⇧D).';
+  }, [
+    contentRow,
+    activeRegionId,
+    documentReadRefusal,
+    documentSlug,
+    pathname,
+    renderedPageRegions,
+  ]);
 
   /**
    * The one gate for any action that would change the document. The save path
@@ -2905,18 +2954,6 @@ export function VisualEditOverlay() {
   const initialDataPointsRef = useRef<Map<string, string>>(new Map());
   const [modifiedDataPoints, setModifiedDataPoints] = useState<ModifiedDataPointItem[]>([]);
 
-  // Capture baseline snapshot of all in-page data points once discovered
-  useEffect(() => {
-    if (!enabled || !isAdmin || typeof document === 'undefined') return;
-    const elements = Array.from(document.querySelectorAll<HTMLElement>('[data-data-point]'));
-    for (const el of elements) {
-      const key = el.getAttribute('data-data-point')?.trim();
-      if (key && !initialDataPointsRef.current.has(key)) {
-        initialDataPointsRef.current.set(key, el.textContent?.trim() || '');
-      }
-    }
-  }, [enabled, isAdmin]);
-
   const getModifiedDataPoints = useCallback((): ModifiedDataPointItem[] => {
     if (typeof document === 'undefined') return [];
     const items: ModifiedDataPointItem[] = [];
@@ -2942,6 +2979,63 @@ export function VisualEditOverlay() {
   const refreshModifiedDataPoints = useCallback(() => {
     setModifiedDataPoints(getModifiedDataPoints());
   }, [getModifiedDataPoints]);
+
+  /** A saved DataPoint becomes the new baseline; the old value is no longer a change. */
+  useEffect(() => {
+    if (!enabled || !isAdmin) return;
+    const handleSaved = (event: Event) => {
+      const detail = (event as CustomEvent<{ key?: string; value?: string }>).detail;
+      if (!detail?.key || typeof detail.value !== 'string') return;
+      initialDataPointsRef.current.set(detail.key, detail.value);
+      refreshModifiedDataPoints();
+    };
+    window.addEventListener('data-point-saved', handleSaved);
+    return () => window.removeEventListener('data-point-saved', handleSaved);
+  }, [enabled, isAdmin, refreshModifiedDataPoints]);
+
+  /**
+   * Keep the published baseline in step with what is actually stored.
+   *
+   * DataPoints stream in after the route shell, and a group fetch can replace
+   * the fallback with the database value later still. Capturing only on mount
+   * made every hydrated value look like an unsaved edit on a coded route. Watch
+   * marker insertions and the stored-value attribute instead, and only adopt a
+   * new baseline when the rendered text equals it — never over an operator's
+   * in-progress edit. Navigating resets the baseline to the new page.
+   */
+  useEffect(() => {
+    if (!enabled || !isAdmin || typeof document === 'undefined') return;
+    initialDataPointsRef.current.clear();
+
+    const captureBaseline = () => {
+      let changed = false;
+      for (const el of document.querySelectorAll<HTMLElement>('[data-data-point]')) {
+        const key = el.getAttribute('data-data-point')?.trim();
+        if (!key) continue;
+        const text = el.textContent?.trim() ?? '';
+        const stored = el.getAttribute('data-data-point-baseline');
+        const existing = initialDataPointsRef.current.get(key);
+        if (existing === undefined) {
+          initialDataPointsRef.current.set(key, stored ?? text);
+          changed = true;
+        } else if (stored !== null && existing !== stored && text === stored) {
+          initialDataPointsRef.current.set(key, stored);
+          changed = true;
+        }
+      }
+      if (changed) refreshModifiedDataPoints();
+    };
+
+    captureBaseline();
+    const observer = new MutationObserver(captureBaseline);
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['data-data-point-baseline'],
+    });
+    return () => observer.disconnect();
+  }, [enabled, isAdmin, pathname, refreshModifiedDataPoints]);
 
   useEffect(() => {
     if (isDiffModalOpen) {
@@ -6622,7 +6716,7 @@ export function VisualEditOverlay() {
         savingBackend={savingBackend}
         history={history}
         activeBlockIndex={activeBlockIndex}
-        pageRegions={pageRegions}
+        pageRegions={renderedPageRegions}
         unsaveableReason={unsaveableReason}
         activeRegionId={activeRegionId}
         activeRegionLabel={activeRegion?.label || null}

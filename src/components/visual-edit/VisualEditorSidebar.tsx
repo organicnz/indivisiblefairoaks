@@ -289,7 +289,7 @@ export function VisualEditorSidebar(props: VisualEditorSidebarProps) {
         : props.dirty
           ? 'Unsaved changes'
           : props.unsaveableReason
-            ? 'Page-level copy is not savable — edit a copy region'
+              ? 'Page-level copy is not savable — edit inline text or a copy region'
             : !props.contentRow
               ? 'Not connected to Supabase'
               : 'Saved';
@@ -1249,12 +1249,19 @@ function DefaultContextZone(props: VisualEditorSidebarProps) {
       {unsaveableReason &&
         documentLoadState !== 'loading' &&
         documentLoadState !== 'degraded' && (
-        <p
+        <div
           data-testid="page-level-save-blocked"
           className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-2 text-[10px] leading-snug text-accent-gold"
         >
-          {unsaveableReason}
-        </p>
+          <p>{unsaveableReason}</p>
+          <button
+            type="button"
+            onClick={props.onOpenDataPointDrawer}
+            className="mt-1.5 font-bold underline underline-offset-2 hover:text-white focus:outline-none focus:ring-2 focus:ring-accent-gold/70"
+          >
+            Open DataPoints Matrix (⌘⇧D)
+          </button>
+        </div>
       )}
 
       {pageRegions.length > 0 && (

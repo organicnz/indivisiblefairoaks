@@ -35,7 +35,12 @@ export function DataPoint({
   const content = rawVal && rawVal.trim() !== '' ? rawVal : fallback || children;
 
   return (
-    <Component data-data-point={name} className={className} {...props}>
+    <Component
+      data-data-point={name}
+      data-data-point-baseline={rawVal && rawVal.trim() !== '' ? rawVal : undefined}
+      className={className}
+      {...props}
+    >
       {content}
     </Component>
   );

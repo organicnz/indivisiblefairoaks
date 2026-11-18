@@ -4998,7 +4998,9 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
      * edit is rolled back and the regions that do work are named.
      */
     pathname.value = '/events';
-    renderPage('<div class="space-y-8"><p>Edited event copy.</p></div>');
+    renderPage(
+      '<div class="space-y-8"><p>Edited event copy.</p><div data-copy-region="events-trainings"></div></div>'
+    );
     getContentBySlugForEdit.mockResolvedValue(null);
     await mount();
 

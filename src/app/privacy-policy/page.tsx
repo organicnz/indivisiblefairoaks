@@ -5,6 +5,7 @@ import {
   MASTHEAD_TITLE_DOCUMENT,
   PageMasthead,
 } from '@/components/layout/PageMasthead';
+import { CopyRegion } from '@/components/cms/CopyRegion';
 import { pageMetadata } from '@/lib/metadata';
 
 export const metadata: Metadata = pageMetadata({
@@ -32,7 +33,8 @@ export default function PrivacyPage() {
       />
 
       <div className="mx-auto max-w-5xl px-4 py-14 sm:px-6 lg:px-8 lg:py-20">
-        <div className="civic-prose">
+        <CopyRegion id="privacy-body">
+          <div className="civic-prose">
           <p>
             Indivisible Fair Oaks-Carmichael is a volunteer-run chapter in Sacramento County,
             California. This policy covers this website and the chapter forms connected to it. It
@@ -153,7 +155,8 @@ export default function PrivacyPage() {
             perfect security. If this policy changes materially, we will update the date at the top
             of this page and describe the change here.
           </p>
-        </div>
+          </div>
+        </CopyRegion>
       </div>
     </div>
   );

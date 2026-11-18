@@ -114,27 +114,32 @@ export default async function HomePage() {
                   </DataPoint>
                 </div>
 
-                <DataPoint
-                  name="home.hero.headline"
-                  as="h1"
-                  initialData={dataPoints}
-                  className="mt-7 max-w-[13ch] font-display text-[clamp(3.2rem,7vw,6.4rem)] font-semibold leading-[0.9] tracking-[-0.055em] text-foreground"
-                >
-                  Democracy is not a spectator sport.
-                </DataPoint>
+                <CopyRegion id="home-hero">
+                  <div>
+                    <DataPoint
+                      name="home.hero.headline"
+                      as="h1"
+                      initialData={dataPoints}
+                      className="mt-7 max-w-[13ch] font-display text-[clamp(3.2rem,7vw,6.4rem)] font-semibold leading-[0.9] tracking-[-0.055em] text-foreground"
+                    >
+                      Democracy is not a spectator sport.
+                    </DataPoint>
 
-                <div className="mt-8 max-w-xl border-l-2 border-accent pl-4 sm:pl-5">
-                  <DataPoint
-                    name="home.hero.mission"
-                    as="p"
-                    initialData={dataPoints}
-                    className="civic-hero-lede"
-                  >
-                    The mission of the Fair Oaks-Carmichael chapter of Indivisible is to cultivate a
-                    non-violent grassroots movement to stop the rise of authoritarianism, to support
-                    and defend democratic norms, elect bold leaders, and secure progressive policies.
-                  </DataPoint>
-                </div>
+                    <div className="mt-8 max-w-xl border-l-2 border-accent pl-4 sm:pl-5">
+                      <DataPoint
+                        name="home.hero.mission"
+                        as="p"
+                        initialData={dataPoints}
+                        className="civic-hero-lede"
+                      >
+                        The mission of the Fair Oaks-Carmichael chapter of Indivisible is to
+                        cultivate a non-violent grassroots movement to stop the rise of
+                        authoritarianism, to support and defend democratic norms, elect bold leaders,
+                        and secure progressive policies.
+                      </DataPoint>
+                    </div>
+                  </div>
+                </CopyRegion>
 
                 <div className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-3">
                   <Link
@@ -356,32 +361,36 @@ export default async function HomePage() {
           <div>
             <div className="grid gap-12 lg:grid-cols-12 lg:gap-10">
               <div className="self-start lg:sticky lg:top-28 lg:col-span-4">
-                <DataPoint
-                  name="home.pillars.eyebrow"
-                  as="span"
-                  initialData={dataPoints}
-                  className="civic-kicker"
-                >
-                  Our Core Principles
-                </DataPoint>
-                <DataPoint
-                  name="home.pillars.headline"
-                  as="h2"
-                  initialData={dataPoints}
-                  className="mt-5 max-w-md font-display text-4xl font-semibold leading-[0.98] tracking-[-0.04em] text-foreground sm:text-5xl"
-                >
-                  What We Stand For & How We Win
-                </DataPoint>
-                <DataPoint
-                  name="home.pillars.intro"
-                  as="p"
-                  initialData={dataPoints}
-                  className="mt-5 max-w-md text-base leading-relaxed text-muted-foreground"
-                >
-                  Rooted in the national Indivisible Guide, our local chapter works tirelessly across
-                  the Sacramento region to defend our constitutional democracy through grassroots
-                  mobilization.
-                </DataPoint>
+                <CopyRegion id="home-pillars">
+                  <div>
+                    <DataPoint
+                      name="home.pillars.eyebrow"
+                      as="span"
+                      initialData={dataPoints}
+                      className="civic-kicker"
+                    >
+                      Our Core Principles
+                    </DataPoint>
+                    <DataPoint
+                      name="home.pillars.headline"
+                      as="h2"
+                      initialData={dataPoints}
+                      className="mt-5 max-w-md font-display text-4xl font-semibold leading-[0.98] tracking-[-0.04em] text-foreground sm:text-5xl"
+                    >
+                      What We Stand For & How We Win
+                    </DataPoint>
+                    <DataPoint
+                      name="home.pillars.intro"
+                      as="p"
+                      initialData={dataPoints}
+                      className="mt-5 max-w-md text-base leading-relaxed text-muted-foreground"
+                    >
+                      Rooted in the national Indivisible Guide, our local chapter works tirelessly
+                      across the Sacramento region to defend our constitutional democracy through
+                      grassroots mobilization.
+                    </DataPoint>
+                  </div>
+                </CopyRegion>
               </div>
 
               <div className="grid gap-x-10 sm:grid-cols-2 lg:col-span-8">
