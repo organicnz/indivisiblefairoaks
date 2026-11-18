@@ -22,7 +22,7 @@ interface AdminNavItem {
   icon: React.ComponentType<{ size?: number; className?: string }>;
 }
 
-const BASE_ITEMS: AdminNavItem[] = [
+const ITEMS: AdminNavItem[] = [
   {
     href: '/admin',
     labelKey: 'admin.nav.dashboard',
@@ -37,8 +37,6 @@ const BASE_ITEMS: AdminNavItem[] = [
   { href: '/admin/links', label: 'Links', icon: Link2 },
   { href: '/admin/crm', labelKey: 'admin.nav.crm', label: 'Civic CRM', icon: UsersRound },
 ];
-
-const ITEMS: AdminNavItem[] = BASE_ITEMS;
 
 export function AdminNav() {
   const pathname = usePathname();

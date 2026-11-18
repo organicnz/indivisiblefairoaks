@@ -25,8 +25,7 @@ interface ContentEditorHeaderProps {
   status: 'publish' | 'draft';
   saveState: 'idle' | 'saving' | 'saved';
   dirty: boolean;
-  activeSaveFailure: boolean;
-  saveFailureLabel: string;
+  saveFailureLabel: string | null;
   canUndo: boolean;
   canRedo: boolean;
   onUndo: () => void;
@@ -48,7 +47,6 @@ export function ContentEditorHeader({
   status,
   saveState,
   dirty,
-  activeSaveFailure,
   saveFailureLabel,
   canUndo,
   canRedo,
@@ -112,14 +110,14 @@ export function ContentEditorHeader({
           role="status"
           aria-live="polite"
           className={`inline-flex items-center gap-1.5 text-xs ${
-            activeSaveFailure
+            saveFailureLabel
               ? 'font-semibold text-accent-red'
               : dirty || saveState === 'saving'
                 ? 'font-semibold text-accent-gold'
                 : 'text-muted-foreground'
           }`}
         >
-          {activeSaveFailure ? (
+          {saveFailureLabel ? (
             <>
               <AlertCircle size={13} aria-hidden="true" />
               {/* The banner is shared by the button and the autosave effect. The old

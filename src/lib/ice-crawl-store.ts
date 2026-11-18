@@ -85,6 +85,21 @@ export type IceSourceReportInput = {
   published_at?: string;
 };
 
+export type IceSourceReportSummary = Pick<
+  IceSourceReport,
+  | 'id'
+  | 'title'
+  | 'source_name'
+  | 'source_url'
+  | 'source_published_at'
+  | 'source_retrieved_at'
+  | 'kind'
+  | 'extraction_method'
+  | 'published_at'
+  | 'city'
+  | 'state_code'
+>;
+
 type IceCrawlDatabase = {
   public: {
     Tables: {
@@ -543,6 +558,41 @@ export async function getPublishedSourceReportCount(
   const { count, error } = await query;
   if (error) throw new Error(`source report count failed: ${error.message}`);
   return count ?? 0;
+}
+
+export async function getPublishedSourceReportCitySummary(
+  store: IceCrawlStore,
+  city: string,
+  stateCode: string,
+  limit = 6
+) {
+  const filters: IceSourceReportFilters = {
+    query: '',
+    kind: 'all',
+    stateCode,
+    city,
+  };
+  const [total, recentResult] = await Promise.all([
+    getPublishedSourceReportCount(store, filters),
+    store
+      .from('ice_source_reports')
+      .select(
+        'id, title, source_name, source_url, source_published_at, source_retrieved_at, kind, extraction_method, published_at, city, state_code'
+      )
+      .eq('state_code', stateCode)
+      .ilike('city', city)
+      .order('published_at', { ascending: false })
+      .limit(Math.min(Math.max(1, limit), 20)),
+  ]);
+
+  if (recentResult.error) {
+    throw new Error(`source report city summary failed: ${recentResult.error.message}`);
+  }
+
+  return {
+    total,
+    recent: (recentResult.data ?? []) as unknown as IceSourceReportSummary[],
+  };
 }
 
 export async function getPublishedSourceReports(

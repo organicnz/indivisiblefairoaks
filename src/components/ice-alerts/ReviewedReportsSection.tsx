@@ -10,12 +10,12 @@ import { formatRelativeTime } from './rapid-alert-utils';
 
 async function readReviewedReports() {
   const store = getIceReportStore();
-  if (!store) return [];
+  if (!store) return { reports: [], unavailable: true };
 
   try {
-    return await getPublishedIceReports(store);
+    return { reports: await getPublishedIceReports(store), unavailable: false };
   } catch {
-    return [];
+    return { reports: [], unavailable: true };
   }
 }
 
@@ -24,7 +24,7 @@ export async function ReviewedReportsSection() {
   // request clock. Without this the component can be attempted in the static
   // shell, where `Date.now()` is unstable and the rows would be stale.
   await connection();
-  const reports = await readReviewedReports();
+  const { reports, unavailable } = await readReviewedReports();
   const now = Date.now();
 
   return (
@@ -63,7 +63,15 @@ export async function ReviewedReportsSection() {
           </a>
         </div>
 
-        {reports.length === 0 ? (
+        {unavailable ? (
+          <p
+            role="status"
+            className="mt-6 border border-accent/40 bg-accent/10 p-5 text-sm leading-relaxed text-foreground"
+          >
+            The reviewed community-report store is temporarily unavailable. No substitute reports
+            are being shown; raw reports remain private.
+          </p>
+        ) : reports.length === 0 ? (
           <p className="mt-6 border border-border bg-surface-card p-5 text-sm leading-relaxed text-muted-foreground">
             No community reports have been published yet. Raw reports stay private. A unique,
             low-risk report may automatically publish a generated city-level summary; similar

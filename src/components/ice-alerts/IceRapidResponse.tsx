@@ -6,9 +6,13 @@ import type { FormEvent, ReactNode } from 'react';
 import { computeRapidSurges } from '@/lib/ice-rapid-surges';
 import { RapidAlertChannels } from './RapidAlertChannels';
 import { RapidAlertFeed } from './RapidAlertFeed';
+import { RapidCacheBanner } from './RapidCacheBanner';
 import { RapidFilterBar } from './RapidFilterBar';
 import { RapidLiveRail } from './RapidLiveRail';
+import { RapidLocalWatch } from './RapidLocalWatch';
 import { RapidMapPanel } from './RapidMapPanel';
+import { useNewRapidAlerts } from './rapid-new';
+import { RapidNewReportsBanner } from './RapidNewReportsBanner';
 import { RapidResponseGuide } from './RapidResponseGuide';
 import { RapidSurgeBanner } from './RapidSurgeBanner';
 import {
@@ -18,7 +22,7 @@ import {
   groupRapidAlerts,
   type RapidFilters,
 } from './rapid-alert-utils';
-import type { RapidUrlState } from './rapid-types';
+import type { RapidUrlState, RapidWatchRadius } from './rapid-types';
 import { serializeRapidUrlState } from './rapid-url-state';
 import type { HeatmapSnapshot, SearchTarget } from './types';
 import { useLocationSearch } from './use-location-search';
@@ -33,14 +37,15 @@ type IceRapidResponseProps = {
 };
 
 export function IceRapidResponse({ snapshot, initialState, children }: IceRapidResponseProps) {
-  const { feed, status, error, isRefreshing, refresh } = useRapidFeed();
-  const [filters, setFilters] = useState<RapidFilters>(DEFAULT_RAPID_FILTERS);
+  const { feed, status, error, isRefreshing, refresh, cache } = useRapidFeed();
+  const [filters, setFilters] = useState<RapidFilters>(initialState.initialFilters);
   const [selectedId, setSelectedId] = useState<string | null>(
     initialState.initialAlertId
   );
   const [showHistorical, setShowHistorical] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const [searchTarget, setSearchTarget] = useState<SearchTarget | null>(null);
+  const [watchRadius, setWatchRadius] = useState<RapidWatchRadius | null>(null);
 
   const urlSyncEnabledRef = useRef(initialState.hasUrlState);
   const initialSelectionAppliedRef = useRef(false);
@@ -52,6 +57,7 @@ export function IceRapidResponse({ snapshot, initialState, children }: IceRapidR
   const alerts = feed?.alerts ?? [];
   const officialReleases = feed?.officialReleases ?? [];
   const publicCases = feed?.publicCases ?? [];
+  const newIds = useNewRapidAlerts(alerts, status === 'ready' && !cache.fromCache);
 
   const filteredAlerts = useMemo(
     () => filterAlerts(alerts, filters, now),
@@ -63,12 +69,50 @@ export function IceRapidResponse({ snapshot, initialState, children }: IceRapidR
     [filteredAlerts, now]
   );
   const surges = useMemo(() => computeRapidSurges(alerts, now), [alerts, now]);
+  const stateOptions = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const alert of alerts) {
+      const stateCode = alert.stateCode.trim().toUpperCase();
+      if (!stateCode) continue;
+      counts.set(stateCode, (counts.get(stateCode) ?? 0) + 1);
+    }
+    return [...counts.entries()]
+      .map(([code, count]) => ({ code, count }))
+      .sort((a, b) => b.count - a.count || a.code.localeCompare(b.code));
+  }, [alerts]);
   const selectedAlert = useMemo(
     () => alerts.find((alert) => alert.id === selectedId) ?? null,
     [alerts, selectedId]
   );
+  const selectedCityAlerts = useMemo(() => {
+    if (!selectedAlert) return [];
+    return alerts.filter(
+      (alert) =>
+        alert.stateCode === selectedAlert.stateCode &&
+        alert.city.toLowerCase() === selectedAlert.city.toLowerCase()
+    );
+  }, [alerts, selectedAlert]);
+  const selectedCityPublicCases = useMemo(() => {
+    if (!selectedAlert) return [];
+    return publicCases.filter(
+      (publicCase) =>
+        publicCase.stateCode === selectedAlert.stateCode &&
+        publicCase.city.toLowerCase() === selectedAlert.city.toLowerCase()
+    );
+  }, [publicCases, selectedAlert]);
+  const selectedHistoricalCity = useMemo(() => {
+    if (!selectedAlert) return null;
+    return (
+      snapshot.cities.find(
+        (city) =>
+          city.stateCode === selectedAlert.stateCode &&
+          city.city.toLowerCase() === selectedAlert.city.toLowerCase()
+      ) ?? null
+    );
+  }, [selectedAlert, snapshot.cities]);
 
-  const { userLocation, userLocationStatus, locationNotice } = useUserLocation({});
+  const { userLocation, userLocationStatus, locationNotice, requestPrecise } =
+    useUserLocation({});
 
   const markUrlSync = useCallback(() => {
     urlSyncEnabledRef.current = true;
@@ -85,16 +129,19 @@ export function IceRapidResponse({ snapshot, initialState, children }: IceRapidR
     setMapView,
     viewport,
     isReady,
+    mapError,
     zoomMap,
     flyToPoint,
     flyToOverview,
     flyToUser,
+    flyToWatchRadius,
   } = useRapidMap({
     snapshot,
     points,
     publicCases,
     selectedAlertId: selectedId,
     searchTarget,
+    watchRadius,
     userLocation,
     initialView: initialState.initialView,
     showHistorical,
@@ -189,6 +236,7 @@ export function IceRapidResponse({ snapshot, initialState, children }: IceRapidR
       viewport,
       mapView,
       selectedAlertId: selectedId,
+      filters,
     });
     const query = params.toString();
     const next = `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`;
@@ -197,26 +245,45 @@ export function IceRapidResponse({ snapshot, initialState, children }: IceRapidR
     if (next !== currentUrl) {
       window.history.replaceState(window.history.state, '', next);
     }
-  }, [mapView, selectedId, viewport]);
+  }, [filters, mapView, selectedId, viewport]);
 
   const handleMapSearch = (event: FormEvent<HTMLFormElement>) => {
     markUrlSync();
     pendingFlyAlertRef.current = null;
     setSelectedId(null);
+    setWatchRadius(null);
     void handleLocationSearch(event);
   };
 
   const handleReset = () => {
     markUrlSync();
+    setWatchRadius(null);
     clearLocationSearch();
     flyToOverview();
   };
 
   const handleLocate = () => {
-    if (!userLocation) return;
+    if (!userLocation) {
+      setWatchRadius(null);
+      clearLocationSearch();
+      requestPrecise();
+      return;
+    }
     markUrlSync();
+    setWatchRadius(null);
     clearLocationSearch();
     flyToUser(userLocation);
+  };
+
+  const handleClearAnchor = () => {
+    setWatchRadius(null);
+    clearLocationSearch();
+  };
+
+  const handleShowRadius = (radius: RapidWatchRadius) => {
+    markUrlSync();
+    setWatchRadius(radius);
+    flyToWatchRadius(radius);
   };
 
   const handleZoom = (direction: 'in' | 'out') => {
@@ -228,26 +295,61 @@ export function IceRapidResponse({ snapshot, initialState, children }: IceRapidR
     filters.query.trim().length > 0 ||
     filters.kind !== 'all' ||
     filters.status !== 'all' ||
+    filters.stateCode.length > 0 ||
     filters.time !== 'all';
 
-  const clearFilters = () => setFilters(DEFAULT_RAPID_FILTERS);
+  const clearFilters = () => {
+    markUrlSync();
+    setFilters(DEFAULT_RAPID_FILTERS);
+  };
 
   const updateFilter = <Key extends keyof RapidFilters>(
     key: Key,
     value: RapidFilters[Key]
   ) => {
+    markUrlSync();
     setFilters((current) => ({ ...current, [key]: value }));
   };
 
   return (
     <>
       <section className="mx-auto max-w-7xl px-4 pb-6 pt-2 sm:px-6 sm:pb-8 lg:px-8">
-        <RapidSurgeBanner
-          surges={surges}
-          status={status}
-          now={now}
-          onSelect={(id) => selectAlert(id, { scroll: false })}
-        />
+        {cache.fromCache ? (
+          <RapidCacheBanner
+            cachedAt={cache.cachedAt}
+            now={now}
+            isRefreshing={isRefreshing}
+            onRefresh={refresh}
+          />
+        ) : (
+          <RapidSurgeBanner
+            surges={surges}
+            status={status}
+            community={feed?.community ?? null}
+            now={now}
+            onSelect={(id) => {
+              // A surge is global, so it can fall outside the current filters.
+              // Clear them before selecting so the selection-sync effect does not
+              // immediately replace the alert the reader just chose.
+              setFilters(DEFAULT_RAPID_FILTERS);
+              selectAlert(id, { scroll: false });
+            }}
+          />
+        )}
+
+        {!cache.fromCache && status === 'ready' ? (
+          <RapidNewReportsBanner
+            count={newIds.size}
+            onShowNew={() => {
+              const next = alerts.find((alert) => newIds.has(alert.id));
+              if (!next) return;
+              // New rows may be outside the current filters; clear them so the
+              // selection-sync effect does not replace the report immediately.
+              setFilters(DEFAULT_RAPID_FILTERS);
+              selectAlert(next.id, { scroll: false });
+            }}
+          />
+        ) : null}
 
         {status === 'error' && !feed ? (
           <div
@@ -273,14 +375,19 @@ export function IceRapidResponse({ snapshot, initialState, children }: IceRapidR
             mapContainerRef={mapContainerRef}
             mapView={mapView}
             isReady={isReady}
+            mapError={mapError}
             points={points}
             filteredCount={filteredAlerts.length}
             activeCount={activeFilteredCount}
             publicCaseCount={publicCases.length}
             community={feed?.community ?? null}
+            feedFromCache={cache.fromCache}
             requestStatus={status}
             now={now}
             selectedAlert={selectedAlert}
+            cityAlerts={selectedCityAlerts}
+            cityPublicCases={selectedCityPublicCases}
+            historicalCity={selectedHistoricalCity}
             onClearSelected={() => setSelectedId(null)}
             onZoom={handleZoom}
             onReset={handleReset}
@@ -300,6 +407,7 @@ export function IceRapidResponse({ snapshot, initialState, children }: IceRapidR
           <div className="min-w-0 space-y-3">
             <RapidFilterBar
               filters={filters}
+              states={stateOptions}
               onChange={updateFilter}
               onClear={clearFilters}
               hasFilters={hasFilters}
@@ -309,17 +417,38 @@ export function IceRapidResponse({ snapshot, initialState, children }: IceRapidR
             />
 
             <RapidLiveRail
-              alerts={alerts}
+              alerts={filteredAlerts}
               community={feed?.community ?? null}
               now={now}
               status={status}
+              hasFilters={hasFilters}
               onSelect={(id) => selectAlert(id)}
               onRefresh={refresh}
+              onClearFilters={clearFilters}
+            />
+
+            <RapidLocalWatch
+              points={points}
+              community={feed?.community ?? null}
+              feedFromCache={cache.fromCache}
+              userLocation={userLocation}
+              userLocationStatus={userLocationStatus}
+              searchTarget={searchTarget}
+              status={status}
+              hasFilters={hasFilters}
+              now={now}
+              onSelect={(id) => selectAlert(id)}
+              onLocate={handleLocate}
+              onRequestLocation={requestPrecise}
+              onClearAnchor={handleClearAnchor}
+              onShowRadius={handleShowRadius}
+              locationNotice={locationNotice}
             />
 
             <RapidAlertFeed
               alerts={filteredAlerts}
               allAlerts={alerts}
+              newIds={newIds}
               officialReleases={officialReleases}
               community={feed?.community ?? null}
               official={feed?.official ?? null}

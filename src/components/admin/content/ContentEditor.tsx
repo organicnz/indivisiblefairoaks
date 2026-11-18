@@ -834,8 +834,7 @@ export function ContentEditor({ initial, siteHost }: Props) {
         status={status}
         saveState={saveState}
         dirty={dirty}
-        activeSaveFailure={Boolean(activeSaveFailure)}
-        saveFailureLabel={saveFailureLabel}
+        saveFailureLabel={activeSaveFailure ? saveFailureLabel : null}
         canUndo={canUndo(undoStack)}
         canRedo={canRedo(undoStack)}
         onUndo={handleUndo}

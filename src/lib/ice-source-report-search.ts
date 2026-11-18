@@ -1,4 +1,4 @@
-import type { IceSourceReportKind } from './ice-crawl-types';
+import { iceSourceKindLabel, type IceSourceReportKind } from './ice-crawl-types';
 import { US_STATE_CODES } from './rapid-city-match';
 
 export type IceSourceReportKindFilter = 'all' | IceSourceReportKind;
@@ -73,6 +73,53 @@ export function iceSourceReportPlaceLabel(
   const cleanCity = city ? cleanIceSourceReportCityName(city) : '';
   if (cleanCity && stateCode) return `${cleanCity}, ${stateCode}`;
   return cleanCity || stateCode || 'Location not stated';
+}
+
+const STREET_ADDRESS_PATTERN =
+  /\b\d{1,6}\s+[^,]{2,80}\b(?:street|st\.?|avenue|ave\.?|road|rd\.?|boulevard|blvd\.?|lane|ln\.?|drive|dr\.?|court|ct\.?|way|highway|hwy\.?|freeway|fwy\.?|place|pl\.?)\b/iu;
+const ZIP_CODE_PATTERN = /\b\d{5}(?:-\d{4})?\b/;
+
+/**
+ * Source exporters often use a raw location string as the title. That string
+ * can contain a street address or ZIP code even though this site publishes
+ * city-level locations only. Keep a real headline when it is one, and replace
+ * address-shaped or generic titles with a safe city-level label.
+ */
+export function iceSourceReportDisplayTitle(report: {
+  title: string;
+  kind: IceSourceReportKind;
+  city: string | null;
+  state_code: string | null;
+}) {
+  const title = report.title.normalize('NFKC').replace(/\s+/g, ' ').trim();
+  const place =
+    report.city || report.state_code
+      ? iceSourceReportPlaceLabel(report.city, report.state_code)
+      : '';
+  const fallback = `Source report · ${iceSourceKindLabel(report.kind)}${
+    place ? ` in ${place}` : ''
+  }`;
+
+  if (!title) return fallback;
+  if (
+    /^source report\b/i.test(title) ||
+    STREET_ADDRESS_PATTERN.test(title) ||
+    ZIP_CODE_PATTERN.test(title)
+  ) {
+    return fallback;
+  }
+
+  return title.slice(0, 240);
+}
+
+export function iceSourceReportTitleGeneralized(report: {
+  title: string;
+  kind: IceSourceReportKind;
+  city: string | null;
+  state_code: string | null;
+}) {
+  const title = report.title.normalize('NFKC').replace(/\s+/g, ' ').trim();
+  return title.length > 0 && iceSourceReportDisplayTitle(report) !== title;
 }
 
 export function normalizeIceSourceReportCity(value: unknown): string {

@@ -1,3 +1,4 @@
+import type { RapidFilters } from './rapid-alert-utils';
 import type { MapView, MapViewport } from './types';
 
 export type RapidAlertSource = 'community' | 'official';
@@ -99,7 +100,15 @@ export type RapidUrlState = {
   initialView: MapViewport | null;
   initialMapView: MapView;
   initialAlertId: string | null;
+  initialFilters: RapidFilters;
   hasUrlState: boolean;
 };
 
 export type RapidFeedRequestState = 'loading' | 'ready' | 'error';
+
+export type RapidWatchRadius = {
+  lat: number;
+  lng: number;
+  miles: number;
+  label: string;
+};

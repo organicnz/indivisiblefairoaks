@@ -15,6 +15,7 @@ import {
   readPersistedRapidFeed,
   type PersistedRapidFeed,
 } from '@/lib/queries/ice-rapid-cache';
+import { communityMemo } from '@/components/ice-alerts/rapid-community-memo';
 import { createCityMatcher, extractStateCode } from './rapid-city-match';
 
 const STOPICE_HOME = 'https://stopice.net/';
@@ -232,24 +233,7 @@ function statusForPriority(priority: string): RapidAlertStatus {
   return /urgent|confirmed/i.test(priority) ? 'source-confirmed' : 'sighting';
 }
 
-function communitySummary(
-  kind: RapidAlertKind,
-  status: RapidAlertStatus,
-  city: string,
-  stateCode: string
-) {
-  const label =
-    status === 'source-confirmed' ? 'Source-confirmed enforcement activity' : 'Community sighting';
-  const place = `${city}, ${stateCode}`;
 
-  if (kind === 'detention') {
-    return `${label} reported near a jail or detention facility in ${place}. Location is generalized to the city; street addresses, vehicle plates, and identities are not republished.`;
-  }
-  if (kind === 'checkpoint') {
-    return `${label} reported near a possible checkpoint in ${place}. Location is generalized to the city; street addresses, vehicle plates, and identities are not republished.`;
-  }
-  return `${label} reported in ${place}. Location is generalized to the city; street addresses, vehicle plates, and identities are not republished.`;
-}
 
 function communityTitle(kind: RapidAlertKind, status: RapidAlertStatus) {
   const kindLabel =
@@ -321,7 +305,13 @@ export function parseStopIceCommunityFeed(
       lng: city.lng,
       observedAt,
       expiresAt: new Date(new Date(observedAt).getTime() + ACTIVE_WINDOW_MS).toISOString(),
-      summary: communitySummary(kind, status, city.city, city.stateCode),
+      summary: communityMemo({
+        kind,
+        status,
+        city: city.city,
+        stateCode: city.stateCode,
+        observedAt,
+      }),
     });
   }
 
@@ -653,7 +643,7 @@ async function fetchCommunity(now: Date, citiesPromise: Promise<readonly CityPoi
     const reportsAreDelayed = reportAge > COMMUNITY_EXPORT_MAX_AGE_MS;
     const stale = exportIsDelayed || reportsAreDelayed;
     const note = !stale
-      ? 'Public nightly export. Locations are generalized to the nearest known city; raw details are withheld.'
+      ? 'Public nightly export. Locations are generalized to the nearest known city; street addresses, vehicle plates, and identities are withheld.'
       : modifiedMs !== null && exportIsDelayed
         ? `Delayed community export: the public data file has not updated since ${new Date(
             modifiedMs

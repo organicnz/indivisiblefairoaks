@@ -28,8 +28,14 @@ const TIME_OPTIONS: { value: RapidTimeFilter; label: string }[] = [
   { value: 'all', label: 'All' },
 ];
 
+export type RapidStateOption = {
+  code: string;
+  count: number;
+};
+
 type RapidFilterBarProps = {
   filters: RapidFilters;
+  states: readonly RapidStateOption[];
   onChange: <Key extends keyof RapidFilters>(key: Key, value: RapidFilters[Key]) => void;
   onClear: () => void;
   hasFilters: boolean;
@@ -40,6 +46,7 @@ type RapidFilterBarProps = {
 
 export function RapidFilterBar({
   filters,
+  states,
   onChange,
   onClear,
   hasFilters,
@@ -94,7 +101,7 @@ export function RapidFilterBar({
         />
       </div>
 
-      <div className="mt-1.5 grid grid-cols-2 gap-2">
+      <div className="mt-1.5 grid grid-cols-2 gap-2 sm:grid-cols-3">
         <div>
           <label htmlFor="ice-rapid-kind" className="sr-only">
             Filter by report type
@@ -132,6 +139,25 @@ export function RapidFilterBar({
             ))}
           </select>
         </div>
+
+        <div className="col-span-2 sm:col-span-1">
+          <label htmlFor="ice-rapid-state" className="sr-only">
+            Filter by state
+          </label>
+          <select
+            id="ice-rapid-state"
+            value={filters.stateCode}
+            onChange={(event) => onChange('stateCode', event.target.value)}
+            className="min-h-8 w-full border border-border bg-background px-2 py-1 text-[11px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+          >
+            <option value="">All states</option>
+            {states.map((state) => (
+              <option key={state.code} value={state.code}>
+                {state.code} ({state.count})
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <div
@@ -155,6 +181,10 @@ export function RapidFilterBar({
           </button>
         ))}
       </div>
+      <p className="mt-1.5 text-[9px] leading-relaxed text-muted-foreground">
+        Filters are saved in this page URL for bookmarking and sharing. They never
+        include device location.
+      </p>
     </section>
   );
 }

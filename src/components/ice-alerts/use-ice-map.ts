@@ -16,6 +16,7 @@ import {
   TILE_URL,
 } from './constants';
 import { cityRank, citySharePercent, formatNumber, selectedCityLabel } from './data';
+import { leafletText } from './leaflet-text';
 import { CITY_CIRCLE_STYLE, cityCircleRadius } from './map-circles';
 import {
   clusterCellSize,
@@ -389,7 +390,9 @@ export function useIceMap({
               }).addTo(layer);
 
               marker.bindTooltip(
-                `${selectedCityLabel(city)} · ${formatNumber(city.count)} records`,
+                leafletText(
+                  `${selectedCityLabel(city)} · ${formatNumber(city.count)} records`
+                ),
                 { direction: 'top', offset: [0, -4] }
               );
               marker.bindPopup(
@@ -428,9 +431,11 @@ export function useIceMap({
             }).addTo(layer);
 
             marker.bindTooltip(
-              `${formatNumber(cluster.records)} records across ${formatNumber(
-                cluster.cityCount
-              )} ${cluster.cityCount === 1 ? 'city' : 'cities'}. Open for details.`,
+              leafletText(
+                `${formatNumber(cluster.records)} records across ${formatNumber(
+                  cluster.cityCount
+                )} ${cluster.cityCount === 1 ? 'city' : 'cities'}. Open for details.`
+              ),
               { direction: 'top', offset: [0, -size / 2] }
             );
             marker.bindPopup(
@@ -484,7 +489,9 @@ export function useIceMap({
         keyboard: false,
       })
         .bindTooltip(
-          `${selectedCityLabel(selectedCity)}: ${formatNumber(selectedCity.count)} records`,
+          leafletText(
+            `${selectedCityLabel(selectedCity)}: ${formatNumber(selectedCity.count)} records`
+          ),
           { direction: 'top', offset: [0, -8] }
         )
         .addTo(layer);
@@ -555,9 +562,11 @@ export function useIceMap({
         keyboard: false,
       })
         .bindTooltip(
-          approximate
-            ? `Approximate area: ${userLocation.label}`
-            : 'Your current location',
+          leafletText(
+            approximate
+              ? `Approximate area: ${userLocation.label}`
+              : 'Your current location'
+          ),
           { direction: 'top', offset: [0, -12] }
         )
         .addTo(layer);

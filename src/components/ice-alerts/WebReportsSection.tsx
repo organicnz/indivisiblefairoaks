@@ -9,20 +9,24 @@ import {
   iceSourceKindLabel,
   type IceSourceReport,
 } from '@/lib/ice-crawl-types';
-import { iceSourceReportPlaceLabel } from '@/lib/ice-source-report-search';
+import {
+  iceSourceReportDisplayTitle,
+  iceSourceReportPlaceLabel,
+  iceSourceReportTitleGeneralized,
+} from '@/lib/ice-source-report-search';
 import { CopyRegion } from '@/components/cms/CopyRegion';
 
 async function readWebReports() {
   const store = getIceCrawlStore();
-  if (!store) return { reports: [], total: 0 };
+  if (!store) return { reports: [], total: 0, unavailable: true };
   try {
     const [reports, total] = await Promise.all([
       getPublishedSourceReports(store),
       getPublishedSourceReportCount(store),
     ]);
-    return { reports, total };
+    return { reports, total, unavailable: false };
   } catch {
-    return { reports: [], total: 0 };
+    return { reports: [], total: 0, unavailable: true };
   }
 }
 
@@ -33,7 +37,7 @@ function sourceDate(value: string | null) {
 
 export async function WebReportsSection() {
   await connection();
-  const { reports, total } = await readWebReports();
+  const { reports, total, unavailable } = await readWebReports();
 
   return (
     <section
@@ -55,9 +59,11 @@ export async function WebReportsSection() {
                 </h2>
                 <p className="mt-4 max-w-2xl text-sm leading-relaxed text-muted-foreground">
                   These full readable passages are republished from approved public sources. Every
-                  entry keeps its original URL, source label, source page title, publication time,
-                  and retrieval time. They are not independently verified by this chapter, and the
-                  source&apos;s own terms may apply.
+                  entry keeps its original URL, source label, publication time, and retrieval time.
+                  Visible headlines are generalized to the city when the original contains a
+                  street-level location. They are not independently verified by this chapter, and
+                  the source&apos;s own terms may apply. Some source text may include details from
+                  the original publication; the map and city watch use city-level locations only.
                 </p>
               </div>
             </CopyRegion>
@@ -79,10 +85,21 @@ export async function WebReportsSection() {
           </div>
         </div>
 
-        {reports.length === 0 ? (
+        {unavailable ? (
+          <p
+            role="status"
+            className="mt-6 border border-accent/40 bg-accent/10 p-5 text-sm leading-relaxed text-foreground"
+          >
+            The public source archive is temporarily unavailable. No substitute reports are being
+            shown; the live feed, reviewed reports, and historical FOIA map remain separate.
+          </p>
+        ) : reports.length === 0 ? (
           <p className="mt-6 border border-border bg-surface-card p-5 text-sm leading-relaxed text-muted-foreground">
-            No web-source reports have been published yet. An admin can add an approved public
-            source and run the crawler from the admin panel.
+            {total > 0
+              ? `No source reports are on this page, but the archive contains ${total.toLocaleString(
+                  'en-US'
+                )}. Open the full archive to browse them.`
+              : 'No web-source reports have been published yet. An admin can add an approved public source and run the crawler from the admin panel.'}
           </p>
         ) : (
           <div className="mt-6 grid gap-4 lg:grid-cols-2">
@@ -98,6 +115,13 @@ export async function WebReportsSection() {
 
 export function WebReportCard({ report }: { report: IceSourceReport }) {
   const place = iceSourceReportPlaceLabel(report.city, report.state_code);
+  const displayTitle = iceSourceReportDisplayTitle(report);
+  const titleGeneralized = iceSourceReportTitleGeneralized(report);
+  const rawSourceTitle = report.source_title?.normalize('NFKC').replace(/\s+/g, ' ').trim() ?? '';
+  const safeSourceTitle = rawSourceTitle
+    ? iceSourceReportDisplayTitle({ ...report, title: rawSourceTitle })
+    : '';
+  const showSourceTitle = Boolean(safeSourceTitle) && safeSourceTitle !== displayTitle;
 
   return (
     <article className="border border-border bg-surface-card p-5">
@@ -112,14 +136,25 @@ export function WebReportCard({ report }: { report: IceSourceReport }) {
         <span className="font-mono text-[8px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
           {place}
         </span>
+        {titleGeneralized ? (
+          <span className="border border-accent-gold/60 bg-accent-gold/15 px-1.5 py-0.5 font-mono text-[8px] font-bold uppercase tracking-[0.08em] text-foreground">
+            City-level headline
+          </span>
+        ) : null}
       </div>
 
       <h3 className="mt-3 font-display text-2xl font-semibold leading-tight tracking-[-0.03em]">
-        {report.title}
+        {displayTitle}
       </h3>
-      {report.source_title && report.source_title !== report.title ? (
+      {titleGeneralized ? (
+        <p className="mt-1 text-[9px] leading-relaxed text-muted-foreground">
+          The original headline may contain a street-level location, so the visible headline is
+          generalized. The source URL and full source text remain available below.
+        </p>
+      ) : null}
+      {showSourceTitle ? (
         <p className="mt-1 break-words font-mono text-[8px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
-          Source page: {report.source_title}
+          Source page: {safeSourceTitle}
         </p>
       ) : null}
       <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[8px] font-bold uppercase tracking-[0.08em] text-muted-foreground">

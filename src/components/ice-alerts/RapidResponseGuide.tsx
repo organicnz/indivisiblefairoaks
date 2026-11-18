@@ -384,9 +384,11 @@ export function RapidResponseGuide({
                   }`}
                 >
                   {community?.status === 'stale' ? 'Delayed export · ' : ''}
-                  {community?.latestAt
-                    ? `Latest ${formatRelativeTime(community.latestAt, now)}`
-                    : 'No report'}
+                  {community?.status === 'unavailable'
+                    ? 'Unavailable'
+                    : community?.latestAt
+                      ? `Latest ${formatRelativeTime(community.latestAt, now)}`
+                      : 'No report'}
                 </span>
               </div>
               <DataPoint
@@ -394,9 +396,10 @@ export function RapidResponseGuide({
                 name="ice.rapid.sources.community.body"
                 className="mt-1 text-[11px] leading-relaxed text-muted-foreground"
               >
-                Public nightly export. We use city centroids and a short generated summary; the
-                original export includes street addresses and vehicle details that we do not
-                republish. Source-confirmed is the network&apos;s label.
+                Public nightly export. We use city centroids and a short source memo built from
+                the report&apos;s city, type, status, and timestamp. The original export includes
+                street addresses and vehicle details that we do not republish. Source-confirmed
+                is the network&apos;s label.
               </DataPoint>
               <div className="mt-2 flex flex-wrap gap-3">
                 <a
@@ -433,9 +436,11 @@ export function RapidResponseGuide({
                   Official: {official?.sourceName ?? 'ICE Newsroom'}
                 </h3>
                 <span className="civic-stamp">
-                  {official?.latestAt
-                    ? `Latest ${formatRelativeTime(official.latestAt, now)}`
-                    : 'No release'}
+                  {official?.status === 'unavailable'
+                    ? 'Unavailable'
+                    : official?.latestAt
+                      ? `Latest ${formatRelativeTime(official.latestAt, now)}`
+                      : 'No release'}
                 </span>
               </div>
               <DataPoint

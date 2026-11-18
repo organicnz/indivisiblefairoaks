@@ -176,5 +176,11 @@ export function useUserLocation({ shouldFocusUser }: UseUserLocationOptions) {
     };
   }, [requestPrecise]);
 
-  return { userLocation, userLocationRef, userLocationStatus, locationNotice };
+  return {
+    userLocation,
+    userLocationRef,
+    userLocationStatus,
+    locationNotice,
+    requestPrecise,
+  };
 }

@@ -73,7 +73,7 @@ export default function ReunificationPage() {
         emergencyLabel="Official ICE locator"
       />
 
-      <main className="mx-auto grid max-w-7xl gap-8 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,1.45fr)_minmax(18rem,0.55fr)] lg:gap-12 lg:px-8 lg:py-10">
+      <div className="mx-auto grid max-w-7xl gap-8 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,1.45fr)_minmax(18rem,0.55fr)] lg:gap-12 lg:px-8 lg:py-10">
         <IntakeFormPanel
           eyebrow="Private request"
           titleId="reunification-form-title"
@@ -132,7 +132,7 @@ export default function ReunificationPage() {
             </div>
           </section>
         </aside>
-      </main>
+      </div>
     </div>
   );
 }

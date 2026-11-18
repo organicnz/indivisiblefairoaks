@@ -1,4 +1,5 @@
 import {
+  AlertTriangle,
   CalendarDays,
   Clock3,
   ExternalLink,
@@ -19,6 +20,7 @@ import { Button } from '@/components/ui/Button';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { formatNumber } from './data';
 import type {
+  PublicCase,
   RapidAlert,
   RapidFeedRequestState,
   RapidFeedSource,
@@ -32,20 +34,33 @@ import {
   STATUS_LABELS,
 } from './rapid-alert-utils';
 import { rapidMapHelpText } from './use-rapid-map';
-import type { LocationSearchState, MapView, UserLocation, UserLocationStatus } from './types';
+import { RapidCityWatch } from './RapidCityWatch';
+import { communityMemo } from './rapid-community-memo';
+import type {
+  CityPoint,
+  LocationSearchState,
+  MapView,
+  UserLocation,
+  UserLocationStatus,
+} from './types';
 
 type RapidMapPanelProps = {
   mapContainerRef: RefObject<HTMLDivElement | null>;
   mapView: MapView;
   isReady: boolean;
+  mapError: boolean;
   points: RapidMapPoint[];
   filteredCount: number;
   activeCount: number;
   publicCaseCount: number;
   community: RapidFeedSource | null;
+  feedFromCache: boolean;
   requestStatus: RapidFeedRequestState;
   now: number;
   selectedAlert: RapidAlert | null;
+  cityAlerts: RapidAlert[];
+  cityPublicCases: PublicCase[];
+  historicalCity: CityPoint | null;
   onClearSelected: () => void;
   onZoom: (direction: 'in' | 'out') => void;
   onReset: () => void;
@@ -72,14 +87,19 @@ export function RapidMapPanel({
   mapContainerRef,
   mapView,
   isReady,
+  mapError,
   points,
   filteredCount,
   activeCount,
   publicCaseCount,
   community,
+  feedFromCache,
   requestStatus,
   now,
   selectedAlert,
+  cityAlerts,
+  cityPublicCases,
+  historicalCity,
   onClearSelected,
   onZoom,
   onReset,
@@ -101,29 +121,35 @@ export function RapidMapPanel({
   const selectedActive = selectedAlert ? isAlertActive(selectedAlert, now) : false;
   const feedLoading = requestStatus === 'loading' && !community;
   const feedUnavailable = !community && !feedLoading;
-  const feedStatusLabel = feedLoading
-    ? 'Connecting to feed'
-    : feedUnavailable
-      ? 'Community feed unavailable'
+  const feedStatusLabel = feedFromCache
+    ? 'Cached feed snapshot'
+    : feedLoading
+      ? 'Connecting to feed'
+      : feedUnavailable
+        ? 'Community feed unavailable'
+        : community?.status === 'ok'
+          ? 'Community feed current'
+          : community?.status === 'stale'
+            ? 'Community feed delayed'
+            : 'Community feed unavailable';
+  const feedStatusClass = feedFromCache
+    ? 'border-accent-gold/60 bg-accent-gold/15 text-foreground'
+    : feedLoading
+      ? 'border-border bg-surface-muted text-muted-foreground'
       : community?.status === 'ok'
-        ? 'Community feed current'
+        ? 'border-primary/35 bg-primary/10 text-primary dark:text-primary-on-dark'
         : community?.status === 'stale'
-          ? 'Community feed delayed'
-          : 'Community feed unavailable';
-  const feedStatusClass = feedLoading
-    ? 'border-border bg-surface-muted text-muted-foreground'
-    : community?.status === 'ok'
-      ? 'border-primary/35 bg-primary/10 text-primary dark:text-primary-on-dark'
-      : community?.status === 'stale'
-        ? 'border-accent-gold/60 bg-accent-gold/15 text-foreground'
-        : 'border-accent/40 bg-accent/10 text-accent';
-  const feedDotClass = feedLoading
-    ? 'bg-muted-foreground/50'
-    : community?.status === 'ok'
-      ? 'bg-primary'
-      : community?.status === 'stale'
-        ? 'bg-accent-gold'
-        : 'bg-accent';
+          ? 'border-accent-gold/60 bg-accent-gold/15 text-foreground'
+          : 'border-accent/40 bg-accent/10 text-accent';
+  const feedDotClass = feedFromCache
+    ? 'bg-accent-gold'
+    : feedLoading
+      ? 'bg-muted-foreground/50'
+      : community?.status === 'ok'
+        ? 'bg-primary'
+        : community?.status === 'stale'
+          ? 'bg-accent-gold'
+          : 'bg-accent';
 
   return (
     <div
@@ -252,7 +278,13 @@ export function RapidMapPanel({
           ) : null}
         </div>
 
-        <div className="relative isolate">
+        <div className="relative isolate overflow-hidden">
+          <a
+            href="#ice-alert-feed"
+            className="absolute left-3 top-3 z-[1001] inline-flex min-h-9 -translate-y-24 items-center border border-primary bg-background px-3 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-foreground focus:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          >
+            Skip map to report feed
+          </a>
           <div
             ref={mapContainerRef}
             role="region"
@@ -265,7 +297,8 @@ export function RapidMapPanel({
             buttons to zoom, U.S. overview to reset, and Near me to center on your approximate
             area. Pins are keyboard accessible; select a pin for an on-map popup and the detail
             panel below. Published community cases open their Supabase-backed popup. FOIA city
-            points open their historical total.
+            points open their historical total. Show radius in Local watch draws a dashed distance
+            guide; it is not a boundary or a verification zone.
           </p>
 
           <div className="pointer-events-none absolute inset-0 z-[900]">
@@ -315,7 +348,38 @@ export function RapidMapPanel({
               ) : null}
             </div>
 
-            {!isReady ? (
+            {mapError ? (
+              <div className="pointer-events-auto absolute inset-0 flex items-center justify-center bg-surface-muted/70 p-4">
+                <div
+                  role="alert"
+                  className="w-full max-w-sm border border-accent/40 bg-background p-4 text-center"
+                >
+                  <AlertTriangle className="mx-auto size-5 text-accent" aria-hidden="true" />
+                  <h3 className="mt-2 font-display text-lg font-semibold tracking-[-0.02em]">
+                    The interactive map could not load.
+                  </h3>
+                  <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                    The report feed, filters, and source links still work. Reload the page to try
+                    the map again.
+                  </p>
+                  <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => window.location.reload()}
+                      className="inline-flex min-h-8 items-center border border-border bg-background px-2.5 py-1 font-mono text-[8px] font-bold uppercase tracking-[0.09em] text-foreground transition-colors hover:border-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    >
+                      Reload map
+                    </button>
+                    <a
+                      href="#ice-alert-feed"
+                      className="inline-flex min-h-8 items-center border border-border bg-background px-2.5 py-1 font-mono text-[8px] font-bold uppercase tracking-[0.09em] text-foreground transition-colors hover:border-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    >
+                      Use the feed
+                    </a>
+                  </div>
+                </div>
+              </div>
+            ) : !isReady ? (
               <div className="absolute inset-0 flex items-center justify-center bg-surface-muted/50">
                 <span className="inline-flex items-center gap-2 border border-border bg-background px-3 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
                   <LoaderCircle className="size-3.5 animate-spin" aria-hidden="true" />
@@ -482,7 +546,9 @@ export function RapidMapPanel({
                 {selectedAlert.place}
               </h3>
               <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-                {selectedAlert.summary}
+                {selectedAlert.source === 'community'
+                  ? communityMemo(selectedAlert)
+                  : selectedAlert.summary}
               </p>
 
               <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
@@ -512,6 +578,16 @@ export function RapidMapPanel({
                   <ExternalLink className="size-3" aria-hidden="true" />
                 </a>
               </div>
+
+              <RapidCityWatch
+                alert={selectedAlert}
+                cityAlerts={cityAlerts}
+                publicCases={cityPublicCases}
+                historicalCity={historicalCity}
+                community={community}
+                feedFromCache={feedFromCache}
+                now={now}
+              />
             </>
           ) : (
             <div className="flex items-start gap-2.5">

@@ -1,10 +1,12 @@
-import { ArrowUpRight, Radio, ShieldAlert } from 'lucide-react';
-import type { RapidFeedRequestState } from './rapid-types';
+import { AlertTriangle, ArrowUpRight, Radio, ShieldAlert } from 'lucide-react';
+import type { RapidFeedRequestState, RapidFeedSource } from './rapid-types';
+import { formatRelativeTime } from './rapid-alert-utils';
 import type { RapidSurge } from '@/lib/ice-rapid-surges';
 
 type RapidSurgeBannerProps = {
   surges: RapidSurge[];
   status: RapidFeedRequestState;
+  community: RapidFeedSource | null;
   now: number;
   onSelect: (alertId: string) => void;
 };
@@ -12,6 +14,7 @@ type RapidSurgeBannerProps = {
 export function RapidSurgeBanner({
   surges,
   status,
+  community,
   now,
   onSelect,
 }: RapidSurgeBannerProps) {
@@ -23,6 +26,58 @@ export function RapidSurgeBanner({
       >
         <Radio className="size-3.5 text-accent" aria-hidden="true" />
         Watching the community export for report clusters…
+      </div>
+    );
+  }
+
+  if (status === 'error' || community?.status === 'unavailable') {
+    return (
+      <div
+        role="status"
+        className="flex flex-wrap items-center gap-x-3 gap-y-1 border border-accent/50 bg-accent/10 px-3.5 py-2.5"
+      >
+        <span className="inline-flex shrink-0 items-center gap-2 font-mono text-[9px] font-black uppercase tracking-[0.12em] text-accent">
+          <AlertTriangle className="size-3.5" aria-hidden="true" />
+          Surge watch paused
+        </span>
+        <span className="min-w-0 flex-1 text-[10px] leading-snug text-foreground">
+          The community export could not be loaded, so active reports cannot be ruled out.
+          Retry the feed or check the source directly.
+        </span>
+        <a
+          href="#ice-alert-feed"
+          className="inline-flex min-h-8 items-center border border-border bg-background px-2.5 py-1 font-mono text-[8px] font-bold uppercase tracking-[0.09em] text-foreground transition-colors hover:border-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        >
+          Feed status
+        </a>
+      </div>
+    );
+  }
+
+  if (surges.length === 0 && community?.status === 'stale') {
+    const latest = community.latestAt
+      ? `The latest community report is ${formatRelativeTime(community.latestAt, now)}.`
+      : 'No recent community report is available.';
+
+    return (
+      <div
+        role="status"
+        className="flex flex-wrap items-center gap-x-3 gap-y-1 border border-accent-gold/60 bg-accent-gold/15 px-3.5 py-2.5"
+      >
+        <span className="inline-flex shrink-0 items-center gap-2 font-mono text-[9px] font-black uppercase tracking-[0.12em] text-foreground">
+          <AlertTriangle className="size-3.5 text-accent-gold" aria-hidden="true" />
+          Surge watch delayed
+        </span>
+        <span className="min-w-0 flex-1 text-[10px] leading-snug text-foreground">
+          {latest} The export has not updated on schedule, so a surge cannot be ruled out from
+          this snapshot.
+        </span>
+        <a
+          href="#ice-alert-feed"
+          className="inline-flex min-h-8 items-center border border-border bg-background px-2.5 py-1 font-mono text-[8px] font-bold uppercase tracking-[0.09em] text-foreground transition-colors hover:border-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        >
+          Feed status
+        </a>
       </div>
     );
   }
@@ -86,6 +141,7 @@ export function RapidSurgeBanner({
         ) : null}
       </div>
       <span className="ml-auto hidden font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-muted-foreground lg:inline">
+        {community?.status === 'stale' ? 'Delayed export · ' : ''}
         Reports, not confirmed enforcement
       </span>
     </div>

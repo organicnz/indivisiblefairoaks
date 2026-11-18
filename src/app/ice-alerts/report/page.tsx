@@ -67,7 +67,7 @@ export default function IceReportPage() {
         emergencyLabel="National text and online reporting"
       />
 
-      <main className="mx-auto grid max-w-7xl gap-8 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,1.45fr)_minmax(18rem,0.55fr)] lg:gap-12 lg:px-8 lg:py-10">
+      <div className="mx-auto grid max-w-7xl gap-8 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,1.45fr)_minmax(18rem,0.55fr)] lg:gap-12 lg:px-8 lg:py-10">
         <IntakeFormPanel
           eyebrow="Private report"
           titleId="ice-report-form-title"
@@ -117,7 +117,7 @@ export default function IceReportPage() {
             </CopyRegion>
           </section>
         </aside>
-      </main>
+      </div>
     </div>
   );
 }

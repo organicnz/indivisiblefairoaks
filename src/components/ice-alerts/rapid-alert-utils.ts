@@ -12,6 +12,7 @@ export type RapidFilters = {
   query: string;
   kind: RapidKindFilter;
   status: RapidStatusFilter;
+  stateCode: string;
   time: RapidTimeFilter;
 };
 
@@ -19,6 +20,7 @@ export const DEFAULT_RAPID_FILTERS: RapidFilters = {
   query: '',
   kind: 'all',
   status: 'all',
+  stateCode: '',
   time: 'all',
 };
 
@@ -95,6 +97,7 @@ export function filterAlerts(
   return alerts.filter((alert) => {
     if (filters.kind !== 'all' && alert.kind !== filters.kind) return false;
     if (filters.status !== 'all' && alert.status !== filters.status) return false;
+    if (filters.stateCode && alert.stateCode.toUpperCase() !== filters.stateCode) return false;
 
     if (filters.time === 'live' && !isAlertActive(alert, now)) return false;
     if (filters.time === '24h' && !isAlertRecent(alert, now)) return false;

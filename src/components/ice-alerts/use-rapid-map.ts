@@ -1,7 +1,7 @@
 'use client';
 
 import type { LayerGroup, Map as LeafletMap, PopupOptions } from 'leaflet';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   CITY_FOCUS_ZOOM,
   MAX_ZOOM,
@@ -13,7 +13,8 @@ import {
   TILE_URL,
 } from './constants';
 import { formatNumber } from './data';
-import type { PublicCase, RapidMapPoint } from './rapid-types';
+import { leafletText } from './leaflet-text';
+import type { PublicCase, RapidMapPoint, RapidWatchRadius } from './rapid-types';
 import { formatRelativeTime, KIND_LABELS, rapidPopupSummary } from './rapid-alert-utils';
 import type {
   CityPoint,
@@ -30,6 +31,7 @@ type UseRapidMapOptions = {
   publicCases: PublicCase[];
   selectedAlertId: string | null;
   searchTarget: SearchTarget | null;
+  watchRadius: RapidWatchRadius | null;
   userLocation: UserLocation | null;
   initialView: MapViewport | null;
   showHistorical: boolean;
@@ -231,6 +233,7 @@ export function useRapidMap({
   publicCases,
   selectedAlertId,
   searchTarget,
+  watchRadius,
   userLocation,
   initialView,
   showHistorical,
@@ -242,13 +245,17 @@ export function useRapidMap({
   );
   const [viewport, setViewport] = useState<MapViewport | null>(initialView);
   const [isReady, setIsReady] = useState(false);
+  const [mapError, setMapError] = useState(false);
 
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const pointsRef = useRef(points);
+  const publicCasesRef = useRef(publicCases);
   const mapRef = useRef<LeafletMap | null>(null);
   const alertLayerRef = useRef<LayerGroup | null>(null);
   const publicCaseLayerRef = useRef<LayerGroup | null>(null);
   const historicalLayerRef = useRef<LayerGroup | null>(null);
   const searchLayerRef = useRef<LayerGroup | null>(null);
+  const watchRadiusLayerRef = useRef<LayerGroup | null>(null);
   const userLayerRef = useRef<LayerGroup | null>(null);
   const markerElementsRef = useRef<Record<string, HTMLElement>>({});
   const markerPositionsRef = useRef<Record<string, [number, number]>>({});
@@ -257,6 +264,16 @@ export function useRapidMap({
   const onMapInteractionRef = useRef(onMapInteraction);
   const selectedAlertIdRef = useRef(selectedAlertId);
   const initialViewRef = useRef(initialView);
+  const markerSignature = useMemo(() => JSON.stringify(points), [points]);
+  const publicCasesSignature = useMemo(() => JSON.stringify(publicCases), [publicCases]);
+
+  useEffect(() => {
+    pointsRef.current = points;
+  }, [points]);
+
+  useEffect(() => {
+    publicCasesRef.current = publicCases;
+  }, [publicCases]);
 
   useEffect(() => {
     onSelectAlertRef.current = onSelectAlert;
@@ -309,6 +326,7 @@ export function useRapidMap({
       alertLayerRef.current = L.layerGroup().addTo(map);
       publicCaseLayerRef.current = L.layerGroup().addTo(map);
       searchLayerRef.current = L.layerGroup().addTo(map);
+      watchRadiusLayerRef.current = L.layerGroup().addTo(map);
       userLayerRef.current = L.layerGroup().addTo(map);
 
       const updateView = () => {
@@ -370,7 +388,12 @@ export function useRapidMap({
         map?.invalidateSize();
         interactionReady = true;
       });
-    })();
+    })().catch((error) => {
+      if (!disposed) {
+        console.error('Unable to initialize the ICE rapid-response map', error);
+        setMapError(true);
+      }
+    });
 
     return () => {
       disposed = true;
@@ -381,6 +404,7 @@ export function useRapidMap({
       publicCaseLayerRef.current = null;
       historicalLayerRef.current = null;
       searchLayerRef.current = null;
+      watchRadiusLayerRef.current = null;
       userLayerRef.current = null;
       markerElementsRef.current = {};
       markerPositionsRef.current = {};
@@ -390,6 +414,10 @@ export function useRapidMap({
   useEffect(() => {
     if (!isReady) return;
     let disposed = false;
+    // The 30-second clock recreates `points` even when no pin changed. Rebuild
+    // only when marker content changes so an open popup is not closed on every
+    // clock tick.
+    const markerPoints = pointsRef.current;
 
     void (async () => {
       const L = (await import('leaflet')).default;
@@ -401,7 +429,7 @@ export function useRapidMap({
       markerElementsRef.current = {};
       markerPositionsRef.current = {};
 
-      for (const point of points) {
+      for (const point of markerPoints) {
         const selectedId = selectedAlertIdRef.current;
         const classes = [
           'ice-rapid-marker',
@@ -468,7 +496,7 @@ export function useRapidMap({
     return () => {
       disposed = true;
     };
-  }, [isReady, points]);
+  }, [isReady, markerSignature]);
 
   useEffect(() => {
     for (const [id, element] of Object.entries(markerElementsRef.current)) {
@@ -486,6 +514,8 @@ export function useRapidMap({
     if (!isReady) return;
     let disposed = false;
 
+    const markerCases = publicCasesRef.current;
+
     void (async () => {
       const L = (await import('leaflet')).default;
       if (disposed) return;
@@ -495,7 +525,7 @@ export function useRapidMap({
       layer.clearLayers();
       const placed = new Map<string, number>();
 
-      for (const report of publicCases) {
+      for (const report of markerCases) {
         const placeKey = `${report.city}|${report.stateCode}`;
         const index = placed.get(placeKey) ?? 0;
         placed.set(placeKey, index + 1);
@@ -514,7 +544,7 @@ export function useRapidMap({
         }).addTo(layer);
 
         marker.bindTooltip(
-          `${report.place} · ${KIND_LABELS[report.kind]} community case`,
+          leafletText(`${report.place} · ${KIND_LABELS[report.kind]} community case`),
           { direction: 'top', offset: [0, -12] }
         );
         marker.bindPopup(buildPublicCasePopup(report), POPUP_OPTIONS);
@@ -530,7 +560,7 @@ export function useRapidMap({
     return () => {
       disposed = true;
     };
-  }, [isReady, publicCases]);
+  }, [isReady, publicCasesSignature]);
 
   useEffect(() => {
     if (!isReady) return;
@@ -564,9 +594,11 @@ export function useRapidMap({
           interactive: true,
         })
           .bindTooltip(
-            `${city.city}, ${city.stateCode} · ${formatNumber(
-              city.count
-            )} historical records`,
+            leafletText(
+              `${city.city}, ${city.stateCode} · ${formatNumber(
+                city.count
+              )} historical records`
+            ),
             { direction: 'top' }
           )
           .bindPopup(buildHistoricalCityPopup(city), POPUP_OPTIONS)
@@ -618,6 +650,36 @@ export function useRapidMap({
     void (async () => {
       const L = (await import('leaflet')).default;
       if (disposed) return;
+      const layer = watchRadiusLayerRef.current;
+      if (!layer) return;
+
+      layer.clearLayers();
+      if (!watchRadius) return;
+
+      L.circle([watchRadius.lat, watchRadius.lng], {
+        radius: watchRadius.miles * 1609.344,
+        color: '#b42318',
+        weight: 1.5,
+        opacity: 0.8,
+        dashArray: '6 6',
+        fillColor: '#b42318',
+        fillOpacity: 0.04,
+        interactive: false,
+      }).addTo(layer);
+    })();
+
+    return () => {
+      disposed = true;
+    };
+  }, [isReady, watchRadius]);
+
+  useEffect(() => {
+    if (!isReady) return;
+    let disposed = false;
+
+    void (async () => {
+      const L = (await import('leaflet')).default;
+      if (disposed) return;
       const layer = userLayerRef.current;
       if (!layer) return;
 
@@ -636,7 +698,9 @@ export function useRapidMap({
         keyboard: false,
       })
         .bindTooltip(
-          approximate ? `Approximate area: ${userLocation.label}` : 'Your current location',
+          leafletText(
+            approximate ? `Approximate area: ${userLocation.label}` : 'Your current location'
+          ),
           { direction: 'top', offset: [0, -12] }
         )
         .addTo(layer);
@@ -677,6 +741,14 @@ export function useRapidMap({
     );
   };
 
+  const flyToWatchRadius = (radius: RapidWatchRadius) => {
+    const map = mapRef.current;
+    if (!map) return;
+    const zoom =
+      radius.miles <= 25 ? 11 : radius.miles <= 50 ? 10 : radius.miles <= 100 ? 9 : 8;
+    map.flyTo([radius.lat, radius.lng], zoom, { duration: 0.6 });
+  };
+
   return {
     mapContainerRef,
     mapRef,
@@ -684,10 +756,12 @@ export function useRapidMap({
     setMapView,
     viewport,
     isReady,
+    mapError,
     zoomMap,
     flyToPoint,
     flyToOverview,
     flyToUser,
+    flyToWatchRadius,
   };
 }
 

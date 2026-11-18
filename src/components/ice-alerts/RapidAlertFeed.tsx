@@ -13,7 +13,7 @@ import {
   SearchX,
   ShieldCheck,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useRef, useState, type KeyboardEvent } from 'react';
 import { DataPoint } from '@/components/ui/DataPoint';
 import type {
   OfficialRelease,
@@ -28,10 +28,12 @@ import {
   KIND_LABELS,
   STATUS_LABELS,
 } from './rapid-alert-utils';
+import { communityMemo } from './rapid-community-memo';
 
 type RapidAlertFeedProps = {
   alerts: RapidAlert[];
   allAlerts: RapidAlert[];
+  newIds: ReadonlySet<string>;
   officialReleases: OfficialRelease[];
   community: RapidFeedSource | null;
   official: RapidFeedSource | null;
@@ -48,14 +50,20 @@ type RapidAlertFeedProps = {
 
 type FeedTab = 'community' | 'official';
 
+const FEED_TABS: readonly FeedTab[] = ['community', 'official'];
+const EMPTY_ACTION_CLASS =
+  'inline-flex min-h-9 items-center justify-center gap-1.5 border border-border px-3 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-foreground transition-colors hover:border-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-60';
+
 function CommunityCard({
   alert,
   selected,
+  isNew,
   now,
   onSelect,
 }: {
   alert: RapidAlert;
   selected: boolean;
+  isNew: boolean;
   now: number;
   onSelect: (id: string) => void;
 }) {
@@ -92,6 +100,11 @@ function CommunityCard({
           <span className="border border-border bg-background px-1.5 py-0.5 font-mono text-[8px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
             {KIND_LABELS[alert.kind]}
           </span>
+          {isNew ? (
+            <span className="border border-accent/45 bg-accent/10 px-1.5 py-0.5 font-mono text-[8px] font-bold uppercase tracking-[0.08em] text-accent">
+              New
+            </span>
+          ) : null}
           <span
             className={`ml-auto inline-flex items-center gap-1 font-mono text-[9px] font-bold uppercase tracking-[0.08em] ${
               active ? 'text-accent' : 'text-muted-foreground'
@@ -120,7 +133,7 @@ function CommunityCard({
         </span>
 
         <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">
-          {alert.summary}
+          {communityMemo(alert)}
         </span>
 
         <span className="mt-2 flex items-center gap-1.5 font-mono text-[8px] font-bold uppercase tracking-[0.09em] text-muted-foreground">
@@ -204,6 +217,7 @@ function LoadingCards() {
 export function RapidAlertFeed({
   alerts,
   allAlerts,
+  newIds,
   officialReleases,
   community,
   official,
@@ -218,14 +232,43 @@ export function RapidAlertFeed({
   hasFilters,
 }: RapidAlertFeedProps) {
   const [tab, setTab] = useState<FeedTab>('community');
+  const tabRefs = useRef<Record<FeedTab, HTMLButtonElement | null>>({
+    community: null,
+    official: null,
+  });
   const source = tab === 'community' ? community : official;
   const shownCount = tab === 'community' ? alerts.length : officialReleases.length;
+  const communityUnavailable =
+    community?.status === 'unavailable' || (!community && status !== 'loading');
+
+  const handleTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+    const { key } = event;
+    if (key !== 'ArrowRight' && key !== 'ArrowLeft' && key !== 'Home' && key !== 'End') {
+      return;
+    }
+
+    event.preventDefault();
+    const currentIndex = FEED_TABS.indexOf(tab);
+    const nextIndex =
+      key === 'Home'
+        ? 0
+        : key === 'End'
+          ? FEED_TABS.length - 1
+          : (currentIndex + (key === 'ArrowRight' ? 1 : -1) + FEED_TABS.length) %
+            FEED_TABS.length;
+    const nextTab = FEED_TABS[nextIndex];
+    if (!nextTab) return;
+
+    setTab(nextTab);
+    tabRefs.current[nextTab]?.focus();
+  };
 
   return (
     <section
       id="ice-alert-feed"
       aria-labelledby="ice-feed-title"
-      className="min-w-0 scroll-mt-28 border border-border bg-surface-card"
+      tabIndex={-1}
+      className="min-w-0 scroll-mt-28 border border-border bg-surface-card focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
     >
       <div className="border-b border-border p-4 sm:p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -258,14 +301,24 @@ export function RapidAlertFeed({
           </div>
         </div>
 
-        <div className="mt-3 flex border border-border" role="tablist" aria-label="Alert feed source">
+        <div
+          className="mt-3 flex border border-border"
+          role="tablist"
+          aria-label="Alert feed source"
+          aria-orientation="horizontal"
+        >
           <button
+            ref={(node) => {
+              tabRefs.current.community = node;
+            }}
             type="button"
             role="tab"
             id="ice-community-tab"
             aria-selected={tab === 'community'}
             aria-controls="ice-community-panel"
+            tabIndex={tab === 'community' ? 0 : -1}
             onClick={() => setTab('community')}
+            onKeyDown={handleTabKeyDown}
             className={`inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 px-2 py-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.09em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary ${
               tab === 'community'
                 ? 'bg-foreground text-background'
@@ -279,12 +332,17 @@ export function RapidAlertFeed({
             </span>
           </button>
           <button
+            ref={(node) => {
+              tabRefs.current.official = node;
+            }}
             type="button"
             role="tab"
             id="ice-official-tab"
             aria-selected={tab === 'official'}
             aria-controls="ice-official-panel"
+            tabIndex={tab === 'official' ? 0 : -1}
             onClick={() => setTab('official')}
+            onKeyDown={handleTabKeyDown}
             className={`inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 border-l border-border px-2 py-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.09em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary ${
               tab === 'official'
                 ? 'bg-foreground text-background'
@@ -343,6 +401,43 @@ export function RapidAlertFeed({
       >
         {status === 'loading' && !allAlerts.length ? (
           <LoadingCards />
+        ) : allAlerts.length === 0 ? (
+          <div className="p-6 text-center">
+            {communityUnavailable ? (
+              <AlertTriangle className="mx-auto size-5 text-accent" aria-hidden="true" />
+            ) : (
+              <Radio className="mx-auto size-5 text-muted-foreground" aria-hidden="true" />
+            )}
+            <p className="mt-3 font-display text-xl font-semibold tracking-[-0.02em]">
+              {communityUnavailable
+                ? 'The community feed is unavailable.'
+                : 'No community reports are listed yet.'}
+            </p>
+            <p className="mx-auto mt-1.5 max-w-sm text-xs leading-relaxed text-muted-foreground">
+              {communityUnavailable
+                ? 'The public export did not load. This page will not substitute older or invented reports while it recovers.'
+                : 'The public export has not returned a report. Check again after its next update; the map will not fill the gap with substitute content.'}
+            </p>
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+              <button
+                type="button"
+                onClick={onRefresh}
+                disabled={isRefreshing}
+                className={EMPTY_ACTION_CLASS}
+              >
+                <RefreshCw
+                  className={`size-3 ${isRefreshing ? 'animate-spin' : ''}`}
+                  aria-hidden="true"
+                />
+                {isRefreshing ? 'Checking feed' : 'Check again'}
+              </button>
+              {communityUnavailable ? (
+                <a href="#historical-foia" className={EMPTY_ACTION_CLASS}>
+                  Historical map
+                </a>
+              ) : null}
+            </div>
+          </div>
         ) : alerts.length === 0 ? (
           <div className="p-6 text-center">
             <SearchX className="mx-auto size-5 text-muted-foreground" aria-hidden="true" />
@@ -358,13 +453,14 @@ export function RapidAlertFeed({
               name="ice.feed.empty.community.body"
               className="mx-auto mt-1.5 max-w-xs text-xs leading-relaxed text-muted-foreground"
             >
-              Try a different time window, status, or search. The map uses the same filters.
+              Try a different state, time window, status, or search. The map uses the same
+              filters.
             </DataPoint>
             {hasFilters ? (
               <button
                 type="button"
                 onClick={onClearFilters}
-                className="mt-4 inline-flex min-h-9 items-center justify-center border border-border px-3 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-foreground transition-colors hover:border-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                className={`${EMPTY_ACTION_CLASS} mt-4`}
               >
                 Clear filters
               </button>
@@ -376,6 +472,7 @@ export function RapidAlertFeed({
               key={alert.id}
               alert={alert}
               selected={alert.id === selectedId}
+              isNew={newIds.has(alert.id)}
               now={now}
               onSelect={onSelect}
             />
@@ -410,6 +507,18 @@ export function RapidAlertFeed({
               The ICE newsroom feed did not return any releases. No replacement content is being
               invented.
             </DataPoint>
+            <button
+              type="button"
+              onClick={onRefresh}
+              disabled={isRefreshing}
+              className={`${EMPTY_ACTION_CLASS} mt-4`}
+            >
+              <RefreshCw
+                className={`size-3 ${isRefreshing ? 'animate-spin' : ''}`}
+                aria-hidden="true"
+              />
+              {isRefreshing ? 'Checking feed' : 'Check again'}
+            </button>
           </div>
         ) : (
           officialReleases.map((release) => (

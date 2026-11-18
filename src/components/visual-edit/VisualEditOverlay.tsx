@@ -1,18 +1,6 @@
 'use client';
 
-import {
-  ArrowDown,
-  ArrowUp,
-  Copy,
-  FileEdit,
-  GripVertical,
-  History,
-  LayoutTemplate,
-  Plus,
-  SlidersHorizontal,
-  Trash2,
-  Upload,
-} from 'lucide-react';
+import { GripVertical, History } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   type KeyboardEvent as ReactKeyboardEvent,
@@ -25,7 +13,6 @@ import {
   useState,
 } from 'react';
 import { toast } from 'sonner';
-import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import { CRMMediaLibraryModal } from '@/components/admin/crm/composer/CRMMediaLibraryModal';
 import { useThemeMode } from '@/components/layout/theme-store';
 import { useEditContext } from '@/components/layout/useEditContext';
@@ -143,6 +130,7 @@ import {
   RouteLeaveDialog,
 } from './EditorConfirmationDialogs';
 import { AltTextDialog } from './AltTextDialog';
+import { BlockContextMenu } from './BlockContextMenu';
 import { BatchSelectionBar } from './BatchSelectionBar';
 import { KeyboardShortcutsDialog } from './KeyboardShortcutsDialog';
 import { LinkInsertDialog, type LinkModalState } from './LinkInsertDialog';
@@ -6838,157 +6826,47 @@ export function VisualEditOverlay() {
 
       {/* ── Visual Composer On-Canvas Right-Click Context Menu ──────────────── */}
       {contextMenu && (
-        <div
-          ref={contextMenuRef}
-          data-visual-edit-ui="context-menu"
-          role="menu"
-          aria-label="Block Context Menu"
-          tabIndex={-1}
-          className="fixed z-[10020] min-w-[210px] max-w-[calc(100vw-1rem)] overflow-y-auto overscroll-contain rounded-xl border border-white/20 bg-slate-950/95 p-1.5 text-xs text-white shadow-2xl backdrop-blur-2xl animate-in fade-in zoom-in-95 duration-150 pointer-events-auto"
-          style={{
-            top: contextMenuPosition?.top ?? contextMenu.y,
-            left: contextMenuPosition?.left ?? contextMenu.x,
-            maxHeight: contextMenuPosition?.maxHeight,
-          }}
-          onClick={(e) => e.stopPropagation()}
+        <BlockContextMenu
+          blockIndex={contextMenu.blockIndex}
+          blockCount={blocks.length}
+          x={contextMenu.x}
+          y={contextMenu.y}
+          position={contextMenuPosition}
+          menuRef={contextMenuRef}
           onKeyDown={handleContextMenuKeyDown}
-        >
-          <div className="px-2 py-1 text-[10px] font-bold text-accent-gold uppercase tracking-wider border-b border-white/10 mb-1 flex items-center justify-between">
-            <span>Block #{contextMenu.blockIndex + 1}</span>
-            <span className="text-[9px] text-slate-400 font-normal">Actions</span>
-          </div>
-
-          <button
-            type="button"
-            role="menuitem"
-            tabIndex={-1}
-            onClick={() => {
-              openVisualComposer('block', contextMenu.blockIndex);
-              closeContextMenu(true);
-            }}
-            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-slate-200 hover:bg-white/10 hover:text-white transition-colors text-left"
-          >
-            <SlidersHorizontal size={13} className="text-accent-gold" />
-            <span className="flex-1 font-semibold">Customize Block</span>
-            <span className="font-mono text-[10px] text-slate-400">⌘E</span>
-          </button>
-
-          <button
-            type="button"
-            role="menuitem"
-            tabIndex={-1}
-            onClick={() => {
-              openVisualComposer('section', contextMenu.blockIndex);
-              closeContextMenu(true);
-            }}
-            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-slate-200 hover:bg-white/10 hover:text-white transition-colors text-left"
-          >
-            <LayoutTemplate size={13} className="text-sky-400" />
-            <span className="flex-1 font-semibold">Row &amp; Section Settings</span>
-            <span className="font-mono text-[10px] text-slate-400">⌘R</span>
-          </button>
-
-          <button
-            type="button"
-            role="menuitem"
-            tabIndex={-1}
-            onClick={() => {
-              handleOpenEditSection(contextMenu.blockIndex);
-              closeContextMenu(true);
-            }}
-            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-slate-200 hover:bg-white/10 hover:text-white transition-colors text-left"
-          >
-            <FileEdit size={13} className="text-emerald-400" />
-            <span className="flex-1">Edit Content</span>
-          </button>
-
-          <div className="my-1 border-t border-white/10" />
-
-          <button
-            type="button"
-            role="menuitem"
-            tabIndex={-1}
-            onClick={() => {
-              handleDuplicateSection(contextMenu.blockIndex);
-              closeContextMenu(true);
-            }}
-            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-slate-200 hover:bg-white/10 hover:text-white transition-colors text-left"
-          >
-            <Copy size={13} className="text-amber-400" />
-            <span className="flex-1">Duplicate Block</span>
-            <span className="font-mono text-[10px] text-slate-400">⌘D</span>
-          </button>
-
-          {contextMenu.blockIndex > 0 && (
-            <button
-              type="button"
-              role="menuitem"
-
-              tabIndex={-1}
-              onClick={() => {
-                handleMoveSection(contextMenu.blockIndex, 'up');
-                closeContextMenu(true);
-              }}
-              className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-slate-200 hover:bg-white/10 hover:text-white transition-colors text-left"
-            >
-              <ArrowUp size={13} className="text-slate-400" />
-              <span className="flex-1">Move Up</span>
-            </button>
-          )}
-
-          {contextMenu.blockIndex < blocks.length - 1 && (
-            <button
-              type="button"
-              role="menuitem"
-
-              tabIndex={-1}
-              onClick={() => {
-                handleMoveSection(contextMenu.blockIndex, 'down');
-                closeContextMenu(true);
-              }}
-              className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-slate-200 hover:bg-white/10 hover:text-white transition-colors text-left"
-            >
-              <ArrowDown size={13} className="text-slate-400" />
-              <span className="flex-1">Move Down</span>
-            </button>
-          )}
-
-          <button
-            type="button"
-            role="menuitem"
-            tabIndex={-1}
-            onClick={() => {
-              handleOpenBlockLibrary(contextMenu.blockIndex + 1);
-              closeContextMenu(true);
-            }}
-            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-slate-200 hover:bg-white/10 hover:text-white transition-colors text-left"
-          >
-            <Plus size={13} className="text-emerald-400" />
-            <span className="flex-1">Add Block Below</span>
-          </button>
-
-          <div className="my-1 border-t border-white/10" />
-
-          <div className="pt-0.5">
-            <ConfirmAction
-              label={`Delete Block #${contextMenu.blockIndex + 1}`}
-              message={`Delete Block #${contextMenu.blockIndex + 1}?`}
-              confirmLabel="Delete"
-              cancelLabel="Cancel"
-              danger
-              idleRole="menuitem"
-              idleTabIndex={-1}
-              idleClassName="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-rose-300 hover:bg-rose-500/20 hover:text-rose-200 transition-colors text-left"
-              onConfirm={() => {
-                handleDeleteSection(contextMenu.blockIndex);
-                closeContextMenu(true);
-              }}
-            >
-              <Trash2 size={13} className="text-rose-400" />
-              <span className="flex-1">Delete Block</span>
-            </ConfirmAction>
-          </div>
-        </div>
+          onCustomize={() => {
+            openVisualComposer('block', contextMenu.blockIndex);
+            closeContextMenu(true);
+          }}
+          onRowSettings={() => {
+            openVisualComposer('section', contextMenu.blockIndex);
+            closeContextMenu(true);
+          }}
+          onEditContent={() => {
+            handleOpenEditSection(contextMenu.blockIndex);
+            closeContextMenu(true);
+          }}
+          onDuplicate={() => {
+            handleDuplicateSection(contextMenu.blockIndex);
+            closeContextMenu(true);
+          }}
+          onMoveUp={() => {
+            handleMoveSection(contextMenu.blockIndex, 'up');
+            closeContextMenu(true);
+          }}
+          onMoveDown={() => {
+            handleMoveSection(contextMenu.blockIndex, 'down');
+            closeContextMenu(true);
+          }}
+          onAddBelow={() => {
+            handleOpenBlockLibrary(contextMenu.blockIndex + 1);
+            closeContextMenu(true);
+          }}
+          onDelete={() => {
+            handleDeleteSection(contextMenu.blockIndex);
+            closeContextMenu(true);
+          }}
+        />
       )}
 
       {pendingRegionSwitch?.stage === 'page-confirm' && (

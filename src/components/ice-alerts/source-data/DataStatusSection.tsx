@@ -26,7 +26,12 @@ export function DataStatusSection({ sources }: { sources: SourceHealth[] }) {
               Source status is unavailable on this deployment.
             </p>
           ) : (
-            <div className="overflow-x-auto">
+            <div
+              role="region"
+              aria-label="Source status table; scroll horizontally to view all columns"
+              tabIndex={0}
+              className="overflow-x-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            >
               <table className="w-full min-w-[44rem] border-collapse text-left">
                 <thead>
                   <tr className="border-b border-border bg-surface-muted">

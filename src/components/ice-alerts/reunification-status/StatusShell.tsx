@@ -16,7 +16,7 @@ export function StatusShell({ children }: { children: ReactNode }) {
           <span className="civic-stamp">Private status / do not share</span>
         </div>
       </header>
-      <main className="mx-auto max-w-4xl px-4 py-10 sm:px-6 sm:py-14">{children}</main>
+      <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6 sm:py-14">{children}</div>
     </div>
   );
 }

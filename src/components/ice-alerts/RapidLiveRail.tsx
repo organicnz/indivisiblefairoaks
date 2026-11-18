@@ -11,8 +11,10 @@ type RapidLiveRailProps = {
   community: RapidFeedSource | null;
   now: number;
   status: RapidFeedRequestState;
+  hasFilters: boolean;
   onSelect: (id: string) => void;
   onRefresh: () => void;
+  onClearFilters: () => void;
 };
 
 export function RapidLiveRail({
@@ -20,13 +22,16 @@ export function RapidLiveRail({
   community,
   now,
   status,
+  hasFilters,
   onSelect,
   onRefresh,
+  onClearFilters,
 }: RapidLiveRailProps) {
+  const unavailable = status === 'error' || community?.status === 'unavailable';
   const active = alerts
     .filter((alert) => isAlertActive(alert, now))
-    .sort((a, b) => Date.parse(b.observedAt) - Date.parse(a.observedAt))
-    .slice(0, 8);
+    .sort((a, b) => Date.parse(b.observedAt) - Date.parse(a.observedAt));
+  const shownActive = active.slice(0, 8);
 
   return (
     <section
@@ -57,8 +62,13 @@ export function RapidLiveRail({
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <span className="font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
-            {active.length} active
+          <span
+            className="font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-muted-foreground"
+            aria-live="polite"
+          >
+            {active.length > shownActive.length
+              ? `${shownActive.length} of ${active.length} active`
+              : `${active.length} active`}
           </span>
           <button
             type="button"
@@ -73,7 +83,7 @@ export function RapidLiveRail({
 
       {active.length > 0 ? (
         <div className="grid gap-px bg-border sm:grid-cols-2">
-          {active.map((alert) => (
+          {shownActive.map((alert) => (
             <button
               key={alert.id}
               type="button"
@@ -103,20 +113,41 @@ export function RapidLiveRail({
           <span className="mt-0.5 size-2 shrink-0 rounded-full bg-muted-foreground/40" aria-hidden="true" />
           <p className="min-w-0 flex-1 text-xs leading-relaxed text-muted-foreground">
             <strong className="font-semibold text-foreground">
-              No active community reports in the last 4 hours.
+              {unavailable
+                ? 'Community export unavailable.'
+                : hasFilters
+                  ? 'No active reports in this view.'
+                  : 'No active community reports in the last 4 hours.'}
             </strong>{' '}
-            {community?.status === 'stale' && community.latestAt
-              ? 'The community export is delayed. '
-              : ''}
-            {community?.latestAt
-              ? `The latest report in the public export is ${formatRelativeTime(
-                  community.latestAt,
-                  now
-                )}. Older reports stay visible in the feed but are not presented as active.`
-              : status === 'loading'
-                ? 'Connecting to the community export now.'
-                : 'The community export has not returned a report yet.'}
+            {unavailable ? (
+              'The last check could not load community reports, so active activity cannot be ruled out. Use Refresh above to try again, or open the historical map for context.'
+            ) : hasFilters ? (
+              'Clear or widen the filters to check the full feed; the map and feed use the same view.'
+            ) : (
+              <>
+                {community?.status === 'stale' && community.latestAt
+                  ? 'The community export is delayed. '
+                  : ''}
+                {community?.latestAt
+                  ? `The latest report in the public export is ${formatRelativeTime(
+                      community.latestAt,
+                      now
+                    )}. Older reports stay visible in the feed but are not presented as active.`
+                  : status === 'loading'
+                    ? 'Connecting to the community export now.'
+                    : 'The community export has not returned a report yet.'}
+              </>
+            )}
           </p>
+          {hasFilters && !unavailable ? (
+            <button
+              type="button"
+              onClick={onClearFilters}
+              className="inline-flex min-h-8 shrink-0 items-center border border-border px-2.5 py-1 font-mono text-[8px] font-bold uppercase tracking-[0.09em] text-foreground transition-colors hover:border-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              Clear filters
+            </button>
+          ) : null}
         </div>
       )}
     </section>

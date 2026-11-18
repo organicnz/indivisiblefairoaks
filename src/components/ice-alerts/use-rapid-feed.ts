@@ -11,6 +11,20 @@ const REFRESH_INTERVAL_MS = 2 * 60 * 1000;
 // retried using the normal failure policy instead of surfacing as a timeout.
 const FEED_TIMEOUT_MS = 30_000;
 const RETRY_DELAYS_MS = [750, 2_000] as const;
+const FEED_CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+export const RAPID_FEED_CACHE_KEY = 'ice-rapid-feed-v1';
+
+export type RapidFeedCacheState = {
+  fromCache: boolean;
+  cachedAt: number | null;
+};
+
+type CachedRapidFeed = {
+  version: 1;
+  cachedAt: number;
+  feed: RapidFeed;
+};
 
 class FeedHttpError extends Error {
   constructor(readonly status: number) {
@@ -72,11 +86,61 @@ function isRapidFeed(value: unknown): value is RapidFeed {
   );
 }
 
+function normalizeFeed(payload: RapidFeed): RapidFeed {
+  return { ...payload, publicCases: payload.publicCases ?? [] };
+}
+
+function readCachedFeed(): { feed: RapidFeed; cachedAt: number } | null {
+  if (typeof window === 'undefined') return null;
+
+  try {
+    const raw = window.localStorage.getItem(RAPID_FEED_CACHE_KEY);
+    if (!raw) return null;
+
+    const candidate = JSON.parse(raw) as Partial<CachedRapidFeed>;
+    if (
+      candidate.version !== 1 ||
+      typeof candidate.cachedAt !== 'number' ||
+      !Number.isFinite(candidate.cachedAt) ||
+      candidate.cachedAt <= 0 ||
+      !isRapidFeed(candidate.feed)
+    ) {
+      window.localStorage.removeItem(RAPID_FEED_CACHE_KEY);
+      return null;
+    }
+
+    if (Date.now() - candidate.cachedAt > FEED_CACHE_MAX_AGE_MS) {
+      window.localStorage.removeItem(RAPID_FEED_CACHE_KEY);
+      return null;
+    }
+
+    return { feed: normalizeFeed(candidate.feed), cachedAt: candidate.cachedAt };
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedFeed(feed: RapidFeed) {
+  if (typeof window === 'undefined') return;
+
+  try {
+    const cached: CachedRapidFeed = { version: 1, cachedAt: Date.now(), feed };
+    window.localStorage.setItem(RAPID_FEED_CACHE_KEY, JSON.stringify(cached));
+  } catch {
+    // Storage can be unavailable in private modes or full quotas. The live
+    // snapshot remains usable; only the offline fallback is unavailable.
+  }
+}
+
 export function useRapidFeed() {
   const [feed, setFeed] = useState<RapidFeed | null>(null);
   const [status, setStatus] = useState<RapidFeedRequestState>('loading');
   const [error, setError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [cache, setCache] = useState<RapidFeedCacheState>({
+    fromCache: false,
+    cachedAt: null,
+  });
   const activeRequestRef = useRef<AbortController | null>(null);
   const feedRef = useRef<RapidFeed | null>(null);
 
@@ -106,11 +170,13 @@ export function useRapidFeed() {
 
           // A feed cached before the community-case field was added is still a
           // valid feed; normalize it rather than blanking the map during deploy.
-          const nextFeed = { ...payload, publicCases: payload.publicCases ?? [] };
+          const nextFeed = normalizeFeed(payload);
           feedRef.current = nextFeed;
           setFeed(nextFeed);
           setStatus('ready');
           setError(null);
+          setCache({ fromCache: false, cachedAt: null });
+          writeCachedFeed(nextFeed);
           return;
         } catch (caught) {
           if (controller.signal.aborted) return;
@@ -141,6 +207,16 @@ export function useRapidFeed() {
   }, []);
 
   useEffect(() => {
+    const cached = readCachedFeed();
+    if (!cached || feedRef.current) return;
+
+    feedRef.current = cached.feed;
+    setFeed(cached.feed);
+    setStatus('ready');
+    setCache({ fromCache: true, cachedAt: cached.cachedAt });
+  }, []);
+
+  useEffect(() => {
     void load();
 
     const interval = window.setInterval(() => {
@@ -164,6 +240,7 @@ export function useRapidFeed() {
     status,
     error,
     isRefreshing,
+    cache,
     refresh: () => load(),
   };
 }

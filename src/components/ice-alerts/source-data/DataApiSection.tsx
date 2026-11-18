@@ -39,7 +39,12 @@ export function DataApiSection() {
               <h3 className="font-mono text-[10px] font-bold tracking-[0.1em] text-muted-foreground">
                 Response shape
               </h3>
-              <pre className="mt-2 overflow-x-auto border border-border bg-background p-3 font-mono text-[10px] leading-relaxed text-foreground">
+              <pre
+                role="region"
+                aria-label="Example JSON response"
+                tabIndex={0}
+                className="mt-2 overflow-x-auto border border-border bg-background p-3 font-mono text-[10px] leading-relaxed text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              >
 {`{
   "ok": true,
   "dataset": "ice-source-reports",

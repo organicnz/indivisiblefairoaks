@@ -7,7 +7,7 @@ type ComposerWorkspaceHeaderProps = {
   slug: string;
   status: string | null;
   publicHref: string | null;
-  hasConflict: boolean;
+  conflict: string | null;
 };
 
 export function ComposerWorkspaceHeader({
@@ -16,7 +16,7 @@ export function ComposerWorkspaceHeader({
   slug,
   status,
   publicHref,
-  hasConflict,
+  conflict,
 }: ComposerWorkspaceHeaderProps) {
   return (
     <div className="flex flex-wrap items-end justify-between gap-5 border-b-2 border-foreground/15 py-8">
@@ -36,7 +36,7 @@ export function ComposerWorkspaceHeader({
           <span className={status === 'publish' ? 'text-primary-ink' : 'text-accent-gold'}>
             {status === 'publish' ? 'Published' : 'Draft'}
           </span>
-          {!publicHref && !hasConflict ? (
+          {!publicHref && !conflict ? (
             <>
               <span aria-hidden="true">·</span>
               <span className="text-accent-gold">No public route</span>

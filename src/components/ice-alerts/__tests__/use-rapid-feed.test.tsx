@@ -2,7 +2,10 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { useRapidFeed } from '@/components/ice-alerts/use-rapid-feed';
+import {
+  RAPID_FEED_CACHE_KEY,
+  useRapidFeed,
+} from '@/components/ice-alerts/use-rapid-feed';
 
 const fetchWithTimeout = vi.hoisted(() => vi.fn());
 
@@ -52,13 +55,14 @@ function response(body: unknown, status = 200): Response {
 }
 
 function Probe() {
-  const { feed, status, error, refresh } = useRapidFeed();
+  const { feed, status, error, refresh, cache } = useRapidFeed();
 
   return (
     <div>
       <span data-testid="status">{status}</span>
       <span data-testid="feed">{feed?.generatedAt ?? 'none'}</span>
       <span data-testid="error">{error ?? ''}</span>
+      <span data-testid="cache">{cache.fromCache ? 'cached' : 'live'}</span>
       <button type="button" onClick={refresh}>
         Refresh
       </button>
@@ -72,6 +76,7 @@ describe('useRapidFeed', () => {
 
   beforeEach(() => {
     fetchWithTimeout.mockReset();
+    window.localStorage.clear();
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
@@ -97,6 +102,8 @@ describe('useRapidFeed', () => {
     expect(container.querySelector('[data-testid="status"]')?.textContent).toBe('ready');
     expect(container.querySelector('[data-testid="feed"]')?.textContent).toBe(FEED.generatedAt);
     expect(container.querySelector('[data-testid="error"]')?.textContent).toBe('');
+    expect(container.querySelector('[data-testid="cache"]')?.textContent).toBe('live');
+    expect(window.localStorage.getItem(RAPID_FEED_CACHE_KEY)).toContain(FEED.generatedAt);
 
     fetchWithTimeout.mockResolvedValueOnce(response({ error: 'unavailable' }, 400));
 
@@ -114,5 +121,55 @@ describe('useRapidFeed', () => {
     expect(container.querySelector('[data-testid="error"]')?.textContent).toContain(
       'Feed returned 400'
     );
+    expect(container.querySelector('[data-testid="cache"]')?.textContent).toBe('live');
+  });
+
+  it('restores a recent cached snapshot when the live feed fails', async () => {
+    window.localStorage.setItem(
+      RAPID_FEED_CACHE_KEY,
+      JSON.stringify({
+        version: 1,
+        cachedAt: Date.now() - 60_000,
+        feed: FEED,
+      })
+    );
+    fetchWithTimeout.mockResolvedValueOnce(response({ error: 'unavailable' }, 400));
+
+    await act(async () => {
+      root.render(<Probe />);
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(container.querySelector('[data-testid="status"]')?.textContent).toBe('ready');
+    expect(container.querySelector('[data-testid="feed"]')?.textContent).toBe(FEED.generatedAt);
+    expect(container.querySelector('[data-testid="cache"]')?.textContent).toBe('cached');
+    expect(container.querySelector('[data-testid="error"]')?.textContent).toContain(
+      'Feed returned 400'
+    );
+  });
+
+  it('does not restore a cached snapshot after its freshness limit', async () => {
+    window.localStorage.setItem(
+      RAPID_FEED_CACHE_KEY,
+      JSON.stringify({
+        version: 1,
+        cachedAt: Date.now() - 25 * 60 * 60 * 1000,
+        feed: FEED,
+      })
+    );
+    fetchWithTimeout.mockResolvedValueOnce(response({ error: 'unavailable' }, 400));
+
+    await act(async () => {
+      root.render(<Probe />);
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(container.querySelector('[data-testid="status"]')?.textContent).toBe('error');
+    expect(container.querySelector('[data-testid="feed"]')?.textContent).toBe('none');
+    expect(window.localStorage.getItem(RAPID_FEED_CACHE_KEY)).toBeNull();
   });
 });

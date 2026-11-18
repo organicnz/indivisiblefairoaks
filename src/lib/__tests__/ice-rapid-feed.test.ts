@@ -181,7 +181,9 @@ describe('parseStopIceCommunityFeed', () => {
     expect(santaAna.place).toBe('Santa Ana, CA');
     expect(santaAna.status).toBe('source-confirmed');
     expect(santaAna.kind).toBe('detention');
-    expect(santaAna.summary).toContain('Santa Ana, CA');
+    expect(santaAna.summary).toBe(
+      'Santa Ana, CA · Nov 14, 9:00 PM PST — source-confirmed detention-related activity near a jail or detention facility.'
+    );
     expect(santaAna.summary).not.toContain('Civic Center');
     expect(santaAna.summary).not.toContain('8LHN072');
     expect(santaAna.summary).not.toContain('Jane Doe');
@@ -194,6 +196,9 @@ describe('parseStopIceCommunityFeed', () => {
     expect(tustin.place).toBe('Tustin, CA');
     expect(tustin.status).toBe('sighting');
     expect(tustin.kind).toBe('checkpoint');
+    expect(tustin.summary).toBe(
+      'Tustin, CA · Nov 14, 3:55 PM PST — community sighting of a possible checkpoint.'
+    );
     expect(tustin.summary).not.toContain('courthouse');
     expect(tustin.summary).not.toContain('Myford');
   });

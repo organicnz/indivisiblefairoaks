@@ -99,7 +99,7 @@ export default async function ComposerWorkspacePage({ params }: PageProps) {
           slug={content.slug}
           status={content.status}
           publicHref={publicHref}
-          hasConflict={Boolean(conflict)}
+          conflict={conflict}
         />
 
         <ComposerWorkspaceBoot />

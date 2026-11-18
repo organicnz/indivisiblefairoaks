@@ -2,6 +2,8 @@
 import { describe, expect, it } from 'vitest';
 import type { RapidAlert } from '@/components/ice-alerts/rapid-types';
 import {
+  DEFAULT_RAPID_FILTERS,
+  filterAlerts,
   groupRapidAlerts,
   rapidPopupSummary,
 } from '@/components/ice-alerts/rapid-alert-utils';
@@ -25,7 +27,7 @@ const MIXED_STATUS_CITY: RapidAlert[] = [
     observedAt: '2026-11-18T11:40:00.000Z',
     expiresAt: '2026-11-18T15:40:00.000Z',
     summary:
-      'Community sighting reported in Santa Ana, CA. Location is generalized to the city; street addresses, vehicle plates, and identities are not republished.',
+      'Santa Ana, CA · Nov 18, 3:40 AM PST — community sighting of enforcement activity.',
   },
   {
     id: 'mixed-older-confirmed',
@@ -43,7 +45,7 @@ const MIXED_STATUS_CITY: RapidAlert[] = [
     observedAt: '2026-11-18T11:00:00.000Z',
     expiresAt: '2026-11-18T15:00:00.000Z',
     summary:
-      'Source-confirmed enforcement activity reported near a jail or detention facility in Santa Ana, CA. Location is generalized to the city; street addresses, vehicle plates, and identities are not republished.',
+      'Santa Ana, CA · Nov 18, 3:00 AM PST — source-confirmed detention-related activity near a jail or detention facility.',
   },
 ];
 
@@ -73,5 +75,26 @@ describe('rapid popup with mixed city statuses', () => {
       latest: 'Latest report: Source-confirmed detention · 1h ago',
       strongest: null,
     });
+  });
+
+  it('filters the feed and map by state', () => {
+    const texasAlert: RapidAlert = {
+      ...MIXED_STATUS_CITY[0],
+      id: 'texas-sighting',
+      city: 'El Paso',
+      stateCode: 'TX',
+      place: 'El Paso, TX',
+    };
+    const alerts = [...MIXED_STATUS_CITY, texasAlert];
+
+    expect(
+      filterAlerts(alerts, { ...DEFAULT_RAPID_FILTERS, stateCode: 'CA' }, NOW)
+    ).toHaveLength(2);
+    expect(
+      filterAlerts(alerts, { ...DEFAULT_RAPID_FILTERS, stateCode: 'TX' }, NOW)
+    ).toEqual([texasAlert]);
+    expect(
+      filterAlerts(alerts, { ...DEFAULT_RAPID_FILTERS, stateCode: 'NY' }, NOW)
+    ).toHaveLength(0);
   });
 });

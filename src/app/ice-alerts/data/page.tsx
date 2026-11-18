@@ -25,7 +25,7 @@ export default async function IceSourceDataPage() {
   const data = await readData();
 
   return (
-    <main className="civic-page min-h-screen bg-background pb-20 pt-(--header-clearance) text-foreground">
+    <div className="civic-page min-h-screen bg-background pb-20 pt-(--header-clearance) text-foreground">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <DataMasthead />
         <DataStats
@@ -37,6 +37,6 @@ export default async function IceSourceDataPage() {
         <DataStatusSection sources={data.sources} />
         <DataFieldDictionary />
       </div>
-    </main>
+    </div>
   );
 }

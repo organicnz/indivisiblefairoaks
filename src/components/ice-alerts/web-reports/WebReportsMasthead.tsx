@@ -25,8 +25,9 @@ export function WebReportsMasthead({ total, filtered }: WebReportsMastheadProps)
               </h1>
               <p className="mt-4 max-w-3xl text-sm leading-relaxed text-muted-foreground">
                 Full readable passages republished from approved public sources. Every entry keeps
-                its original URL, source label, source page title, publication time, and retrieval
-                time. Browse the full national archive, or narrow it to the nearest city with
+                its original URL, source label, publication time, and retrieval time. Visible
+                headlines are generalized to the city when the original contains a street-level
+                location. Browse the full national archive, or narrow it to the nearest city with
                 collected reports. These reports are not independently verified by this chapter,
                 and the source&apos;s own terms may apply.
               </p>

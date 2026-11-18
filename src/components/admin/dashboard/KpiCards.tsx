@@ -34,13 +34,13 @@ export function KpiCards({
           {
             dpKey: 'admin.kpi.events',
             label: 'Civic events',
-            value: eventCount ?? 0,
+            value: eventCount,
             icon: Calendar,
           },
           {
             dpKey: 'admin.kpi.members',
             label: 'Community members',
-            value: memberCount ?? 0,
+            value: memberCount,
             icon: Users,
           },
         ].map(({ dpKey, label, value, icon: Icon }) => (

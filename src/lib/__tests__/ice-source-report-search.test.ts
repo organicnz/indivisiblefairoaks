@@ -3,8 +3,10 @@ import { describe, expect, it } from 'vitest';
 import {
   cleanIceSourceReportCityName,
   iceSourceReportArchiveHref,
+  iceSourceReportDisplayTitle,
   iceSourceReportExportHref,
   iceSourceReportPlaceLabel,
+  iceSourceReportTitleGeneralized,
   normalizeIceSourceReportCity,
   normalizeIceSourceReportQuery,
   parseIceSourceReportFilters,
@@ -30,6 +32,65 @@ describe('source report search filters', () => {
     expect(iceSourceReportPlaceLabel('New York-', 'NY')).toBe('New York, NY');
     expect(iceSourceReportPlaceLabel(null, 'CA')).toBe('CA');
     expect(iceSourceReportPlaceLabel(null, null)).toBe('Location not stated');
+  });
+
+  it('does not publish address-shaped source titles', () => {
+    expect(
+      iceSourceReportDisplayTitle({
+        title: 'Source report: 4087 Palm Beach Blvd Fort Myers FL 33916',
+        kind: 'enforcement',
+        city: 'Fort Myers',
+        state_code: 'FL',
+      })
+    ).toBe('Source report · Enforcement in Fort Myers, FL');
+
+    expect(
+      iceSourceReportDisplayTitle({
+        title: '230 S Alvarado St Los Angeles Ca 90057 At least one person detained',
+        kind: 'detention',
+        city: 'Los Angeles',
+        state_code: 'CA',
+      })
+    ).toBe('Source report · Detention in Los Angeles, CA');
+  });
+
+  it('marks only address-shaped or generic titles as generalized', () => {
+    expect(
+      iceSourceReportTitleGeneralized({
+        title: '4087 Palm Beach Blvd Fort Myers FL 33916',
+        kind: 'enforcement',
+        city: 'Fort Myers',
+        state_code: 'FL',
+      })
+    ).toBe(true);
+    expect(
+      iceSourceReportTitleGeneralized({
+        title: 'ICE announces new field office guidance',
+        kind: 'other',
+        city: null,
+        state_code: null,
+      })
+    ).toBe(false);
+  });
+
+  it('keeps a real source headline and supplies a safe fallback without a place', () => {
+    expect(
+      iceSourceReportDisplayTitle({
+        title: 'ICE announces new field office guidance',
+        kind: 'other',
+        city: null,
+        state_code: null,
+      })
+    ).toBe('ICE announces new field office guidance');
+
+    expect(
+      iceSourceReportDisplayTitle({
+        title: 'Source report: unknown location',
+        kind: 'other',
+        city: null,
+        state_code: null,
+      })
+    ).toBe('Source report · Other');
   });
 
   it('accepts only known kinds and state codes', () => {

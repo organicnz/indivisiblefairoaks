@@ -60,6 +60,7 @@ export function useLocationSearch({
     abortLocationSearch();
     setSearchTarget(null);
     setLocationSearch({ kind: 'idle' });
+    setLocationInput('');
   };
 
   const handleLocationInputChange = (value: string) => {
