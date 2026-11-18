@@ -5,8 +5,9 @@ import { z } from 'zod';
 // Issue #149: the GET payload feeds the calendar's rows and links; stamps must
 // be Pacific wall time interpreted by the consumers' `ctz=` / `TZID=`, never a
 // runtime-zone-of-the-server rendering.
-import { instantToPacificBasic } from '@/lib/calendar-time';
+import { recordAdminAudit } from '@/lib/admin-audit';
 import { requireAdminApi } from '@/lib/admin-api-auth';
+import { instantToPacificBasic } from '@/lib/calendar-time';
 import { createPublicClient } from '@/lib/supabase-server';
 
 const eventSchema = z.object({
@@ -133,6 +134,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const { adminUserId, adminEmail, mfaLevel } = auth.session;
+
     const json = await req.json();
     const parsed = eventSchema.safeParse(json);
     if (!parsed.success) {
@@ -155,6 +158,7 @@ export async function POST(req: NextRequest) {
     // `requireAdminApi` has verified the MFA level and the profile grant.
     const eventsClient = auth.session.supabase as unknown as SupabaseClient;
     let locksSync = false;
+    let existingEvent: Record<string, unknown> | null = null;
     // Look up the row being edited, not the submitted slug. On a rename the
     // latter is the new name and would miss the Mobilize provenance, letting
     // the sync overwrite the renamed event on its next pass.
@@ -162,13 +166,14 @@ export async function POST(req: NextRequest) {
     if (sourceSlug) {
       const { data: existing, error: lookupError } = await eventsClient
         .from('events')
-        .select('external_id')
+        .select('*')
         .eq('slug', sourceSlug)
         .maybeSingle();
       if (lookupError) {
         return NextResponse.json({ error: lookupError.message }, { status: 500 });
       }
-      locksSync = Boolean(existing?.external_id);
+      existingEvent = (existing as Record<string, unknown> | null) ?? null;
+      locksSync = Boolean(existingEvent?.external_id);
     }
 
     const upsertRow = {
@@ -195,14 +200,48 @@ export async function POST(req: NextRequest) {
     const { data, error } = await write.select('*').single();
 
     if (error) {
+      const message =
+        error.code === '23505'
+          ? `"${finalSlug}" is already used by another event.`
+          : error.message;
+      await recordAdminAudit(auth.session.adminClient, {
+        actorUserId: adminUserId,
+        actorEmail: adminEmail,
+        action: existingEvent ? 'event.update' : 'event.create',
+        targetType: 'event',
+        targetId: finalSlug,
+        targetLabel:
+          (existingEvent?.title as string | undefined) ?? payload.title,
+        before: existingEvent,
+        after: null,
+        mfaLevel,
+        outcome: 'failure',
+        error: message,
+      });
       if (error.code === '23505') {
         return NextResponse.json(
-          { error: `"${finalSlug}" is already used by another event.` },
+          { error: message },
           { status: 409 }
         );
       }
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error: message }, { status: 500 });
     }
+
+    await recordAdminAudit(auth.session.adminClient, {
+      actorUserId: adminUserId,
+      actorEmail: adminEmail,
+      action: existingEvent ? 'event.update' : 'event.create',
+      targetType: 'event',
+      targetId: (data?.slug as string | undefined) ?? finalSlug,
+      targetLabel:
+        (data?.title as string | undefined) ??
+        (existingEvent?.title as string | undefined) ??
+        payload.title,
+      before: existingEvent,
+      after: data,
+      mfaLevel,
+      outcome: 'success',
+    });
 
     // The modal posts to this API first. Without this invalidation a successful
     // save left `/events` and the homepage on their cached copies, so the
@@ -245,27 +284,71 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'Event slug is required' }, { status: 400 });
     }
 
+    const { adminUserId, adminEmail, mfaLevel } = auth.session;
+
     const eventsClient = auth.session.supabase as unknown as SupabaseClient;
     const { data: existing, error: lookupError } = await eventsClient
       .from('events')
-      .select('external_id')
+      .select('*')
       .eq('slug', slug)
       .maybeSingle();
     if (lookupError) {
       return NextResponse.json({ error: lookupError.message }, { status: 500 });
     }
-    if (existing?.external_id) {
-      return NextResponse.json(
-        { error: 'This event comes from Mobilize. Hide it instead of deleting it.' },
-        { status: 409 }
-      );
+
+    const existingEvent = (existing as Record<string, unknown> | null) ?? null;
+    if (existingEvent?.external_id) {
+      const message = 'This event comes from Mobilize. Hide it instead of deleting it.';
+      await recordAdminAudit(auth.session.adminClient, {
+        actorUserId: adminUserId,
+        actorEmail: adminEmail,
+        action: 'event.delete',
+        targetType: 'event',
+        targetId: slug,
+        targetLabel:
+          (existingEvent?.title as string | undefined) ?? slug,
+        before: existingEvent,
+        after: null,
+        mfaLevel,
+        outcome: 'denied',
+        error: message,
+      });
+      return NextResponse.json({ error: message }, { status: 409 });
     }
 
     const { error } = await eventsClient.from('events').delete().eq('slug', slug);
 
     if (error) {
+      await recordAdminAudit(auth.session.adminClient, {
+        actorUserId: adminUserId,
+        actorEmail: adminEmail,
+        action: 'event.delete',
+        targetType: 'event',
+        targetId: slug,
+        targetLabel:
+          (existingEvent?.title as string | undefined) ?? slug,
+        before: existingEvent,
+        after: null,
+        mfaLevel,
+        outcome: 'failure',
+        error: error.message,
+      });
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
+
+    await recordAdminAudit(auth.session.adminClient, {
+      actorUserId: adminUserId,
+      actorEmail: adminEmail,
+      action: 'event.delete',
+      targetType: 'event',
+      targetId: slug,
+      targetLabel:
+        (existingEvent?.title as string | undefined) ?? slug,
+      before: existingEvent,
+      after: null,
+      mfaLevel,
+      outcome: 'success',
+    });
 
     revalidateTag('events', 'hours');
     revalidatePath('/events');

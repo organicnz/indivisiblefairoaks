@@ -29,6 +29,7 @@ type EventRow = {
   time_label: string;
   location_name: string;
   starts_at: string | null;
+  ends_at: string | null;
 };
 
 type ContentRow = {
@@ -43,9 +44,12 @@ type ContentRow = {
 export default async function AdminDashboardPage() {
   const { adminClient } = await requireAdminPage();
   // The generated database types predate `is_hidden`, so this query needs the
-  // same untyped client the public query uses. Without the future filter the
-  // "Upcoming actions" panel listed the five oldest rows in the table — which
-  // were also the five most likely to be past events.
+  // same untyped client the public query uses. The end instant is the cutoff,
+  // so an event that started this morning but runs all afternoon is still
+  // current. Unlike the public calendar, recurring rows get no blanket
+  // exemption here: a dated recurring row whose last stored occurrence has
+  // ended is stale on the admin dashboard. Undated rows are retained because
+  // they cannot be proven past.
   const eventsClient = adminClient as unknown as SupabaseClient;
   const now = new Date().toISOString();
 
@@ -72,9 +76,15 @@ export default async function AdminDashboardPage() {
     adminClient.from('profiles').select('id', { count: 'exact', head: true }),
     eventsClient
       .from('events')
-      .select('slug, title, date_label, time_label, location_name, starts_at')
+      .select('slug, title, date_label, time_label, location_name, starts_at, ends_at')
       .eq('is_hidden', false)
-      .or(`starts_at.gte.${now},starts_at.is.null`)
+      .or(
+        [
+          `ends_at.gte.${now}`,
+          `and(ends_at.is.null,starts_at.gte.${now})`,
+          'and(ends_at.is.null,starts_at.is.null)',
+        ].join(',')
+      )
       .order('starts_at', { ascending: true, nullsFirst: false })
       .limit(5),
     getDataPoints('admin'),

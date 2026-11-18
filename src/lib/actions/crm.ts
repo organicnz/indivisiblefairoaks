@@ -2,6 +2,7 @@
 
 import { revalidatePath, revalidateTag } from 'next/cache';
 import { z } from 'zod';
+import { recordAdminAudit } from '@/lib/admin-audit';
 import { requireAdmin } from '@/lib/admin-auth';
 import {
   BROADCAST_RECIPIENT_CEILING,
@@ -1338,7 +1339,18 @@ export async function saveCRMContact(
 }
 
 export async function deleteCRMContact(id: string): Promise<{ success: boolean; error?: string }> {
-  const { adminClient } = await requireAdmin();
+  const { adminClient, adminUserId, adminEmail, mfaLevel } = await requireAdmin();
+
+  // Read the row before deleting it. The audit record needs the values that
+  // disappeared, and a delete alone cannot return them to the caller without
+  // another round trip after they are already gone.
+  const { data: existing, error: readError } = await adminClient
+    .from('crm_contacts')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle();
+  if (readError) return { success: false, error: readError.message };
+  if (!existing) return { success: false, error: 'That contact no longer exists' };
 
   // Ask for the deleted row back. Without `.select()`, PostgREST reports
   // success for a delete that matched nothing, and the UI tells the organizer
@@ -1349,8 +1361,37 @@ export async function deleteCRMContact(id: string): Promise<{ success: boolean; 
     .eq('id', id)
     .select('id')
     .maybeSingle();
-  if (error) return { success: false, error: error.message };
-  if (!deleted) return { success: false, error: 'That contact no longer exists' };
+
+  if (error || !deleted) {
+    const message = error?.message || 'That contact no longer exists';
+    await recordAdminAudit(adminClient, {
+      actorUserId: adminUserId,
+      actorEmail: adminEmail,
+      action: 'crm.contact.delete',
+      targetType: 'crm_contact',
+      targetId: id,
+      targetLabel: existing.email || null,
+      before: existing,
+      after: null,
+      mfaLevel,
+      outcome: 'failure',
+      error: message,
+    });
+    return { success: false, error: message };
+  }
+
+  await recordAdminAudit(adminClient, {
+    actorUserId: adminUserId,
+    actorEmail: adminEmail,
+    action: 'crm.contact.delete',
+    targetType: 'crm_contact',
+    targetId: id,
+    targetLabel: existing.email || null,
+    before: existing,
+    after: null,
+    mfaLevel,
+    outcome: 'success',
+  });
 
   revalidateCRMRoutes();
   return { success: true };
@@ -1504,22 +1545,59 @@ export async function bulkUpdateCRMContacts({
 export async function bulkDeleteCRMContacts(
   contactIds: string[]
 ): Promise<{ success: boolean; deletedCount?: number; error?: string }> {
-  const { adminClient } = await requireAdmin();
+  const { adminClient, adminUserId, adminEmail, mfaLevel } = await requireAdmin();
 
   if (!contactIds || contactIds.length === 0) {
     return { success: false, error: 'No contacts selected' };
   }
+
+  // Read the selected rows first so the audit record names what was removed.
+  // The delete's count alone cannot say which constituents it matched, and a
+  // read failure must not block a deletion the caller has already confirmed.
+  const { data: selectedRows } = await adminClient
+    .from('crm_contacts')
+    .select('id, email, first_name, last_name')
+    .in('id', contactIds);
+
+  const before = {
+    contact_ids: contactIds,
+    contacts: selectedRows ?? null,
+  };
+  const auditBulkDelete = (outcome: 'success' | 'failure', deletedCount?: number, error?: string) =>
+    recordAdminAudit(adminClient, {
+      actorUserId: adminUserId,
+      actorEmail: adminEmail,
+      action: 'crm.contact.bulk_delete',
+      targetType: 'crm_contact',
+      targetId: contactIds.length === 1 ? contactIds[0] : 'bulk-delete',
+      targetLabel: `${contactIds.length} selected contact${contactIds.length === 1 ? '' : 's'}`,
+      before,
+      after: null,
+      mfaLevel,
+      outcome,
+      error: error ?? null,
+      metadata: {
+        requested_count: contactIds.length,
+        ...(deletedCount === undefined ? {} : { deleted_count: deletedCount }),
+      },
+    });
 
   const { error, count } = await adminClient
     .from('crm_contacts')
     .delete({ count: 'exact' })
     .in('id', contactIds);
 
-  if (error) return { success: false, error: error.message };
+  if (error) {
+    await auditBulkDelete('failure', undefined, error.message);
+    return { success: false, error: error.message };
+  }
   if (count === 0) {
-    return { success: false, error: 'None of the selected constituents still exist' };
+    const message = 'None of the selected constituents still exist';
+    await auditBulkDelete('failure', 0, message);
+    return { success: false, error: message };
   }
 
+  await auditBulkDelete('success', count ?? undefined);
   revalidateCRMRoutes();
   // Same rule as the update above: do not turn an unavailable count into a
   // claim that zero constituents were deleted.
@@ -2269,7 +2347,7 @@ export async function sendCRMBroadcast({
   const blocked = sendBlockedInE2E();
   if (blocked) return blocked;
 
-  const { adminClient, adminUserId } = await requireAdmin();
+  const { adminClient, adminUserId, adminEmail, mfaLevel } = await requireAdmin();
 
   const cleanSubject = broadcastSubject(subject);
   if (!cleanSubject) return { success: false, error: 'Subject is required' };
@@ -2342,6 +2420,35 @@ export async function sendCRMBroadcast({
     return { success: false, error: 'Failed to create broadcast log' };
   }
 
+  const auditAfter = {
+    subject: cleanSubject,
+    body: body.trim(),
+    status: 'queued',
+    recipient_count: recipients.length,
+    target_tags: targetTags,
+    target_status: targetStatus,
+    target_districts: targetDistricts,
+    test_only: false,
+  };
+  const audit = (
+    outcome: 'success' | 'failure',
+    after: Record<string, unknown>,
+    error?: string
+  ) =>
+    recordAdminAudit(adminClient, {
+      actorUserId: adminUserId,
+      actorEmail: adminEmail,
+      action: 'crm.broadcast.send',
+      targetType: 'crm_broadcast',
+      targetId: broadcast.id,
+      targetLabel: cleanSubject,
+      before: null,
+      after,
+      mfaLevel,
+      outcome,
+      error: error ?? null,
+    });
+
   const dispatched = await dispatchBroadcastSender(broadcast.id);
   if (!dispatched.ok) {
     // Mark it failed rather than leaving it queued forever: the admin needs to
@@ -2364,21 +2471,26 @@ export async function sendCRMBroadcast({
       .maybeSingle();
     const startFailure = `Broadcast could not be started: ${dispatched.error}`;
     if (markError) {
+      const message = `${startFailure}. The campaign could not be marked failed: ${markError.message}. It may still appear queued — mark it failed before retrying.`;
+      await audit('failure', { ...auditAfter, status: 'queued' }, message);
       return {
         success: false,
         recipientCount: recipients.length,
         broadcastId: broadcast.id,
-        error: `${startFailure}. The campaign could not be marked failed: ${markError.message}. It may still appear queued — mark it failed before retrying.`,
+        error: message,
       };
     }
     if (!markedFailed) {
+      const message = `${startFailure}. The campaign could not be marked failed because it already finished or its row was not found. Check the campaign log before retrying.`;
+      await audit('failure', { ...auditAfter, status: 'finished_or_missing' }, message);
       return {
         success: false,
         recipientCount: recipients.length,
         broadcastId: broadcast.id,
-        error: `${startFailure}. The campaign could not be marked failed because it already finished or its row was not found. Check the campaign log before retrying.`,
+        error: message,
       };
     }
+    await audit('failure', { ...auditAfter, status: 'failed' }, startFailure);
     return {
       success: false,
       recipientCount: recipients.length,
@@ -2387,6 +2499,7 @@ export async function sendCRMBroadcast({
     };
   }
 
+  await audit('success', { ...auditAfter, status: 'queued' });
   revalidateCRMRoutes();
   return {
     success: true,
@@ -2422,7 +2535,7 @@ export async function sendCRMBroadcastSelfTest({
   const blocked = sendBlockedInE2E();
   if (blocked) return blocked;
 
-  const { adminClient, adminUserId, adminEmail } = await requireAdmin();
+  const { adminClient, adminUserId, adminEmail, mfaLevel } = await requireAdmin();
 
   const cleanSubject = broadcastSubject(subject);
   if (!cleanSubject) return { success: false, error: 'Subject is required' };
@@ -2456,6 +2569,33 @@ export async function sendCRMBroadcastSelfTest({
 
   if (error || !data) return { success: false, error: error?.message || 'Failed to log the test' };
 
+  const auditAfter = {
+    subject: markedSubject,
+    body: body.trim(),
+    status: 'queued',
+    recipient_count: 1,
+    test_recipient: adminEmail,
+    test_only: true,
+  };
+  const audit = (
+    outcome: 'success' | 'failure',
+    after: Record<string, unknown>,
+    error?: string
+  ) =>
+    recordAdminAudit(adminClient, {
+      actorUserId: adminUserId,
+      actorEmail: adminEmail,
+      action: 'crm.broadcast.self_test',
+      targetType: 'crm_broadcast',
+      targetId: data.id,
+      targetLabel: markedSubject,
+      before: null,
+      after,
+      mfaLevel,
+      outcome,
+      error: error ?? null,
+    });
+
   const dispatched = await dispatchBroadcastSender(data.id);
   if (!dispatched.ok) {
     const { data: markedFailed, error: markError } = await adminClient
@@ -2469,20 +2609,20 @@ export async function sendCRMBroadcastSelfTest({
       .maybeSingle();
     const testFailure = `Test could not be sent: ${dispatched.error}`;
     if (markError) {
-      return {
-        success: false,
-        error: `${testFailure}. The test row could not be marked failed: ${markError.message}. It may still appear queued.`,
-      };
+      const message = `${testFailure}. The test row could not be marked failed: ${markError.message}. It may still appear queued.`;
+      await audit('failure', { ...auditAfter, status: 'queued' }, message);
+      return { success: false, error: message };
     }
     if (!markedFailed) {
-      return {
-        success: false,
-        error: `${testFailure}. The test row could not be marked failed because it already finished or was not found. Check the campaign log before retrying.`,
-      };
+      const message = `${testFailure}. The test row could not be marked failed because it already finished or was not found. Check the campaign log before retrying.`;
+      await audit('failure', { ...auditAfter, status: 'finished_or_missing' }, message);
+      return { success: false, error: message };
     }
+    await audit('failure', { ...auditAfter, status: 'failed' }, testFailure);
     return { success: false, error: testFailure };
   }
 
+  await audit('success', { ...auditAfter, status: 'queued' });
   revalidateCRMRoutes();
   return { success: true, recipient: adminEmail };
 }

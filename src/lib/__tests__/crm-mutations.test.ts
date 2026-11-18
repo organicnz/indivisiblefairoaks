@@ -25,6 +25,7 @@ vi.mock('@/lib/admin-auth', () => ({
     get adminEmail() {
       return session.adminEmail;
     },
+    mfaLevel: 'aal2',
   })),
 }));
 
@@ -203,12 +204,27 @@ describe('CRM mutation failure paths', () => {
       // Asserting the row left the table is the point: the old suite asserted
       // that `.delete()` had been *called*, which is true whether or not the
       // filter matched anything.
-      tables.crm_contacts = { rows: [{ id: '11111111-2222-4333-8444-555555555555' }] };
+      tables.crm_contacts = {
+        rows: [{ id: '11111111-2222-4333-8444-555555555555', email: 'robin@example.org' }],
+      };
+      tables.admin_audit_log = { rows: [] };
 
       await expect(deleteCRMContact('11111111-2222-4333-8444-555555555555')).resolves.toEqual({
         success: true,
       });
       expect(tables.crm_contacts.rows).toHaveLength(0);
+      expect(tables.admin_audit_log.rows?.[0]).toMatchObject({
+        actor_user_id: 'admin-user-uuid-1234',
+        actor_email: 'organizer@indivisiblefairoaks.org',
+        action: 'crm.contact.delete',
+        target_type: 'crm_contact',
+        target_id: '11111111-2222-4333-8444-555555555555',
+        target_label: 'robin@example.org',
+        before: { id: '11111111-2222-4333-8444-555555555555', email: 'robin@example.org' },
+        after: null,
+        mfa_level: 'aal2',
+        outcome: 'success',
+      });
     });
 
     it('reports when the contact was already gone', async () => {
@@ -957,9 +973,27 @@ describe('CRM mutation failure paths', () => {
           { id: 'c2', email: 'c@d.co' },
         ],
       };
+      tables.admin_audit_log = { rows: [] };
       const res = await bulkDeleteCRMContacts(['c1', 'c2']);
       expect(res.success).toBe(true);
       expect(res.deletedCount).toBe(2);
+      expect(tables.admin_audit_log.rows?.[0]).toMatchObject({
+        actor_user_id: session.adminUserId,
+        action: 'crm.contact.bulk_delete',
+        target_type: 'crm_contact',
+        target_id: 'bulk-delete',
+        target_label: '2 selected contacts',
+        before: {
+          contact_ids: ['c1', 'c2'],
+          contacts: [
+            { id: 'c1', email: 'a@b.co' },
+            { id: 'c2', email: 'c@d.co' },
+          ],
+        },
+        after: null,
+        outcome: 'success',
+        metadata: { requested_count: 2, deleted_count: 2 },
+      });
     });
 
     it('does not report zero when a bulk delete omits its count', async () => {

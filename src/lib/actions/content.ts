@@ -3,6 +3,7 @@
 import { revalidatePath, revalidateTag } from 'next/cache';
 import { z } from 'zod';
 import { IS_PRODUCTION_SITE } from '@/config/site';
+import { recordAdminAudit } from '@/lib/admin-audit';
 import { requireAdmin } from '@/lib/admin-auth';
 import {
   CONTENT_TYPES,
@@ -281,7 +282,7 @@ function revalidateContent(slug?: string | null, previousSlug?: string | null): 
 export async function saveContent(
   rawInput: ContentInput
 ): Promise<ActionResult<{ id: number; updatedAt: string | null; publishedAt: string | null }>> {
-  const { adminClient } = await requireAdmin();
+  const { adminClient, adminUserId, adminEmail, mfaLevel } = await requireAdmin();
   /*
    * The server-side counterpart of the editor's pre-check.
    *
@@ -359,24 +360,35 @@ export async function saveContent(
    * is also the existence check, so a missing id is reported here rather than
    * after the write is composed.
    */
-  let previous: { slug: string } | null = null;
+  let previous: Pick<ContentRow, 'slug' | 'title' | 'status' | 'published_at'> | null = null;
   if (data.id !== undefined) {
     const { data: existing, error: existingError } = await adminClient
       .from('content')
-      .select('slug')
+      .select('slug, title, status, published_at')
       .eq('id', data.id)
       .maybeSingle();
     if (existingError) return fail(existingError.message);
     if (!existing) return fail('That page no longer exists');
     previous = existing;
   } else if (existingCopyRegion) {
-    previous = { slug: existingCopyRegion.slug };
+    previous = existingCopyRegion;
   }
 
   // The id the write actually targets: an explicit id, or the copy-region row
   // the slug resolved to above. Without this the update branch below would run
   // for a region and then filter on the undefined id instead of the row's own.
   const targetId = data.id ?? existingCopyRegion?.id;
+  // Snapshot the pre-write values before issuing the UPDATE. The row object a
+  // client returns is a value in production, but keeping the audit payload
+  // independent of later mutation makes the before/after guarantee explicit.
+  const previousAudit = previous
+    ? {
+        slug: previous.slug,
+        title: previous.title,
+        status: previous.status,
+        published_at: previous.published_at,
+      }
+    : null;
 
   const slugConflict = await assertSlugAvailable(
     data.slug,
@@ -416,6 +428,39 @@ export async function saveContent(
     metadata: existingCopyRegion ? existingCopyRegion.metadata : data.metadata,
   };
 
+  /*
+   * Publishing is an auditable event; editing a page that is already live is
+   * not. The transition check keeps autosaves of published pages out of the
+   * audit log while still recording the first publication and every
+   * draft-to-publish transition.
+   */
+  const auditsPublish = data.status === 'publish' && previous?.status !== 'publish';
+  const auditPublish = (
+    outcome: 'success' | 'failure',
+    targetId: number,
+    after: Record<string, unknown> | null,
+    error?: string
+  ) =>
+    recordAdminAudit(adminClient, {
+      actorUserId: adminUserId,
+      actorEmail: adminEmail,
+      action: 'content.publish',
+      targetType: 'content',
+      targetId: String(targetId),
+      targetLabel: row.title,
+      before: previousAudit,
+      after,
+      mfaLevel,
+      outcome,
+      error: error ?? null,
+    });
+  const publishedAfter = {
+    slug: row.slug,
+    title: row.title,
+    status: row.status,
+    published_at: row.published_at,
+  };
+
   if (targetId !== undefined) {
     // The precondition rides on the same UPDATE rather than on a separate
     // SELECT-then-UPDATE. Checking first would leave a window between the two
@@ -436,6 +481,7 @@ export async function saveContent(
     const { data: written, error } = await update.select('id, updated_at').maybeSingle();
 
     if (error) {
+      if (auditsPublish) await auditPublish('failure', targetId, null, error.message);
       if (error.code === '23505') {
         return fail(`/${data.slug} is already used by another page.`);
       }
@@ -446,11 +492,13 @@ export async function saveContent(
       // Distinguishing the two costs a second round trip on a path that fires
       // once per conflict, and both are answered by the same action: reload,
       // see what is there, decide what to keep.
-      return fail(
-        'Someone else saved this page while you were editing it. Reload to see their version, then reapply your changes.'
-      );
+      const message =
+        'Someone else saved this page while you were editing it. Reload to see their version, then reapply your changes.';
+      if (auditsPublish) await auditPublish('failure', targetId, null, message);
+      return fail(message);
     }
 
+    if (auditsPublish) await auditPublish('success', written.id, publishedAfter);
     revalidateContent(data.slug, previous?.slug);
     // The `updated_at` the trigger just wrote, not a timestamp generated here.
     // The editor has to learn the new value or its next autosave would conflict
@@ -471,6 +519,7 @@ export async function saveContent(
     if (error.code === '23505') return fail(`/${data.slug} is already used by another page.`);
     return fail(error.message);
   }
+  if (auditsPublish) await auditPublish('success', created.id, publishedAfter);
   revalidateContent(data.slug);
   // `updated_at` is returned for the same reason as on update: the editor keeps
   // it as the precondition for its next write, so a freshly created page does
@@ -485,10 +534,10 @@ export async function setContentStatus(
   id: number,
   status: 'publish' | 'draft'
 ): Promise<ActionResult<{ id: number; publishedAt: string | null; updatedAt: string | null }>> {
-  const { adminClient } = await requireAdmin();
+  const { adminClient, adminUserId, adminEmail, mfaLevel } = await requireAdmin();
   const { data: existing, error: existingError } = await adminClient
     .from('content')
-    .select('slug, published_at')
+    .select('slug, title, status, published_at')
     .eq('id', id)
     .maybeSingle();
   if (existingError) return fail(existingError.message);
@@ -500,6 +549,33 @@ export async function setContentStatus(
     status === 'publish'
       ? (existing.published_at ?? new Date().toISOString())
       : existing.published_at;
+
+  const before = {
+    slug: existing.slug,
+    title: existing.title,
+    status: existing.status,
+    published_at: existing.published_at,
+  };
+
+  const auditAction = status === 'publish' ? 'content.publish' : 'content.unpublish';
+  const auditStatus = (
+    outcome: 'success' | 'failure',
+    after: Record<string, unknown> | null,
+    error?: string
+  ) =>
+    recordAdminAudit(adminClient, {
+      actorUserId: adminUserId,
+      actorEmail: adminEmail,
+      action: auditAction,
+      targetType: 'content',
+      targetId: String(id),
+      targetLabel: before.title,
+      before,
+      after,
+      mfaLevel,
+      outcome,
+      error: error ?? null,
+    });
 
   // `.select()` is what makes the outcome observable. An UPDATE that matches no
   // rows returns `error: null`, so without asking for the row back this reports
@@ -517,8 +593,21 @@ export async function setContentStatus(
     // before the status change — so the editor conflicted with its own write.
     .select('id, updated_at')
     .maybeSingle();
-  if (error) return fail(error.message);
-  if (!written) return fail('That page no longer exists');
+  if (error) {
+    await auditStatus('failure', null, error.message);
+    return fail(error.message);
+  }
+  if (!written) {
+    await auditStatus('failure', null, 'That page no longer exists');
+    return fail('That page no longer exists');
+  }
+
+  await auditStatus('success', {
+    slug: existing.slug,
+    title: existing.title,
+    status,
+    published_at: publishedAt,
+  });
   revalidateContent(existing.slug);
   return {
     success: true,

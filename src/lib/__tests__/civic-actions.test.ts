@@ -92,22 +92,29 @@ describe('Civic Server Actions', () => {
         sort_order: 10,
       };
 
+      const auditInsert = vi.fn(async () => ({ error: null }));
       requireAdmin.mockResolvedValue({
+        adminUserId: 'admin-1',
+        adminEmail: 'admin@example.com',
+        mfaLevel: 'aal2',
         adminClient: {
-          from: () => ({
-            // The action reads the row's `external_id` before writing, to decide
-            // whether an edit should pause the Mobilize sync (issue #153).
-            select: () => ({
-              eq: () => ({
-                maybeSingle: async () => ({ data: null, error: null }),
-              }),
-            }),
-            upsert: () => ({
+          from: (table: string) => {
+            if (table === 'admin_audit_log') return { insert: auditInsert };
+            return {
+              // The action reads the row's `external_id` before writing, to decide
+              // whether an edit should pause the Mobilize sync (issue #153).
               select: () => ({
-                single: async () => ({ data: savedEvent, error: null }),
+                eq: () => ({
+                  maybeSingle: async () => ({ data: null, error: null }),
+                }),
               }),
-            }),
-          }),
+              upsert: () => ({
+                select: () => ({
+                  single: async () => ({ data: savedEvent, error: null }),
+                }),
+              }),
+            };
+          },
         },
       });
 
@@ -117,6 +124,19 @@ describe('Civic Server Actions', () => {
         expect(res.data.slug).toBe('rallies-action');
         expect(res.data.title).toBe('Peaceful Rally');
       }
+      expect(auditInsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          actor_user_id: 'admin-1',
+          action: 'event.create',
+          target_type: 'event',
+          target_id: 'rallies-action',
+          target_label: 'Peaceful Rally',
+          before: null,
+          after: savedEvent,
+          mfa_level: 'aal2',
+          outcome: 'success',
+        })
+      );
     });
 
     it('pauses the Mobilize sync when an admin edits a synced row', async () => {
@@ -143,16 +163,23 @@ describe('Civic Server Actions', () => {
         }),
       }));
 
+      const auditInsert = vi.fn(async () => ({ error: null }));
       requireAdmin.mockResolvedValue({
+        adminUserId: 'admin-1',
+        adminEmail: 'admin@example.com',
+        mfaLevel: 'aal2',
         adminClient: {
-          from: () => ({
-            select: () => ({
-              eq: () => ({
-                maybeSingle: async () => ({ data: { external_id: '1011420' }, error: null }),
+          from: (table: string) => {
+            if (table === 'admin_audit_log') return { insert: auditInsert };
+            return {
+              select: () => ({
+                eq: () => ({
+                  maybeSingle: async () => ({ data: { external_id: '1011420' }, error: null }),
+                }),
               }),
-            }),
-            upsert,
-          }),
+              upsert,
+            };
+          },
         },
       });
 
@@ -161,6 +188,14 @@ describe('Civic Server Actions', () => {
       expect(upsert).toHaveBeenCalledWith(expect.objectContaining({ sync_locked: true }), {
         onConflict: 'slug',
       });
+      expect(auditInsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'event.update',
+          before: { external_id: '1011420' },
+          after: expect.objectContaining({ ...synced, sync_locked: true }),
+          outcome: 'success',
+        })
+      );
     });
 
     it('renames an existing event in place instead of creating a duplicate', async () => {
@@ -268,14 +303,30 @@ describe('Civic Server Actions', () => {
   describe('deleteCivicEvent', () => {
     it('deletes an event by slug', async () => {
       const rows = [{ slug: 'monthly-gathering', title: 'Monthly Gathering' }];
+      const auditRows: Record<string, unknown>[] = [];
       requireAdmin.mockResolvedValue({
-        adminClient: createMockAdminClient({ events: { rows } }),
+        adminUserId: 'admin-1',
+        adminEmail: 'admin@example.com',
+        mfaLevel: 'aal2',
+        adminClient: createMockAdminClient({
+          events: { rows },
+          admin_audit_log: { rows: auditRows },
+        }),
       });
 
       const res = await deleteCivicEvent('monthly-gathering');
 
       expect(res.success).toBe(true);
       expect(rows).toHaveLength(0);
+      expect(auditRows[0]).toMatchObject({
+        action: 'event.delete',
+        target_type: 'event',
+        target_id: 'monthly-gathering',
+        target_label: 'Monthly Gathering',
+        before: { slug: 'monthly-gathering', title: 'Monthly Gathering' },
+        after: null,
+        outcome: 'success',
+      });
     });
 
     it('reports an event that no longer exists', async () => {

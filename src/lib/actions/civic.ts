@@ -121,7 +121,7 @@ export async function saveCivicEvent(
   rawInput: z.input<typeof eventSchema>
 ): Promise<CivicActionResult<CivicEventRecord>> {
   try {
-    const { adminClient } = await requireAdmin();
+    const { adminClient, adminUserId, adminEmail, mfaLevel } = await requireAdmin();
     const parsed = eventSchema.safeParse(rawInput);
     if (!parsed.success) {
       return fail(parsed.error.issues[0]?.message || 'Invalid event data');
@@ -145,6 +145,7 @@ export async function saveCivicEvent(
     // corrected title or a shortened description is overwritten within the
     // hour, and the editor silently loses the argument.
     let locksSync = false;
+    let existingEvent: CivicEventRecord | null = null;
     // A rename must inspect the row being edited, not the new slug: reusing the
     // new slug here would miss the Mobilize provenance and let the sync
     // overwrite the renamed row on its next pass.
@@ -152,11 +153,12 @@ export async function saveCivicEvent(
     if (sourceSlug) {
       const { data: existing, error: lookupError } = await eventsClient
         .from('events')
-        .select('external_id')
+        .select('*')
         .eq('slug', sourceSlug)
         .maybeSingle();
       if (lookupError) return fail(lookupError.message);
-      locksSync = Boolean(existing?.external_id);
+      existingEvent = (existing as CivicEventRecord | null) ?? null;
+      locksSync = Boolean(existingEvent?.external_id);
     }
 
     const upsertRow = {
@@ -183,17 +185,45 @@ export async function saveCivicEvent(
     const { data, error } = await write.select('*').single();
 
     if (error) {
-      if (error.code === '23505') {
-        return fail(`"${finalSlug}" is already used by another event.`);
-      }
-      return fail(error.message);
+      const message =
+        error.code === '23505'
+          ? `"${finalSlug}" is already used by another event.`
+          : error.message;
+      await recordAdminAudit(adminClient, {
+        actorUserId: adminUserId,
+        actorEmail: adminEmail,
+        action: existingEvent ? 'event.update' : 'event.create',
+        targetType: 'event',
+        targetId: finalSlug,
+        targetLabel: existingEvent?.title ?? payload.title,
+        before: existingEvent,
+        after: null,
+        mfaLevel,
+        outcome: 'failure',
+        error: message,
+      });
+      return fail(message);
     }
+
+    const savedEvent = data as CivicEventRecord;
+    await recordAdminAudit(adminClient, {
+      actorUserId: adminUserId,
+      actorEmail: adminEmail,
+      action: existingEvent ? 'event.update' : 'event.create',
+      targetType: 'event',
+      targetId: savedEvent.slug,
+      targetLabel: savedEvent.title,
+      before: existingEvent,
+      after: savedEvent,
+      mfaLevel,
+      outcome: 'success',
+    });
 
     revalidateTag('events', 'hours');
     revalidatePath('/events');
     revalidatePath('/');
 
-    return { success: true, data: data as CivicEventRecord };
+    return { success: true, data: savedEvent };
   } catch (err) {
     return fail(err instanceof Error ? err.message : 'Failed to save event');
   }
@@ -204,7 +234,7 @@ export async function saveCivicEvent(
  */
 export async function deleteCivicEvent(slug: string): Promise<CivicActionResult> {
   try {
-    const { adminClient } = await requireAdmin();
+    const { adminClient, adminUserId, adminEmail, mfaLevel } = await requireAdmin();
     const cleanSlug = slugify(slug);
     if (!cleanSlug) return fail('Event slug is required');
 
@@ -213,12 +243,28 @@ export async function deleteCivicEvent(slug: string): Promise<CivicActionResult>
     const eventsClient = adminClient as unknown as SupabaseClient;
     const { data: existing, error: lookupError } = await eventsClient
       .from('events')
-      .select('external_id')
+      .select('*')
       .eq('slug', cleanSlug)
       .maybeSingle();
     if (lookupError) return fail(lookupError.message);
-    if (existing?.external_id) {
-      return fail('This event comes from Mobilize. Hide it instead of deleting it.');
+
+    const existingEvent = (existing as CivicEventRecord | null) ?? null;
+    if (existingEvent?.external_id) {
+      const message = 'This event comes from Mobilize. Hide it instead of deleting it.';
+      await recordAdminAudit(adminClient, {
+        actorUserId: adminUserId,
+        actorEmail: adminEmail,
+        action: 'event.delete',
+        targetType: 'event',
+        targetId: cleanSlug,
+        targetLabel: existingEvent.title,
+        before: existingEvent,
+        after: null,
+        mfaLevel,
+        outcome: 'denied',
+        error: message,
+      });
+      return fail(message);
     }
 
     const { data: deleted, error } = await eventsClient
@@ -227,8 +273,36 @@ export async function deleteCivicEvent(slug: string): Promise<CivicActionResult>
       .eq('slug', cleanSlug)
       .select('slug')
       .maybeSingle();
-    if (error) return fail(error.message);
-    if (!deleted) return fail('Event not found');
+    if (error || !deleted) {
+      const message = error?.message || 'Event not found';
+      await recordAdminAudit(adminClient, {
+        actorUserId: adminUserId,
+        actorEmail: adminEmail,
+        action: 'event.delete',
+        targetType: 'event',
+        targetId: cleanSlug,
+        targetLabel: existingEvent?.title ?? cleanSlug,
+        before: existingEvent,
+        after: null,
+        mfaLevel,
+        outcome: 'failure',
+        error: message,
+      });
+      return fail(message);
+    }
+
+    await recordAdminAudit(adminClient, {
+      actorUserId: adminUserId,
+      actorEmail: adminEmail,
+      action: 'event.delete',
+      targetType: 'event',
+      targetId: cleanSlug,
+      targetLabel: existingEvent?.title ?? cleanSlug,
+      before: existingEvent,
+      after: null,
+      mfaLevel,
+      outcome: 'success',
+    });
 
     revalidateTag('events', 'hours');
     revalidatePath('/events');

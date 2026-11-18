@@ -29,6 +29,7 @@ vi.mock('@/lib/admin-auth', () => ({
     get adminEmail() {
       return session.adminEmail;
     },
+    mfaLevel: 'aal2',
   })),
 }));
 
@@ -1627,6 +1628,7 @@ describe('Civic CRM Server Actions', () => {
       tables.crm_contacts = { rows };
       tables.crm_broadcasts = { rows: [], insert: { id: 'broadcast-uuid-1' } };
       tables.crm_activities = { rows: [] };
+      tables.admin_audit_log = { rows: [] };
 
       const mockFetch = installFetchMock(vi.fn().mockResolvedValue({ ok: true, status: 200 }));
       mockEnv.CRM_BROADCAST_FUNCTION_URL =
@@ -1656,6 +1658,18 @@ describe('Civic CRM Server Actions', () => {
         status: 'queued',
         recipient_count: 2,
         created_by: 'admin-user-uuid-1234',
+      });
+      expect(tables.admin_audit_log.rows?.[0]).toMatchObject({
+        actor_user_id: 'admin-user-uuid-1234',
+        actor_email: 'organizer@indivisiblefairoaks.org',
+        action: 'crm.broadcast.send',
+        target_type: 'crm_broadcast',
+        target_id: 'broadcast-uuid-1',
+        target_label: 'Chapter Meeting Next Tuesday',
+        before: null,
+        after: expect.objectContaining({ status: 'queued', recipient_count: 2 }),
+        mfa_level: 'aal2',
+        outcome: 'success',
       });
     });
 

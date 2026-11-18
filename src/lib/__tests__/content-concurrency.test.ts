@@ -44,6 +44,7 @@ const { createMockAdminClient, defaultInsertedUpdatedAt, touchUpdatedAt } = awai
 const LOADED_AT = '2026-05-01T09:00:00.000Z';
 
 let row: Record<string, unknown>;
+let auditRows: Record<string, unknown>[];
 
 const edit = {
   id: 7,
@@ -57,6 +58,7 @@ const edit = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  auditRows = [];
   row = {
     id: 7,
     slug: 'town-hall-recap',
@@ -68,12 +70,16 @@ beforeEach(() => {
     updated_at: LOADED_AT,
   };
   requireAdmin.mockResolvedValue({
+    adminUserId: 'admin-user-123',
+    adminEmail: 'organizer@example.org',
+    mfaLevel: 'aal2',
     adminClient: createMockAdminClient({
       content: {
         rows: [row],
         onUpdate: touchUpdatedAt(),
         onInsert: defaultInsertedUpdatedAt(),
       },
+      admin_audit_log: { rows: auditRows },
     }),
   });
 });
@@ -237,8 +243,12 @@ describe('setContentStatus', () => {
       updated_at: LOADED_AT,
     };
     requireAdmin.mockResolvedValue({
+      adminUserId: 'admin-user-123',
+      adminEmail: 'organizer@example.org',
+      mfaLevel: 'aal2',
       adminClient: createMockAdminClient({
         content: { rows: [row], onUpdate: touchUpdatedAt() },
+        admin_audit_log: { rows: auditRows },
       }),
     });
   });
@@ -252,6 +262,18 @@ describe('setContentStatus', () => {
     // left the editor's next save precondition on the pre-toggle version.
     expect(result).toMatchObject({ data: { updatedAt: row.updated_at } });
     expect(result).toMatchObject({ data: { updatedAt: expect.any(String) } });
+    expect(auditRows[0]).toMatchObject({
+      actor_user_id: 'admin-user-123',
+      actor_email: 'organizer@example.org',
+      action: 'content.publish',
+      target_type: 'content',
+      target_id: '7',
+      target_label: 'Town hall recap',
+      before: { slug: 'town-hall-recap', status: 'draft', published_at: null },
+      after: { slug: 'town-hall-recap', status: 'publish' },
+      mfa_level: 'aal2',
+      outcome: 'success',
+    });
   });
 
   it('keeps the original publication date when un-publishing', async () => {
@@ -278,6 +300,7 @@ describe('setContentStatus', () => {
     let calls = 0;
     const client = createMockAdminClient({
       content: { rows: [row], onUpdate: touchUpdatedAt() },
+      admin_audit_log: { rows: auditRows },
     });
     const build = client.from;
     client.from = vi.fn((table: string) => {
@@ -287,11 +310,23 @@ describe('setContentStatus', () => {
       }
       return build(table);
     });
-    requireAdmin.mockResolvedValue({ adminClient: client });
+    requireAdmin.mockResolvedValue({
+      adminUserId: 'admin-user-123',
+      adminEmail: 'organizer@example.org',
+      mfaLevel: 'aal2',
+      adminClient: client,
+    });
 
     const result = await setContentStatus(7, 'publish');
 
     expect(result.success).toBe(false);
     expect(result).toMatchObject({ error: 'That page no longer exists' });
+    expect(auditRows[0]).toMatchObject({
+      action: 'content.publish',
+      target_id: '7',
+      outcome: 'failure',
+      error: 'That page no longer exists',
+      mfa_level: 'aal2',
+    });
   });
 });

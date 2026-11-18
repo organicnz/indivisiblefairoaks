@@ -20,6 +20,7 @@ function adminSession(adminClient: unknown) {
       adminClient,
       adminUserId: 'admin-123',
       adminEmail: 'admin@example.com',
+      mfaLevel: 'aal2',
     },
   };
 }
@@ -118,6 +119,24 @@ describe('Civic Events Edge API Route (/api/civic/events)', () => {
     expect(await res.json()).toMatchObject({ mfaRequired: true });
   });
 
+  it('POST tells an admin with no TOTP factor to enroll instead of retrying', async () => {
+    requireAdminApi.mockResolvedValue({
+      ok: false,
+      status: 403,
+      error: 'MFA enrollment required. Set up an authenticator app to continue.',
+      mfaEnrollmentRequired: true,
+    });
+
+    const req = new Request('https://indivisiblefairoaks.org/api/civic/events', {
+      method: 'POST',
+      body: JSON.stringify({ title: 'New Event' }),
+    }) as unknown as NextRequest;
+
+    const res = await postEvent(req);
+    expect(res.status).toBe(403);
+    expect(await res.json()).toMatchObject({ mfaEnrollmentRequired: true });
+  });
+
   it('POST saves new event when user is admin', async () => {
     const mockSaved = {
       slug: 'rally-2026',
@@ -133,15 +152,19 @@ describe('Civic Events Edge API Route (/api/civic/events)', () => {
       sort_order: 15,
     };
 
+    const auditInsert = vi.fn(async () => ({ error: null }));
     requireAdminApi.mockResolvedValue(
       adminSession({
-        from: () => ({
-          upsert: () => ({
-            select: () => ({
-              single: async () => ({ data: mockSaved, error: null }),
+        from: (table: string) => {
+          if (table === 'admin_audit_log') return { insert: auditInsert };
+          return {
+            upsert: () => ({
+              select: () => ({
+                single: async () => ({ data: mockSaved, error: null }),
+              }),
             }),
-          }),
-        }),
+          };
+        },
       })
     );
 
@@ -163,6 +186,19 @@ describe('Civic Events Edge API Route (/api/civic/events)', () => {
     expect(revalidateTag).toHaveBeenCalledWith('events', 'hours');
     expect(revalidatePath).toHaveBeenCalledWith('/events');
     expect(revalidatePath).toHaveBeenCalledWith('/');
+    expect(auditInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actor_user_id: 'admin-123',
+        action: 'event.create',
+        target_type: 'event',
+        target_id: 'rally-2026',
+        target_label: 'Democracy Rally',
+        before: null,
+        after: mockSaved,
+        mfa_level: 'aal2',
+        outcome: 'success',
+      })
+    );
   });
 
   it('POST renames an existing event in place instead of upserting a duplicate', async () => {
@@ -214,18 +250,22 @@ describe('Civic Events Edge API Route (/api/civic/events)', () => {
   });
 
   it('DELETE removes event by slug when user is admin', async () => {
+    const auditInsert = vi.fn(async () => ({ error: null }));
     requireAdminApi.mockResolvedValue(
       adminSession({
-        from: () => ({
-          select: () => ({
-            eq: () => ({
-              maybeSingle: async () => ({ data: { external_id: null }, error: null }),
+        from: (table: string) => {
+          if (table === 'admin_audit_log') return { insert: auditInsert };
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: async () => ({ data: { external_id: null }, error: null }),
+              }),
             }),
-          }),
-          delete: () => ({
-            eq: async () => ({ error: null }),
-          }),
-        }),
+            delete: () => ({
+              eq: async () => ({ error: null }),
+            }),
+          };
+        },
       })
     );
 
@@ -241,6 +281,18 @@ describe('Civic Events Edge API Route (/api/civic/events)', () => {
     expect(revalidateTag).toHaveBeenCalledWith('events', 'hours');
     expect(revalidatePath).toHaveBeenCalledWith('/events');
     expect(revalidatePath).toHaveBeenCalledWith('/');
+    expect(auditInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actor_user_id: 'admin-123',
+        action: 'event.delete',
+        target_type: 'event',
+        target_id: 'test-event',
+        before: { external_id: null },
+        after: null,
+        mfa_level: 'aal2',
+        outcome: 'success',
+      })
+    );
   });
 
   it('DELETE refuses a Mobilize-sourced event that the sync would recreate', async () => {
