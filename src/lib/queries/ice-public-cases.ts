@@ -11,6 +11,21 @@ import {
  * rather than the card list's shorter page size.
  */
 const PUBLIC_CASE_LIMIT = 100;
+const PUBLIC_CASE_TIMEOUT_MS = 4_000;
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () => reject(new Error(`public case query timed out after ${timeoutMs}ms`)),
+      timeoutMs
+    );
+  });
+
+  return Promise.race([promise, deadline]).finally(() => {
+    if (timer) clearTimeout(timer);
+  });
+}
 
 function publicCaseKind(value: string): PublicCase['kind'] | null {
   return value === 'enforcement' || value === 'detention' || value === 'checkpoint'
@@ -58,7 +73,10 @@ export async function getRapidPublicCases(): Promise<PublicCase[]> {
   if (!store) return [];
 
   try {
-    const rows = await getPublishedIceReports(store, PUBLIC_CASE_LIMIT);
+    const rows = await withTimeout(
+      getPublishedIceReports(store, PUBLIC_CASE_LIMIT),
+      PUBLIC_CASE_TIMEOUT_MS
+    );
     return rows
       .map(toPublicCase)
       .filter((row): row is PublicCase => Boolean(row));

@@ -1,12 +1,22 @@
 // @vitest-environment node
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CityPoint } from '@/components/ice-alerts/types';
+import type { RapidFeedBase } from '@/components/ice-alerts/rapid-types';
 import {
   parseCommunityTimestamp,
   parseIceNewsroomRss,
   parseStopIceCommunityFeed,
 } from '@/lib/ice-rapid-feed';
 import { isAlertActive } from '@/components/ice-alerts/rapid-alert-utils';
+
+vi.mock('@/lib/queries/ice-heatmap', () => ({
+  getIceHeatmapSnapshot: vi.fn(),
+}));
+
+vi.mock('@/lib/queries/ice-rapid-cache', () => ({
+  readPersistedRapidFeed: vi.fn(),
+  persistRapidFeed: vi.fn(),
+}));
 
 const CITIES: CityPoint[] = [
   {
@@ -77,6 +87,57 @@ const OFFICIAL_XML = `<?xml version="1.0" encoding="utf-8"?>
     <pubDate>Mon, 09 Nov 2026 15:57:26 -0500</pubDate>
   </item>
 </channel></rss>`;
+
+const PERSISTED_FEED: RapidFeedBase = {
+  generatedAt: '2026-11-15T04:00:00.000Z',
+  community: {
+    status: 'ok',
+    sourceName: 'Stop ICE Alerts Network',
+    sourceUrl: 'https://stopice.net/login/data/stats/stopicenet_nov_2026_complete.xml',
+    checkedAt: '2026-11-15T04:00:00.000Z',
+    latestAt: '2026-11-15T03:00:00.000Z',
+    itemCount: 1,
+    note: 'Cached community snapshot.',
+  },
+  official: {
+    status: 'ok',
+    sourceName: 'ICE Newsroom',
+    sourceUrl: 'https://www.ice.gov/newsroom',
+    checkedAt: '2026-11-15T04:00:00.000Z',
+    latestAt: '2026-11-09T20:57:26.000Z',
+    itemCount: 1,
+    note: 'Cached official snapshot.',
+  },
+  alerts: [
+    {
+      id: 'stopice-cached',
+      source: 'community',
+      sourceName: 'Stop ICE Alerts Network',
+      sourceUrl: 'https://stopice.net/',
+      kind: 'enforcement',
+      status: 'sighting',
+      title: 'Community enforcement report',
+      city: 'Santa Ana',
+      stateCode: 'CA',
+      place: 'Santa Ana, CA',
+      lat: 33.73633,
+      lng: -117.8829,
+      observedAt: '2026-11-15T03:00:00.000Z',
+      expiresAt: '2026-11-15T07:00:00.000Z',
+      summary: 'Cached sighting in Santa Ana, CA.',
+    },
+  ],
+  officialReleases: [
+    {
+      id: 'ice-cached',
+      sourceName: 'ICE Newsroom',
+      sourceUrl: 'https://www.ice.gov/news/releases/example',
+      title: 'Enforcement arrest release',
+      summary: 'Cached official release.',
+      publishedAt: '2026-11-09T20:57:26.000Z',
+    },
+  ],
+};
 
 describe('parseCommunityTimestamp', () => {
   it('converts the export timestamp from Pacific time to UTC', () => {
@@ -188,5 +249,106 @@ describe('parseIceNewsroomRss', () => {
     expect(release.summary).not.toContain('<strong>');
     expect(release.sourceUrl).toMatch(/^https:\/\/www\.ice\.gov\//);
     expect(release.publishedAt).toBe('2026-11-09T20:57:26.000Z');
+  });
+});
+
+describe('getRapidFeed', () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+  let cacheModule: typeof import('@/lib/queries/ice-rapid-cache');
+
+  beforeEach(async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-11-15T06:00:00.000Z'));
+    vi.resetModules();
+    const heatmap = await import('@/lib/queries/ice-heatmap');
+    vi.mocked(heatmap.getIceHeatmapSnapshot).mockResolvedValue({ cities: CITIES } as never);
+    cacheModule = await import('@/lib/queries/ice-rapid-cache');
+    vi.mocked(cacheModule.readPersistedRapidFeed).mockResolvedValue(null);
+    vi.mocked(cacheModule.persistRapidFeed).mockResolvedValue(undefined);
+    fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (/stopicenet_[a-z]{3}_\d{4}_complete\.xml/.test(url)) {
+        return new Response(COMMUNITY_XML, { status: 200 });
+      }
+      if (url === 'https://www.ice.gov/rss/ice-breaking-news') {
+        return new Response(OFFICIAL_XML, { status: 200 });
+      }
+      throw new Error(`Unexpected fetch: ${url}`);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  it('loads the monthly export directly and overlaps both source requests', async () => {
+    const { getRapidFeed } = await import('@/lib/ice-rapid-feed');
+    const feed = await getRapidFeed();
+
+    expect(feed.alerts).toHaveLength(2);
+    expect(feed.officialReleases).toHaveLength(1);
+    expect(feed.community.sourceUrl).toMatch(/stopicenet_nov_2026_complete\.xml$/);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls.map(([url]) => String(url))).not.toContain(
+      'https://stopice.net/?data=1'
+    );
+    expect(cacheModule.persistRapidFeed).toHaveBeenCalledWith(feed);
+  });
+
+  it('deduplicates concurrent cold requests instead of refetching both sources', async () => {
+    const { getRapidFeed } = await import('@/lib/ice-rapid-feed');
+    const [first, second] = await Promise.all([getRapidFeed(), getRapidFeed()]);
+
+    expect(first).toBe(second);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('returns a fresh persisted snapshot without touching upstream sources', async () => {
+    vi.mocked(cacheModule.readPersistedRapidFeed).mockResolvedValue({
+      feed: PERSISTED_FEED,
+      fetchedAt: '2026-11-15T05:55:00.000Z',
+    });
+
+    const { getRapidFeed } = await import('@/lib/ice-rapid-feed');
+    const feed = await getRapidFeed();
+
+    expect(feed).toBe(PERSISTED_FEED);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('revalidates upstream when a caller explicitly asks for a fresh feed', async () => {
+    vi.mocked(cacheModule.readPersistedRapidFeed).mockResolvedValue({
+      feed: PERSISTED_FEED,
+      fetchedAt: '2026-11-15T05:55:00.000Z',
+    });
+
+    const { getRapidFeed } = await import('@/lib/ice-rapid-feed');
+    const feed = await getRapidFeed({ fresh: true });
+
+    expect(feed.alerts).toHaveLength(2);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('falls back to the last good snapshot when both sources fail', async () => {
+    vi.useRealTimers();
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    vi.mocked(cacheModule.readPersistedRapidFeed).mockResolvedValue({
+      feed: PERSISTED_FEED,
+      fetchedAt: new Date(Date.now() - 16 * 60 * 1000).toISOString(),
+    });
+    fetchMock.mockResolvedValue(new Response('upstream unavailable', { status: 503 }));
+
+    const { getRapidFeed } = await import('@/lib/ice-rapid-feed');
+    const feed = await getRapidFeed();
+
+    expect(feed.alerts).toEqual(PERSISTED_FEED.alerts);
+    expect(feed.officialReleases).toEqual(PERSISTED_FEED.officialReleases);
+    expect(feed.community.status).toBe('stale');
+    expect(feed.official.status).toBe('stale');
+    expect(feed.community.note).toContain('last successful snapshot');
+    expect(cacheModule.persistRapidFeed).not.toHaveBeenCalled();
+    warn.mockRestore();
   });
 });

@@ -63,7 +63,9 @@ export async function POST(req: Request) {
   if (!store) return json({ ok: false, code: 'store-not-configured' }, 503);
 
   try {
-    const feed = await getRapidFeed();
+    // Surge detection runs on a five-minute cron and must not accept the
+    // public route's quarter-hour last-known-good snapshot.
+    const feed = await getRapidFeed({ fresh: true });
     const allSurges = computeRapidSurges(feed.alerts, Date.now());
     if (allSurges.length === 0) {
       return json({ ok: true, surges: 0, deliveries: 0 });

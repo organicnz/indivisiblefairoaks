@@ -10,6 +10,11 @@ import type {
 import type { CityPoint } from '@/components/ice-alerts/types';
 import { FUTURE_ALERT_TOLERANCE_MS } from '@/components/ice-alerts/rapid-alert-utils';
 import { getIceHeatmapSnapshot } from '@/lib/queries/ice-heatmap';
+import {
+  persistRapidFeed,
+  readPersistedRapidFeed,
+  type PersistedRapidFeed,
+} from '@/lib/queries/ice-rapid-cache';
 import { createCityMatcher, extractStateCode } from './rapid-city-match';
 
 const STOPICE_HOME = 'https://stopice.net/';
@@ -18,7 +23,13 @@ const STOPICE_SOURCE_NAME = 'Stop ICE Alerts Network';
 const ICE_NEWSROOM_RSS = 'https://www.ice.gov/rss/ice-breaking-news';
 const ICE_SOURCE_NAME = 'ICE Newsroom';
 const ICE_SOURCE_URL = 'https://www.ice.gov/newsroom';
-const FETCH_TIMEOUT_MS = 9_000;
+const FETCH_TIMEOUT_MS = 8_000;
+// Bound all community-export discovery and download attempts. The direct
+// monthly file is normally the only request; this deadline prevents a moved
+// file or a bad index from turning one cold render into a chain of timeouts.
+const COMMUNITY_BUDGET_MS = 14_000;
+const INDEX_TIMEOUT_MS = 6_000;
+const FETCH_RETRY_DELAY_MS = 250;
 const MAX_COMMUNITY_BYTES = 4_000_000;
 const MAX_OFFICIAL_BYTES = 1_000_000;
 const ACTIVE_WINDOW_MS = 4 * 60 * 60 * 1000;
@@ -29,6 +40,13 @@ const ACTIVE_WINDOW_MS = 4 * 60 * 60 * 1000;
  */
 const COMMUNITY_FRESH_MS = 6 * 60 * 60 * 1000;
 const OFFICIAL_FRESH_MS = 14 * 24 * 60 * 60 * 1000;
+const MEMORY_CACHE_MS = 60_000;
+// A snapshot younger than this is preferable to a cold upstream build on a new
+// serverless instance. The upstream community export is nightly, so a quarter
+// hour of cache does not change what the map represents.
+const PERSISTED_CACHE_FRESH_MS = 15 * 60 * 1000;
+// Keep a week of last-known-good data available through an upstream outage.
+const PERSISTED_CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const MONTHS = [
   'jan',
   'feb',
@@ -47,6 +65,10 @@ const MONTHS = [
 type FetchOptions = {
   revalidate: number;
   maxBytes: number;
+  timeoutMs?: number;
+  retries?: number;
+  /** Absolute deadline shared by a multi-request source resolution. */
+  deadline?: number;
 };
 
 type CommunityParseResult = {
@@ -62,6 +84,7 @@ type OfficialParseResult = {
 };
 
 let memoryCache: { at: number; feed: RapidFeedBase } | null = null;
+const inFlight = new Map<'fresh' | 'cached', Promise<RapidFeedBase>>();
 
 function decodeXml(value: string) {
   return value
@@ -342,9 +365,37 @@ export function parseIceNewsroomRss(
   };
 }
 
-async function fetchText(url: string, options: FetchOptions): Promise<string> {
+class SourceRequestError extends Error {
+  constructor(
+    message: string,
+    readonly retryable: boolean
+  ) {
+    super(message);
+    this.name = 'SourceRequestError';
+  }
+}
+
+function retryableStatus(status: number) {
+  return status === 408 || status === 425 || status === 429 || status >= 500;
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchText(
+  url: string,
+  options: FetchOptions,
+  attempt = 0
+): Promise<string> {
+  const remaining = options.deadline ? options.deadline - Date.now() : Number.POSITIVE_INFINITY;
+  if (remaining < 500) {
+    throw new SourceRequestError('Source budget exhausted', false);
+  }
+
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  const timeoutMs = Math.min(options.timeoutMs ?? FETCH_TIMEOUT_MS, remaining);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const response = await fetch(url, {
@@ -356,18 +407,35 @@ async function fetchText(url: string, options: FetchOptions): Promise<string> {
       signal: controller.signal,
     });
 
-    if (!response.ok) throw new Error(`Source returned ${response.status}`);
+    if (!response.ok) {
+      throw new SourceRequestError(
+        `Source returned ${response.status}`,
+        retryableStatus(response.status)
+      );
+    }
 
     const contentLength = Number(response.headers.get('content-length') ?? 0);
     if (contentLength > options.maxBytes) {
-      throw new Error('Source payload is larger than the allowed limit');
+      throw new SourceRequestError('Source payload is larger than the allowed limit', false);
     }
 
     const text = await response.text();
     if (text.length > options.maxBytes) {
-      throw new Error('Source payload is larger than the allowed limit');
+      throw new SourceRequestError('Source payload is larger than the allowed limit', false);
     }
     return text;
+  } catch (error) {
+    const retryable =
+      error instanceof SourceRequestError ? error.retryable : !controller.signal.aborted;
+    const retries = options.retries ?? 0;
+    const retryFitsBudget =
+      !options.deadline || Date.now() + FETCH_RETRY_DELAY_MS + 500 < options.deadline;
+    if (attempt < retries && retryable && retryFitsBudget) {
+      clearTimeout(timer);
+      await sleep(FETCH_RETRY_DELAY_MS);
+      return fetchText(url, options, attempt + 1);
+    }
+    throw error;
   } finally {
     clearTimeout(timer);
   }
@@ -386,44 +454,81 @@ function monthlyFileCandidates(now: Date) {
   return candidates;
 }
 
-async function discoverCommunityFeedUrl(now: Date) {
+type CommunityDocument = { url: string; xml: string };
+
+function trustedCommunityUrl(path: string): string | null {
   try {
+    const candidate = new URL(path, STOPICE_HOME);
+    if (
+      candidate.protocol === 'https:' &&
+      (candidate.hostname === 'stopice.net' || candidate.hostname === 'www.stopice.net')
+    ) {
+      return candidate.toString();
+    }
+  } catch {
+    // Ignore malformed index links and keep looking.
+  }
+  return null;
+}
+
+async function fetchFirstCommunityDocument(
+  urls: readonly string[],
+  deadline: number
+): Promise<CommunityDocument | null> {
+  for (const url of urls) {
+    const remaining = deadline - Date.now();
+    if (remaining < 500) break;
+    try {
+      const xml = await fetchText(url, {
+        revalidate: 300,
+        maxBytes: MAX_COMMUNITY_BYTES,
+        timeoutMs: Math.min(FETCH_TIMEOUT_MS, remaining),
+        deadline,
+      });
+      return { url, xml };
+    } catch {
+      // Try the next known-good file. A new month can be published late and
+      // the public index/markup can move independently of the data files.
+    }
+  }
+  return null;
+}
+
+/**
+ * Resolve and download the public community export once. The predictable
+ * monthly file is tried first because the index is a larger HTML page; the
+ * index is the fallback when the filename pattern changes.
+ */
+async function fetchCommunityDocument(now: Date): Promise<CommunityDocument> {
+  const deadline = Date.now() + COMMUNITY_BUDGET_MS;
+  const tried = new Set<string>();
+  const directUrls = monthlyFileCandidates(now);
+  for (const url of directUrls) tried.add(url);
+  const direct = await fetchFirstCommunityDocument(directUrls, deadline);
+  if (direct) return direct;
+
+  try {
+    const indexRemaining = deadline - Date.now();
+    if (indexRemaining < 500) throw new Error('Community source budget exhausted');
     const index = await fetchText(STOPICE_DATA_INDEX, {
       revalidate: 900,
       maxBytes: 1_500_000,
+      timeoutMs: Math.min(INDEX_TIMEOUT_MS, indexRemaining),
+      retries: 1,
+      deadline,
     });
-    const matches = [
+    const discovered = [
       ...index.matchAll(
         /href=["']?([^"'\s>]*stopicenet_[a-z]{3}_\d{4}_complete\.xml)/gi
       ),
     ]
-      .map((match) => match[1])
-      .filter((path) => path.length < 300);
+      .map((match) => trustedCommunityUrl(match[1]))
+      .filter((url): url is string => url !== null && !tried.has(url));
 
-    for (const match of matches) {
-      try {
-        const candidate = new URL(match, STOPICE_HOME);
-        if (
-          candidate.protocol === 'https:' &&
-          (candidate.hostname === 'stopice.net' || candidate.hostname === 'www.stopice.net')
-        ) {
-          return candidate.toString();
-        }
-      } catch {
-        // Ignore malformed index links and keep looking.
-      }
-    }
+    const fromIndex = await fetchFirstCommunityDocument(discovered, deadline);
+    if (fromIndex) return fromIndex;
   } catch (error) {
     console.warn('Unable to inspect the community data index', error);
-  }
-
-  for (const candidate of monthlyFileCandidates(now)) {
-    try {
-      await fetchText(candidate, { revalidate: 300, maxBytes: 4_000_000 });
-      return candidate;
-    } catch {
-      // Try the previous month. A new month can be published late.
-    }
   }
 
   throw new Error('No community data file is available');
@@ -448,14 +553,16 @@ function sourceState(
   };
 }
 
-async function fetchCommunity(now: Date, cities: readonly CityPoint[]) {
+async function fetchCommunity(now: Date, citiesPromise: Promise<readonly CityPoint[]>) {
   try {
+    const [cities, document] = await Promise.all([
+      citiesPromise,
+      fetchCommunityDocument(now),
+    ]);
     if (cities.length === 0) {
       throw new Error('The Supabase ICE city reference snapshot is unavailable');
     }
-    const url = await discoverCommunityFeedUrl(now);
-    const xml = await fetchText(url, { revalidate: 300, maxBytes: MAX_COMMUNITY_BYTES });
-    const parsed = parseStopIceCommunityFeed(xml, {
+    const parsed = parseStopIceCommunityFeed(document.xml, {
       cities,
       now,
       limit: 100,
@@ -479,7 +586,7 @@ async function fetchCommunity(now: Date, cities: readonly CityPoint[]) {
       alerts: parsed.alerts,
       source: sourceState(
         STOPICE_SOURCE_NAME,
-        url,
+        document.url,
         parsed.alerts.length,
         latestAt,
         stale ? 'stale' : 'ok',
@@ -507,6 +614,7 @@ async function fetchOfficial(now: Date) {
     const xml = await fetchText(ICE_NEWSROOM_RSS, {
       revalidate: 300,
       maxBytes: MAX_OFFICIAL_BYTES,
+      retries: 1,
     });
     const parsed = parseIceNewsroomRss(xml, { limit: 18 });
     const latestAt = parsed.latestAt;
@@ -544,32 +652,117 @@ async function fetchOfficial(now: Date) {
  * Build the public feed. A source failure never turns into invented data; it is
  * reported as unavailable so the UI can be explicit about what is missing.
  */
-export async function getRapidFeed(): Promise<RapidFeedBase> {
-  if (memoryCache && Date.now() - memoryCache.at < 60_000) {
+export async function getRapidFeed(
+  options: { fresh?: boolean } = {}
+): Promise<RapidFeedBase> {
+  const mode = options.fresh ? 'fresh' : 'cached';
+
+  if (mode === 'cached' && memoryCache && Date.now() - memoryCache.at < MEMORY_CACHE_MS) {
     return memoryCache.feed;
   }
+  const pending = inFlight.get(mode);
+  if (pending) return pending;
 
-  const now = new Date();
-  let cities: readonly CityPoint[] = [];
-  try {
-    cities = (await getIceHeatmapSnapshot()).cities;
-  } catch (error) {
-    console.warn('Unable to load the Supabase ICE city reference snapshot', error);
+  const request = resolveRapidFeed(options.fresh === true).finally(() => {
+    if (inFlight.get(mode) === request) inFlight.delete(mode);
+  });
+  inFlight.set(mode, request);
+  return request;
+}
+
+export function hasUsableRapidFeed(feed: RapidFeedBase): boolean {
+  return (
+    feed.alerts.length > 0 ||
+    feed.officialReleases.length > 0 ||
+    feed.community.status !== 'unavailable' ||
+    feed.official.status !== 'unavailable'
+  );
+}
+
+function fallbackSource(
+  current: RapidFeedSource,
+  previous: RapidFeedSource,
+  fetchedAt: string,
+  reason: string
+): RapidFeedSource {
+  return {
+    ...previous,
+    status: 'stale',
+    checkedAt: current.checkedAt,
+    note: `${reason} Showing the last successful snapshot from ${new Date(
+      fetchedAt
+    ).toUTCString()}.`,
+  };
+}
+
+async function resolveRapidFeed(fresh: boolean): Promise<RapidFeedBase> {
+  const persisted = await readPersistedRapidFeed(PERSISTED_CACHE_MAX_AGE_MS);
+
+  if (
+    !fresh &&
+    persisted &&
+    hasUsableRapidFeed(persisted.feed) &&
+    Date.now() - Date.parse(persisted.fetchedAt) <= PERSISTED_CACHE_FRESH_MS
+  ) {
+    memoryCache = { at: Date.now(), feed: persisted.feed };
+    return persisted.feed;
   }
 
+  return buildRapidFeed(persisted);
+}
+
+async function buildRapidFeed(
+  persisted: PersistedRapidFeed | null
+): Promise<RapidFeedBase> {
+  const now = new Date();
+  const citiesPromise = getIceHeatmapSnapshot()
+    .then((snapshot) => snapshot.cities)
+    .catch((error): readonly CityPoint[] => {
+      console.warn('Unable to load the Supabase ICE city reference snapshot', error);
+      return [];
+    });
+
   const [community, official] = await Promise.all([
-    fetchCommunity(now, cities),
+    fetchCommunity(now, citiesPromise),
     fetchOfficial(now),
   ]);
 
+  const communityFallback = community.alerts.length === 0 ? persisted : null;
+  const officialFallback = official.releases.length === 0 ? persisted : null;
+
   const feed: RapidFeedBase = {
     generatedAt: now.toISOString(),
-    community: community.source,
-    official: official.source,
-    alerts: community.alerts,
-    officialReleases: official.releases,
+    community: communityFallback
+      ? fallbackSource(
+          community.source,
+          communityFallback.feed.community,
+          communityFallback.fetchedAt,
+          'The community export could not be refreshed.'
+        )
+      : community.source,
+    official: officialFallback
+      ? fallbackSource(
+          official.source,
+          officialFallback.feed.official,
+          officialFallback.fetchedAt,
+          'The official ICE feed could not be refreshed.'
+        )
+      : official.source,
+    alerts: communityFallback ? communityFallback.feed.alerts : community.alerts,
+    officialReleases: officialFallback
+      ? officialFallback.feed.officialReleases
+      : official.releases,
   };
 
-  memoryCache = { at: Date.now(), feed };
+  if (hasUsableRapidFeed(feed)) {
+    memoryCache = { at: Date.now(), feed };
+  }
+
+  // Only refresh the durable snapshot when the community source succeeded.
+  // An official-only response must never overwrite a complete cached feed.
+  if (community.alerts.length > 0) {
+    await persistRapidFeed(feed);
+  }
+
   return feed;
 }

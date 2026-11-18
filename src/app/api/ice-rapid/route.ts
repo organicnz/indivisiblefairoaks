@@ -1,7 +1,11 @@
 import { connection, NextResponse } from 'next/server';
 import type { RapidFeed } from '@/components/ice-alerts/rapid-types';
-import { getRapidFeed } from '@/lib/ice-rapid-feed';
+import { getRapidFeed, hasUsableRapidFeed } from '@/lib/ice-rapid-feed';
 import { getRapidPublicCases } from '@/lib/queries/ice-public-cases';
+
+// Cold source resolution is bounded in the feed module; this leaves headroom
+// for the optional public-case query and the durable cache write.
+export const maxDuration = 30;
 
 /**
  * Public, normalized rapid-response feed.
@@ -18,10 +22,20 @@ export async function GET() {
     getRapidPublicCases(),
   ]);
   const payload: RapidFeed = { ...feed, publicCases };
+  const usable = hasUsableRapidFeed(feed);
 
   return NextResponse.json(payload, {
+    status: usable ? 200 : 503,
     headers: {
-      'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+      'X-ICE-Feed-Version': '2',
+      // The upstream community export is nightly, so a low-traffic visit must
+      // not wait through a cold upstream fetch. Keep serving the last good
+      // payload while revalidating in the background, and keep it available
+      // even if the refresh fails.
+      'Cache-Control': usable
+        ? 'public, s-maxage=60, stale-while-revalidate=86400, stale-if-error=86400'
+        : 'no-store',
+      ...(usable ? {} : { 'Retry-After': '5' }),
     },
   });
 }

@@ -4,6 +4,7 @@ import type { CityPoint, HeatmapMeta, HeatmapSnapshot } from '@/components/ice-a
 import { createPublicClient } from '@/lib/supabase-server';
 
 const CITY_PAGE_SIZE = 1_000;
+const HEATMAP_QUERY_TIMEOUT_MS = 8_000;
 
 const RELEASE_COLUMNS = [
   'id',
@@ -101,6 +102,7 @@ async function readLatestRelease(supabase: SupabaseClient): Promise<ReleaseRow> 
     .order('period_end', { ascending: false })
     .order('generated_at', { ascending: false })
     .limit(1)
+    .abortSignal(AbortSignal.timeout(HEATMAP_QUERY_TIMEOUT_MS))
     .maybeSingle();
 
   if (error) {
@@ -118,33 +120,40 @@ async function readCities(
   releaseId: string,
   expectedCities: number
 ): Promise<CityRow[]> {
-  const rows: CityRow[] = [];
+  if (expectedCities === 0) return [];
 
-  for (let from = 0; ; from += CITY_PAGE_SIZE) {
-    const { data, error } = await supabase
-      .from('ice_heatmap_cities')
-      .select('city, state, state_code, lat, lng, arrest_count')
-      .eq('release_id', releaseId)
-      // A stable order is required for range pagination; count order also
-      // keeps the ranked city list correct without a client-side sort.
-      .order('arrest_count', { ascending: false })
-      .order('state_code', { ascending: true })
-      .order('city', { ascending: true })
-      .range(from, from + CITY_PAGE_SIZE - 1);
+  const pageCount = Math.ceil(expectedCities / CITY_PAGE_SIZE);
+  // A release with an exact multiple of the page size needs one extra probe so
+  // an unexpected additional row cannot slip past the invariant below.
+  const pagesToRead = expectedCities % CITY_PAGE_SIZE === 0 ? pageCount + 1 : pageCount;
+  const pages = await Promise.all(
+    Array.from({ length: pagesToRead }, async (_, pageIndex) => {
+      const from = pageIndex * CITY_PAGE_SIZE;
+      const { data, error } = await supabase
+        .from('ice_heatmap_cities')
+        .select('city, state, state_code, lat, lng, arrest_count')
+        .eq('release_id', releaseId)
+        // A stable order is required for range pagination; count order also
+        // keeps the ranked city list correct without a client-side sort.
+        .order('arrest_count', { ascending: false })
+        .order('state_code', { ascending: true })
+        .order('city', { ascending: true })
+        .abortSignal(AbortSignal.timeout(HEATMAP_QUERY_TIMEOUT_MS))
+        .range(from, from + CITY_PAGE_SIZE - 1);
 
-    if (error) {
-      throw new Error(`Unable to read ICE heat-map cities: ${error.message}`);
-    }
+      if (error) {
+        throw new Error(`Unable to read ICE heat-map cities: ${error.message}`);
+      }
 
-    const page = (data ?? []) as CityRow[];
-    rows.push(...page);
+      return (data ?? []) as CityRow[];
+    })
+  );
 
-    if (rows.length > expectedCities) {
-      throw new Error(
-        `ICE heat-map release has more city rows than its mapped_cities total (${expectedCities})`
-      );
-    }
-    if (page.length < CITY_PAGE_SIZE) break;
+  const rows = pages.flat();
+  if (rows.length > expectedCities) {
+    throw new Error(
+      `ICE heat-map release has more city rows than its mapped_cities total (${expectedCities})`
+    );
   }
 
   return rows;
