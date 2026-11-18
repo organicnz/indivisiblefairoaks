@@ -34,11 +34,14 @@ const MAX_COMMUNITY_BYTES = 4_000_000;
 const MAX_OFFICIAL_BYTES = 1_000_000;
 const ACTIVE_WINDOW_MS = 4 * 60 * 60 * 1000;
 /*
- * The export is nightly, but "current" should not survive a full day. Six
- * hours catches a missed or late overnight refresh without treating a
- * nearly day-old export as current. Delayed reports stay in the feed.
+ * Stop ICE compiles its public export nightly. Freshness therefore belongs to
+ * the export file, not to its newest report: a healthy nightly file can legit-
+ * imately have no reports for a day. Allow six hours of grace past the nightly
+ * cadence before calling the file delayed. If the source does not expose
+ * Last-Modified, fall back to the report age and the shorter six-hour window.
  */
-const COMMUNITY_FRESH_MS = 6 * 60 * 60 * 1000;
+const COMMUNITY_EXPORT_MAX_AGE_MS = 30 * 60 * 60 * 1000;
+const COMMUNITY_REPORT_FALLBACK_MAX_AGE_MS = 6 * 60 * 60 * 1000;
 const OFFICIAL_FRESH_MS = 14 * 24 * 60 * 60 * 1000;
 const MEMORY_CACHE_MS = 60_000;
 // A snapshot younger than this is preferable to a cold upstream build on a new
@@ -69,6 +72,12 @@ type FetchOptions = {
   retries?: number;
   /** Absolute deadline shared by a multi-request source resolution. */
   deadline?: number;
+};
+
+type FetchedText = {
+  text: string;
+  /** Parsed upstream Last-Modified header, or null when absent/invalid. */
+  lastModifiedMs: number | null;
 };
 
 type CommunityParseResult = {
@@ -414,11 +423,11 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function fetchText(
+async function fetchTextResult(
   url: string,
   options: FetchOptions,
   attempt = 0
-): Promise<string> {
+): Promise<FetchedText> {
   const remaining = options.deadline ? options.deadline - Date.now() : Number.POSITIVE_INFINITY;
   if (remaining < 500) {
     throw new SourceRequestError('Source budget exhausted', false);
@@ -454,7 +463,12 @@ async function fetchText(
     if (text.length > options.maxBytes) {
       throw new SourceRequestError('Source payload is larger than the allowed limit', false);
     }
-    return text;
+    const rawLastModified = response.headers.get('last-modified');
+    const lastModifiedMs = rawLastModified ? Date.parse(rawLastModified) : Number.NaN;
+    return {
+      text,
+      lastModifiedMs: Number.isFinite(lastModifiedMs) ? lastModifiedMs : null,
+    };
   } catch (error) {
     const retryable =
       error instanceof SourceRequestError ? error.retryable : !controller.signal.aborted;
@@ -464,12 +478,20 @@ async function fetchText(
     if (attempt < retries && retryable && retryFitsBudget) {
       clearTimeout(timer);
       await sleep(FETCH_RETRY_DELAY_MS);
-      return fetchText(url, options, attempt + 1);
+      return fetchTextResult(url, options, attempt + 1);
     }
     throw error;
   } finally {
     clearTimeout(timer);
   }
+}
+
+async function fetchText(
+  url: string,
+  options: FetchOptions,
+  attempt = 0
+): Promise<string> {
+  return (await fetchTextResult(url, options, attempt)).text;
 }
 
 function monthlyFileCandidates(now: Date) {
@@ -485,7 +507,11 @@ function monthlyFileCandidates(now: Date) {
   return candidates;
 }
 
-type CommunityDocument = { url: string; xml: string };
+type CommunityDocument = {
+  url: string;
+  xml: string;
+  lastModifiedMs: number | null;
+};
 
 function trustedCommunityUrl(path: string): string | null {
   try {
@@ -510,13 +536,17 @@ async function fetchFirstCommunityDocument(
     const remaining = deadline - Date.now();
     if (remaining < 500) break;
     try {
-      const xml = await fetchText(url, {
+      const fetched = await fetchTextResult(url, {
         revalidate: 300,
         maxBytes: MAX_COMMUNITY_BYTES,
         timeoutMs: Math.min(FETCH_TIMEOUT_MS, remaining),
         deadline,
       });
-      return { url, xml };
+      return {
+        url,
+        xml: fetched.text,
+        lastModifiedMs: fetched.lastModifiedMs,
+      };
     } catch {
       // Try the next known-good file. A new month can be published late and
       // the public index/markup can move independently of the data files.
@@ -601,15 +631,34 @@ async function fetchCommunity(now: Date, citiesPromise: Promise<readonly CityPoi
     });
     const latestAt = parsed.latestAt;
     const latestMs = latestAt ? Date.parse(latestAt) : Number.NaN;
-    const age = Number.isFinite(latestMs)
+    const latestLabel = Number.isFinite(latestMs)
+      ? new Date(latestMs).toUTCString()
+      : 'an unknown time';
+    const reportAge = Number.isFinite(latestMs)
       ? now.getTime() - latestMs
       : Number.POSITIVE_INFINITY;
-    const stale = age > COMMUNITY_FRESH_MS;
-    const note = stale
-      ? `Delayed community export: the newest report is from ${
-          Number.isFinite(latestMs) ? new Date(latestMs).toUTCString() : 'an unknown time'
-        }. Older reports remain visible in the feed and on the map; they are not treated as active.`
-      : 'Public nightly export. Locations are generalized to the nearest known city; raw details are withheld.';
+
+    // A nightly export is current when its file was recently refreshed, even
+    // if it happens to contain no report from the last few hours. Only mark it
+    // delayed when the file itself is overdue, or when even the newest parsed
+    // report is older than a full nightly cycle (which catches a cache serving
+    // fresh headers for stale content).
+    const modifiedMs = document.lastModifiedMs;
+    const exportAge = modifiedMs !== null ? now.getTime() - modifiedMs : reportAge;
+    const exportAgeLimit =
+      modifiedMs !== null
+        ? COMMUNITY_EXPORT_MAX_AGE_MS
+        : COMMUNITY_REPORT_FALLBACK_MAX_AGE_MS;
+    const exportIsDelayed = exportAge > exportAgeLimit;
+    const reportsAreDelayed = reportAge > COMMUNITY_EXPORT_MAX_AGE_MS;
+    const stale = exportIsDelayed || reportsAreDelayed;
+    const note = !stale
+      ? 'Public nightly export. Locations are generalized to the nearest known city; raw details are withheld.'
+      : modifiedMs !== null && exportIsDelayed
+        ? `Delayed community export: the public data file has not updated since ${new Date(
+            modifiedMs
+          ).toUTCString()}. The newest report is from ${latestLabel}. Older reports remain visible in the feed and on the map; they are not treated as active.`
+        : `Delayed community export: the newest report is from ${latestLabel}, older than the expected nightly window. Older reports remain visible in the feed and on the map; they are not treated as active.`;
 
     // Delayed only changes the label: keep the parsed alerts so older reports
     // remain available in the feed and map.

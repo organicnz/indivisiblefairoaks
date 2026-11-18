@@ -255,6 +255,7 @@ describe('parseIceNewsroomRss', () => {
 describe('getRapidFeed', () => {
   let fetchMock: ReturnType<typeof vi.fn>;
   let cacheModule: typeof import('@/lib/queries/ice-rapid-cache');
+  let communityLastModified: string | null;
 
   beforeEach(async () => {
     vi.useFakeTimers();
@@ -265,10 +266,16 @@ describe('getRapidFeed', () => {
     cacheModule = await import('@/lib/queries/ice-rapid-cache');
     vi.mocked(cacheModule.readPersistedRapidFeed).mockResolvedValue(null);
     vi.mocked(cacheModule.persistRapidFeed).mockResolvedValue(undefined);
+    communityLastModified = new Date(Date.now() - 2 * 60 * 60 * 1000).toUTCString();
     fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
       if (/stopicenet_[a-z]{3}_\d{4}_complete\.xml/.test(url)) {
-        return new Response(COMMUNITY_XML, { status: 200 });
+        return new Response(COMMUNITY_XML, {
+          status: 200,
+          headers: communityLastModified
+            ? { 'last-modified': communityLastModified }
+            : {},
+        });
       }
       if (url === 'https://www.ice.gov/rss/ice-breaking-news') {
         return new Response(OFFICIAL_XML, { status: 200 });
@@ -295,6 +302,40 @@ describe('getRapidFeed', () => {
       'https://stopice.net/?data=1'
     );
     expect(cacheModule.persistRapidFeed).toHaveBeenCalledWith(feed);
+  });
+
+  it('keeps a nightly export current when its newest report is older than the polling interval', async () => {
+    vi.setSystemTime(new Date('2026-11-16T06:00:00.000Z'));
+    communityLastModified = new Date('2026-11-16T04:00:00.000Z').toUTCString();
+
+    const { getRapidFeed } = await import('@/lib/ice-rapid-feed');
+    const feed = await getRapidFeed({ fresh: true });
+
+    expect(feed.community.latestAt).toBe('2026-11-15T05:00:02.000Z');
+    expect(feed.community.status).toBe('ok');
+    expect(feed.community.note).not.toContain('Delayed community export');
+  });
+
+  it('labels a genuinely stale export file as delayed', async () => {
+    vi.setSystemTime(new Date('2026-11-17T06:00:00.000Z'));
+    communityLastModified = new Date('2026-11-15T04:00:00.000Z').toUTCString();
+
+    const { getRapidFeed } = await import('@/lib/ice-rapid-feed');
+    const feed = await getRapidFeed({ fresh: true });
+
+    expect(feed.community.status).toBe('stale');
+    expect(feed.community.note).toContain('the public data file has not updated since');
+  });
+
+  it('falls back to report age when the export exposes no Last-Modified header', async () => {
+    vi.setSystemTime(new Date('2026-11-15T12:00:00.000Z'));
+    communityLastModified = null;
+
+    const { getRapidFeed } = await import('@/lib/ice-rapid-feed');
+    const feed = await getRapidFeed({ fresh: true });
+
+    expect(feed.community.status).toBe('stale');
+    expect(feed.community.note).toContain('newest report is from');
   });
 
   it('deduplicates concurrent cold requests instead of refetching both sources', async () => {
