@@ -68,14 +68,20 @@ async function invokeNotify(id: number): Promise<{ emailed: boolean; copied: boo
   }
 }
 
+/** FormData.get() can return a File; every text field must be a real string. */
+function formString(formData: FormData, key: string): string {
+  const value = formData.get(key);
+  return typeof value === 'string' ? value : '';
+}
+
 export async function submitContact(formData: FormData): Promise<ContactResult> {
   // 1. Honeypot check (bots often fill all fields)
-  const honeypot = formData.get('website') as string;
+  const honeypot = formString(formData, 'website');
   if (honeypot) {
     // Silently reject by pretending it worked — but leave an ops trail so a
     // real user whose password manager autofilled this field can be diagnosed
     // from Vercel logs against their report of "sent but nothing happened".
-    const hint = String(formData.get('email') ?? '');
+    const hint = formString(formData, 'email');
     // Hashed: enough to correlate a user report with logs, no raw PII.
     const hintHash = [...hint]
       .reduce((a, c) => (a * 31 + c.charCodeAt(0)) | 0, 7)
@@ -85,9 +91,9 @@ export async function submitContact(formData: FormData): Promise<ContactResult> 
     return { success: true, emailStatus: 'sent', copyStatus: 'not-requested' };
   }
 
-  const name = formData.get('name') as string;
-  const email = formData.get('email') as string;
-  const message = formData.get('message') as string;
+  const name = formString(formData, 'name');
+  const email = formString(formData, 'email');
+  const message = formString(formData, 'message');
   const wantsCopy = formData.get('sendCopy') === 'on';
   // Read with the same `'on'` convention as every other checkbox. Absence is the
   // answer: the submitter was shown the consent box and did not tick it, which is

@@ -68,11 +68,22 @@ async function requireAdminUncached(nextPath = '/admin'): Promise<AdminSession> 
   if (!user) redirect(`/login?next=${encodeURIComponent(returnTo)}`);
 
   const adminClient = await createAdminClient();
-  const { data: profile } = await adminClient
+  const { data: profile, error: profileError } = await adminClient
     .from('profiles')
     .select('is_admin, email')
     .or(`id.eq.${user.id},user_id.eq.${user.id}`)
     .single();
+
+  /*
+   * A database fault is not a denied role. `.single()` also reports zero rows
+   * as PGRST116; that is the legitimate "no profile" case and still lands on
+   * the account page. Anything else means the gate could not answer, and
+   * redirecting would tell an admin they lack access when the truth is that the
+   * check never completed — the same distinction `requireAdminApi` makes.
+   */
+  if (profileError && profileError.code !== 'PGRST116') {
+    throw new Error('Could not verify admin access. Try again.');
+  }
 
   if (!profile?.is_admin) {
     redirect('/account?error=admin_required');

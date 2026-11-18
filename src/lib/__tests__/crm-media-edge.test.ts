@@ -76,6 +76,28 @@ describe('CRM Supabase S3 Storage Media & Edge Function API', () => {
       expect(res.items[0].url).toContain('crm/protest-march.jpg');
     });
 
+    it('clamps invalid and excessive limits before reaching storage', async () => {
+      mockStorageFrom.list.mockResolvedValue({ data: [], error: null });
+
+      await getCRMMediaFiles({ folder: 'crm', limit: -10 });
+      expect(mockStorageFrom.list).toHaveBeenLastCalledWith(
+        'crm',
+        expect.objectContaining({ limit: 1 })
+      );
+
+      await getCRMMediaFiles({ folder: 'crm', limit: 10_000 });
+      expect(mockStorageFrom.list).toHaveBeenLastCalledWith(
+        'crm',
+        expect.objectContaining({ limit: 200 })
+      );
+
+      await getCRMMediaFiles({ folder: 'crm', limit: Number.NaN });
+      expect(mockStorageFrom.list).toHaveBeenLastCalledWith(
+        'crm',
+        expect.objectContaining({ limit: 100 })
+      );
+    });
+
     it('filters by search term case-insensitively', async () => {
       mockStorageFrom.list.mockResolvedValueOnce({
         data: [

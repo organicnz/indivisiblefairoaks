@@ -23,6 +23,11 @@ import { createServerClient } from '@/lib/supabase-server';
  * editable through the overlay, including ones with no CMS row, because the
  * overlay can extract a block model from the live DOM and write a new row.
  */
+const PRIVATE_NO_STORE = {
+  'Cache-Control': 'private, no-store, max-age=0',
+  Vary: 'Cookie',
+};
+
 export async function GET(req: Request) {
   const pathname = new URL(req.url).searchParams.get('path') ?? '/';
 
@@ -32,12 +37,15 @@ export async function GET(req: Request) {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return NextResponse.json({
-      isAdmin: false,
-      target: null,
-      visualEditEnabled: false,
-      visualEditTarget: null,
-    });
+    return NextResponse.json(
+      {
+        isAdmin: false,
+        target: null,
+        visualEditEnabled: false,
+        visualEditTarget: null,
+      },
+      { headers: PRIVATE_NO_STORE }
+    );
   }
 
   // Check admin
@@ -50,12 +58,15 @@ export async function GET(req: Request) {
   const isAdmin = profile?.is_admin === true;
 
   if (!isAdmin) {
-    return NextResponse.json({
-      isAdmin: false,
-      target: null,
-      visualEditEnabled: false,
-      visualEditTarget: null,
-    });
+    return NextResponse.json(
+      {
+        isAdmin: false,
+        target: null,
+        visualEditEnabled: false,
+        visualEditTarget: null,
+      },
+      { headers: PRIVATE_NO_STORE }
+    );
   }
 
   // Try to resolve as CMS content first
@@ -72,9 +83,12 @@ export async function GET(req: Request) {
     },
   });
 
-  return NextResponse.json({
-    isAdmin,
-    target: cmsResponse.target,
-    visualEditEnabled: true,
-  });
+  return NextResponse.json(
+    {
+      isAdmin,
+      target: cmsResponse.target,
+      visualEditEnabled: true,
+    },
+    { headers: PRIVATE_NO_STORE }
+  );
 }

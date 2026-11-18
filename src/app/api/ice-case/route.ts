@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { clientIp } from '@/lib/rate-limit';
+import { readJsonBodyWithLimit } from '@/lib/request-body';
 import { getIceHeatmapSnapshot } from '@/lib/queries/ice-heatmap';
 const MAX_REQUEST_BYTES = 2_000;
 // The edge function can spend up to 10s on its primary provider, 10s on the
@@ -28,28 +29,16 @@ function normalizeCity(value: string): string {
     .toLowerCase();
 }
 
-function requestTooLarge(request: Request): boolean {
-  const contentLength = Number(request.headers.get('content-length'));
-  return Number.isFinite(contentLength) && contentLength > MAX_REQUEST_BYTES;
-}
-
 export async function POST(request: Request) {
-  if (requestTooLarge(request)) {
-    return NextResponse.json({ error: 'Invalid request.' }, { status: 413 });
+  const body = await readJsonBodyWithLimit(request, MAX_REQUEST_BYTES);
+  if (!body.ok) {
+    return NextResponse.json(
+      { error: 'Invalid request.' },
+      { status: body.code === 'too-large' ? 413 : 400 }
+    );
   }
 
-  let body: unknown;
-  try {
-    const rawBody = await request.text();
-    if (new TextEncoder().encode(rawBody).byteLength > MAX_REQUEST_BYTES) {
-      return NextResponse.json({ error: 'Invalid request.' }, { status: 413 });
-    }
-    body = JSON.parse(rawBody);
-  } catch {
-    return NextResponse.json({ error: 'Invalid request.' }, { status: 400 });
-  }
-
-  const parsed = requestSchema.safeParse(body);
+  const parsed = requestSchema.safeParse(body.value);
   if (!parsed.success) {
     return NextResponse.json({ error: 'Invalid city.' }, { status: 400 });
   }

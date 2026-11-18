@@ -6,6 +6,7 @@ import { cors } from 'jsr:@hono/hono/cors'
 import { HTTPException } from 'jsr:@hono/hono/http-exception'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { isSpamContent } from '../_shared/spam.ts'
+import { readJsonBody, RequestBodyTooLargeError } from '../_shared/request-body.ts'
 
 // ---------------------------------------------------------------------------
 // Search edge function — production-ready search API.
@@ -37,9 +38,29 @@ for (const [name, value] of REQUIRED_ENV) {
 
 const SUPABASE_URL = REQUIRED_ENV[0][1]!
 const SUPABASE_SERVICE_ROLE_KEY = REQUIRED_ENV[1][1]!
-const RATE_LIMIT_MAX = Number(Deno.env.get('SEARCH_RATE_LIMIT_MAX') ?? '30')
-const RATE_LIMIT_WINDOW_MIN = Number(Deno.env.get('SEARCH_RATE_LIMIT_WINDOW_MIN') ?? '10')
-const RPC_TIMEOUT_MS = Number(Deno.env.get('SEARCH_RPC_TIMEOUT_MS') ?? '10000')
+
+/**
+ * A typo in a numeric secret must not disable the limiter.
+ *
+ * `Number('abc')` is `NaN`, and every comparison against `NaN` is false — so
+ * an unvalidated `RATE_LIMIT_MAX` would turn `count > NaN` into a permanent
+ * "allow" and an unvalidated window would make `toISOString()` throw. Clamp
+ * each value to a sane range and fall back to the documented default.
+ */
+function envPositiveInt(value: string | undefined, fallback: number, max: number): number {
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback
+  return Math.min(Math.floor(parsed), max)
+}
+
+const RATE_LIMIT_MAX = envPositiveInt(Deno.env.get('SEARCH_RATE_LIMIT_MAX'), 30, 1_000)
+const RATE_LIMIT_WINDOW_MIN = envPositiveInt(
+  Deno.env.get('SEARCH_RATE_LIMIT_WINDOW_MIN'),
+  10,
+  24 * 60
+)
+const RPC_TIMEOUT_MS = envPositiveInt(Deno.env.get('SEARCH_RPC_TIMEOUT_MS'), 10_000, 60_000)
+const MAX_REQUEST_BYTES = 8_000
 
 function supabaseAdmin() {
   return createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
@@ -224,16 +245,29 @@ async function rpcWithProtection<T>(
 // Returns: { products, posts, query, total, remaining, requestId }
 // ---------------------------------------------------------------------------
 app.post('*', async (c) => {
-  let body: { q?: string }
+  // This function is deployed with JWT verification off. `c.req.json()` would
+  // buffer an arbitrarily large body before any validation runs, so read the
+  // stream with the shared ceiling and reject oversized payloads at the edge.
+  let body: unknown
   try {
-    body = await c.req.json()
-  } catch {
+    body = await readJsonBody(c.req.raw, MAX_REQUEST_BYTES)
+  } catch (error) {
+    const tooLarge = error instanceof RequestBodyTooLargeError
+    return c.json(
+      { error: tooLarge ? 'Request body too large' : 'Invalid JSON body' },
+      tooLarge ? 413 : 400,
+      { 'request-id': crypto.randomUUID() }
+    )
+  }
+
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
     return c.json({ error: 'Invalid JSON body' }, 400, {
       'request-id': crypto.randomUUID(),
     })
   }
 
-  const query = (body?.q || '').trim()
+  const rawQuery = (body as { q?: unknown }).q
+  const query = typeof rawQuery === 'string' ? rawQuery.trim() : ''
   if (!query) {
     return c.json({ error: 'Search query is required' }, 400, {
       'request-id': crypto.randomUUID(),
@@ -245,27 +279,41 @@ app.post('*', async (c) => {
   const MAX_QUERY_LENGTH = 100
   const cleanQuery = query.slice(0, MAX_QUERY_LENGTH)
 
+  // ---- Rate limiting ----
+  //
+  // Run this before the spam filter, not after it. The filter is deliberately
+  // cheap, but a rejected spam query must still consume the caller's quota;
+  // otherwise a spam flood is an unmetered path through the endpoint. The
+  // endpoint is public, so the platform's `x-real-ip` is the trusted identity;
+  // a client-supplied `x-forwarded-for` first hop can be forged. Prefer
+  // `x-real-ip`, and use the nearest (last) forwarded hop only as a fallback,
+  // matching the other public Edge functions.
+  const realIp = c.req.header('x-real-ip')?.trim()
+  const forwardedFor = c.req.header('x-forwarded-for')
+    ?.split(',')
+    .map((part) => part.trim())
+    .filter(Boolean)
+  const ip = (realIp || forwardedFor?.[forwardedFor.length - 1] || 'unknown').slice(0, 80)
+
+  const { ok, remaining } = await checkRateLimit(admin, ip)
+  if (!ok) {
+    // Do not write an analytics row for a rejected request. The caller is
+    // already flooding us; turning every rejected request into a database
+    // insert is the amplification this limit exists to prevent.
+    console.warn('[search] rate limit exceeded')
+    return c.json({ error: 'Rate limit exceeded. Try again in 10 minutes.' }, 429, {
+      'request-id': crypto.randomUUID(),
+      'x-rate-limit-remaining': '0',
+    })
+  }
+
   // Spam keyword detection on the query itself
   const isSpam = isSpamContent(cleanQuery)
   if (isSpam) {
     console.warn('[search] spam query rejected')
-    await logSearchError(admin, 'Search query rejected by spam filter')
     return c.json({ error: 'Search query contains restricted terms' }, 403, {
       'request-id': crypto.randomUUID(),
-      'x-rate-limit-remaining': String(RATE_LIMIT_MAX),
-    })
-  }
-
-  // ---- Rate limiting ----
-  const forwardedFor = c.req.header('x-forwarded-for')
-  const ip = forwardedFor ? forwardedFor.split(',')[0].trim() : 'unknown'
-
-  const { ok, remaining } = await checkRateLimit(admin, ip)
-  if (!ok) {
-    await logSearchError(admin, 'Search rate limit exceeded')
-    return c.json({ error: 'Rate limit exceeded. Try again in 10 minutes.' }, 429, {
-      'request-id': crypto.randomUUID(),
-      'x-rate-limit-remaining': '0',
+      'x-rate-limit-remaining': String(remaining),
     })
   }
 

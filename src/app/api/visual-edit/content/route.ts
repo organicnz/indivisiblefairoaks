@@ -1,6 +1,13 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { getContentBySlugForEdit, getContentForEdit, saveContent } from '@/lib/actions/content';
+import {
+  getContentBySlugForEdit,
+  getContentForEdit,
+  saveContent,
+  type ContentInput,
+} from '@/lib/actions/content';
 import { requireAdminApi } from '@/lib/admin-api-auth';
+import { MAX_BODY_BYTES } from '@/lib/content';
+import { readJsonBodyWithLimit } from '@/lib/request-body';
 import { adminApiFailureResponse } from '@/lib/admin-api-response';
 
 /**
@@ -14,7 +21,7 @@ export async function GET(req: NextRequest) {
     if (!auth.ok) return adminApiFailureResponse(auth);
 
     const { searchParams } = new URL(req.url);
-    const slug = searchParams.get('slug');
+    const slug = searchParams.get('slug')?.slice(0, 120);
     const idParam = searchParams.get('id');
 
     if (idParam) {
@@ -50,8 +57,14 @@ export async function POST(req: NextRequest) {
     const auth = await requireAdminApi();
     if (!auth.ok) return adminApiFailureResponse(auth);
 
-    const body = await req.json();
-    const result = await saveContent(body);
+    const body = await readJsonBodyWithLimit(req, MAX_BODY_BYTES * 6);
+    if (!body.ok) {
+      return NextResponse.json(
+        { error: body.code === 'too-large' ? 'Request body is too large.' : 'Invalid JSON body.' },
+        { status: body.code === 'too-large' ? 413 : 400 }
+      );
+    }
+    const result = await saveContent(body.value as ContentInput);
 
     if (!result.success) {
       return NextResponse.json({ error: result.error }, { status: 400 });

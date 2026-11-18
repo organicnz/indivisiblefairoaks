@@ -62,6 +62,21 @@ describe('admin authorization', () => {
     mocks.assertMfaVerified.mockResolvedValue({ ok: true });
   });
 
+  it('rejects non-boolean role values before touching the database', async () => {
+    await expect(
+      markAdminUser('profile-1', 'true' as unknown as boolean)
+    ).rejects.toThrow('Invalid admin role value');
+    expect(mocks.createAdminClient).not.toHaveBeenCalled();
+  });
+
+  it('rejects an empty or non-string profile id', async () => {
+    await expect(markAdminUser('   ', true)).rejects.toThrow('Invalid profile');
+    await expect(markAdminUser(null as unknown as string, true)).rejects.toThrow(
+      'Invalid profile'
+    );
+    expect(mocks.createAdminClient).not.toHaveBeenCalled();
+  });
+
   it('surfaces a profile read failure instead of denying the admin role', async () => {
     const { client, update } = adminClientWithProfile({
       data: null,

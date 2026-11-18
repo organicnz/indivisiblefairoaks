@@ -5,6 +5,7 @@ import { revalidatePath, revalidateTag } from 'next/cache';
 import { z } from 'zod';
 import { requireAdmin } from '@/lib/admin-auth';
 import { env } from '@/lib/env';
+import { rateLimit } from '@/lib/rate-limit';
 import {
   buildMobilizeEventsQuery,
   buildMobilizeEventUrl,
@@ -515,6 +516,10 @@ export async function getMobilizeEventPreview(
   input: string
 ): Promise<MobilizeActionResult<MobilizePreviewData>> {
   try {
+    // Exported from a `'use server'` module, so a browser can call it directly.
+    // The modal only renders for admins, but the action boundary is the guard.
+    await requireAdmin();
+
     const eventId = parseMobilizeEventUrl(input);
     if (!eventId) {
       return fail(
@@ -556,6 +561,12 @@ export async function setMobilizeRule(
   action: 'pin' | 'exclude' | null
 ): Promise<MobilizeActionResult<null>> {
   try {
+    // Server-action arguments are deserialized at runtime; the TypeScript
+    // union is erased, so an arbitrary string must be rejected here.
+    if (action !== 'pin' && action !== 'exclude' && action !== null) {
+      return fail('Invalid event rule action');
+    }
+
     const cleanId = String(externalId).trim();
     if (!/^\d+$/.test(cleanId)) return fail('A numeric Mobilize event id is required');
 
@@ -586,11 +597,15 @@ export async function setMobilizeEventHidden(
   hidden: boolean
 ): Promise<MobilizeActionResult<null>> {
   try {
+    if (typeof hidden !== 'boolean') return fail('Invalid visibility value');
+    const cleanId = String(externalId).trim();
+    if (!/^\d+$/.test(cleanId)) return fail('A numeric Mobilize event id is required');
+
     const client = await adminClient();
     const { data: updated, error } = await client
       .from('events')
       .update({ is_hidden: hidden, updated_at: new Date().toISOString() })
-      .eq('external_id', String(externalId).trim())
+      .eq('external_id', cleanId)
       .select('id')
       .maybeSingle();
     if (error) return fail(error.message);
@@ -609,11 +624,15 @@ export async function setEventSyncLock(
   locked: boolean
 ): Promise<MobilizeActionResult<null>> {
   try {
+    if (typeof locked !== 'boolean') return fail('Invalid sync lock value');
+    const cleanSlug = typeof slug === 'string' ? slug.trim() : '';
+    if (!cleanSlug || cleanSlug.length > 200) return fail('A valid event slug is required');
+
     const client = await adminClient();
     const { data: updated, error } = await client
       .from('events')
       .update({ sync_locked: locked, updated_at: new Date().toISOString() })
-      .eq('slug', slug)
+      .eq('slug', cleanSlug)
       .select('id')
       .maybeSingle();
     if (error) return fail(error.message);
@@ -630,12 +649,17 @@ export async function getMobilizeSyncRuns(
   limit = 10
 ): Promise<MobilizeActionResult<MobilizeSyncRun[]>> {
   try {
+    // `NaN` survives `Math.max`/`Math.min` and reaches PostgREST as `limit=NaN`.
+    const safeLimit = Number.isFinite(limit)
+      ? Math.min(Math.max(Math.floor(limit), 1), 50)
+      : 10;
+
     const client = await adminClient();
     const { data, error } = await client
       .from('mobilize_sync_runs')
       .select('id, started_at, finished_at, checked, imported, updated, hidden, filtered, error')
       .order('started_at', { ascending: false })
-      .limit(Math.min(Math.max(limit, 1), 50));
+      .limit(safeLimit);
     if (error) return fail(error.message);
     return { success: true, data: (data ?? []) as MobilizeSyncRun[] };
   } catch (err) {
@@ -650,7 +674,14 @@ export async function getMobilizeSyncRuns(
  */
 export async function runMobilizeSyncNow(): Promise<MobilizeActionResult<Record<string, unknown>>> {
   try {
-    await requireAdmin();
+    const session = await requireAdmin();
+
+    // "Sync now" fans out to Mobilize and writes many rows. A double-click or
+    // a scripted admin session should not start overlapping runs.
+    const gate = rateLimit(`mobilize-sync:${session.adminUserId}`, 6, 10 * 60_000);
+    if (!gate.ok) {
+      return fail(`A sync was requested recently. Try again in ${gate.retryAfterSec}s.`);
+    }
 
     const baseUrl = env.NEXT_PUBLIC_SUPABASE_URL;
     const secret = env.SUPABASE_SECRET_KEY;

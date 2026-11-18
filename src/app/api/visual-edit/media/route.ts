@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { deleteCRMMedia, getCRMMediaFiles, uploadCRMMedia } from '@/lib/actions/crm';
 import { requireAdminApi } from '@/lib/admin-api-auth';
 import { adminApiFailureResponse } from '@/lib/admin-api-response';
+import { readFormDataWithLimit } from '@/lib/request-body';
+
+const MAX_MEDIA_FORM_BYTES = 6_000_000;
 
 /**
  * Visual Editor Media API
@@ -37,8 +40,19 @@ export async function POST(req: Request) {
     const auth = await requireAdminApi();
     if (!auth.ok) return adminApiFailureResponse(auth);
 
-    const formData = await req.formData();
-    const res = await uploadCRMMedia(formData);
+    const body = await readFormDataWithLimit(req, MAX_MEDIA_FORM_BYTES);
+    if (!body.ok) {
+      return NextResponse.json(
+        {
+          error:
+            body.code === 'too-large'
+              ? 'Image must be 5MB or smaller'
+              : 'Send the upload as multipart form data.',
+        },
+        { status: body.code === 'too-large' ? 413 : 400 }
+      );
+    }
+    const res = await uploadCRMMedia(body.value);
 
     if (!res.success) {
       return NextResponse.json({ error: res.error || 'Upload failed' }, { status: 400 });

@@ -22,6 +22,7 @@ import {
   WALLE_SNAPSHOT_SOURCES,
   type EventDateScope,
 } from '../_shared/walle-freshness.ts'
+import { readTextBody, RequestBodyTooLargeError } from '../_shared/request-body.ts'
 
 const MAX_MESSAGE = 600
 const MAX_HISTORY = 8
@@ -673,19 +674,16 @@ Deno.serve(async (request) => {
   if (!SUPABASE_URL || !SERVICE_KEY || (!ZAI_API_KEY && !GROQ_API_KEY)) {
     return json({ error: 'Chat is temporarily unavailable.' }, 503, responseHeaders)
   }
-  const contentLength = Number(request.headers.get('content-length'))
-  if (Number.isFinite(contentLength) && contentLength > MAX_REQUEST_BYTES) {
-    return json({ error: 'Please send a shorter question.' }, 413, responseHeaders)
-  }
-
   let payload: { message?: unknown; history?: unknown }
   try {
-    const rawBody = await request.text()
-    if (new TextEncoder().encode(rawBody).byteLength > MAX_REQUEST_BYTES) {
+    payload = JSON.parse(await readTextBody(request, MAX_REQUEST_BYTES)) as {
+      message?: unknown
+      history?: unknown
+    }
+  } catch (error) {
+    if (error instanceof RequestBodyTooLargeError) {
       return json({ error: 'Please send a shorter question.' }, 413, responseHeaders)
     }
-    payload = JSON.parse(rawBody) as { message?: unknown; history?: unknown }
-  } catch {
     return json({ error: 'Invalid request.' }, 400, responseHeaders)
   }
   const message = typeof payload.message === 'string' ? payload.message.trim() : ''

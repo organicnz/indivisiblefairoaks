@@ -141,6 +141,16 @@ describeSuite('submitContact() validation', () => {
     expect(r).toEqual({ error: 'All fields are required.' });
   });
 
+  it('treats a File part as a missing text field instead of casting it', async () => {
+    const form = makeForm();
+    form.set('name', new File(['not a name'], 'name.txt', { type: 'text/plain' }));
+
+    const r = await submitContact(form);
+
+    expect(r).toEqual({ error: 'All fields are required.' });
+    expect(rpcMock).not.toHaveBeenCalled();
+  });
+
   it('rejects control characters in name and email', async () => {
     expect(await submitContact(makeForm({ name: 'Bad\u0000Name' }))).toEqual({
       error: 'Name contains invalid characters.',

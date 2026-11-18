@@ -1508,6 +1508,16 @@ export async function bulkUpdateCRMContacts({
   const normAdd = addTags ? normalizeTags(addTags) : [];
   const normRemove = new Set((removeTags || []).map((t) => t.trim().toLowerCase()));
 
+  /*
+   * PostgREST cannot merge an array element atomically across rows without an
+   * RPC, so this path updates one row at a time and can stop halfway. The
+   * previous return said only "connection reset", which a bulk-action toast
+   * cannot distinguish from "nothing changed" — an organizer would retry an
+   * operation that had already touched part of the selection. Report the count
+   * that did land and say the rest did not, rather than pretending either all
+   * succeeded or none did.
+   */
+  let updated = 0;
   for (const c of contacts || []) {
     let currentTags = Array.isArray(c.tags) ? c.tags : [];
     if (normRemove.size > 0) {
@@ -1532,10 +1542,27 @@ export async function bulkUpdateCRMContacts({
       .eq('id', c.id)
       .select('id')
       .maybeSingle();
-    if (updateError) return { success: false, error: updateError.message };
-    if (!updatedContact) {
-      return { success: false, error: 'A selected contact no longer exists' };
+    if (updateError) {
+      return {
+        success: false,
+        updatedCount: updated,
+        error:
+          updated === 0
+            ? updateError.message
+            : `${updateError.message} — ${updated} of ${contacts.length} selected contacts were updated before the failure; the rest were not.`,
+      };
     }
+    if (!updatedContact) {
+      return {
+        success: false,
+        updatedCount: updated,
+        error:
+          updated === 0
+            ? 'A selected contact no longer exists'
+            : `A selected contact no longer exists after ${updated} of ${contacts.length} selected contacts were updated; the rest were not.`,
+      };
+    }
+    updated += 1;
   }
 
   revalidateCRMRoutes();
@@ -3231,8 +3258,18 @@ export async function getCRMMediaFiles(options?: {
 }): Promise<MediaListResult> {
   const { adminClient } = await requireAdmin();
   const folder = options?.folder || 'crm';
-  const search = options?.search?.trim().toLowerCase() || '';
-  const limit = options?.limit ?? 100;
+  const search = options?.search?.trim().toLowerCase().slice(0, 120) || '';
+  /*
+   * Storage's `list()` accepts whatever limit it is handed. A caller passing
+   * `-1`, `NaN` or a million should not be able to turn a picker read into an
+   * unbounded scan or a provider error; 200 matches the public gallery route's
+   * ceiling and is comfortably above every picker's page size.
+   */
+  const requestedLimit = options?.limit ?? 100;
+  const limit =
+    typeof requestedLimit === 'number' && Number.isFinite(requestedLimit)
+      ? Math.min(200, Math.max(1, Math.floor(requestedLimit)))
+      : 100;
 
   const foldersToScan =
     folder === 'all' ? [...MEDIA_FOLDERS] : [isMediaFolder(folder) ? folder : 'crm'];

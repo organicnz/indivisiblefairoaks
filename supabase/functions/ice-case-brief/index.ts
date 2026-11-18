@@ -14,6 +14,7 @@ import {
   type IceBriefInput,
   type ModelBrief,
 } from './logic.ts'
+import { readTextBody, RequestBodyTooLargeError } from '../_shared/request-body.ts'
 
 const APP_URL = Deno.env.get('APP_URL') ?? 'https://indivisiblefairoaks.org'
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
@@ -331,19 +332,13 @@ Deno.serve(async (request) => {
     return json({ error: 'City context is temporarily unavailable.' }, 503, responseHeaders)
   }
 
-  const contentLength = Number(request.headers.get('content-length'))
-  if (Number.isFinite(contentLength) && contentLength > MAX_REQUEST_BYTES) {
-    return json({ error: 'Invalid request.' }, 413, responseHeaders)
-  }
-
   let payload: unknown
   try {
-    const rawBody = await request.text()
-    if (new TextEncoder().encode(rawBody).byteLength > MAX_REQUEST_BYTES) {
+    payload = JSON.parse(await readTextBody(request, MAX_REQUEST_BYTES))
+  } catch (error) {
+    if (error instanceof RequestBodyTooLargeError) {
       return json({ error: 'Invalid request.' }, 413, responseHeaders)
     }
-    payload = JSON.parse(rawBody)
-  } catch {
     return json({ error: 'Invalid request.' }, 400, responseHeaders)
   }
 

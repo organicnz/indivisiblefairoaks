@@ -73,8 +73,11 @@ function mockSessionClient(
   };
 }
 
-function mockProfileClient(profile: { is_admin: boolean; email?: string } | null) {
-  const single = vi.fn().mockResolvedValue({ data: profile });
+function mockProfileClient(
+  profile: { is_admin: boolean; email?: string } | null,
+  error: { code?: string; message: string } | null = null
+) {
+  const single = vi.fn().mockResolvedValue({ data: profile, error });
   const or = vi.fn().mockReturnValue({ single });
   const select = vi.fn().mockReturnValue({ or });
   return { from: vi.fn().mockReturnValue({ select }) };
@@ -165,6 +168,25 @@ describe('requireAdmin', () => {
     const url = await redirectUrl(() => requireAdmin());
     expect(url).not.toBe('/auth/mfa');
     expect(url).toBe('/auth/mfa?next=%2Fadmin');
+  });
+
+  it('throws — rather than redirecting — when the admin profile read fails', async () => {
+    mockCreateServerClient.mockResolvedValue(mockSessionClient());
+    mockCreateAdminClient.mockResolvedValue(
+      mockProfileClient(null, { code: '08006', message: 'connection failure' })
+    );
+
+    await expect(requireAdmin()).rejects.toThrow('Could not verify admin access. Try again.');
+    expect(mockRedirect).not.toHaveBeenCalled();
+  });
+
+  it('still sends a signed-in user with no profile to the account page', async () => {
+    mockCreateServerClient.mockResolvedValue(mockSessionClient());
+    mockCreateAdminClient.mockResolvedValue(
+      mockProfileClient(null, { code: 'PGRST116', message: 'no rows returned' })
+    );
+
+    expect(await redirectUrl(() => requireAdmin())).toBe('/account?error=admin_required');
   });
 
   it('throws — rather than redirecting — when the MFA state cannot be read', async () => {

@@ -9,6 +9,7 @@ import {
   isDeliverableAddress,
   isInAudience,
 } from '../_shared/broadcast.ts'
+import { readJsonBody, RequestBodyTooLargeError } from '../_shared/request-body.ts'
 
 /**
  * Background broadcast sender.
@@ -128,10 +129,16 @@ app.post('*', async (c) => {
     auth: { persistSession: false },
   })
 
-  let payload: { broadcast_id?: string }
+  let payload: { broadcast_id?: string } = {}
   try {
-    payload = await c.req.json()
-  } catch {
+    const parsed = await readJsonBody(c.req.raw, 16_384)
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      payload = parsed as { broadcast_id?: string }
+    }
+  } catch (error) {
+    if (error instanceof RequestBodyTooLargeError) {
+      return c.json({ error: 'request body too large' }, 413)
+    }
     return c.json({ error: 'invalid JSON body' }, 400)
   }
 

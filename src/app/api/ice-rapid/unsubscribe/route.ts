@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { readFormDataWithLimit } from '@/lib/request-body';
 import { escapeHtml } from '@/lib/email';
 import {
   findSubscriberByToken,
@@ -72,6 +73,8 @@ async function resolve(
 }
 
 /** GET only renders the confirmation form; a scanner cannot unsubscribe someone. */
+const MAX_FORM_BODY_BYTES = 8_192;
+
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const token = searchParams.get('token');
@@ -105,10 +108,16 @@ export async function POST(req: Request) {
   let fromBrowserForm = false;
 
   if (contentType.includes('application/x-www-form-urlencoded')) {
-    const form = await req.formData().catch(() => null);
-    const fromBody = form?.get('token');
+    const body = await readFormDataWithLimit(req, MAX_FORM_BODY_BYTES);
+    if (!body.ok) {
+      return new NextResponse(body.code === 'too-large' ? 'Request body too large.' : 'Invalid form.', {
+        status: body.code === 'too-large' ? 413 : 400,
+      });
+    }
+    const form = body.value;
+    const fromBody = form.get('token');
     if (typeof fromBody === 'string' && fromBody) token = fromBody;
-    if (form?.get('confirm') === '1') fromBrowserForm = true;
+    if (form.get('confirm') === '1') fromBrowserForm = true;
   }
 
   try {

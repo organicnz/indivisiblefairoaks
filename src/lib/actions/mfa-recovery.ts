@@ -8,6 +8,7 @@ import {
 } from '@/lib/mfa-guard';
 import { isRecoveryCodeShape, normalizeRecoveryCode } from '@/lib/mfa-recovery';
 import { generateRecoveryCodes, hashRecoveryCode } from '@/lib/mfa-recovery-server';
+import { rateLimit } from '@/lib/rate-limit';
 import { createAdminClient, createServerClient } from '@/lib/supabase-server';
 
 type RecoveryFailure = { error: string; reason?: MfaFailureReason };
@@ -106,6 +107,15 @@ export async function redeemMfaRecoveryCodeAction(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { error: 'Not signed in. Sign in again and retry.' };
+
+  // Recovery codes are high entropy, but guessing attempts still deserve a
+  // ceiling: a stolen session should not get unlimited oracle calls.
+  const gate = rateLimit(`mfa-recovery:${user.id}`, 5, 10 * 60_000);
+  if (!gate.ok) {
+    return {
+      error: `Too many recovery attempts. Try again in ${gate.retryAfterSec}s.`,
+    };
+  }
 
   try {
     const adminClient = await createAdminClient();

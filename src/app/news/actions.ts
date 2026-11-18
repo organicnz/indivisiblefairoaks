@@ -66,7 +66,7 @@ export async function subscribeActionAlerts(formData: FormData): Promise<Subscri
     // Check if contact already exists
     const { data: existing, error: selectError } = await adminClient
       .from('crm_contacts')
-      .select('id, email, first_name, tags, do_not_email')
+      .select('id, email, first_name, tags, do_not_email, unsubscribed_at')
       .eq('email', rawEmail)
       .maybeSingle();
 
@@ -81,13 +81,25 @@ export async function subscribeActionAlerts(formData: FormData): Promise<Subscri
     const requiredTags = ['action-alerts', 'newsletter'];
 
     if (existing) {
+      /*
+       * A public form submission is not proof that the person who owns this
+       * address is the one typing. Anyone could enter a neighbour's email and
+       * silently reverse their unsubscribe. So an existing opt-out is never
+       * cleared here: the row is left untouched and the visitor is told to
+       * contact an organiser, who can verify the request out of band. A new
+       * address has no prior consent to override, so it can subscribe normally.
+       */
+      if (existing.do_not_email === true || existing.unsubscribed_at) {
+        return {
+          error:
+            'This email address previously unsubscribed, so we have not changed it. Email contact@indivisiblefairoaks.org and an organiser can opt you back in.',
+        };
+      }
+
       const existingTags = Array.isArray(existing.tags) ? existing.tags : [];
       const mergedTags = Array.from(new Set([...existingTags, ...requiredTags]));
-      const wasOptedOut = existing.do_not_email === true;
 
       const updatePayload: ContactUpdate = {
-        do_not_email: false,
-        unsubscribed_at: null,
         tags: mergedTags,
         updated_at: now,
       };
@@ -113,9 +125,7 @@ export async function subscribeActionAlerts(formData: FormData): Promise<Subscri
         contact_id: existing.id,
         type: 'note',
         title: 'Subscribed to Action Alerts',
-        description: wasOptedOut
-          ? 'Contact re-subscribed to Action Alerts and cleared opt-out.'
-          : 'Contact renewed/confirmed Action Alerts subscription.',
+        description: 'Contact renewed/confirmed Action Alerts subscription.',
         metadata: {
           channel: 'news_page_subscription',
           source: 'action_alerts',
@@ -127,7 +137,7 @@ export async function subscribeActionAlerts(formData: FormData): Promise<Subscri
       return {
         success: true,
         message: "You're on the list! Thank you for standing with Indivisible Fair Oaks-Carmichael.",
-        alreadySubscribed: !wasOptedOut,
+        alreadySubscribed: true,
       };
     }
 

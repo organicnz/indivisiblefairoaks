@@ -5,6 +5,7 @@ import { Hono } from 'jsr:@hono/hono'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { resolveContactNotificationRecipient } from '../_shared/contact-recipient.ts'
 import { htmlToText, sendResendEmail } from '../_shared/email.ts'
+import { readJsonBody, RequestBodyTooLargeError } from '../_shared/request-body.ts'
 
 // ---------------------------------------------------------------------------
 // Contact form email delivery.
@@ -137,10 +138,18 @@ function buildCustomerCopy(name: string, email: string, message: string, receive
 const app = new Hono()
 
 app.post('*', async (c) => {
-  let payload: { id?: unknown }
+  // This function is deployed with JWT verification off, so the body ceiling
+  // is part of its public boundary, not an operator convenience.
+  let payload: { id?: unknown } = {}
   try {
-    payload = await c.req.json()
-  } catch {
+    const parsed = await readJsonBody(c.req.raw, 16_384)
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      payload = parsed as { id?: unknown }
+    }
+  } catch (error) {
+    if (error instanceof RequestBodyTooLargeError) {
+      return c.json({ error: 'Request body too large' }, 413)
+    }
     return c.json({ error: 'Invalid JSON body' }, 400)
   }
 

@@ -11,6 +11,12 @@ import type { Json } from '@/types/supabase';
  * This provides a secure way to update settings and handles cache invalidation.
  */
 export async function updateUserSettingsAction(settings: Partial<UserSettings>) {
+  // The argument is deserialized at the server-action boundary. `null` used to
+  // reach the `in` operator and throw a TypeError instead of returning an error.
+  if (!settings || typeof settings !== 'object' || Array.isArray(settings)) {
+    return { error: 'Invalid settings update.' };
+  }
+
   const supabase = await createServerClient();
   const {
     data: { user },
@@ -38,7 +44,11 @@ export async function updateUserSettingsAction(settings: Partial<UserSettings>) 
 
   for (const key of allowedKeys) {
     if (key in settings) {
-      (filteredSettings as Record<string, unknown>)[key] = settings[key];
+      const value = settings[key];
+      if (typeof value !== 'boolean') {
+        return { error: 'Invalid settings update.' };
+      }
+      (filteredSettings as Record<string, unknown>)[key] = value;
     }
   }
 
@@ -73,8 +83,13 @@ export async function updateUserSettingsAction(settings: Partial<UserSettings>) 
     return { error: 'Could not read your current settings. Try again before saving.' };
   }
 
+  const existingSettings =
+    profile?.settings && typeof profile.settings === 'object' && !Array.isArray(profile.settings)
+      ? (profile.settings as Record<string, unknown>)
+      : {};
+
   const updatedSettings = {
-    ...(profile?.settings as Record<string, unknown>),
+    ...existingSettings,
     ...filteredSettings,
   };
 

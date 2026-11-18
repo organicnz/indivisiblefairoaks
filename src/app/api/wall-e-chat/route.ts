@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { clientIp } from '@/lib/rate-limit';
+import { readJsonBodyWithLimit } from '@/lib/request-body';
 
 const MAX_REQUEST_BYTES = 32_000;
 // The edge function can spend up to 12s on its primary provider and another 12s
@@ -8,30 +9,21 @@ const FUNCTION_TIMEOUT_MS = 30_000;
 // Keep the platform function alive for the full edge fallback window.
 export const maxDuration = 30;
 
-function requestTooLarge(request: Request): boolean {
-  const contentLength = Number(request.headers.get('content-length'));
-  return Number.isFinite(contentLength) && contentLength > MAX_REQUEST_BYTES;
-}
-
 export async function POST(request: Request) {
   const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   if (!base || !key) {
     return NextResponse.json({ error: 'Chat is temporarily unavailable.' }, { status: 503 });
   }
-  if (requestTooLarge(request)) {
-    return NextResponse.json({ error: 'Please send a shorter question.' }, { status: 413 });
-  }
-
-  let body: unknown;
-  try {
-    const rawBody = await request.text();
-    if (new TextEncoder().encode(rawBody).byteLength > MAX_REQUEST_BYTES) {
-      return NextResponse.json({ error: 'Please send a shorter question.' }, { status: 413 });
-    }
-    body = JSON.parse(rawBody);
-  } catch {
-    return NextResponse.json({ error: 'Invalid request.' }, { status: 400 });
+  const body = await readJsonBodyWithLimit(request, MAX_REQUEST_BYTES);
+  if (!body.ok) {
+    return NextResponse.json(
+      {
+        error:
+          body.code === 'too-large' ? 'Please send a shorter question.' : 'Invalid request.',
+      },
+      { status: body.code === 'too-large' ? 413 : 400 }
+    );
   }
 
   try {
@@ -47,7 +39,7 @@ export async function POST(request: Request) {
         // per visitor instead of one shared bucket for the whole site.
         ...(ip !== 'unknown' ? { 'x-real-ip': ip } : {}),
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify(body.value),
       cache: 'no-store',
       signal: AbortSignal.timeout(FUNCTION_TIMEOUT_MS),
     });

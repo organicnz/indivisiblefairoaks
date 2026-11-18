@@ -2,6 +2,7 @@ import { revalidatePath, revalidateTag } from 'next/cache';
 import { type NextRequest, NextResponse } from 'next/server';
 import { recordAdminAudit } from '@/lib/admin-audit';
 import { requireAdminApi } from '@/lib/admin-api-auth';
+import { readJsonBodyWithLimit } from '@/lib/request-body';
 import {
   newsletterInputSchema,
   normalizeNewsletterTopics,
@@ -9,6 +10,9 @@ import {
 } from '@/lib/newsletters';
 import { buildNewsletterVisibilityFilter } from '@/lib/queries/civic';
 import { createPublicClient } from '@/lib/supabase-server';
+
+/** Bounded JSON bodies: these routes are reachable by admins, not the open internet. */
+const MAX_JSON_BODY_BYTES = 64_000;
 
 const NO_STORE = { 'Cache-Control': 'no-store' } as const;
 
@@ -35,7 +39,8 @@ export async function GET() {
       .order('published_at', { ascending: false });
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error('Civic newsletters query failed:', error);
+      return NextResponse.json({ error: 'Failed to fetch newsletters from database' }, { status: 500 });
     }
 
     return NextResponse.json(
@@ -50,10 +55,8 @@ export async function GET() {
       }
     );
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Failed to fetch newsletters from database' },
-      { status: 500 }
-    );
+    console.error('Civic newsletters route failed:', err);
+    return NextResponse.json({ error: 'Failed to fetch newsletters from database' }, { status: 500 });
   }
 }
 
@@ -76,12 +79,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    let json: unknown;
-    try {
-      json = await req.json();
-    } catch {
-      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    const body = await readJsonBodyWithLimit(req, MAX_JSON_BODY_BYTES);
+    if (!body.ok) {
+      return NextResponse.json(
+        { error: body.code === 'too-large' ? 'Request body is too large.' : 'Invalid JSON body.' },
+        { status: body.code === 'too-large' ? 413 : 400 }
+      );
     }
+    const json = body.value;
 
     const parsed = newsletterInputSchema.safeParse(json);
     if (!parsed.success) {
@@ -225,7 +230,7 @@ export async function DELETE(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url);
-    const rawSlug = searchParams.get('slug');
+    const rawSlug = searchParams.get('slug')?.slice(0, 120);
     const slug = rawSlug ? slugifyNewsletter(rawSlug) : '';
     if (!slug) {
       return NextResponse.json({ error: 'Newsletter slug is required' }, { status: 400 });

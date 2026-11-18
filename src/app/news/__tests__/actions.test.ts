@@ -183,7 +183,7 @@ describe('subscribeActionAlerts', () => {
     expect(mockRevalidatePath).toHaveBeenCalledWith('/news');
   });
 
-  it('updates existing contact, clears do_not_email, and merges tags', async () => {
+  it('does not clear an existing opt-out from an unauthenticated submission', async () => {
     mockMaybeSingle.mockResolvedValueOnce({
       data: {
         id: 'contact-uuid-99',
@@ -191,6 +191,7 @@ describe('subscribeActionAlerts', () => {
         first_name: null,
         tags: ['town-hall-2025'],
         do_not_email: true,
+        unsubscribed_at: '2026-10-01T00:00:00Z',
       },
       error: null,
     });
@@ -201,16 +202,55 @@ describe('subscribeActionAlerts', () => {
     });
 
     const result = await subscribeActionAlerts(fd);
+    expect(result).toMatchObject({ error: expect.stringContaining('previously unsubscribed') });
+    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(mockRevalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('treats an unsubscribed_at marker as an opt-out even without do_not_email', async () => {
+    mockMaybeSingle.mockResolvedValueOnce({
+      data: {
+        id: 'contact-uuid-100',
+        email: 'former.member@example.com',
+        first_name: null,
+        tags: [],
+        do_not_email: false,
+        unsubscribed_at: '2026-09-01T00:00:00Z',
+      },
+      error: null,
+    });
+
+    const result = await subscribeActionAlerts(makeFormData({ email: 'former.member@example.com' }));
+    expect(result).toMatchObject({ error: expect.stringContaining('previously unsubscribed') });
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it('updates an active contact and merges tags without changing consent', async () => {
+    mockMaybeSingle.mockResolvedValueOnce({
+      data: {
+        id: 'contact-uuid-101',
+        email: 'active.member@example.com',
+        first_name: null,
+        tags: ['town-hall-2025'],
+        do_not_email: false,
+        unsubscribed_at: null,
+      },
+      error: null,
+    });
+
+    const result = await subscribeActionAlerts(
+      makeFormData({ email: 'active.member@example.com', name: 'Morgan' })
+    );
     expect(result).toEqual({
       success: true,
       message: "You're on the list! Thank you for standing with Indivisible Fair Oaks-Carmichael.",
-      alreadySubscribed: false,
+      alreadySubscribed: true,
     });
 
     expect(mockUpdate).toHaveBeenCalledTimes(1);
     const updatePayload = mockUpdate.mock.calls[0][0];
-    expect(updatePayload.do_not_email).toBe(false);
-    expect(updatePayload.unsubscribed_at).toBeNull();
+    expect(updatePayload).not.toHaveProperty('do_not_email');
+    expect(updatePayload).not.toHaveProperty('unsubscribed_at');
     expect(updatePayload.first_name).toBe('Morgan');
     expect(updatePayload.tags).toEqual(['town-hall-2025', 'action-alerts', 'newsletter']);
     expect(mockRevalidatePath).toHaveBeenCalledWith('/news');

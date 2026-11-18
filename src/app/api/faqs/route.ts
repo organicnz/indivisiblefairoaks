@@ -1,7 +1,11 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireAdminApi } from '@/lib/admin-api-auth';
+import { readJsonBodyWithLimit } from '@/lib/request-body';
 import { createPublicClient } from '@/lib/supabase-server';
+
+/** Bounded JSON bodies: these routes are reachable by admins, not the open internet. */
+const MAX_JSON_BODY_BYTES = 64_000;
 
 const faqSchema = z.object({
   slug: z.string().trim().min(1).max(120).optional(),
@@ -33,7 +37,8 @@ export async function GET() {
       .order('sort_order', { ascending: true });
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error('FAQ query failed:', error);
+      return NextResponse.json({ error: 'Failed to fetch FAQs from database' }, { status: 500 });
     }
 
     const faqs = data ?? [];
@@ -49,10 +54,8 @@ export async function GET() {
       }
     );
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Failed to fetch FAQs from database' },
-      { status: 500 }
-    );
+    console.error('FAQ route failed:', err);
+    return NextResponse.json({ error: 'Failed to fetch FAQs from database' }, { status: 500 });
   }
 }
 
@@ -74,7 +77,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const json = await req.json();
+    const body = await readJsonBodyWithLimit(req, MAX_JSON_BODY_BYTES);
+    if (!body.ok) {
+      return NextResponse.json(
+        { error: body.code === 'too-large' ? 'Request body is too large.' : 'Invalid JSON body.' },
+        { status: body.code === 'too-large' ? 413 : 400 }
+      );
+    }
+    const json = body.value;
     const parsed = faqSchema.safeParse(json);
     if (!parsed.success) {
       return NextResponse.json(
@@ -135,7 +145,7 @@ export async function DELETE(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url);
-    const slug = searchParams.get('slug');
+    const slug = searchParams.get('slug')?.slice(0, 120);
     const id = searchParams.get('id');
 
     if (!slug && !id) {
@@ -146,7 +156,11 @@ export async function DELETE(req: NextRequest) {
     if (slug) {
       deleteQuery = deleteQuery.eq('slug', slug);
     } else if (id) {
-      deleteQuery = deleteQuery.eq('id', Number(id));
+      const numericId = Number(id);
+      if (!Number.isInteger(numericId) || numericId <= 0) {
+        return NextResponse.json({ error: 'Invalid FAQ id' }, { status: 400 });
+      }
+      deleteQuery = deleteQuery.eq('id', numericId);
     }
 
     const { error } = await deleteQuery;

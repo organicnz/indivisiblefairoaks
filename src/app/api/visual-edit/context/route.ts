@@ -15,10 +15,16 @@ export async function GET(req: NextRequest) {
     if (!auth.ok) return adminApiFailureResponse(auth);
 
     const { searchParams } = new URL(req.url);
-    const pathname = searchParams.get('pathname') || undefined;
-    const slug = searchParams.get('slug') || undefined;
+    const pathname = searchParams.get('pathname')?.slice(0, 2048) || undefined;
+    const slug = searchParams.get('slug')?.slice(0, 120) || undefined;
     const contentIdParam = searchParams.get('contentId');
-    const contentId = contentIdParam ? Number(contentIdParam) : undefined;
+    let contentId: number | undefined;
+    if (contentIdParam) {
+      contentId = Number(contentIdParam);
+      if (!Number.isInteger(contentId) || contentId <= 0) {
+        return NextResponse.json({ error: 'Invalid content id' }, { status: 400 });
+      }
+    }
 
     const context = await getVisualPageContext({
       pathname,

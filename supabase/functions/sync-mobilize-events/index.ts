@@ -9,6 +9,7 @@ import {
   mapMobilizeEvent,
   passesMobilizeFilters,
 } from '../_shared/mobilize.ts'
+import { readTextBody, RequestBodyTooLargeError } from '../_shared/request-body.ts'
 
 // ---------------------------------------------------------------------------
 // Mobilize event sync — issue #153
@@ -130,10 +131,17 @@ Deno.serve(async (request) => {
 
   let force = false
   try {
-    const body = await request.json()
-    force = body?.force === true
-  } catch {
-    // An empty body from pg_cron is the normal case.
+    const raw = await readTextBody(request, 8_192)
+    if (raw.trim()) {
+      const body = JSON.parse(raw) as { force?: unknown } | null
+      force = body?.force === true
+    }
+  } catch (error) {
+    if (error instanceof RequestBodyTooLargeError) {
+      return json({ error: 'Request body too large.' }, 413)
+    }
+    // An empty or malformed body from pg_cron is the normal case; the sync
+    // itself is fixed work, not a caller-supplied payload.
   }
 
   const client = createClient<any>(SUPABASE_URL, SERVICE_KEY)

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { readFormDataWithLimit } from '@/lib/request-body';
 import { escapeHtml } from '@/lib/email';
 import { isIceAlertConfirmationTokenLive } from '@/lib/ice-alert-confirmation';
 import {
@@ -154,6 +155,8 @@ async function resolve(
 }
 
 /** GET only shows the form. Mail scanners must not confirm a subscription. */
+const MAX_FORM_BODY_BYTES = 8_192;
+
 export async function GET(req: Request): Promise<NextResponse> {
   const { searchParams } = new URL(req.url);
   const token = searchParams.get('token');
@@ -203,8 +206,14 @@ export async function POST(req: Request): Promise<NextResponse> {
   let token = searchParams.get('token');
 
   if (contentType.includes('application/x-www-form-urlencoded')) {
-    const form = await req.formData().catch(() => null);
-    const fromBody = form?.get('token');
+    const body = await readFormDataWithLimit(req, MAX_FORM_BODY_BYTES);
+    if (!body.ok) {
+      return new NextResponse(body.code === 'too-large' ? 'Request body too large.' : 'Invalid form.', {
+        status: body.code === 'too-large' ? 413 : 400,
+      });
+    }
+    const form = body.value;
+    const fromBody = form.get('token');
     if (typeof fromBody === 'string' && fromBody) token = fromBody;
   }
 

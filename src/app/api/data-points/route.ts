@@ -2,8 +2,12 @@ import { revalidatePath, revalidateTag } from 'next/cache';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireAdminApi } from '@/lib/admin-api-auth';
+import { readJsonBodyWithLimit } from '@/lib/request-body';
 import { env } from '@/lib/env';
 import { createPublicClient } from '@/lib/supabase-server';
+
+/** Bounded JSON bodies: these routes are reachable by admins, not the open internet. */
+const MAX_JSON_BODY_BYTES = 64_000;
 
 const dataPointSchema = z.object({
   key: z.string().trim().min(1, 'Key is required').max(120),
@@ -19,8 +23,8 @@ const dataPointSchema = z.object({
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const group = searchParams.get('group');
-    const key = searchParams.get('key');
+    const group = searchParams.get('group')?.slice(0, 60);
+    const key = searchParams.get('key')?.slice(0, 120);
 
     // 1. In non-test environments, attempt to fetch from the deployed Supabase Edge Function
     const edgeBase = env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, '');
@@ -87,7 +91,8 @@ export async function GET(req: NextRequest) {
 
     const { data, error } = await query;
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error('Data points query failed:', error);
+      return NextResponse.json({ error: 'Failed to fetch data points' }, { status: 500 });
     }
 
     const rows = data ?? [];
@@ -106,10 +111,8 @@ export async function GET(req: NextRequest) {
       }
     );
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Failed to fetch data points' },
-      { status: 500 }
-    );
+    console.error('Data points route failed:', err);
+    return NextResponse.json({ error: 'Failed to fetch data points' }, { status: 500 });
   }
 }
 
@@ -131,7 +134,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const json = await req.json();
+    const body = await readJsonBodyWithLimit(req, MAX_JSON_BODY_BYTES);
+    if (!body.ok) {
+      return NextResponse.json(
+        { error: body.code === 'too-large' ? 'Request body is too large.' : 'Invalid JSON body.' },
+        { status: body.code === 'too-large' ? 413 : 400 }
+      );
+    }
+    const json = body.value;
     const parsed = dataPointSchema.safeParse(json);
     if (!parsed.success) {
       return NextResponse.json(
@@ -208,7 +218,7 @@ export async function DELETE(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url);
-    const key = searchParams.get('key');
+    const key = searchParams.get('key')?.slice(0, 120);
 
     if (!key) {
       return NextResponse.json({ error: 'key parameter required' }, { status: 400 });

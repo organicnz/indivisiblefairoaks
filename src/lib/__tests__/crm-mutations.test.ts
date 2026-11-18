@@ -904,7 +904,8 @@ describe('CRM mutation failure paths', () => {
         addTags: ['new-tag'],
       });
 
-      expect(res).toMatchObject({ success: false, error: 'connection reset' });
+      expect(res).toMatchObject({ success: false, updatedCount: 0 });
+      expect(res.error).toContain('connection reset');
       expect(tables.crm_contacts.rows?.[0]).toMatchObject({ tags: ['old'] });
     });
 

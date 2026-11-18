@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server';
+import { readJsonBodyWithLimit } from '@/lib/request-body';
 import { env } from '@/lib/env';
 import { errorFingerprint, errorReportSchema } from '@/lib/error-report';
 import { clientKey, rateLimit } from '@/lib/rate-limit';
+
+const MAX_JSON_BODY_BYTES = 16_384;
 
 /**
  * Error beacon landing zone. Writes one row to error_reports via direct
@@ -21,14 +24,15 @@ export async function POST(req: Request) {
     );
   }
 
-  let body: unknown;
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400 });
+  const body = await readJsonBodyWithLimit(req, MAX_JSON_BODY_BYTES);
+  if (!body.ok) {
+    return NextResponse.json(
+      { error: body.code === 'too-large' ? 'Request body is too large.' : 'Invalid JSON body.' },
+      { status: body.code === 'too-large' ? 413 : 400 }
+    );
   }
 
-  const parsed = errorReportSchema.safeParse(body);
+  const parsed = errorReportSchema.safeParse(body.value);
   if (!parsed.success) {
     return NextResponse.json({ error: 'Invalid error report payload.' }, { status: 400 });
   }

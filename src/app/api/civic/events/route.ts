@@ -7,8 +7,12 @@ import { z } from 'zod';
 // runtime-zone-of-the-server rendering.
 import { recordAdminAudit } from '@/lib/admin-audit';
 import { requireAdminApi } from '@/lib/admin-api-auth';
+import { readJsonBodyWithLimit } from '@/lib/request-body';
 import { instantToPacificBasic } from '@/lib/calendar-time';
 import { createPublicClient } from '@/lib/supabase-server';
+
+/** Bounded JSON bodies: these routes are reachable by admins, not the open internet. */
+const MAX_JSON_BODY_BYTES = 64_000;
 
 const eventSchema = z.object({
   slug: z.string().trim().min(1).max(120).optional(),
@@ -49,7 +53,7 @@ function slugify(text: string): string {
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const category = searchParams.get('category');
+    const category = searchParams.get('category')?.slice(0, 120);
 
     // Untyped: `is_hidden` and the Mobilize provenance columns arrived in a
     // migration the generated types do not know about yet (issue #153), the
@@ -72,7 +76,8 @@ export async function GET(req: NextRequest) {
 
     const { data, error } = await query;
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error('Civic events query failed:', error);
+      return NextResponse.json({ error: 'Failed to fetch events from database' }, { status: 500 });
     }
 
     const rawEvents = data ?? [];
@@ -109,10 +114,8 @@ export async function GET(req: NextRequest) {
       }
     );
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Failed to fetch events from database' },
-      { status: 500 }
-    );
+    console.error('Civic events route failed:', err);
+    return NextResponse.json({ error: 'Failed to fetch events from database' }, { status: 500 });
   }
 }
 
@@ -136,7 +139,14 @@ export async function POST(req: NextRequest) {
 
     const { adminUserId, adminEmail, mfaLevel } = auth.session;
 
-    const json = await req.json();
+    const body = await readJsonBodyWithLimit(req, MAX_JSON_BODY_BYTES);
+    if (!body.ok) {
+      return NextResponse.json(
+        { error: body.code === 'too-large' ? 'Request body is too large.' : 'Invalid JSON body.' },
+        { status: body.code === 'too-large' ? 413 : 400 }
+      );
+    }
+    const json = body.value;
     const parsed = eventSchema.safeParse(json);
     if (!parsed.success) {
       return NextResponse.json(
@@ -279,7 +289,7 @@ export async function DELETE(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url);
-    const slug = searchParams.get('slug');
+    const slug = searchParams.get('slug')?.slice(0, 120);
     if (!slug) {
       return NextResponse.json({ error: 'Event slug is required' }, { status: 400 });
     }

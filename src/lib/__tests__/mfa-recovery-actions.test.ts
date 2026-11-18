@@ -5,12 +5,15 @@ import { hashRecoveryCode } from '@/lib/mfa-recovery-server';
 const mocks = vi.hoisted(() => ({
   createServerClient: vi.fn(),
   createAdminClient: vi.fn(),
+  rateLimit: vi.fn(),
 }));
 
 vi.mock('@/lib/supabase-server', () => ({
   createServerClient: mocks.createServerClient,
   createAdminClient: mocks.createAdminClient,
 }));
+
+vi.mock('@/lib/rate-limit', () => ({ rateLimit: mocks.rateLimit }));
 
 const {
   generateMfaRecoveryCodesAction,
@@ -48,6 +51,7 @@ function sessionClient({
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.rateLimit.mockReturnValue({ ok: true, retryAfterSec: 0 });
   mocks.createServerClient.mockResolvedValue(sessionClient());
   mocks.createAdminClient.mockResolvedValue({ rpc: vi.fn().mockResolvedValue({ error: null }) });
 });
@@ -106,6 +110,16 @@ describe('getMfaRecoveryCodeStatusAction', () => {
 });
 
 describe('redeemMfaRecoveryCodeAction', () => {
+  it('rate-limits repeated redemption attempts before touching the admin client', async () => {
+    mocks.rateLimit.mockReturnValue({ ok: false, retryAfterSec: 42 });
+
+    const result = await redeemMfaRecoveryCodeAction(CODE);
+
+    expect(result).toEqual({ error: 'Too many recovery attempts. Try again in 42s.' });
+    expect(mocks.rateLimit).toHaveBeenCalledWith('mfa-recovery:user-1', 5, 10 * 60_000);
+    expect(mocks.createAdminClient).not.toHaveBeenCalled();
+  });
+
   it('claims one code, removes only verified TOTP factors, and signs out', async () => {
     const session = sessionClient();
     mocks.createServerClient.mockResolvedValue(session);

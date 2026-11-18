@@ -40,6 +40,22 @@ export function rateLimit(
     }
   }
 
+  /*
+   * The sweep above only removes *expired* keys. With more than 5,000 active
+   * identities in one window — the shape of a distributed flood — every entry
+   * is live, nothing is removed, and each new address grows the map forever.
+   * A per-isolate limiter must not become the memory exhaustion it exists to
+   * prevent, so the ceiling is hard: evict insertion-order-oldest active keys
+   * until the map fits. That lets a rotating attacker reset an old bucket, but
+   * the alternative is unbounded memory; the limiter is explicitly best-effort
+   * and the deployment is expected to pair it with platform-level controls.
+   */
+  while (buckets.size > MAX_TRACKED_KEYS) {
+    const oldest = buckets.keys().next().value;
+    if (oldest === undefined) break;
+    buckets.delete(oldest);
+  }
+
   return { ok: true, retryAfterSec: 0 };
 }
 

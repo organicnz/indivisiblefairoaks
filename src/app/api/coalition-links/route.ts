@@ -2,7 +2,11 @@ import { revalidatePath, revalidateTag } from 'next/cache';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireAdminApi } from '@/lib/admin-api-auth';
+import { readJsonBodyWithLimit } from '@/lib/request-body';
 import { createPublicClient } from '@/lib/supabase-server';
+
+/** Bounded JSON bodies: these routes are reachable by admins, not the open internet. */
+const MAX_JSON_BODY_BYTES = 64_000;
 
 const coalitionLinkSchema = z.object({
   slug: z.string().trim().min(1).max(120).optional(),
@@ -37,7 +41,8 @@ export async function GET() {
       .order('sort_order', { ascending: true });
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error('Coalition links query failed:', error);
+      return NextResponse.json({ error: 'Failed to fetch coalition links' }, { status: 500 });
     }
 
     return NextResponse.json(
@@ -50,10 +55,8 @@ export async function GET() {
       }
     );
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Failed to fetch coalition links' },
-      { status: 500 }
-    );
+    console.error('Coalition links route failed:', err);
+    return NextResponse.json({ error: 'Failed to fetch coalition links' }, { status: 500 });
   }
 }
 
@@ -75,7 +78,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const json = await req.json();
+    const body = await readJsonBodyWithLimit(req, MAX_JSON_BODY_BYTES);
+    if (!body.ok) {
+      return NextResponse.json(
+        { error: body.code === 'too-large' ? 'Request body is too large.' : 'Invalid JSON body.' },
+        { status: body.code === 'too-large' ? 413 : 400 }
+      );
+    }
+    const json = body.value;
     const parsed = coalitionLinkSchema.safeParse(json);
     if (!parsed.success) {
       return NextResponse.json(
@@ -150,7 +160,7 @@ export async function DELETE(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url);
-    const slug = searchParams.get('slug');
+    const slug = searchParams.get('slug')?.slice(0, 120);
 
     if (!slug) {
       return NextResponse.json({ error: 'slug parameter required' }, { status: 400 });

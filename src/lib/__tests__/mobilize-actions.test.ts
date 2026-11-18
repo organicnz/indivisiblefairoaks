@@ -8,8 +8,15 @@ vi.mock('server-only', () => ({}));
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn(), revalidateTag: vi.fn() }));
 vi.mock('@/lib/env', () => ({ env: {} }));
 
-const { importMobilizeEvent, previewMobilizeSource, setEventSyncLock, setMobilizeEventHidden } =
-  await import('@/lib/actions/mobilize');
+const {
+  getMobilizeEventPreview,
+  getMobilizeSyncRuns,
+  importMobilizeEvent,
+  previewMobilizeSource,
+  setEventSyncLock,
+  setMobilizeEventHidden,
+  setMobilizeRule,
+} = await import('@/lib/actions/mobilize');
 const { createMockAdminClient } = await import('./supabase-mock');
 import type { MockTableConfig } from './supabase-mock';
 
@@ -221,6 +228,65 @@ describe('previewMobilizeSource reads', () => {
 
     expect(res).toMatchObject({ success: false, error: 'connection reset' });
     expect(fetchSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe('Mobilize action boundaries', () => {
+  it('requires an admin before previewing a Mobilize event', async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
+    requireAdmin.mockRejectedValue(new Error('Not authenticated'));
+
+    const res = await getMobilizeEventPreview('https://www.mobilize.us/event/1011420/');
+
+    expect(res).toEqual({ success: false, error: 'Not authenticated' });
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('rejects an unknown per-event action before writing', async () => {
+    const res = await setMobilizeRule(
+      '1011420',
+      'delete' as unknown as 'pin'
+    );
+
+    expect(res).toEqual({ success: false, error: 'Invalid event rule action' });
+    expect(requireAdmin).not.toHaveBeenCalled();
+  });
+
+  it('rejects non-boolean visibility and sync-lock values', async () => {
+    await expect(
+      setMobilizeEventHidden('1011420', 'yes' as unknown as boolean)
+    ).resolves.toEqual({ success: false, error: 'Invalid visibility value' });
+    await expect(
+      setEventSyncLock('mobilize-1011420', 1 as unknown as boolean)
+    ).resolves.toEqual({ success: false, error: 'Invalid sync lock value' });
+    expect(requireAdmin).not.toHaveBeenCalled();
+  });
+
+  it('falls back to a safe limit when sync history receives NaN', async () => {
+    const tables: Record<string, MockTableConfig> = {
+      mobilize_sync_runs: {
+        rows: [
+          {
+            id: 1,
+            started_at: '2026-11-18T00:00:00Z',
+            finished_at: null,
+            checked: 1,
+            imported: 0,
+            updated: 0,
+            hidden: 0,
+            filtered: 0,
+            error: null,
+          },
+        ],
+      },
+    };
+    requireAdmin.mockResolvedValue({ adminClient: createMockAdminClient(tables) });
+
+    const res = await getMobilizeSyncRuns(Number.NaN);
+
+    expect(res).toMatchObject({ success: true });
+    expect(res).toHaveProperty('data');
   });
 });
 

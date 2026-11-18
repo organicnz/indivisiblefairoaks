@@ -15,6 +15,44 @@ describe('Gallery Edge API Route (/api/gallery)', () => {
     vi.clearAllMocks();
   });
 
+  it('clamps invalid and excessive limits', async () => {
+    const limit = vi.fn().mockResolvedValue({ data: [], error: null });
+    createPublicClient.mockReturnValue({
+      from: () => ({
+        select: () => ({
+          order: () => ({
+            limit,
+          }),
+        }),
+      }),
+      storage: { from: () => ({ getPublicUrl: () => ({ data: { publicUrl: '' } }) }) },
+    });
+
+    const negative = new Request(
+      'https://indivisiblefairoaks.org/api/gallery?limit=-10'
+    ) as unknown as NextRequest;
+    await getGallery(negative);
+    expect(limit).toHaveBeenLastCalledWith(1);
+
+    const excessive = new Request(
+      'https://indivisiblefairoaks.org/api/gallery?limit=10000'
+    ) as unknown as NextRequest;
+    await getGallery(excessive);
+    expect(limit).toHaveBeenLastCalledWith(200);
+
+    const invalid = new Request(
+      'https://indivisiblefairoaks.org/api/gallery?limit=not-a-number'
+    ) as unknown as NextRequest;
+    await getGallery(invalid);
+    expect(limit).toHaveBeenLastCalledWith(100);
+
+    const absent = new Request(
+      'https://indivisiblefairoaks.org/api/gallery'
+    ) as unknown as NextRequest;
+    await getGallery(absent);
+    expect(limit).toHaveBeenLastCalledWith(100);
+  });
+
   it('GET returns formatted photos with storage public URLs', async () => {
     const mockPhotos = [
       {

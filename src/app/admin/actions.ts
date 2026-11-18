@@ -47,6 +47,16 @@ async function requireAdminClient() {
 }
 
 export async function markAdminUser(profileId: string, isAdmin: boolean) {
+  // Server-action arguments cross a serialization boundary, so the declared
+  // types are not a runtime guarantee. In particular, any truthy non-boolean
+  // used to grant admin through `.update({ is_admin: value })`.
+  if (typeof profileId !== 'string' || !profileId.trim() || profileId.length > 200) {
+    throw new Error('Invalid profile');
+  }
+  if (typeof isAdmin !== 'boolean') {
+    throw new Error('Invalid admin role value');
+  }
+
   const { adminClient, adminUserId, adminEmail, mfaLevel } = await requireAdminClient();
 
   // Read the target first so the audit record carries the value that changed,
@@ -55,7 +65,7 @@ export async function markAdminUser(profileId: string, isAdmin: boolean) {
   const { data: target, error: targetError } = await adminClient
     .from('profiles')
     .select('id, is_admin, email')
-    .eq('id', profileId)
+    .eq('id', profileId.trim())
     .maybeSingle();
   if (targetError) throw new Error(targetError.message);
   if (!target) throw new Error('That profile no longer exists');

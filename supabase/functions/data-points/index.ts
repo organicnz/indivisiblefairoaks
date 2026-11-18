@@ -64,8 +64,10 @@ Deno.serve(async (req: Request) => {
   }
 
   const url = new URL(req.url)
-  const groupParam = url.searchParams.get('group')
-  const keyParam = url.searchParams.get('key')
+  // Public query parameters are unbounded strings by default. Cap them before
+  // they reach PostgREST so one caller cannot force a pathological filter.
+  const groupParam = url.searchParams.get('group')?.trim().slice(0, 60) || null
+  const keyParam = url.searchParams.get('key')?.trim().slice(0, 120) || null
 
   // Read client using ANON key with RLS
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)

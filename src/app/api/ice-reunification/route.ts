@@ -17,6 +17,7 @@ import {
 import { env } from '@/lib/env';
 import { US_STATE_CODES } from '@/lib/rapid-city-match';
 import { clientKey, rateLimit } from '@/lib/rate-limit';
+import { readFormDataWithLimit } from '@/lib/request-body';
 
 export const maxDuration = 30;
 
@@ -109,27 +110,23 @@ export async function POST(req: Request) {
     );
   }
 
-  const length = Number(req.headers.get('content-length') ?? 0);
-  if (Number.isFinite(length) && length > MAX_BODY_BYTES) {
-    return json(
-      {
-        ok: false,
-        code: 'too-large',
-        message: 'The request is too large. Use a photo under 4 MB.',
-      },
-      413
-    );
+  const body = await readFormDataWithLimit(req, MAX_BODY_BYTES);
+  if (!body.ok) {
+    return body.code === 'too-large'
+      ? json(
+          {
+            ok: false,
+            code: 'too-large',
+            message: 'The request is too large. Use a photo under 4 MB.',
+          },
+          413
+        )
+      : json(
+          { ok: false, code: 'invalid-form', message: 'Send the request as a form.' },
+          400
+        );
   }
-
-  let form: FormData;
-  try {
-    form = await req.formData();
-  } catch {
-    return json(
-      { ok: false, code: 'invalid-form', message: 'Send the request as a form.' },
-      400
-    );
-  }
+  const form = body.value;
 
   const parsed = formSchema.safeParse({
     submitter_name: field(form, 'submitter_name'),

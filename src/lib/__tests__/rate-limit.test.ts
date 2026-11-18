@@ -31,6 +31,27 @@ describe('rateLimit()', () => {
     expect(rateLimit(key, 3, 1000, clock).ok).toBe(true);
   });
 
+  it('bounds the bucket map even when every tracked key is still active', () => {
+    let now = 4_000_000;
+    const clock = () => now;
+
+    // More than MAX_TRACKED_KEYS (5,000) live identities in one window.
+    for (let i = 0; i < 5_100; i++) {
+      expect(rateLimit(`flood-${i}`, 10, 60_000, clock).ok).toBe(true);
+    }
+
+    // The first key is the insertion-order oldest, so it was evicted. If the
+    // map were unbounded this call would still find its original hit and count
+    // it rather than starting a fresh bucket.
+    for (let i = 0; i < 10; i++) {
+      expect(rateLimit('flood-0', 10, 60_000, clock).ok).toBe(true);
+    }
+    expect(rateLimit('flood-0', 10, 60_000, clock).ok).toBe(false);
+
+    // The most recent key was not evicted by its own insertion.
+    expect(rateLimit('flood-5099', 10, 60_000, clock).ok).toBe(true);
+  });
+
   it('isolates keys from each other', () => {
     const now = 3_000_000;
     const clock = () => now;

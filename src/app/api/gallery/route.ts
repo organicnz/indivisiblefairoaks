@@ -8,8 +8,14 @@ import { createPublicClient } from '@/lib/supabase-server';
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const category = searchParams.get('category');
-    const limit = Math.min(Number(searchParams.get('limit')) || 100, 200);
+    const category = searchParams.get('category')?.slice(0, 120);
+    // `Number(null)` is 0, so read presence explicitly: an absent parameter must
+    // fall back to 100, not clamp the whole gallery to a single photo.
+    const rawLimit = searchParams.get('limit');
+    const requestedLimit = rawLimit === null ? Number.NaN : Number(rawLimit);
+    const limit = Number.isFinite(requestedLimit)
+      ? Math.min(200, Math.max(1, Math.floor(requestedLimit)))
+      : 100;
 
     const supabase = createPublicClient();
     let query = supabase
@@ -26,7 +32,8 @@ export async function GET(req: NextRequest) {
 
     const { data, error } = await query;
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error('Gallery query failed:', error);
+      return NextResponse.json({ error: 'Failed to fetch gallery photos' }, { status: 500 });
     }
 
     const rows = data ?? [];
@@ -69,9 +76,7 @@ export async function GET(req: NextRequest) {
       }
     );
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Failed to fetch gallery photos' },
-      { status: 500 }
-    );
+    console.error('Gallery route failed:', err);
+    return NextResponse.json({ error: 'Failed to fetch gallery photos' }, { status: 500 });
   }
 }

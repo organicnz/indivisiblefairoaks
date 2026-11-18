@@ -207,6 +207,28 @@ describe('Property 2: Preservation — existing action behaviour is unchanged', 
     expect(mockUpsert).not.toHaveBeenCalled();
   });
 
+  it('rejects null and non-object settings without reaching the database', async () => {
+    const nullResult = await updateUserSettingsAction(
+      null as unknown as Parameters<typeof updateUserSettingsAction>[0]
+    );
+    const arrayResult = await updateUserSettingsAction(
+      [] as unknown as Parameters<typeof updateUserSettingsAction>[0]
+    );
+
+    expect(nullResult).toEqual({ error: 'Invalid settings update.' });
+    expect(arrayResult).toEqual({ error: 'Invalid settings update.' });
+    expect(mockUpsert).not.toHaveBeenCalled();
+  });
+
+  it('rejects a non-boolean value for an allowed key', async () => {
+    const result = await updateUserSettingsAction({
+      order_updates: 'false' as unknown as boolean,
+    });
+
+    expect(result).toEqual({ error: 'Invalid settings update.' });
+    expect(mockUpsert).not.toHaveBeenCalled();
+  });
+
   // ── b) Key filtering (PBT) ───────────────────────────────────────────────────
   it('never includes unknown keys in the upsert settings payload (PBT)', async () => {
     /**

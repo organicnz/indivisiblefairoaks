@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { env } from '@/lib/env';
 import { clientKey, rateLimit } from '@/lib/rate-limit';
 import { createAdminClient } from '@/lib/supabase-server';
+import { readTextBodyWithLimit } from '@/lib/request-body';
 import { isFreshSvixTimestamp, verifySvixSignature } from '@/lib/svix-signature';
 import type { Json } from '@/types/supabase';
 
@@ -162,6 +163,8 @@ function recipientsFrom(event: ResendEvent): string[] {
   ];
 }
 
+const MAX_WEBHOOK_BODY_BYTES = 256_000;
+
 export async function POST(req: Request): Promise<NextResponse> {
   // Rate-limit webhook replays (100/minute/IP).
   const gate = rateLimit(clientKey(req.headers, 'resend-webhook'), 100, 60_000);
@@ -189,7 +192,13 @@ export async function POST(req: Request): Promise<NextResponse> {
     return new NextResponse('Stale webhook timestamp.', { status: 400 });
   }
 
-  const rawBody = await req.text();
+  const body = await readTextBodyWithLimit(req, MAX_WEBHOOK_BODY_BYTES);
+  if (!body.ok) {
+    return new NextResponse(body.code === 'too-large' ? 'Payload too large.' : 'Invalid body.', {
+      status: body.code === 'too-large' ? 413 : 400,
+    });
+  }
+  const rawBody = body.value;
 
   const valid = await verifySvixSignature(secret, svixId, svixTimestamp, rawBody, svixSignature);
   if (!valid) {

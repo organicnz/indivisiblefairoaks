@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { readFormDataWithLimit } from '@/lib/request-body';
 import { renderUnsubscribeGreeting } from '@/lib/crm-unsubscribe';
 import { clientKey, rateLimit } from '@/lib/rate-limit';
 import { createAdminClient } from '@/lib/supabase-server';
@@ -100,6 +101,8 @@ const html = (body: string) =>
  * Renders the confirmation step. Writes nothing, so a link scanner, a prefetcher
  * or a chat client fetching this URL leaves the contact exactly as it was.
  */
+const MAX_FORM_BODY_BYTES = 8_192;
+
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const token = searchParams.get('token');
@@ -135,12 +138,18 @@ export async function POST(req: Request) {
   let fromBrowserForm = false;
 
   if (contentType.includes('application/x-www-form-urlencoded')) {
-    const form = await req.formData().catch(() => null);
-    const fromBody = form?.get('token');
+    const body = await readFormDataWithLimit(req, MAX_FORM_BODY_BYTES);
+    if (!body.ok) {
+      return new NextResponse(body.code === 'too-large' ? 'Request body too large.' : 'Invalid form.', {
+        status: body.code === 'too-large' ? 413 : 400,
+      });
+    }
+    const form = body.value;
+    const fromBody = form.get('token');
     if (typeof fromBody === 'string' && fromBody) token = fromBody;
     // The marker the GET page's own form sends. Its absence is what identifies
     // an RFC 8058 auto-confirm, which posts the same URL with an empty body.
-    if (form?.get('confirm') === '1') fromBrowserForm = true;
+    if (form.get('confirm') === '1') fromBrowserForm = true;
   }
 
   try {
