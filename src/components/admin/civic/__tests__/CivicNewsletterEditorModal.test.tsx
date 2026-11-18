@@ -20,6 +20,19 @@ vi.mock('sonner', () => ({
   },
 }));
 
+function setInputValue(input: HTMLInputElement | HTMLTextAreaElement, value: string) {
+  const propsKey = Object.keys(input).find((key) => key.startsWith('__reactProps$'));
+  if (!propsKey) throw new Error('React props were not attached to the input');
+  const props = (
+    input as unknown as Record<
+      string,
+      { onChange?: (event: { target: { value: string } }) => void }
+    >
+  )[propsKey];
+  if (!props?.onChange) throw new Error('input has no onChange handler');
+  props.onChange({ target: { value } });
+}
+
 const newsletter: CivicNewsletterRecord = {
   slug: 'summer-bulletin',
   title: 'Summer Bulletin',
@@ -81,6 +94,47 @@ describe('CivicNewsletterEditorModal', () => {
     expect(payload?.published_at).toBe('2026-07-01T00:00:00.000Z');
     expect(payload?.original_slug).toBe('summer-bulletin');
     expect(onSaved).toHaveBeenCalledWith(newsletter, 'summer-bulletin');
+  });
+
+  it('splits a pasted topic list and reports summary word count', async () => {
+    await act(async () => {
+      root.render(
+        <CivicNewsletterEditorModal
+          isOpen={true}
+          onClose={vi.fn()}
+          newsletter={null}
+          onSaved={vi.fn()}
+        />
+      );
+    });
+
+    const topicInput = document.querySelector<HTMLInputElement>('#civic-news-topic-input');
+    const description = document.querySelector<HTMLTextAreaElement>('#civic-news-description');
+    if (!topicInput || !description) throw new Error('editor fields did not render');
+
+    await act(async () => {
+      setInputValue(topicInput, 'Election Defense, Choir Actions');
+    });
+
+    const addButton = [...document.querySelectorAll('button')].find((button) =>
+      /add tag/i.test(button.textContent ?? '')
+    );
+    if (!addButton) throw new Error('Add tag button did not render');
+
+    await act(async () => {
+      addButton.click();
+      await Promise.resolve();
+    });
+
+    const preview = document.querySelector('[aria-label="Public archive preview"]');
+    expect(preview?.textContent).toContain('Election Defense');
+    expect(preview?.textContent).toContain('Choir Actions');
+    expect(preview?.textContent).not.toContain('Election Defense, Choir Actions');
+
+    await act(async () => {
+      setInputValue(description, 'One two three four five');
+    });
+    expect(document.body.textContent).toContain('5 words');
   });
 
   it('adds a topic to the draft and shows it in the public preview', async () => {

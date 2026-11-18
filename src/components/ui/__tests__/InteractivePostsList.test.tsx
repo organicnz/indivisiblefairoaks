@@ -7,6 +7,19 @@ import type { PublishedPostSummary } from '@/lib/queries/content';
 
 const editContext = vi.hoisted(() => ({ isAdmin: false }));
 
+function setInputValue(input: HTMLInputElement, value: string) {
+  const propsKey = Object.keys(input).find((key) => key.startsWith('__reactProps$'));
+  if (!propsKey) throw new Error('React props were not attached to the input');
+  const props = (
+    input as unknown as Record<
+      string,
+      { onChange?: (event: { target: { value: string } }) => void }
+    >
+  )[propsKey];
+  if (!props?.onChange) throw new Error('input has no onChange handler');
+  props.onChange({ target: { value } });
+}
+
 vi.mock('@/components/layout/useEditContext', () => ({
   useEditContext: () => ({ loading: false, isAdmin: editContext.isAdmin, target: null }),
 }));
@@ -92,6 +105,38 @@ describe('InteractivePostsList', () => {
     );
     expect(guide).toBeDefined();
     expect(guide?.textContent).toContain('How to publish');
+  });
+
+  it('searches title and excerpt with normalized multi-word queries', async () => {
+    await act(async () => {
+      root.render(<InteractivePostsList initialPosts={SAMPLE_POSTS} />);
+    });
+
+    const search = container.querySelector<HTMLInputElement>('[data-testid="news-search"]');
+    if (!search) throw new Error('news search did not render');
+
+    await act(async () => {
+      setInputValue(search, 'schools funding');
+    });
+
+    expect(container.textContent).toContain('1 story matching');
+    expect(container.textContent).toContain('Why Fair Oaks Needs Strong Public Schools');
+    expect(container.textContent).not.toContain('Mobilizing Carmichael');
+
+    await act(async () => {
+      setInputValue(search, 'not-a-real-story');
+    });
+
+    expect(container.textContent).toContain('No published stories match');
+    const clear = [...container.querySelectorAll<HTMLButtonElement>('button')].find((button) =>
+      /clear search/i.test(button.textContent ?? '')
+    );
+    expect(clear).not.toBeUndefined();
+    await act(async () => {
+      clear?.click();
+    });
+
+    expect(container.textContent).toContain('Mobilizing Carmichael');
   });
 
   it('renders empty state when no posts are provided', async () => {

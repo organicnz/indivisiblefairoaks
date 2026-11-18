@@ -1,18 +1,14 @@
 'use client';
 
-import {
-  AlertCircle,
-  CalendarClock,
-  Check,
-  Clock3,
-  Eye,
-  Loader2,
-  Plus,
-  RotateCcw,
-  Tag,
-} from 'lucide-react';
+import { AlertCircle, CalendarClock, Check, Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { NewsletterBasicsFields } from '@/components/admin/news/NewsletterBasicsFields';
+import { NewsletterPreviewCard } from '@/components/admin/news/NewsletterPreviewCard';
+import { NewsletterPublicationField } from '@/components/admin/news/NewsletterPublicationField';
+import { NewsletterSortingField } from '@/components/admin/news/NewsletterSortingField';
+import { NewsletterSummaryField } from '@/components/admin/news/NewsletterSummaryField';
+import { NewsletterTopicsField } from '@/components/admin/news/NewsletterTopicsField';
 import {
   Dialog,
   DialogContent,
@@ -22,6 +18,7 @@ import {
 } from '@/components/ui/Dialog';
 import { type CivicNewsletterRecord, saveCivicNewsletter } from '@/lib/actions/civic';
 import { instantToPacificInput, pacificWallToInstant } from '@/lib/calendar-time';
+import { parseNewsletterTopicInput } from '@/lib/news-text';
 import {
   NEWSLETTER_LIMITS,
   newsletterPublicationState,
@@ -81,19 +78,6 @@ function currentIssueLabel(): string {
 
 function draftSnapshot(draft: NewsletterDraft): string {
   return JSON.stringify(draft);
-}
-
-function formatPublicationTime(instant: string | null): string {
-  if (!instant) return 'Choose a valid Pacific date and time';
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    timeZone: 'America/Los_Angeles',
-    timeZoneName: 'short',
-  }).format(new Date(instant));
 }
 
 export function CivicNewsletterEditorModal({
@@ -158,17 +142,13 @@ export function CivicNewsletterEditorModal({
   }, [dirty, isOpen]);
 
   const previewTopics = useMemo(
-    () => normalizeNewsletterTopics([...draft.topics, topicInput]),
+    () => normalizeNewsletterTopics([...draft.topics, ...parseNewsletterTopicInput(topicInput)]),
     [draft.topics, topicInput]
   );
 
-  const publicationInstant = draft.publishedAt
-    ? pacificWallToInstant(draft.publishedAt)
-    : new Date().toISOString();
-  const scheduled =
-    publicationInstant !== null &&
-    newsletterPublicationState(publicationInstant) === 'scheduled';
-  const descriptionCount = draft.description.length;
+  const scheduled = draft.publishedAt
+    ? newsletterPublicationState(pacificWallToInstant(draft.publishedAt)) === 'scheduled'
+    : false;
 
   const canSave =
     dirty &&
@@ -202,24 +182,19 @@ export function CivicNewsletterEditorModal({
   };
 
   const addTopic = () => {
-    const value = topicInput.trim();
-    if (!value) return;
-    // Compare against the committed chips, not `previewTopics`: the preview
-    // includes the text still sitting in this input, so checking it here made
-    // every value look like a duplicate of itself. The blur handler fired
-    // first on a button click, cleared the input, and the tag never landed.
-    if (draft.topics.length >= NEWSLETTER_LIMITS.topics) {
+    const parsed = parseNewsletterTopicInput(topicInput);
+    if (parsed.length === 0) return;
+
+    // Parse the whole value before merging: pasting a comma-separated list used
+    // to create one chip containing every topic. Normalization also makes the
+    // duplicate check case-insensitive, so "Choir" and "choir" cannot both land.
+    const merged = normalizeNewsletterTopics([...draft.topics, ...parsed]);
+    if (merged.length > NEWSLETTER_LIMITS.topics) {
       toast.error(`Use ${NEWSLETTER_LIMITS.topics} topics or fewer`);
       return;
     }
-    if (draft.topics.some((topic) => topic.toLowerCase() === value.toLowerCase())) {
-      setTopicInput('');
-      return;
-    }
-    setDraft((previous) => ({
-      ...previous,
-      topics: normalizeNewsletterTopics([...previous.topics, value]),
-    }));
+
+    setDraft((previous) => ({ ...previous, topics: merged }));
     setTopicInput('');
     setError(null);
   };
@@ -242,7 +217,10 @@ export function CivicNewsletterEditorModal({
     const title = draft.title.trim();
     const dateLabel = draft.dateLabel.trim();
     const description = draft.description.trim();
-    const topics = normalizeNewsletterTopics([...draft.topics, topicInput]);
+    const topics = normalizeNewsletterTopics([
+      ...draft.topics,
+      ...parseNewsletterTopicInput(topicInput),
+    ]);
 
     if (!title) {
       setError('Give the bulletin a title before saving.');
@@ -421,316 +399,54 @@ export function CivicNewsletterEditorModal({
                 </div>
               ) : null}
 
-              <div>
-                <div className="mb-1 flex items-center justify-between gap-3">
-                  <label
-                    htmlFor="civic-news-title"
-                    className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground"
-                  >
-                    Bulletin title <span aria-hidden="true">*</span>
-                  </label>
-                  <span className="font-mono text-[10px] text-muted-foreground">
-                    {draft.title.length}/{NEWSLETTER_LIMITS.title}
-                  </span>
-                </div>
-                <input
-                  ref={titleRef}
-                  id="civic-news-title"
-                  type="text"
-                  value={draft.title}
-                  onChange={(event) => handleTitleChange(event.target.value)}
-                  maxLength={NEWSLETTER_LIMITS.title}
-                  placeholder="e.g. Summer Action Bulletin & Town Hall Recap"
-                  required
-                  className="min-h-11 w-full rounded-sm border border-border bg-background px-3.5 py-2.5 text-sm font-semibold transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
-                />
-              </div>
+              <NewsletterBasicsFields
+                title={draft.title}
+                slug={draft.slug}
+                dateLabel={draft.dateLabel}
+                titleInputRef={titleRef}
+                onTitleChange={handleTitleChange}
+                onSlugChange={(value) => {
+                  setSlugTouched(true);
+                  updateDraft({ slug: value });
+                }}
+                onDateLabelChange={(value) => updateDraft({ dateLabel: value })}
+              />
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label
-                    htmlFor="civic-news-slug"
-                    className="mb-1 block text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground"
-                  >
-                    Public identifier
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      id="civic-news-slug"
-                      type="text"
-                      value={draft.slug}
-                      onChange={(event) => {
-                        setSlugTouched(true);
-                        updateDraft({ slug: event.target.value });
-                      }}
-                      maxLength={NEWSLETTER_LIMITS.slug}
-                      placeholder="auto-generated-from-title"
-                      className="min-h-10 w-full rounded-sm border border-border bg-background px-3 py-2 font-mono text-xs transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSlugTouched(true);
-                        updateDraft({ slug: slugifyNewsletter(draft.title) });
-                      }}
-                      title="Generate the slug from the title"
-                      aria-label="Generate the public identifier from the title"
-                      className="inline-flex size-10 shrink-0 items-center justify-center rounded-sm border border-border bg-background text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                    >
-                      <RotateCcw size={14} aria-hidden="true" />
-                    </button>
-                  </div>
-                  <p className="mt-1 truncate text-[10px] text-muted-foreground">
-                    Stored identifier:{' '}
-                    <span className="font-mono">
-                      {draft.slug || slugifyNewsletter(draft.title) || 'auto-generated'}
-                    </span>
-                  </p>
-                </div>
+              <NewsletterSummaryField
+                description={draft.description}
+                onChange={(value) => updateDraft({ description: value })}
+              />
 
-                <div>
-                  <label
-                    htmlFor="civic-news-date-label"
-                    className="mb-1 block text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground"
-                  >
-                    Issue / date label <span aria-hidden="true">*</span>
-                  </label>
-                  <input
-                    id="civic-news-date-label"
-                    type="text"
-                    value={draft.dateLabel}
-                    onChange={(event) => updateDraft({ dateLabel: event.target.value })}
-                    maxLength={NEWSLETTER_LIMITS.dateLabel}
-                    placeholder="e.g. July 2026"
-                    required
-                    className="min-h-10 w-full rounded-sm border border-border bg-background px-3 py-2 text-sm font-medium transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
-                  />
-                  <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">
-                    Printed above the title in the public archive.
-                  </p>
-                </div>
-              </div>
+              <NewsletterTopicsField
+                topics={draft.topics}
+                topicInput={topicInput}
+                previewTopicCount={previewTopics.length}
+                onTopicInputChange={setTopicInput}
+                onAddTopic={addTopic}
+                onRemoveTopic={removeTopic}
+              />
 
-              <div>
-                <div className="mb-1 flex items-center justify-between gap-3">
-                  <label
-                    htmlFor="civic-news-description"
-                    className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground"
-                  >
-                    Summary / overview <span aria-hidden="true">*</span>
-                  </label>
-                  <span className="font-mono text-[10px] text-muted-foreground">
-                    {descriptionCount}/{NEWSLETTER_LIMITS.description}
-                  </span>
-                </div>
-                <textarea
-                  id="civic-news-description"
-                  value={draft.description}
-                  onChange={(event) => updateDraft({ description: event.target.value })}
-                  maxLength={NEWSLETTER_LIMITS.description}
-                  rows={5}
-                  placeholder="Summarize the priorities, actions, and decisions a reader should know about."
-                  required
-                  className="w-full resize-y rounded-sm border border-border bg-background px-3.5 py-2.5 text-sm font-medium leading-relaxed transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
-                />
-                <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">
-                  Plain text. Keep it to a short archive summary; the full issue remains in the
-                  chapter&rsquo;s email or PDF archive.
-                </p>
-              </div>
+              <NewsletterPublicationField
+                publishedAt={draft.publishedAt}
+                scheduled={scheduled}
+                onPublishedAtChange={(value) => updateDraft({ publishedAt: value })}
+                onUseCurrentTime={useCurrentTime}
+              />
 
-              <div>
-                <div className="mb-1 flex items-center justify-between gap-3">
-                  <span className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
-                    Key topics &amp; campaign tags
-                  </span>
-                  <span className="font-mono text-[10px] text-muted-foreground">
-                    {previewTopics.length}/{NEWSLETTER_LIMITS.topics}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    id="civic-news-topic-input"
-                    type="text"
-                    aria-label="Add a topic"
-                    value={topicInput}
-                    onChange={(event) => setTopicInput(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter' || event.key === ',') {
-                        event.preventDefault();
-                        addTopic();
-                      }
-                    }}
-                    onBlur={() => {
-                      if (topicInput.trim()) addTopic();
-                    }}
-                    maxLength={NEWSLETTER_LIMITS.topic}
-                    placeholder="e.g. Election Defense, Choir Actions, Food Drive"
-                    className="min-h-10 flex-1 rounded-sm border border-border bg-background px-3 py-2 text-xs font-medium transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
-                  />
-                  <button
-                    type="button"
-                    onClick={addTopic}
-                    disabled={!topicInput.trim() || previewTopics.length >= NEWSLETTER_LIMITS.topics}
-                    className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-sm border border-border bg-secondary px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-secondary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50"
-                  >
-                    <Plus size={14} aria-hidden="true" />
-                    Add tag
-                  </button>
-                </div>
+              <NewsletterSortingField
+                sortOrder={draft.sortOrder}
+                onChange={(value) => updateDraft({ sortOrder: value })}
+              />
 
-                {draft.topics.length > 0 ? (
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {draft.topics.map((topic) => (
-                      <span
-                        key={topic}
-                        className="inline-flex items-center gap-1 rounded-sm border border-accent-gold/40 bg-accent-gold/15 px-2.5 py-1 text-xs font-bold text-ink-strong dark:text-accent-gold"
-                      >
-                        <Tag size={11} aria-hidden="true" />
-                        <span>{topic}</span>
-                        <button
-                          type="button"
-                          onClick={() => removeTopic(topic)}
-                          className="rounded-sm p-0.5 transition-colors hover:bg-black/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:hover:bg-white/20"
-                          aria-label={`Remove topic ${topic}`}
-                        >
-                          <span aria-hidden="true" className="block text-sm leading-none">
-                            ×
-                          </span>
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="mt-1 text-[10px] text-muted-foreground">
-                    Press Enter or comma after each topic.
-                  </p>
-                )}
-              </div>
-
-              <div className="rounded-sm border border-border bg-surface-muted/40 p-4">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                  <div className="flex-1">
-                    <label
-                      htmlFor="civic-news-published-at"
-                      className="mb-1 block text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground"
-                    >
-                      Publication time (Pacific)
-                    </label>
-                    <input
-                      id="civic-news-published-at"
-                      type="datetime-local"
-                      value={draft.publishedAt}
-                      onChange={(event) => updateDraft({ publishedAt: event.target.value })}
-                      className="min-h-10 w-full rounded-sm border border-border bg-background px-3 py-2 text-xs font-medium transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={useCurrentTime}
-                    className="inline-flex min-h-10 shrink-0 items-center justify-center gap-1.5 rounded-sm border border-border bg-background px-3 py-2 text-xs font-bold text-foreground transition-colors hover:bg-surface-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                  >
-                    <Clock3 size={14} aria-hidden="true" />
-                    Use now
-                  </button>
-                </div>
-                <p className="mt-2 flex items-center gap-1.5 text-[11px] leading-relaxed text-muted-foreground">
-                  <CalendarClock className="size-3.5 shrink-0" aria-hidden="true" />
-                  {scheduled
-                    ? `Scheduled for ${formatPublicationTime(publicationInstant)}. It stays out of the public archive until then.`
-                    : `Publishes immediately (${formatPublicationTime(publicationInstant)}). A future time schedules it instead.`}
-                </p>
-              </div>
-
-              <details className="rounded-sm border border-border bg-background">
-                <summary className="cursor-pointer px-4 py-3 text-xs font-bold text-foreground">
-                  Archive ordering
-                </summary>
-                <div className="border-t border-border px-4 py-3">
-                  <label
-                    htmlFor="civic-news-sort"
-                    className="mb-1 block text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground"
-                  >
-                    Sort order
-                  </label>
-                  <input
-                    id="civic-news-sort"
-                    type="number"
-                    value={draft.sortOrder}
-                    onChange={(event) =>
-                      updateDraft({ sortOrder: Number(event.target.value) || 0 })
-                    }
-                    className="w-28 rounded-sm border border-border bg-background px-3 py-2 font-mono text-xs transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
-                  />
-                  <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">
-                    Lower numbers appear first. Leave at 10 unless this bulletin needs to be pinned.
-                  </p>
-                </div>
-              </details>
             </div>
 
-            <aside
-              aria-label="Public archive preview"
-              className="border-t border-border bg-surface-muted/30 p-5 lg:border-l lg:border-t-0 sm:p-6"
-            >
-              <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
-                <Eye size={14} aria-hidden="true" />
-                Public card preview
-              </div>
-              <div className="mt-3 border border-border bg-surface-card p-5 shadow-xs">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-primary-ink dark:text-accent-gold">
-                    {draft.dateLabel || 'Issue date'}
-                  </span>
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    Chapter bulletin
-                  </span>
-                </div>
-                <h3 className="mt-3 font-display text-2xl font-semibold leading-snug tracking-[-0.02em]">
-                  {draft.title || 'Bulletin title'}
-                </h3>
-                <p className="mt-2 line-clamp-6 text-xs leading-relaxed text-muted-foreground">
-                  {draft.description || 'A short summary of this bulletin will appear here.'}
-                </p>
-                {previewTopics.length > 0 ? (
-                  <div className="mt-3 flex flex-wrap gap-1.5">
-                    {previewTopics.map((topic) => (
-                      <span
-                        key={topic}
-                        className="border border-border bg-surface-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground"
-                      >
-                        {topic}
-                      </span>
-                    ))}
-                  </div>
-                ) : null}
-                <div className="mt-5 flex items-center justify-between gap-3 border-t border-border pt-3 text-[10px] font-bold text-muted-foreground">
-                  <span>Request full issue</span>
-                  <span>PDF &amp; email archive</span>
-                </div>
-              </div>
-
-              <div className="mt-4 space-y-2 text-[11px] leading-relaxed text-muted-foreground">
-                <p className="inline-flex items-center gap-1.5 font-bold text-foreground">
-                  {scheduled ? (
-                    <>
-                      <CalendarClock size={13} aria-hidden="true" />
-                      Scheduled
-                    </>
-                  ) : (
-                    <>
-                      <Check size={13} aria-hidden="true" />
-                      Publishes now
-                    </>
-                  )}
-                </p>
-                <p>
-                  This is the card readers see at{' '}
-                  <span className="font-mono text-[10px]">/newsletters</span>. It uses the same
-                  fields the public archive renders.
-                </p>
-              </div>
-            </aside>
+            <NewsletterPreviewCard
+              dateLabel={draft.dateLabel}
+              title={draft.title}
+              description={draft.description}
+              topics={previewTopics}
+              scheduled={scheduled}
+            />
           </div>
 
           <div className="flex shrink-0 flex-col gap-3 border-t border-border bg-surface-card px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">

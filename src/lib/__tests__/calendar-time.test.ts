@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import {
+  formatPacificDateTime,
   instantToPacificBasic,
   instantToPacificInput,
   PACIFIC_TZ,
@@ -38,6 +39,20 @@ describe('instantToPacificBasic', () => {
 
   it('exports the zone the links name', () => {
     expect(PACIFIC_TZ).toBe('America/Los_Angeles');
+  });
+});
+
+describe('formatPacificDateTime', () => {
+  it('formats a stored instant in the chapter clock with the zone abbreviation', () => {
+    expect(formatPacificDateTime('2026-11-11T02:30:00Z')).toMatch(/Nov 10, 2026.*6:30 PM PST/);
+    expect(formatPacificDateTime('2026-07-15T02:30:00Z')).toMatch(/Jul 14, 2026.*7:30 PM PDT/);
+  });
+
+  it('returns null for missing or unparseable input', () => {
+    expect(formatPacificDateTime(undefined)).toBeNull();
+    expect(formatPacificDateTime(null)).toBeNull();
+    expect(formatPacificDateTime('')).toBeNull();
+    expect(formatPacificDateTime('not-a-date')).toBeNull();
   });
 });
 

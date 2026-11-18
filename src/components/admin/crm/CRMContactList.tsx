@@ -1,23 +1,13 @@
 'use client';
 
-import {
-  BookmarkPlus,
-  Check,
-  Download,
-  Edit2,
-  Mail,
-  Plus,
-  RefreshCw,
-  Search,
-  Upload,
-  X,
-} from 'lucide-react';
-import Link from 'next/link';
+import { BookmarkPlus, Check, Edit2, RefreshCw, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { toast } from 'sonner';
 import { ConfirmAction } from '@/components/admin/ConfirmAction';
+import { CRMContactActionBar } from '@/components/admin/crm/CRMContactActionBar';
 import { CRMContactEditorModal } from '@/components/admin/crm/CRMContactEditorModal';
+import { CRMContactFilterForm } from '@/components/admin/crm/CRMContactFilterForm';
 import { CRMImportModal } from '@/components/admin/crm/CRMImportModal';
 import { ContactBulkActionsBar } from '@/components/admin/crm/ContactBulkActionsBar';
 import { CRMContactTable } from '@/components/admin/crm/CRMContactTable';
@@ -158,6 +148,22 @@ export function CRMContactList({
   const handleFilterSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     applyFilters(draftFilters());
+  };
+
+  const handleResetFilters = () => {
+    const cleared: ContactFilters = {
+      query: '',
+      status: 'all',
+      district: 'all',
+      tag: 'all',
+      consent: 'all',
+    };
+    setQuery('');
+    setStatus('all');
+    setDistrict('all');
+    setTag('all');
+    setConsent('all');
+    applyFilters(cleared);
   };
 
   const handleSyncData = async () => {
@@ -678,149 +684,23 @@ export function CRMContactList({
     <div className="space-y-6">
       {/* Control / Filter Bar */}
       <div className="bg-surface-card p-6 rounded-2xl border border-border shadow-xs space-y-4">
-        <form
+        <CRMContactFilterForm
+          query={query}
+          status={status}
+          district={district}
+          tag={tag}
+          consent={consent}
+          tagOptions={tagOptions}
+          tagsMayBeIncomplete={tagsMayBeIncomplete}
+          isPending={isPending}
+          onQueryChange={setQuery}
+          onStatusChange={setStatus}
+          onDistrictChange={setDistrict}
+          onTagChange={setTag}
+          onConsentChange={setConsent}
           onSubmit={handleFilterSubmit}
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-3"
-        >
-          {/* Search Query */}
-          <div className="lg:col-span-2 relative">
-            <Search
-              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground"
-              size={16}
-            />
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search name, email, city, notes..."
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm bg-surface-muted/50"
-            />
-          </div>
-
-          {/* Status Filter */}
-          <div>
-            <select
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-              aria-label="Filter by engagement status"
-              className="w-full px-3 py-2.5 rounded-xl border border-border text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary bg-surface-muted/50"
-            >
-              <option value="all">All Engagement Statuses</option>
-              <option value="active_volunteer">Active Volunteers</option>
-              <option value="choir">Resistance Choir</option>
-              <option value="donor">Grassroots Donors</option>
-              <option value="organizer">Organizers</option>
-              <option value="supporter">Supporters</option>
-              <option value="inactive">Inactive</option>
-            </select>
-          </div>
-
-          {/* District Filter */}
-          <div>
-            <select
-              value={district}
-              onChange={(e) => setDistrict(e.target.value)}
-              // The Tag and Consent selects below already had these; Status and
-              // District did not, so a screen reader announced two bare combo
-              // boxes in a row with nothing to say what either filtered.
-              aria-label="Filter by district"
-              className="w-full px-3 py-2.5 rounded-xl border border-border text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary bg-surface-muted/50"
-            >
-              <option value="all">All Districts</option>
-              <option value="CA-06">CA-06 (Sacramento/Carmichael)</option>
-              <option value="CA-03">CA-03 (Fair Oaks/Sierra)</option>
-              <option value="CA-07">CA-07</option>
-              <option value="Other">Other Districts</option>
-            </select>
-          </div>
-
-          {/* Tag Filter */}
-          <div>
-            <select
-              value={tag}
-              onChange={(e) => setTag(e.target.value)}
-              aria-label="Filter by tag"
-              className="w-full px-3 py-2.5 rounded-xl border border-border text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary bg-surface-muted/50"
-            >
-              <option value="all">All Tags</option>
-              {tagOptions.map((t) => (
-                <option key={t} value={t}>
-                  #{t}
-                </option>
-              ))}
-              {tag !== 'all' && !tagOptions.includes(tag) && <option value={tag}>#{tag}</option>}
-            </select>
-            {/*
-   Sits under the select rather than in the empty state, because the empty state
-   only appears *after* the organiser has already concluded the tag does not
-   exist. "0 constituents" and "this tag is not in the list because the list is
-   partial" look identical otherwise, and the reader has no reason to doubt the
-   list.
-
-   Deliberately not an error colour. Nothing failed, and a chapter with a large
-   directory is an ordinary situation rather than a fault.
-*/}
-            {tagsMayBeIncomplete && (
-              <p className="mt-1.5 text-[11px] font-medium text-muted-foreground">
-                This directory is large enough that the tag list is partial. If a tag is missing,
-                search by name above — a tag with no entry here does not mean no constituent has it.
-              </p>
-            )}
-          </div>
-
-          {/* Consent Filter */}
-          <div>
-            <select
-              value={consent}
-              onChange={(e) => setConsent(e.target.value as ConsentFilter)}
-              aria-label="Filter by email consent"
-              className="w-full px-3 py-2.5 rounded-xl border border-border text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary bg-surface-muted/50"
-            >
-              <option value="all">All Consent States</option>
-              <option value="opted_out">Opted Out of Email</option>
-              <option value="opted_in">Agreed to Email</option>
-              {/*
-                The third state is reachable and filterable since the column became
-                nullable. It was not before, which meant an organiser asking "who
-                have we never actually asked?" had no way to find out — the only
-                question the directory could answer was who had said no.
-              */}
-              <option value="unasked">Never Asked</option>
-            </select>
-          </div>
-
-          {/* Apply Button */}
-          <div className="flex gap-2">
-            <button
-              type="submit"
-              disabled={isPending}
-              className="flex-1 px-4 py-2.5 bg-primary text-white hover:bg-primary-light text-xs font-black uppercase tracking-wider rounded-xl transition-colors shadow-xs"
-            >
-              {isPending ? 'Filtering...' : 'Apply Filters'}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                const cleared: ContactFilters = {
-                  query: '',
-                  status: 'all',
-                  district: 'all',
-                  tag: 'all',
-                  consent: 'all',
-                };
-                setQuery('');
-                setStatus('all');
-                setDistrict('all');
-                setTag('all');
-                setConsent('all');
-                applyFilters(cleared);
-              }}
-              className="px-3 py-2.5 text-xs text-muted-foreground hover:text-foreground rounded-xl hover:bg-surface-muted transition-colors"
-            >
-              Reset
-            </button>
-          </div>
-        </form>
+          onReset={handleResetFilters}
+        />
 
         {/* Quick Segment Filter Pills + saved segments */}
         <div className="flex items-center gap-1.5 flex-wrap pt-2">
@@ -1038,58 +918,15 @@ export function CRMContactList({
           disagreed about what zero meant. The count belongs to the bottom of the
           table, beside the thing it describes.
         */}
-        <div className="flex flex-wrap items-center justify-end gap-3 pt-4 border-t border-border text-xs">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleExportCSV}
-              disabled={exporting || !totalCount}
-              title="Export ALL filtered constituents to CSV (not just this page)"
-              className="inline-flex items-center gap-1.5 px-3 py-2 bg-surface-muted hover:bg-surface-muted text-foreground rounded-xl font-bold transition-colors disabled:opacity-50"
-            >
-              <Download size={13} />
-              {exporting ? 'Exporting…' : 'Export CSV'}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setIsImportOpen(true)}
-              title="Import constituents from CSV (existing emails are skipped)"
-              className="inline-flex items-center gap-1.5 px-3 py-2 bg-surface-muted hover:bg-surface-muted text-foreground rounded-xl font-bold transition-colors"
-            >
-              <Upload size={13} />
-              Import CSV
-            </button>
-
-            <button
-              type="button"
-              onClick={handleSyncData}
-              disabled={syncing}
-              title="Sync historical contacts from contact_submissions & profiles"
-              className="inline-flex items-center gap-1.5 px-3 py-2 bg-surface-muted hover:bg-surface-muted text-foreground rounded-xl font-bold transition-colors disabled:opacity-50"
-            >
-              <RefreshCw size={13} className={syncing ? 'animate-spin' : ''} />
-              {syncing ? 'Syncing...' : 'Sync History'}
-            </button>
-
-            <Link
-              href="/admin/crm/broadcasts"
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded-xl font-bold transition-colors"
-            >
-              <Mail size={13} />
-              New Broadcast Blast
-            </Link>
-
-            <button
-              type="button"
-              onClick={() => setIsNewModalOpen(true)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white hover:bg-primary-light rounded-xl font-bold transition-colors shadow-xs"
-            >
-              <Plus size={14} />
-              Add Constituent
-            </button>
-          </div>
-        </div>
+        <CRMContactActionBar
+          exporting={exporting}
+          syncing={syncing}
+          totalCount={totalCount}
+          onExport={() => void handleExportCSV()}
+          onImport={() => setIsImportOpen(true)}
+          onSync={() => void handleSyncData()}
+          onAdd={() => setIsNewModalOpen(true)}
+        />
       </div>
 
       <CRMContactTable

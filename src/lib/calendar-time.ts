@@ -154,3 +154,23 @@ export const PACIFIC_VTIMEZONE_LINES: readonly string[] = [
   'END:STANDARD',
   'END:VTIMEZONE',
 ];
+
+/**
+ * Format a stored UTC instant in the chapter's Pacific clock.
+ * Returns null for an absent or unparseable value so callers can supply the
+ * editor-specific fallback text.
+ */
+export function formatPacificDateTime(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: PACIFIC_TZ,
+    timeZoneName: 'short',
+  }).format(date);
+}
