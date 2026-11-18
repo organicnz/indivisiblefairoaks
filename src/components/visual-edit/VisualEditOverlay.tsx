@@ -1,35 +1,18 @@
 'use client';
 
-import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import {
-  Activity,
   ArrowDown,
   ArrowUp,
-  ClipboardCopy,
-  ClipboardPaste,
   Copy,
-  Download,
-  EyeOff,
   FileEdit,
-  FolderOpen,
-  Globe,
   GripVertical,
   History,
-  Image as ImageIcon,
-  Keyboard,
-  Layers,
   LayoutTemplate,
-  Loader2,
-  PenLine,
   Plus,
-  RefreshCw,
   SlidersHorizontal,
-  Sparkles,
   Trash2,
   Upload,
-  X,
 } from 'lucide-react';
-import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   type KeyboardEvent as ReactKeyboardEvent,
@@ -50,13 +33,6 @@ import {
   registerVisualEditExitGuard,
   useVisualEditMode,
 } from '@/components/layout/visual-edit-store';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/Dialog';
 import { RovingToolbar } from '@/components/visual-edit/RovingToolbar';
 import {
   type ContentRevision,
@@ -160,10 +136,23 @@ import { useBlockDrag } from './useBlockDrag';
 import { type CopyRegionSaveResult, useBlockWriter } from './useBlockWriter';
 import { useComposerPagePreview } from './useComposerPagePreview';
 import { useBeforeUnloadWarning } from './useBeforeUnloadWarning';
+import {
+  DeleteSectionsDialog,
+  RegionSwitchDialog,
+  ReorderSectionDialog,
+  RouteLeaveDialog,
+} from './EditorConfirmationDialogs';
+import { AltTextDialog } from './AltTextDialog';
+import { BatchSelectionBar } from './BatchSelectionBar';
+import { KeyboardShortcutsDialog } from './KeyboardShortcutsDialog';
+import { LinkInsertDialog, type LinkModalState } from './LinkInsertDialog';
+import { PageSettingsDialog } from './PageSettingsDialog';
+import { SectionOverlayLayer } from './SectionOverlayLayer';
+import { RevisionsHistoryDialog } from './RevisionsHistoryDialog';
+import { SystemDiagnosticsDialog } from './SystemDiagnosticsDialog';
 import { ViewportDeviceBar } from './ViewportDeviceBar';
 import {
   compileClassNames,
-  DEFAULT_VC_STYLES,
   getStylesClipboard,
   readComposerStylesFromBlock,
   setStylesClipboard,
@@ -324,12 +313,6 @@ export interface InlineEditSession {
   left: number;
 }
 
-type LinkModalState = {
-  textareaId: string | null;
-  url: string;
-  text: string;
-  editAnchor?: HTMLAnchorElement | null;
-};
 
 export interface ImageEditSession {
   element: HTMLImageElement;
@@ -6089,6 +6072,62 @@ export function VisualEditOverlay() {
           ? 'Close the composer before restoring the unsaved copy.'
           : null);
 
+  function handleConfirmLink() {
+    if (!linkModal) return;
+    const url = normalizeLinkTarget(linkModal.url);
+    if (!url) {
+      toast.error('Use an http(s), mailto:, tel:, or relative link.');
+      return;
+    }
+    if (linkModal.editAnchor) {
+      const anchor = linkModal.editAnchor;
+      const session = inlineSessionRef.current;
+      const sessionElement = linkAnchorElementRef.current;
+      if (
+        !anchor.isConnected ||
+        !session ||
+        session.element !== sessionElement ||
+        !sessionElement?.isConnected ||
+        !sessionElement.contains(anchor)
+      ) {
+        focusInlineEditorOrFallback();
+        closeLinkModal(false);
+        toast.error(
+          'This link is no longer editable. Select it again to change its destination.'
+        );
+        return;
+      }
+      /*
+       * Update only the DOM. `session.href` deliberately keeps the
+       * ORIGINAL href: commitInlineEdit detects the change by
+       * comparing the anchor's current href against it, so
+       * overwriting it here would make the edit invisible.
+       */
+      anchor.href = url;
+      void commitInlineEdit(session);
+    } else if (linkModal.textareaId) {
+      if (!insertLink(linkModal.textareaId, url, linkModal.text)) {
+        toast.error('The editor field is no longer on the page.');
+        return;
+      }
+    } else {
+      if (!linkRangeRef.current) {
+        toast.error('Place the cursor in the page before inserting a link.');
+        return;
+      }
+      if (!restoreCapturedLinkRange()) {
+        focusInlineEditorOrFallback();
+        closeLinkModal(false);
+        toast.error(
+          'The selected text is no longer editable. Select it again to add a link.'
+        );
+        return;
+      }
+      document.execCommand('createLink', false, url);
+    }
+    closeLinkModal(false);
+  }
+
   return (
     <>
       {/*
@@ -6141,495 +6180,71 @@ export function VisualEditOverlay() {
 
       {/* ── In-Page Visual Section Overlays ────────────────────────────── */}
       {showSectionBadges && sectionOverlays.length > 0 && sectionActionsAvailable && (
-        <div aria-hidden="false" className="fixed inset-0 pointer-events-none z-40 overflow-hidden">
-          {sectionOverlays.map((item) => (
-            <div
-              key={item.domIndex}
-              style={{
-                position: 'fixed',
-                top: `${item.top}px`,
-                left: `${item.left}px`,
-                width: `${item.width}px`,
-                height: `${item.height}px`,
-              }}
-              className="pointer-events-none"
-            >
-              {/*
-                Highlight boundary. It stays pointer-events-none: this layer sits
-                over the live page, and making it clickable would swallow every
-                click meant for the content underneath — including the inline
-                editing this overlay exists to provide. Selection happens on the
-                pill chip, which is the one pointer-events-auto surface here.
-              */}
-              <div
-                className={`w-full h-full rounded-2xl transition-[border-color,background-color,box-shadow] duration-300 ${
-                  selectedBlockIndexes.has(item.blockIndex)
-                    ? 'border-2 border-accent-gold ring-4 ring-accent-gold/30 bg-accent-gold/10 shadow-[0_0_40px_rgba(245,158,11,0.35)]'
-                    : activeBlockIndex === item.blockIndex
-                      ? 'border-2 border-accent-gold ring-4 ring-accent-gold/20 bg-accent-gold/5 shadow-[0_0_30px_rgba(245,158,11,0.25)]'
-                      : showAllSectionBorders
-                        ? 'border border-dashed border-accent-gold/40 bg-accent-gold/[0.02]'
-                        : 'border border-transparent'
-                }`}
-              />
-
-              {/*
-                Insert after this block. The gap between two blocks is where an
-                operator wants a new one, and it used to be reachable only
-                through the context menu or the structure drawer. It appears on
-                the block being worked on rather than on every frame, so a page
-                of forty blocks does not grow forty floating buttons.
-              */}
-              {activeBlockIndex === item.blockIndex ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    handleOpenBlockLibrary(item.blockIndex + 1);
-                  }}
-                  aria-label={`Add a block after ${item.label}`}
-                  title="Add a block after this one"
-                  className="pointer-events-auto absolute -bottom-3 left-1/2 z-10 flex size-6 -translate-x-1/2 items-center justify-center rounded-full border border-accent-gold/60 bg-secondary text-accent-gold shadow-float backdrop-blur-md transition-[transform,background-color,color] hover:scale-110 hover:bg-accent-gold hover:text-ink-strong focus-visible:ring-2 focus-visible:ring-accent-gold"
-                >
-                  <Plus size={13} />
-                </button>
-              ) : null}
-
-              {/* Floating Action Pill */}
-              <RovingToolbar
-                label={`Actions for ${item.label}`}
-                className="pointer-events-auto absolute -top-3.5 left-0 -translate-x-full -ml-1 max-sm:left-0 max-sm:translate-x-0 max-sm:-top-8 inline-flex items-center gap-1.5 rounded-full border border-accent-gold/50 bg-secondary/95 px-3 py-1 text-xs text-ink-on-dark shadow-float backdrop-blur-md transition-[transform,background-color,border-color] hover:scale-105"
-              >
-                {/*
-                  Drag to reorder. The handle is a button because a drag-only
-                  control is unusable from the keyboard: Arrow Up/Down on the
-                  same handle moves the block one place, which is also the
-                  fallback for a trackpad that cannot hold a drag.
-                */}
-                <button
-                  type="button"
-                  onPointerDown={(event) => beginBlockDrag(event, item.blockIndex)}
-                  onKeyDown={(event) => {
-                    if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
-                    event.preventDefault();
-                    event.stopPropagation();
-                    moveBlockToVisibleNeighbour(
-                      item.blockIndex,
-                      event.key === 'ArrowUp' ? 'up' : 'down'
-                    );
-                  }}
-                  disabled={isVisualComposerOpen}
-                  aria-label={`Reorder ${item.label}. Drag, or press Arrow Up or Arrow Down.`}
-                  title={
-                    isVisualComposerOpen
-                      ? 'Close the composer to move blocks'
-                      : 'Drag to reorder — or focus and press ↑ / ↓'
-                  }
-                  className="cursor-grab touch-manipulation rounded p-1 text-slate-300 transition-colors hover:bg-white/15 hover:text-accent-gold active:cursor-grabbing focus-visible:ring-1 focus-visible:ring-accent-gold disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
-                >
-                  <GripVertical size={13} />
-                </button>
-
-                <span className="h-3 w-px bg-white/20" aria-hidden="true" />
-
-                {/* Selection chip: click selects the block; Cmd/Ctrl/Shift+click toggles multi. */}
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (e.metaKey || e.ctrlKey || e.shiftKey) toggleBlockSelection(item.blockIndex);
-                    else selectBlockOnly(item.blockIndex);
-                  }}
-                  aria-pressed={selectedBlockIndexes.has(item.blockIndex)}
-                  aria-label={
-                    selectedBlockIndexes.has(item.blockIndex)
-                      ? `Deselect ${item.label}`
-                      : `Select ${item.label}. Hold Command or Control to add to a multi-selection.`
-                  }
-                  disabled={isVisualComposerOpen}
-                  title={
-                    isVisualComposerOpen
-                      ? 'Close the composer to change the block selection'
-                      : 'Select this block — ⌘/Ctrl-click to add more for batch styling'
-                  }
-                  className="flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-white transition-colors hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-white/10"
-                >
-                  <span
-                    className={`size-1.5 rounded-full ${
-                      selectedBlockIndexes.has(item.blockIndex)
-                        ? 'bg-accent-gold ring-2 ring-white'
-                        : 'bg-white/20'
-                    }`}
-                    aria-hidden="true"
-                  />
-                  <span className="font-black text-accent-gold uppercase tracking-wider">
-                    {item.blockType}
-                  </span>
-                  <span
-                    className={`max-w-[120px] sm:max-w-[180px] truncate font-semibold text-[11px] ${
-                      selectedBlockIndexes.has(item.blockIndex) ? 'text-white' : 'text-ink-on-dark'
-                    }`}
-                  >
-                    {item.label}
-                  </span>
-                  {selectedBlockIndexes.size > 1 && selectedBlockIndexes.has(item.blockIndex) && (
-                    <span className="ml-1 inline-flex min-w-4 shrink-0 items-center justify-center rounded-full border border-accent-gold bg-accent-gold/20 px-1 text-[9px] font-black leading-4 text-ink-strong">
-                      {selectedBlockIndexes.size}×
-                    </span>
-                  )}
-                </button>
-
-                <div className="ml-1.5 flex items-center gap-1 border-l border-white/20 pl-1.5">
-                  {/* Edit section */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setActiveBlockIndex(item.blockIndex);
-                      handleOpenEditSection(item.blockIndex);
-                    }}
-                    title="Edit section content"
-                    aria-label="Edit section content"
-                    className="rounded p-1 text-accent-gold hover:bg-white/15 hover:text-white transition-colors"
-                  >
-                    <PenLine size={13} />
-                  </button>
-
-                  {/* Quick media picker if image block */}
-                  {item.blockType === 'image' && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActiveBlockIndex(item.blockIndex);
-                        handleOpenEditSection(item.blockIndex);
-                        openMediaLibrary('section');
-                      }}
-                      title="Replace image from Supabase S3 storage"
-                      aria-label="Replace image from Supabase S3 storage"
-                      className="rounded p-1 text-sky-400 hover:bg-white/15 hover:text-sky-300 transition-colors"
-                    >
-                      <ImageIcon size={13} />
-                    </button>
-                  )}
-
-                  {/* Visual Composer: Element Design & Box Model Inspector */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      openVisualComposer('block', item.blockIndex);
-                    }}
-                    title="Visual Composer: Element Design &amp; Box Model Inspector (⌘E)"
-                    aria-label="Visual Composer Inspector"
-                    className="rounded p-1 text-accent-gold hover:bg-white/15 hover:text-white transition-colors"
-                  >
-                    <SlidersHorizontal size={13} />
-                  </button>
-
-                  {/* Visual Composer: Section / Row Customizer */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      openVisualComposer('section', item.blockIndex);
-                    }}
-                    title="Visual Composer: Row / Section Settings (Containers, Dividers &amp; Grid)"
-                    aria-label="Section Row Settings"
-                    className="rounded p-1 text-sky-400 hover:bg-white/15 hover:text-white transition-colors"
-                  >
-                    <LayoutTemplate size={13} />
-                  </button>
-
-                  {/* Visual Composer: 1-Click Copy Styles */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const blk = blocks[item.blockIndex];
-                      if (!blk) return;
-                      const blockStyles = readComposerStylesFromBlock(blk);
-                      setStylesClipboard(blockStyles);
-                      setHasCopiedStyles(true);
-                      toast.success(`Copied styles from ${item.label}`);
-                    }}
-                    title="Copy block styles to clipboard"
-                    aria-label="Copy block styles"
-                    className="rounded p-1 text-slate-300 hover:bg-white/15 hover:text-white transition-colors"
-                  >
-                    <ClipboardCopy size={13} />
-                  </button>
-
-                  {/* Visual Composer: 1-Click Paste Styles (if clipboard has styles) */}
-                  {hasCopiedStyles && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const cb = getStylesClipboard();
-                        const blk = blocks[item.blockIndex];
-                        if (!cb || !blk) return;
-                        const compiled = compileClassNames('block', cb);
-                        const saved = handleSaveVcBlock(
-                          blk,
-                          compiled,
-                          cb.anchorId || undefined,
-                          cb.customStyle || undefined
-                        );
-                        if (saved) toast.success(`Pasted styles onto ${item.label}`);
-                      }}
-                      title="Paste styles from clipboard"
-                      aria-label="Paste styles"
-                      className="rounded p-1 text-emerald-400 hover:bg-white/15 hover:text-white transition-colors"
-                    >
-                      <ClipboardPaste size={13} />
-                    </button>
-                  )}
-
-                  {/* Duplicate section */}
-                  <button
-                    type="button"
-                    onClick={() => handleDuplicateSection(item.blockIndex)}
-                    title="Duplicate section"
-                    aria-label="Duplicate section"
-                    className="rounded p-1 text-slate-300 hover:bg-white/15 hover:text-white transition-colors"
-                  >
-                    <Copy size={13} />
-                  </button>
-
-                  {/* Drag section handle */}
-                  <button
-                    type="button"
-                    onPointerDown={(event) => beginBlockDrag(event, item.blockIndex)}
-                    disabled={isVisualComposerOpen}
-                    title="Drag section to reorder"
-                    aria-label={`Drag section ${item.label} to reorder`}
-                    className="rounded p-1 text-slate-400 hover:bg-white/15 hover:text-white transition-colors cursor-grab touch-none disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    <GripVertical size={13} />
-                  </button>
-
-                  {/* Move Up */}
-                  {canMoveSection(sections, item.blockIndex, 'up') && (
-                    <button
-                      type="button"
-                      onClick={() => handleMoveSection(item.blockIndex, 'up')}
-                      title="Move section up"
-                      aria-label="Move section up"
-                      className="rounded p-1 text-slate-300 hover:bg-white/15 hover:text-white transition-colors"
-                    >
-                      <ArrowUp size={13} />
-                    </button>
-                  )}
-
-                  {/* Move Down */}
-                  {canMoveSection(sections, item.blockIndex, 'down') && (
-                    <button
-                      type="button"
-                      onClick={() => handleMoveSection(item.blockIndex, 'down')}
-                      title="Move section down"
-                      aria-label="Move section down"
-                      className="rounded p-1 text-slate-300 hover:bg-white/15 hover:text-white transition-colors"
-                    >
-                      <ArrowDown size={13} />
-                    </button>
-                  )}
-
-                  {/* Quick heading level toggles if heading */}
-                  {item.blockType === 'heading' && (
-                    <div className="flex items-center gap-0.5 border-l border-white/20 pl-1">
-                      {([2, 3, 4] as const).map((lvl) => {
-                        const activeBlock = blocks[item.blockIndex];
-                        const isCurrentLevel =
-                          activeBlock?.type === 'heading' && activeBlock.level === lvl;
-                        return (
-                          <button
-                            key={lvl}
-                            type="button"
-                            onClick={() =>
-                              handleConvertSection(item.blockIndex, 'heading', {
-                                headingLevel: lvl,
-                              })
-                            }
-                            title={`Set heading to H${lvl}`}
-                            aria-label={`Set heading level ${lvl}`}
-                            className={`px-1 py-0.5 rounded text-[10px] font-black transition-colors ${
-                              isCurrentLevel
-                                ? 'bg-accent-gold text-ink-strong font-black shadow-2xs'
-                                : 'text-slate-300 hover:text-white hover:bg-white/15'
-                            }`}
-                          >
-                            H{lvl}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {/* Quick callout tone toggles if callout */}
-                  {item.blockType === 'callout' && (
-                    <div className="flex items-center gap-0.5 border-l border-white/20 pl-1">
-                      {(['info', 'action', 'warning'] as const).map((tone) => {
-                        const activeBlock = blocks[item.blockIndex];
-                        const isCurrentTone =
-                          activeBlock?.type === 'callout' && activeBlock.tone === tone;
-                        return (
-                          <button
-                            key={tone}
-                            type="button"
-                            onClick={() =>
-                              handleConvertSection(item.blockIndex, 'callout', {
-                                calloutTone: tone,
-                              })
-                            }
-                            title={`Set tone to ${tone}`}
-                            aria-label={`Set callout tone ${tone}`}
-                            className={`px-1 py-0.5 rounded text-[9px] font-bold uppercase transition-colors ${
-                              isCurrentTone
-                                ? 'bg-accent-gold text-ink-strong font-black shadow-2xs'
-                                : 'text-slate-300 hover:text-white hover:bg-white/15'
-                            }`}
-                          >
-                            {tone}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {/* Convert section block type. A row's layout is its content,
-                      so turning it into a leaf would have to discard it; the
-                      composer edits its columns instead. */}
-                  {item.blockType !== 'row' && (
-                    <DropdownMenu.Root>
-                      <DropdownMenu.Trigger asChild>
-                        <button
-                          type="button"
-                          title="Convert section type"
-                          aria-label="Convert section type"
-                          className="rounded p-1 text-purple-400 hover:bg-white/15 hover:text-purple-300 transition-colors"
-                        >
-                          <Sparkles size={13} />
-                        </button>
-                      </DropdownMenu.Trigger>
-                      <DropdownMenu.Portal>
-                        <DropdownMenu.Content
-                          side="bottom"
-                          align="start"
-                          sideOffset={6}
-                          aria-label="Convert section type"
-                          className="z-50 w-52 rounded-xl border border-white/15 bg-secondary p-1.5 shadow-float data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
-                        >
-                          <div className="px-2 py-1 text-[10px] font-black uppercase tracking-wider text-ink-muted-on-dark border-b border-white/10 mb-1">
-                            Turn into
-                          </div>
-                          {CONVERT_BLOCK_OPTIONS.map((option) => (
-                            <DropdownMenu.Item
-                              key={`${option.type}-${option.headingLevel ?? option.calloutTone ?? 'default'}`}
-                              onSelect={() =>
-                                handleConvertSection(item.blockIndex, option.type, {
-                                  headingLevel: option.headingLevel,
-                                  calloutTone: option.calloutTone,
-                                })
-                              }
-                              className="flex w-full cursor-pointer items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-none"
-                            >
-                              <span>{option.label}</span>
-                              {item.blockType === option.type && (
-                                <span className="text-[10px] text-accent-gold uppercase font-mono">
-                                  Current
-                                </span>
-                              )}
-                            </DropdownMenu.Item>
-                          ))}
-                        </DropdownMenu.Content>
-                      </DropdownMenu.Portal>
-                    </DropdownMenu.Root>
-                  )}
-
-                  {/* Turn off visual frame for this section */}
-                  <button
-                    type="button"
-                    onClick={() => toggleSectionFrame(item.blockIndex)}
-                    title="Hide visual frame for this section"
-                    aria-label="Hide visual frame for this section"
-                    className="rounded p-1 text-slate-400 hover:bg-white/15 hover:text-white transition-colors"
-                  >
-                    <EyeOff size={13} />
-                  </button>
-
-                  {/*
-                    Delete asks first. It used to fire on a single click straight
-                    into `saveContent` — the one operation in this component with
-                    no way back from another tab.
-                  */}
-                  <ConfirmAction
-                    label="Delete section"
-                    message={`Delete "${item.label}"? Undo brings it back in this session, and nothing is written until you save.`}
-                    confirmLabel="Delete"
-                    danger
-                    busy={savingBackend}
-                    idleClassName="rounded p-1 text-rose-400 hover:bg-white/15 hover:text-rose-300 transition-colors"
-                    onConfirm={() => handleDeleteSection(item.blockIndex)}
-                  >
-                    <Trash2 size={13} />
-                  </ConfirmAction>
-                </div>
-              </RovingToolbar>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/*
-        ── Batch selection bar ───────────────────────────────────────────────
-        Multi-select is only discoverable once you know about ⌘-click. This bar
-        appears the moment a second block is selected, names the count, and
-        gives the two actions that matter: style them together, or clear.
-      */}
-      {selectedBlockIndexes.size > 1 && !isVisualComposerOpen && sectionActionsAvailable ? (
-        <div
-          role="status"
-          aria-live="polite"
-          className="pointer-events-auto fixed bottom-6 left-1/2 z-[80] flex -translate-x-1/2 items-center gap-2 rounded-full border border-accent-gold/50 bg-secondary/95 px-3 py-2 text-white shadow-float backdrop-blur-md"
-        >
-          <span className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-accent-gold">
-            <Layers size={13} />
-            {selectedBlockIndexes.size} blocks selected
-          </span>
-          <span className="h-4 w-px bg-white/20" aria-hidden="true" />
-          {/**
-           * Block mode, not section mode: the tabs that hold the design
-           * controls (Presets, Box Model, Type) only render in block mode, so
-           * opening the batch in section mode would hide every control the
-           * batch exists for.
-           */}
-          <button
-            type="button"
-            onClick={() => openVisualComposer('block', Array.from(selectedBlockIndexes)[0] ?? 0)}
-            className="inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-accent-gold px-3 py-1 text-[11px] font-black text-ink-strong transition-colors hover:bg-accent-gold/90"
-          >
-            <Sparkles size={12} />
-            <span>Style together</span>
-          </button>
-          <ConfirmAction
-            label="Delete selected blocks"
-            message={`Delete ${selectedBlockIndexes.size} blocks?`}
-            confirmLabel="Delete All"
-            cancelLabel="Cancel"
-            danger
-            busy={savingBackend}
-            idleClassName="inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-rose-500/20 border border-rose-500/40 px-3 py-1 text-[11px] font-black text-rose-200 transition-colors hover:bg-rose-500 hover:text-white"
-            onConfirm={() => handleDeleteSections(Array.from(selectedBlockIndexes))}
-          >
-            <Trash2 size={12} />
-            <span>Delete selected</span>
-          </ConfirmAction>
-          <button
-            type="button"
-            onClick={clearSelection}
-            aria-label="Clear block selection"
-            className="rounded-full p-1.5 text-slate-300 transition-colors hover:bg-white/10 hover:text-white cursor-pointer"
-          >
-            <X size={13} />
-          </button>
-        </div>
-      ) : null}
-
-      {/* ── Inline Slash Commands Floating Palette ──────────────────────── */}
+        <SectionOverlayLayer
+          items={sectionOverlays}
+          blocks={blocks}
+          sections={sections}
+          selectedBlockIndexes={selectedBlockIndexes}
+          activeBlockIndex={activeBlockIndex}
+          showAllSectionBorders={showAllSectionBorders}
+          isVisualComposerOpen={isVisualComposerOpen}
+          hasCopiedStyles={hasCopiedStyles}
+          savingBackend={savingBackend}
+          onAddAfter={(blockIndex) => handleOpenBlockLibrary(blockIndex + 1)}
+          onBeginDrag={beginBlockDrag}
+          onMoveVisible={moveBlockToVisibleNeighbour}
+          onSelect={(blockIndex, additive) => {
+            if (additive) toggleBlockSelection(blockIndex);
+            else selectBlockOnly(blockIndex);
+          }}
+          onEdit={(blockIndex) => {
+            setActiveBlockIndex(blockIndex);
+            handleOpenEditSection(blockIndex);
+          }}
+          onReplaceImage={(blockIndex) => {
+            setActiveBlockIndex(blockIndex);
+            handleOpenEditSection(blockIndex);
+            openMediaLibrary('section');
+          }}
+          onOpenComposer={openVisualComposer}
+          onCopyStyles={(blockIndex, label) => {
+            const block = blocks[blockIndex];
+            if (!block) return;
+            const blockStyles = readComposerStylesFromBlock(block);
+            setStylesClipboard(blockStyles);
+            setHasCopiedStyles(true);
+            toast.success(`Copied styles from ${label}`);
+          }}
+          onPasteStyles={(blockIndex, label) => {
+            const clipboard = getStylesClipboard();
+            const block = blocks[blockIndex];
+            if (!clipboard || !block) return;
+            const compiled = compileClassNames('block', clipboard);
+            const saved = handleSaveVcBlock(
+              block,
+              compiled,
+              clipboard.anchorId || undefined,
+              clipboard.customStyle || undefined
+            );
+            if (saved) toast.success(`Pasted styles onto ${label}`);
+          }}
+          onDuplicate={handleDuplicateSection}
+          onMove={handleMoveSection}
+          onConvert={handleConvertSection}
+          onToggleFrame={toggleSectionFrame}
+          onDelete={handleDeleteSection}
+        />
+      )}      {selectedBlockIndexes.size > 1 && !isVisualComposerOpen && sectionActionsAvailable ? (
+        <BatchSelectionBar
+          count={selectedBlockIndexes.size}
+          saving={savingBackend}
+          onStyleTogether={() =>
+            openVisualComposer('block', Array.from(selectedBlockIndexes)[0] ?? 0)
+          }
+          onDeleteSelected={() => handleDeleteSections(Array.from(selectedBlockIndexes))}
+          onClear={clearSelection}
+        />
+      ) : null}      {/* ── Inline Slash Commands Floating Palette ──────────────────────── */}
       {inlineSession && (
         <SlashCommandMenu
           open={isSlashMenuOpen}
@@ -6815,295 +6430,49 @@ export function VisualEditOverlay() {
         composerProps={composerProps}
       />
 
-      {/* ── Page Settings Modal (Title, Slug, Featured Image) ─────────── */}
-      {isSettingsOpen && (
-        <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
-          <DialogContent className="max-w-lg bg-surface-card text-foreground p-6 rounded-3xl">
-            <DialogHeader>
-              <DialogTitle>Page Settings &amp; Metadata</DialogTitle>
-              <DialogDescription className="text-xs text-muted-foreground">
-                Update document metadata and the featured hero image stored in Supabase S3 storage.
-              </DialogDescription>
-            </DialogHeader>
-
-            <form onSubmit={handleSavePageSettings} className="space-y-4 my-2">
-              <div>
-                <label htmlFor={titleId} className="block text-xs font-bold text-foreground mb-1">
-                  Page Title
-                </label>
-                <input
-                  id={titleId}
-                  type="text"
-                  value={pageTitle}
-                  onChange={(e) => setPageTitle(e.target.value)}
-                  required
-                  className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:ring-2 focus:ring-primary"
-                />
-              </div>
-
-              <div>
-                <label htmlFor={slugId} className="block text-xs font-bold text-foreground mb-1">
-                  URL Slug
-                </label>
-                {activeRegion ? (
-                  <>
-                    <input
-                      id={slugId}
-                      type="text"
-                      value={copyRegionSlug(activeRegion.id)}
-                      readOnly
-                      disabled
-                      className="w-full rounded-lg border border-border bg-surface-muted px-3 py-2 text-sm text-muted-foreground"
-                    />
-                    {/*
-                      Read-only, and saying why. The slug is the registry's
-                      identity for this region — `CopyRegion` renders
-                      `copy-home-hero`, and renaming it here would leave the page
-                      rendering a row nobody reads while the page's copy stays
-                      frozen. That is the shadowed-CMS failure in a new costume.
-                    */}
-                    <p className="mt-1 text-[11px] text-muted-foreground">
-                      This is the <strong>{activeRegion.label}</strong> copy region on{' '}
-                      <code className="font-mono">{pathname}</code>. Its slug is managed by the
-                      region, so it cannot be renamed here.
-                    </p>
-                  </>
-                ) : (
-                  <input
-                    id={slugId}
-                    type="text"
-                    value={pageSlug}
-                    onChange={(e) => setPageSlug(e.target.value)}
-                    required
-                    className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:ring-2 focus:ring-primary"
-                  />
-                )}
-              </div>
-
-              <div>
-                <label
-                  htmlFor={featuredImageId}
-                  className="block text-xs font-bold text-foreground mb-1"
-                >
-                  Featured Hero Image
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    id={featuredImageId}
-                    type="url"
-                    value={pageFeaturedImage}
-                    onChange={(e) => setPageFeaturedImage(e.target.value)}
-                    placeholder="https://...supabase.co/storage/v1/object/public/media/..."
-                    className="flex-1 rounded-lg border border-border px-3 py-2 text-sm focus:ring-2 focus:ring-primary"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => openMediaLibrary('featured')}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-muted px-3 py-2 text-xs font-bold text-foreground hover:bg-border shrink-0"
-                  >
-                    <FolderOpen size={14} className="text-primary" />
-                    <span>S3 Storage</span>
-                  </button>
-                </div>
-              </div>
-
-              {pageFeaturedImage && (
-                <div className="relative aspect-video w-full max-h-36 rounded-xl bg-surface-muted overflow-hidden border border-border">
-                  <Image
-                    src={pageFeaturedImage}
-                    alt="Hero preview"
-                    unoptimized
-                    fill
-                    className="object-cover"
-                  />
-                </div>
-              )}
-
-              {/* Live SERP & Social Sharing Preview */}
-              <div className="rounded-2xl border border-border bg-surface-muted/50 p-3 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                    <Globe size={13} className="text-primary" />
-                    <span>Search &amp; Social Preview</span>
-                  </span>
-                  <div className="flex items-center rounded-lg border border-border bg-background p-0.5 text-[11px] font-semibold">
-                    <button
-                      type="button"
-                      onClick={() => setPreviewTab('serp')}
-                      className={`px-2 py-0.5 rounded-md transition-colors ${
-                        previewTab === 'serp'
-                          ? 'bg-primary text-white shadow-2xs'
-                          : 'text-muted-foreground hover:text-foreground'
-                      }`}
-                      aria-label="Preview Google search snippet"
-                    >
-                      Google SERP
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPreviewTab('social')}
-                      className={`px-2 py-0.5 rounded-md transition-colors ${
-                        previewTab === 'social'
-                          ? 'bg-primary text-white shadow-2xs'
-                          : 'text-muted-foreground hover:text-foreground'
-                      }`}
-                      aria-label="Preview social share card"
-                    >
-                      Social Card
-                    </button>
-                  </div>
-                </div>
-
-                {previewTab === 'serp' ? (
-                  /* Google SERP Snippet Preview */
-                  <div className="rounded-xl border border-border/80 bg-background p-3 space-y-1 text-left select-none">
-                    <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                      <span className="size-3.5 rounded-full bg-primary/20 flex items-center justify-center text-[9px] font-black text-primary">
-                        I
-                      </span>
-                      <span className="truncate">indivisiblefairoaks.org</span>
-                      <span className="text-muted-foreground/60">&rsaquo;</span>
-                      <span className="truncate font-mono text-[10px]">
-                        {activeRegion ? pathname.replace(/^\//, '') : pageSlug || 'page'}
-                      </span>
-                    </div>
-                    <div className="text-sm font-semibold text-blue-500 hover:underline truncate cursor-pointer">
-                      {pageTitle.trim() || 'Untitled Page'} | Indivisible Fair Oaks
-                    </div>
-                    <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
-                      Official Indivisible Fair Oaks &amp; Carmichael grassroots action, civic
-                      events, and community advocacy in Sacramento County.
-                    </p>
-                  </div>
-                ) : (
-                  /* Social Card Preview */
-                  <div className="rounded-xl border border-border/80 bg-background overflow-hidden text-left select-none shadow-xs">
-                    {pageFeaturedImage ? (
-                      <div className="relative aspect-[1.91/1] w-full max-h-32 bg-surface-muted overflow-hidden">
-                        <Image
-                          src={pageFeaturedImage}
-                          alt="Social share preview"
-                          unoptimized
-                          fill
-                          className="object-cover"
-                        />
-                      </div>
-                    ) : (
-                      <div className="aspect-[1.91/1] w-full max-h-24 bg-gradient-to-br from-primary/20 via-background to-accent-gold/10 flex items-center justify-center p-3 text-center">
-                        <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                          Indivisible Fair Oaks &amp; Carmichael
-                        </span>
-                      </div>
-                    )}
-                    <div className="p-2.5 space-y-0.5 border-t border-border/60">
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                        indivisiblefairoaks.org
-                      </p>
-                      <p className="text-xs font-bold text-foreground truncate">
-                        {pageTitle.trim() || 'Untitled Page'}
-                      </p>
-                      <p className="text-[11px] text-muted-foreground line-clamp-1">
-                        Grassroots action, community advocacy, and voter empowerment.
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <fieldset className="border-0 p-0 m-0">
-                <legend className="block text-xs font-bold text-foreground mb-1">
-                  Publication Status
-                </legend>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setPageStatus('publish')}
-                    className={`flex-1 py-2 rounded-xl text-xs font-bold transition-colors ${
-                      pageStatus === 'publish'
-                        ? 'bg-emerald-600 text-white shadow-xs'
-                        : 'bg-surface-muted text-foreground hover:bg-border border border-border'
-                    }`}
-                  >
-                    Published
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPageStatus('draft')}
-                    className={`flex-1 py-2 rounded-xl text-xs font-bold transition-colors ${
-                      pageStatus === 'draft'
-                        ? 'bg-amber-600 text-white shadow-xs'
-                        : 'bg-surface-muted text-foreground hover:bg-border border border-border'
-                    }`}
-                  >
-                    Draft
-                  </button>
-                </div>
-              </fieldset>
-
-              <div className="flex items-center justify-between border-t border-border pt-4">
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={handleExportPageJson}
-                    disabled={Boolean(documentReadRefusal())}
-                    title={
-                      documentReadRefusal() ??
-                      'Export page document and blocks as JSON'
-                    }
-                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-border text-foreground hover:bg-surface-muted text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
-                  >
-                    <Download size={14} className="text-muted-foreground" />
-                    <span>Export JSON</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleImportPageJson}
-                    disabled={
-                      Boolean(unsaveableReason) ||
-                      isVisualComposerOpen ||
-                      Boolean(inlineSession) ||
-                      Boolean(imageSession)
-                    }
-                    title={
-                      inlineSession
-                        ? 'Save or cancel the inline text edit before importing a page snapshot'
-                        : imageSession
-                          ? 'Save or cancel the image edit before importing a page snapshot'
-                          : isVisualComposerOpen
-                            ? 'Close the composer before importing a page snapshot'
-                            : unsaveableReason ?? 'Import page snapshot JSON file'
-                    }
-                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-border text-foreground hover:bg-surface-muted text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
-                  >
-                    <Upload size={14} className="text-muted-foreground" />
-                    <span>Import JSON</span>
-                  </button>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsSettingsOpen(false)}
-                    className="rounded-xl px-4 py-2 text-xs font-bold text-muted-foreground hover:bg-border"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={savingBackend || Boolean(unsaveableReason)}
-                    title={
-                      unsaveableReason ?? 'Save page settings to Supabase'
-                    }
-                    className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2 text-xs font-bold text-white shadow-raised hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-primary"
-                  >
-                    {savingBackend && <Loader2 size={13} className="animate-spin" />}
-                    <span>Save Page Settings</span>
-                  </button>
-                </div>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
-      )}
+      <PageSettingsDialog
+        open={isSettingsOpen}
+        onOpenChange={setIsSettingsOpen}
+        titleId={titleId}
+        slugId={slugId}
+        featuredImageId={featuredImageId}
+        title={pageTitle}
+        slug={pageSlug}
+        featuredImage={pageFeaturedImage}
+        status={pageStatus}
+        onTitleChange={setPageTitle}
+        onSlugChange={setPageSlug}
+        onFeaturedImageChange={setPageFeaturedImage}
+        onStatusChange={setPageStatus}
+        activeRegion={activeRegion}
+        pathname={pathname}
+        previewTab={previewTab}
+        onPreviewTabChange={setPreviewTab}
+        onOpenMedia={() => openMediaLibrary('featured')}
+        onSave={handleSavePageSettings}
+        onExport={handleExportPageJson}
+        onImport={handleImportPageJson}
+        exportDisabled={Boolean(documentReadRefusal())}
+        exportTitle={documentReadRefusal() ?? 'Export page document and blocks as JSON'}
+        importDisabled={
+          Boolean(unsaveableReason) ||
+          isVisualComposerOpen ||
+          Boolean(inlineSession) ||
+          Boolean(imageSession)
+        }
+        importTitle={
+          inlineSession
+            ? 'Save or cancel the inline text edit before importing a page snapshot'
+            : imageSession
+              ? 'Save or cancel the image edit before importing a page snapshot'
+              : isVisualComposerOpen
+                ? 'Close the composer before importing a page snapshot'
+                : unsaveableReason ?? 'Import page snapshot JSON file'
+        }
+        saveDisabled={savingBackend || Boolean(unsaveableReason)}
+        saveTitle={unsaveableReason ?? 'Save page settings to Supabase'}
+        savingBackend={savingBackend}
+      />
 
       {/* ── Supabase S3 Media Library Modal ────────────────────────────── */}
       {mediaModalOpen && (
@@ -7199,773 +6568,66 @@ export function VisualEditOverlay() {
         />
       )}
 
-      {/* ── Revisions History Modal ────────────────────────────────────── */}
-      {isRevisionsOpen && (
-        <Dialog
-          open={isRevisionsOpen}
-          onOpenChange={(open) => {
-            setIsRevisionsOpen(open);
-            if (!open) setRevisionsContentId(null);
-          }}
-        >
-          <DialogContent className="max-w-xl bg-surface-card text-foreground p-6 rounded-3xl">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <History size={20} className="text-accent-gold" />
-                <span>Page Revision History</span>
-              </DialogTitle>
-              <DialogDescription className="text-xs text-muted-foreground">
-                Restore any earlier snapshot saved to the Supabase backend.
-              </DialogDescription>
+      <RevisionsHistoryDialog
+        open={isRevisionsOpen}
+        onOpenChange={(open) => {
+          setIsRevisionsOpen(open);
+          if (!open) setRevisionsContentId(null);
+        }}
+        dirty={dirty}
+        revisionsLoading={revisionsLoading}
+        revisions={revisions}
+        restoreDisabled={
+          savingBackend ||
+          dirty ||
+          Boolean(unsaveableReason) ||
+          isVisualComposerOpen ||
+          Boolean(inlineSession) ||
+          Boolean(imageSession)
+        }
+        onRestore={handleRestoreRevision}
+      />
 
-              {dirty ? (
-                <p
-                  role="status"
-                  className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] font-medium leading-relaxed text-amber-700 dark:text-amber-300"
-                >
-                  Save or undo the current page changes before restoring a revision.
-                  Restoring replaces the saved row and discards unsaved work.
-                </p>
-              ) : null}
-            </DialogHeader>
+      <KeyboardShortcutsDialog
+        open={isShortcutsOpen}
+        onOpenChange={setIsShortcutsOpen}
+      />
 
-            <div className="space-y-3 my-3 max-h-[50vh] overflow-y-auto pr-1">
-              {revisionsLoading ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="animate-spin text-primary" size={24} />
-                </div>
-              ) : revisions.length > 0 ? (
-                revisions.map((rev) => (
-                  <div
-                    key={rev.id}
-                    className="flex items-center justify-between p-3 rounded-2xl border border-border hover:border-accent-gold/50 bg-surface-muted transition-colors gap-3"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-bold text-foreground truncate">
-                        {rev.title || 'Untitled Snapshot'}
-                      </p>
-                      <p className="text-[11px] text-muted-foreground">
-                        {new Date(rev.created_at).toLocaleString()} · {rev.type || 'page'} ·{' '}
-                        {rev.status || 'draft'}
-                      </p>
-                    </div>
-                    <ConfirmAction
-                      label="Restore"
-                      confirmLabel="Confirm Restore"
-                      message="This will restore the page content to this snapshot and record a new append-only revision entry in Supabase."
-                      onConfirm={() => handleRestoreRevision(rev.id)}
-                      disabled={
-                        savingBackend ||
-                        dirty ||
-                        Boolean(unsaveableReason) ||
-                        isVisualComposerOpen ||
-                        Boolean(inlineSession) ||
-                        Boolean(imageSession)
-                      }
-                      idleClassName="shrink-0 rounded-lg bg-primary/10 px-3 py-1.5 text-[11px] font-bold text-primary hover:bg-primary/20 transition-colors"
-                    >
-                      <span>Restore</span>
-                    </ConfirmAction>
-                  </div>
-                ))
-              ) : (
-                <p className="text-center py-6 text-xs text-muted-foreground">
-                  No previous revisions recorded yet for this page.
-                </p>
-              )}
-            </div>
-
-            <div className="flex justify-end pt-2 border-t border-border">
-              <button
-                type="button"
-                onClick={() => setIsRevisionsOpen(false)}
-                className="rounded-xl px-4 py-2 text-xs font-bold text-muted-foreground hover:bg-border"
-              >
-                Close
-              </button>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
-
-      {/* ── Keyboard Shortcuts Cheat Sheet ─────────────────────────────────── */}
-      {isShortcutsOpen && (
-        <Dialog open={isShortcutsOpen} onOpenChange={setIsShortcutsOpen}>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Keyboard size={18} className="text-accent-gold" />
-                <span>Visual Editor Shortcuts</span>
-              </DialogTitle>
-              <DialogDescription>
-                Power-user shortcuts to navigate, format, and manage page content rapidly.
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-4 my-3 text-xs">
-              <div>
-                <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-2">
-                  Navigation & Global
-                </h4>
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
-                    <span className="text-foreground">Command Palette & Spotlight Search</span>
-                    <kbd className="px-2 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
-                      ⌘ K
-                    </kbd>
-                  </div>
-                  <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
-                    <span className="text-foreground">Save Changes to Supabase</span>
-                    <kbd className="px-2 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
-                      ⌘ S
-                    </kbd>
-                  </div>
-                  <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
-                    <span className="text-foreground">Toggle Shortcuts Cheat Sheet</span>
-                    <kbd className="px-2 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
-                      ⌘ /
-                    </kbd>
-                  </div>
-                  <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
-                    <span className="text-foreground">Toggle Composer Inspector</span>
-                    <kbd className="px-2 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
-                      ⌘ E
-                    </kbd>
-                  </div>
-                  <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
-                    <span className="text-foreground">Next / Previous Section</span>
-                    <div className="flex gap-1">
-                      <kbd className="px-1.5 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
-                        J
-                      </kbd>
-                      <kbd className="px-1.5 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
-                        K
-                      </kbd>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
-                    <span className="text-foreground">Add Section to Batch Selection</span>
-                    <kbd className="px-1.5 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
-                      ⇧ J / K
-                    </kbd>
-                  </div>
-                  <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
-                    <span className="text-foreground">Select Blocks for Batch Styling</span>
-                    <kbd className="px-1.5 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
-                      ⌘ Click
-                    </kbd>
-                  </div>
-                  <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
-                    <span className="text-foreground">Edit Selected Section</span>
-                    <kbd className="px-2 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
-                      Enter
-                    </kbd>
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-2">
-                  Composer Inspector
-                </h4>
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
-                    <span className="text-foreground">Next / Previous Composer Tab</span>
-                    <kbd className="px-1.5 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
-                      ⌥ ← / →
-                    </kbd>
-                  </div>
-                  <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
-                    <span className="text-foreground">
-                      Next / Previous Block (panel stays open)
-                    </span>
-                    <kbd className="px-1.5 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
-                      ⌥ ↑ / ↓
-                    </kbd>
-                  </div>
-                  <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
-                    <span className="text-foreground">Apply Styles to the Page</span>
-                    <kbd className="px-2 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
-                      ⌘ ↵
-                    </kbd>
-                  </div>
-                  <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
-                    <span className="text-foreground">Undo / Redo a Style Change</span>
-                    <kbd className="px-1.5 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
-                      ⌘ Z / ⌘ ⇧ Z
-                    </kbd>
-                  </div>
-                  <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
-                    <span className="text-foreground">Close Composer (asks before discarding)</span>
-                    <kbd className="px-2 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
-                      Esc
-                    </kbd>
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-2">
-                  Section & History Actions
-                </h4>
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
-                    <span className="text-foreground">Duplicate Active Section</span>
-                    <kbd className="px-2 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
-                      ⌘ D
-                    </kbd>
-                  </div>
-                  <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
-                    <span className="text-foreground">Delete Active Section</span>
-                    <kbd className="px-2 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
-                      ⌘ ⌫
-                    </kbd>
-                  </div>
-                  <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
-                    <span className="text-foreground">Move Active Section Up / Down</span>
-                    <kbd className="px-1.5 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
-                      ⌘ ⇧ ↑ / ↓
-                    </kbd>
-                  </div>
-                  <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
-                    <span className="text-foreground">Reorder a Block by Dragging</span>
-                    <span className="text-[11px] font-mono text-muted-foreground">⠿ handle</span>
-                  </div>
-                  <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
-                    <span className="text-foreground">Add a Block After the Active One</span>
-                    <span className="text-[11px] font-mono text-muted-foreground">＋ on frame</span>
-                  </div>
-                  <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
-                    <span className="text-foreground">Undo / Redo Edit</span>
-                    <div className="flex gap-1">
-                      <kbd className="px-1.5 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
-                        ⌘ Z
-                      </kbd>
-                      <kbd className="px-1.5 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
-                        ⌘ ⇧ Z
-                      </kbd>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
-                    <span className="text-foreground">Copy / Paste Block JSON</span>
-                    <span className="text-[11px] font-mono text-muted-foreground">
-                      Section Modal
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
-                    <span className="text-foreground">Import / Export Page JSON</span>
-                    <span className="text-[11px] font-mono text-muted-foreground">
-                      Settings Modal
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-2">
-                  Pro Editing & Audit Tools
-                </h4>
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
-                    <span className="text-foreground">Page DataPoints Matrix Drawer</span>
-                    <kbd className="px-2 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
-                      ⌘ ⇧ D
-                    </kbd>
-                  </div>
-                  <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
-                    <span className="text-foreground">Visual Change Review & Diff</span>
-                    <kbd className="px-2 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
-                      ⌘ ⇧ V
-                    </kbd>
-                  </div>
-                  <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
-                    <span className="text-foreground">Civic A11y & SEO Health Auditor</span>
-                    <kbd className="px-2 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
-                      ⌘ ⇧ A
-                    </kbd>
-                  </div>
-                  <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
-                    <span className="text-foreground">Toggle Live Inspector HUD</span>
-                    <kbd className="px-2 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
-                      ⌘ I
-                    </kbd>
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-2">
-                  In-Editor Formatting
-                </h4>
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
-                    <span className="text-foreground">Bold Selection</span>
-                    <kbd className="px-2 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
-                      ⌘ B
-                    </kbd>
-                  </div>
-                  <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
-                    <span className="text-foreground">Italic Selection</span>
-                    <kbd className="px-2 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
-                      ⌘ I
-                    </kbd>
-                  </div>
-                  <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
-                    <span className="text-foreground">Underline Selection</span>
-                    <kbd className="px-2 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
-                      ⌘ U
-                    </kbd>
-                  </div>
-                  <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
-                    <span className="text-foreground">Insert Link</span>
-                    <kbd className="px-2 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
-                      ⌘ K
-                    </kbd>
-                  </div>
-                  <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
-                    <span className="text-foreground">Save In-Place Edit</span>
-                    <kbd className="px-2 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
-                      ⌘ ↵
-                    </kbd>
-                  </div>
-                  <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
-                    <span className="text-foreground">Cancel In-Place Edit</span>
-                    <kbd className="px-2 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
-                      Esc
-                    </kbd>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-end pt-2 border-t border-border">
-              <button
-                type="button"
-                onClick={() => setIsShortcutsOpen(false)}
-                className="rounded-xl px-4 py-2 text-xs font-bold text-muted-foreground hover:bg-border"
-              >
-                Got It
-              </button>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
-
-      {/* ── System Diagnostics Modal ────────────────────────────────────────── */}
-      {isDiagnosticsModalOpen && (
-        <Dialog open={isDiagnosticsModalOpen} onOpenChange={setIsDiagnosticsModalOpen}>
-          <DialogContent className="max-w-xl bg-surface-card text-foreground p-6 rounded-3xl">
-            <DialogHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <DialogTitle className="flex items-center gap-2">
-                    <Activity className="text-accent-gold" size={18} />
-                    System &amp; Edge Diagnostics
-                  </DialogTitle>
-                  <DialogDescription className="text-xs text-muted-foreground">
-                    Live health verification of Supabase PostgreSQL, S3 Media Storage, and Edge
-                    Functions.
-                  </DialogDescription>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => probeBackendHealth()}
-                  disabled={statusLoading}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary-light transition-colors disabled:opacity-50 shadow-xs"
-                >
-                  <RefreshCw size={12} className={statusLoading ? 'animate-spin' : ''} />
-                  <span>{statusLoading ? 'Probing…' : 'Probe Now'}</span>
-                </button>
-              </div>
-            </DialogHeader>
-
-            <div className="space-y-3 my-4">
-              {/* Database */}
-              <div className="flex items-center justify-between p-3 rounded-2xl bg-surface-muted border border-border">
-                <div className="flex items-center gap-2.5">
-                  <span
-                    className={`size-2.5 rounded-full ${
-                      backendStatus?.database ? 'bg-emerald-500' : 'bg-rose-500'
-                    }`}
-                  />
-                  <div>
-                    <p className="text-xs font-bold text-foreground">PostgreSQL Database</p>
-                    <p className="text-[11px] text-muted-foreground">
-                      RLS-secured tables (content, CRM, events, gallery)
-                    </p>
-                  </div>
-                </div>
-                <span
-                  className={`text-xs font-bold px-2 py-0.5 rounded-md ${
-                    backendStatus?.database
-                      ? 'bg-emerald-500/10 text-emerald-500'
-                      : 'bg-rose-500/10 text-rose-500'
-                  }`}
-                >
-                  {backendStatus?.database ? 'Connected' : 'Offline'}
-                </span>
-              </div>
-
-              {/* S3 Storage */}
-              <div className="flex items-center justify-between p-3 rounded-2xl bg-surface-muted border border-border">
-                <div className="flex items-center gap-2.5">
-                  <span
-                    className={`size-2.5 rounded-full ${
-                      backendStatus?.storage ? 'bg-emerald-500' : 'bg-rose-500'
-                    }`}
-                  />
-                  <div>
-                    <p className="text-xs font-bold text-foreground">Supabase S3 Storage</p>
-                    <p className="text-[11px] text-muted-foreground">
-                      Bucket &quot;media&quot; (crm, content, hero, gallery folders)
-                    </p>
-                  </div>
-                </div>
-                <span
-                  className={`text-xs font-bold px-2 py-0.5 rounded-md ${
-                    backendStatus?.storage
-                      ? 'bg-emerald-500/10 text-emerald-500'
-                      : 'bg-rose-500/10 text-rose-500'
-                  }`}
-                >
-                  {backendStatus?.storage ? 'Ready' : 'Error'}
-                </span>
-              </div>
-
-              {/* Edge Function */}
-              <div className="p-3 rounded-2xl bg-surface-muted border border-border space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <span
-                      className={`size-2.5 rounded-full ${
-                        backendStatus?.edgeFunction ? 'bg-emerald-500' : 'bg-amber-500'
-                      }`}
-                    />
-                    <div>
-                      <p className="text-xs font-bold text-foreground">Edge Functions API</p>
-                      <p className="text-[11px] font-mono text-muted-foreground truncate max-w-[280px]">
-                        {backendStatus?.edgeFunctionDetails?.endpoint || 'functions/v1/health'}
-                      </p>
-                    </div>
-                  </div>
-                  <span
-                    className={`text-xs font-bold px-2 py-0.5 rounded-md ${
-                      backendStatus?.edgeFunction
-                        ? 'bg-emerald-500/10 text-emerald-500'
-                        : 'bg-amber-500/10 text-amber-500'
-                    }`}
-                  >
-                    {backendStatus?.edgeFunction ? 'Healthy' : 'Degraded'}
-                  </span>
-                </div>
-                {backendStatus?.edgeFunctionDetails && (
-                  <div className="flex items-center justify-between pt-2 border-t border-border/50 text-[11px] text-muted-foreground">
-                    <span>
-                      Latency:{' '}
-                      <strong className="text-foreground">
-                        {backendStatus.edgeFunctionDetails.latencyMs ?? '—'}ms
-                      </strong>
-                    </span>
-                    <span>
-                      Checked:{' '}
-                      {backendStatus.edgeFunctionDetails.checkedAt
-                        ? new Date(backendStatus.edgeFunctionDetails.checkedAt).toLocaleTimeString()
-                        : 'Recently'}
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {/* Platform Overview */}
-              {backendSummary && (
-                <div className="p-3 rounded-2xl bg-surface-muted border border-border">
-                  <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-2">
-                    Platform Summary
-                  </h4>
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div className="p-2 rounded-xl bg-background border border-border">
-                      <span className="text-muted-foreground block text-[10px] font-semibold uppercase">
-                        Constituents
-                      </span>
-                      <span className="text-base font-black text-foreground">
-                        {backendSummary.crmTotal ?? '—'}
-                      </span>
-                      <span className="text-[10px] text-muted-foreground block mt-0.5">
-                        {backendSummary.segments ?? '—'} segments
-                        {backendSummary.segments !== null && backendSummary.segmentsTruncated
-                          ? '+'
-                          : ''}
-                      </span>
-                    </div>
-                    <div className="p-2 rounded-xl bg-background border border-border">
-                      <span className="text-muted-foreground block text-[10px] font-semibold uppercase">
-                        Civic content
-                      </span>
-                      <span className="text-base font-black text-foreground">
-                        {backendSummary.events ?? '—'}
-                      </span>
-                      <span className="text-[10px] text-muted-foreground block mt-0.5">
-                        {backendSummary.events ?? '—'} events · {backendSummary.gallery ?? '—'} photos
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="flex justify-end pt-2 border-t border-border">
-              <button
-                type="button"
-                onClick={() => setIsDiagnosticsModalOpen(false)}
-                className="rounded-xl px-4 py-2 text-xs font-bold text-muted-foreground hover:bg-border"
-              >
-                Close
-              </button>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
+      <SystemDiagnosticsDialog
+        open={isDiagnosticsModalOpen}
+        onOpenChange={setIsDiagnosticsModalOpen}
+        backendStatus={backendStatus}
+        backendSummary={backendSummary}
+        statusLoading={statusLoading}
+        onProbe={() => probeBackendHealth()}
+      />
 
       {/* ── Link Insert Dialog (replaces browser prompt) ────────────────── */}
       {linkModal && (
-        <Dialog
-          open
-          onOpenChange={(open) => {
-            if (!open) closeLinkModal();
-          }}
-        >
-          <DialogContent className="max-w-md bg-surface-card text-foreground p-6 rounded-3xl">
-            <DialogHeader>
-              <DialogTitle>{linkModal.editAnchor ? 'Edit link' : 'Insert link'}</DialogTitle>
-              <DialogDescription className="text-xs text-muted-foreground">
-                {linkModal.editAnchor
-                  ? 'Change the destination URL for this link.'
-                  : linkModal.textareaId
-                    ? 'Enter the destination URL and optional link text.'
-                    : 'Enter the destination URL for the selected text.'}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-3">
-              <div>
-                <label htmlFor="link-url" className="block text-xs font-bold text-foreground mb-1">
-                  URL
-                </label>
-                <input
-                  id="link-url"
-                  type="url"
-                  autoFocus
-                  value={linkModal.url}
-                  onChange={(e) =>
-                    setLinkModal((prev) => (prev ? { ...prev, url: e.target.value } : null))
-                  }
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      confirmDialogFromInput(e.currentTarget);
-                    }
-                  }}
-                  placeholder="https://example.com or /about"
-                  className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:ring-2 focus:ring-primary"
-                />
-                <div className="pt-1.5 space-y-1">
-                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
-                    Quick route shortcuts:
-                  </span>
-                  <div className="flex flex-wrap gap-1">
-                    {[
-                      { label: 'Home', path: '/' },
-                      { label: 'Events', path: '/events' },
-                      { label: 'News', path: '/news' },
-                      { label: 'Gallery', path: '/gallery' },
-                      { label: 'About', path: '/about' },
-                      { label: 'Donate', path: '/donate' },
-                      { label: 'Voter Info', path: '/voter-info' },
-                      { label: 'Contact', path: '/contact' },
-                    ].map((route) => (
-                      <button
-                        key={route.path}
-                        type="button"
-                        onClick={() =>
-                          setLinkModal((prev) => (prev ? { ...prev, url: route.path } : null))
-                        }
-                        className={`rounded-md px-2 py-0.5 text-[11px] font-mono transition-colors cursor-pointer ${
-                          linkModal.url === route.path
-                            ? 'bg-primary text-white font-bold'
-                            : 'bg-surface-muted text-foreground hover:bg-border'
-                        }`}
-                      >
-                        {route.path}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-              {linkModal.textareaId && (
-                <div>
-                  <label
-                    htmlFor="link-text"
-                    className="block text-xs font-bold text-foreground mb-1"
-                  >
-                    Link text (optional — uses selected text if empty)
-                  </label>
-                  <input
-                    id="link-text"
-                    type="text"
-                    value={linkModal.text}
-                    onChange={(e) =>
-                      setLinkModal((prev) => (prev ? { ...prev, text: e.target.value } : null))
-                    }
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        confirmDialogFromInput(e.currentTarget);
-                      }
-                    }}
-                    placeholder="Link"
-                    className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:ring-2 focus:ring-primary"
-                  />
-                </div>
-              )}
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => closeLinkModal()}
-                className="rounded-xl px-4 py-2 text-xs font-bold text-muted-foreground hover:bg-border"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                data-confirm
-                disabled={!linkModal.url.trim()}
-                onClick={() => {
-                  const url = normalizeLinkTarget(linkModal.url);
-                  if (!url) {
-                    toast.error('Use an http(s), mailto:, tel:, or relative link.');
-                    return;
-                  }
-                  if (linkModal.editAnchor) {
-                    const anchor = linkModal.editAnchor;
-                    const session = inlineSessionRef.current;
-                    const sessionElement = linkAnchorElementRef.current;
-                    if (
-                      !anchor.isConnected ||
-                      !session ||
-                      session.element !== sessionElement ||
-                      !sessionElement?.isConnected ||
-                      !sessionElement.contains(anchor)
-                    ) {
-                      focusInlineEditorOrFallback();
-                      closeLinkModal(false);
-                      toast.error(
-                        'This link is no longer editable. Select it again to change its destination.'
-                      );
-                      return;
-                    }
-                    /*
-                     * Update only the DOM. `session.href` deliberately keeps the
-                     * ORIGINAL href: commitInlineEdit detects the change by
-                     * comparing the anchor's current href against it, so
-                     * overwriting it here would make the edit invisible.
-                     */
-                    anchor.href = url;
-                    void commitInlineEdit(session);
-                  } else if (linkModal.textareaId) {
-                    if (!insertLink(linkModal.textareaId, url, linkModal.text)) {
-                      toast.error('The editor field is no longer on the page.');
-                      return;
-                    }
-                  } else {
-                    if (!linkRangeRef.current) {
-                      toast.error('Place the cursor in the page before inserting a link.');
-                      return;
-                    }
-                    if (!restoreCapturedLinkRange()) {
-                      focusInlineEditorOrFallback();
-                      closeLinkModal(false);
-                      toast.error(
-                        'The selected text is no longer editable. Select it again to add a link.'
-                      );
-                      return;
-                    }
-                    document.execCommand('createLink', false, url);
-                  }
-                  closeLinkModal(false);
-                }}
-                className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-white hover:bg-primary/90 disabled:opacity-40"
-              >
-                {linkModal.editAnchor ? 'Save link' : 'Insert link'}
-              </button>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <LinkInsertDialog
+          modal={linkModal}
+          onUrlChange={(url) =>
+            setLinkModal((prev) => (prev ? { ...prev, url } : null))
+          }
+          onTextChange={(text) =>
+            setLinkModal((prev) => (prev ? { ...prev, text } : null))
+          }
+          onCancel={() => closeLinkModal()}
+          onConfirm={handleConfirmLink}
+        />
       )}
 
-      {/* ── Alt Text Edit Dialog (replaces browser prompt) ──────────────── */}
       {altTextModal && (
-        <Dialog
-          open
-          onOpenChange={(open) => {
-            if (!open && !isSavingAlt) cancelAltTextModal();
-          }}
-        >
-          <DialogContent className="max-w-md bg-surface-card text-foreground p-6 rounded-3xl">
-            <DialogHeader>
-              <DialogTitle>Edit alt text</DialogTitle>
-              <DialogDescription className="text-xs text-muted-foreground">
-                Describe the image for screen readers and search engines.
-              </DialogDescription>
-            </DialogHeader>
-            <div>
-              <label
-                htmlFor="alt-text-input"
-                className="block text-xs font-bold text-foreground mb-1"
-              >
-                Alt text for accessibility
-              </label>
-              <input
-                id="alt-text-input"
-                type="text"
-                autoFocus
-                value={altTextModal.value}
-                disabled={isSavingAlt || Boolean(documentReadRefusal())}
-                onChange={(e) =>
-                  setAltTextModal((prev) => (prev ? { ...prev, value: e.target.value } : null))
-                }
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    confirmDialogFromInput(e.currentTarget);
-                  }
-                }}
-                placeholder="A brief description of the image"
-                className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:ring-2 focus:ring-primary disabled:cursor-not-allowed disabled:opacity-60"
-              />
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                type="button"
-                disabled={isSavingAlt}
-                onClick={cancelAltTextModal}
-                className="rounded-xl px-4 py-2 text-xs font-bold text-muted-foreground hover:bg-border disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                data-confirm
-                disabled={isSavingAlt || Boolean(documentReadRefusal())}
-                aria-busy={isSavingAlt}
-                onClick={() => void saveAltText()}
-                title={documentReadRefusal() ?? 'Save the image description'}
-                className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-white hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isSavingAlt ? 'Saving…' : 'Save'}
-              </button>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <AltTextDialog
+          value={altTextModal.value}
+          saving={isSavingAlt}
+          readRefusal={documentReadRefusal()}
+          onValueChange={(value) =>
+            setAltTextModal((prev) => (prev ? { ...prev, value } : null))
+          }
+          onCancel={cancelAltTextModal}
+          onSave={() => void saveAltText()}
+        />
       )}
 
       {/* ── CRM Panel ─────────────────────────────────────────────────────── */}
@@ -8329,170 +6991,51 @@ export function VisualEditOverlay() {
         </div>
       )}
 
-      {/* ── Region Switch Discard Confirmation ───────────────────────────── */}
       {pendingRegionSwitch?.stage === 'page-confirm' && (
-        <ModalDialog
-          testId="region-switch-confirm-dialog"
-          labelledBy="confirm-region-switch-title"
-          describedBy="confirm-region-switch-description"
-          onDismiss={() => setPendingRegionSwitch(null)}
-        >
-            <div className="flex items-center gap-2 text-accent-gold font-bold text-sm">
-              <Layers size={18} aria-hidden="true" />
-              <h3 id="confirm-region-switch-title" className="text-white text-base">
-                Switch document?
-              </h3>
-            </div>
-            <p
-              id="confirm-region-switch-description"
-              className="text-xs text-slate-300 leading-relaxed"
-            >
-              You have unsaved page changes. Switching to “{pendingRegionLabel}” will discard
-              them. This cannot be undone.
-            </p>
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/10">
-              <button
-                type="button"
-                onClick={() => setPendingRegionSwitch(null)}
-                className="px-3 py-1.5 rounded-xl border border-white/15 text-xs font-bold text-slate-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold"
-              >
-                Keep editing
-              </button>
-              <button
-                type="button"
-                onClick={confirmRegionSwitch}
-                className="px-4 py-1.5 rounded-xl bg-accent-gold hover:bg-accent-gold/90 text-ink-strong text-xs font-bold transition-colors cursor-pointer shadow-md touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold"
-              >
-                Discard and switch
-              </button>
-            </div>
-        </ModalDialog>
+        <RegionSwitchDialog
+          regionLabel={pendingRegionLabel ?? ''}
+          onKeepEditing={() => setPendingRegionSwitch(null)}
+          onDiscard={confirmRegionSwitch}
+        />
       )}
 
-      {/* ── Atomic Delete Confirmation Modal (Minimizes Accidental Deletions) ── */}
       {deleteConfirmIndexes !== null && (
-        <ModalDialog
-          testId="block-delete-confirm-dialog"
-          labelledBy="confirm-delete-dialog-title"
-          describedBy="confirm-delete-dialog-description"
-          onDismiss={() => setDeleteConfirmIndexes(null)}
-        >
-            <div className="flex items-center gap-2 text-rose-400 font-bold text-sm">
-              <Trash2 size={18} />
-              <h3 id="confirm-delete-dialog-title" className="text-white text-base">
-                {deleteConfirmIndexes.length === 1
-                  ? 'Delete Section?'
-                  : `Delete ${deleteConfirmIndexes.length} Sections?`}
-              </h3>
-            </div>
-            <p id="confirm-delete-dialog-description" className="text-xs text-slate-300 leading-relaxed">
-              {deleteConfirmIndexes.length === 1
-                ? `Are you sure you want to delete “${sections.find((s) => s.blockIndex === deleteConfirmIndexes[0])?.label || 'this section'}”? Undo will be available in this session.`
-                : `Are you sure you want to delete ${deleteConfirmIndexes.length} selected sections? Undo will be available in this session.`}
-            </p>
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/10">
-              <button
-                type="button"
-                onClick={() => setDeleteConfirmIndexes(null)}
-                className="px-3 py-1.5 rounded-xl border border-white/15 text-xs font-bold text-slate-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={savingBackend}
-                onClick={async () => {
-                  const indexes = deleteConfirmIndexes;
-                  setDeleteConfirmIndexes(null);
-                  await handleDeleteSections(indexes);
-                }}
-                className="px-4 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-colors disabled:opacity-50 cursor-pointer touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
-              >
-                {savingBackend ? 'Deleting…' : 'Delete'}
-              </button>
-            </div>
-        </ModalDialog>
+        <DeleteSectionsDialog
+          indexes={deleteConfirmIndexes}
+          sectionLabel={
+            sections.find((section) => section.blockIndex === deleteConfirmIndexes[0])?.label || ''
+          }
+          saving={savingBackend}
+          onCancel={() => setDeleteConfirmIndexes(null)}
+          onConfirm={() => {
+            const indexes = deleteConfirmIndexes;
+            setDeleteConfirmIndexes(null);
+            void handleDeleteSections(indexes);
+          }}
+        />
       )}
-      {/* ── Atomic Section Drag-and-Drop Reorder Confirmation Modal ───────── */}
+
       {reorderConfirm !== null && (
-        <ModalDialog
-          testId="block-reorder-confirm-dialog"
-          labelledBy="confirm-reorder-dialog-title"
-          describedBy="confirm-reorder-dialog-description"
-          onDismiss={() => setReorderConfirm(null)}
-        >
-            <div className="flex items-center gap-2 text-accent-gold font-bold text-sm">
-              <GripVertical size={18} />
-              <h3 id="confirm-reorder-dialog-title" className="text-white text-base">
-                Confirm Move Section?
-              </h3>
-            </div>
-            <p id="confirm-reorder-dialog-description" className="text-xs text-slate-300 leading-relaxed">
-              Move “{reorderConfirm.label}” from position #{reorderConfirm.fromIndex + 1} to #{reorderConfirm.toIndex + 1}?
-              This will update the page layout order.
-            </p>
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/10">
-              <button
-                type="button"
-                onClick={() => setReorderConfirm(null)}
-                className="px-3 py-1.5 rounded-xl border border-white/15 text-xs font-bold text-slate-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={savingBackend}
-                onClick={async () => {
-                  const { fromIndex, toIndex } = reorderConfirm;
-                  setReorderConfirm(null);
-                  await moveBlockTo(fromIndex, toIndex);
-                }}
-                className="px-4 py-1.5 rounded-xl bg-accent-gold hover:bg-accent-gold/90 text-ink-strong text-xs font-bold transition-colors disabled:opacity-50 cursor-pointer shadow-md touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold"
-              >
-                {savingBackend ? 'Moving…' : 'Confirm Move'}
-              </button>
-            </div>
-        </ModalDialog>
+        <ReorderSectionDialog
+          label={reorderConfirm.label}
+          fromIndex={reorderConfirm.fromIndex}
+          toIndex={reorderConfirm.toIndex}
+          saving={savingBackend}
+          onCancel={() => setReorderConfirm(null)}
+          onConfirm={() => {
+            const { fromIndex, toIndex } = reorderConfirm;
+            setReorderConfirm(null);
+            void moveBlockTo(fromIndex, toIndex);
+          }}
+        />
       )}
-      {/* ── Route Leave Discard Confirmation ─────────────────────────────── */}
+
       {pendingRouteChange && (
-        <ModalDialog
-          testId="route-leave-confirm-dialog"
-          labelledBy="confirm-route-leave-title"
-          describedBy="confirm-route-leave-description"
-          onDismiss={stayOnPendingRoute}
-        >
-            <div className="flex items-center gap-2 text-accent-gold font-bold text-sm">
-              <Layers size={18} aria-hidden="true" />
-              <h3 id="confirm-route-leave-title" className="text-white text-base">
-                Leave this page?
-              </h3>
-            </div>
-            <p
-              id="confirm-route-leave-description"
-              className="text-xs text-slate-300 leading-relaxed"
-            >
-              You have unsaved page changes. Leaving for{' '}
-              <code className="font-mono text-white">{pathname}</code> will discard them.
-              This cannot be undone.
-            </p>
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/10">
-              <button
-                type="button"
-                onClick={stayOnPendingRoute}
-                className="px-3 py-1.5 rounded-xl border border-white/15 text-xs font-bold text-slate-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold"
-              >
-                Stay on this page
-              </button>
-              <button
-                type="button"
-                onClick={discardPendingRoute}
-                className="px-4 py-1.5 rounded-xl bg-accent-gold hover:bg-accent-gold/90 text-ink-strong text-xs font-bold transition-colors cursor-pointer shadow-md touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold"
-              >
-                Discard and leave
-              </button>
-            </div>
-        </ModalDialog>
+        <RouteLeaveDialog
+          pathname={pathname}
+          onStay={stayOnPendingRoute}
+          onDiscard={discardPendingRoute}
+        />
       )}
     </>
   );

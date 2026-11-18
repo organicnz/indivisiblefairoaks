@@ -13,91 +13,26 @@ import {
   Wifi,
 } from 'lucide-react';
 import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { ChoirCustomStreamForm } from '@/components/ui/ChoirCustomStreamForm';
+import { ChoirStationList } from '@/components/ui/ChoirStationList';
 import { DataPoint } from '@/components/ui/DataPoint';
+import {
+  DEFAULT_CHOIR_TRACKS,
+  type ChoirSongTrack,
+} from '@/components/ui/choir-audio-tracks';
 import { useDataPoints } from '@/hooks/useDataPoints';
 import { getStorageUrl } from '@/lib/supabase';
-
-interface SongTrack {
-  id: string;
-  titleKey: string;
-  artistKey: string;
-  notesKey: string;
-  defaultTitle: string;
-  defaultArtist: string;
-  defaultNotes: string;
-  duration: string;
-  audioUrl?: string;
-}
-
-const DEFAULT_TRACKS: SongTrack[] = [
-  {
-    id: 'anthem-1',
-    titleKey: 'choir.player.track1_title',
-    artistKey: 'choir.player.track1_artist',
-    notesKey: 'choir.player.track1_notes',
-    defaultTitle: 'America the Beautiful',
-    defaultArtist: 'U.S. Navy Band Sea Chanters Choral',
-    defaultNotes: 'Official public domain choral arrangement of Katherine Lee Bates anthem',
-    duration: '2:21',
-    audioUrl: 'audio/america-the-beautiful.ogg',
-  },
-  {
-    id: 'anthem-2',
-    titleKey: 'choir.player.track2_title',
-    artistKey: 'choir.player.track2_artist',
-    notesKey: 'choir.player.track2_notes',
-    defaultTitle: 'The Star-Spangled Banner',
-    defaultArtist: "U.S. Army Field Band & Soldiers' Chorus",
-    defaultNotes: "Choral anthem with band accompaniment by the Soldiers' Chorus",
-    duration: '1:29',
-    audioUrl: 'audio/star-spangled-banner.ogg',
-  },
-  {
-    id: 'anthem-3',
-    titleKey: 'choir.player.track3_title',
-    artistKey: 'choir.player.track3_artist',
-    notesKey: 'choir.player.track3_notes',
-    defaultTitle: 'Battle Hymn of the Republic',
-    defaultArtist: 'U.S. Air Force Band & Singing Sergeants Choral',
-    defaultNotes:
-      'Historical choral rallying anthem for collective resilience, justice, and solidarity',
-    duration: '5:27',
-    audioUrl: 'audio/battle-hymn-of-the-republic.ogg',
-  },
-  {
-    id: 'anthem-4',
-    titleKey: 'choir.player.track4_title',
-    artistKey: 'choir.player.track4_artist',
-    notesKey: 'choir.player.track4_notes',
-    defaultTitle: 'Ode to Joy (Anthem of Peace & Europe)',
-    defaultArtist: 'U.S. Navy Band Choral & Concert Orchestra',
-    defaultNotes: 'Universal anthem of brotherhood, human dignity, democracy, and solidarity',
-    duration: '1:56',
-    audioUrl: 'audio/ode-to-joy.ogg',
-  },
-  {
-    id: 'anthem-5',
-    titleKey: 'choir.player.track5_title',
-    artistKey: 'choir.player.track5_artist',
-    notesKey: 'choir.player.track5_notes',
-    defaultTitle: 'Ave Maria (Sacred Choral)',
-    defaultArtist: 'Sea Chanters Choral Ensemble',
-    defaultNotes: 'Anton Bruckner choral presentation performed by U.S. Navy Band Sea Chanters',
-    duration: '3:14',
-    audioUrl: 'audio/ave-maria.ogg',
-  },
-];
 
 export function ChoirAudioPlayer() {
   const { dataPoints } = useDataPoints('choir');
   // Durations are seeded beside the titles — the key mirrors the title key
   // (`choir.player.trackN_title` → `choir.player.trackN_duration`) — so a
   // revised recording length is editable without a deploy.
-  const displayDuration = (track: SongTrack) =>
+  const displayDuration = (track: ChoirSongTrack) =>
     (track.titleKey ? dataPoints[`${track.titleKey.replace(/_title$/, '')}_duration`] : '') ||
     track.duration;
-  const [tracks, setTracks] = useState<SongTrack[]>(DEFAULT_TRACKS);
-  const [activeTrack, setActiveTrack] = useState<SongTrack>(DEFAULT_TRACKS[0]);
+  const [tracks, setTracks] = useState<ChoirSongTrack[]>(DEFAULT_CHOIR_TRACKS);
+  const [activeTrack, setActiveTrack] = useState<ChoirSongTrack>(DEFAULT_CHOIR_TRACKS[0]);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackTime, setPlaybackTime] = useState(0);
   const [volume, setVolume] = useState(0.15);
@@ -115,7 +50,7 @@ export function ChoirAudioPlayer() {
   const BROADCAST_LENGTH_SECONDS = 150;
 
   const playActiveTrack = useCallback(
-    (track: SongTrack) => {
+    (track: ChoirSongTrack) => {
       setStreamError(null);
       const baseKey = track.titleKey ? track.titleKey.replace(/_title$/, '') : '';
       const configuredUrl =
@@ -163,7 +98,7 @@ export function ChoirAudioPlayer() {
     }
   };
 
-  const selectTrack = (track: SongTrack) => {
+  const selectTrack = (track: ChoirSongTrack) => {
     setActiveTrack(track);
     setPlaybackTime(0);
     if (isPlaying) {
@@ -194,7 +129,7 @@ export function ChoirAudioPlayer() {
       resolvedUrl = getStorageUrl(rawUrl, 'media');
     }
 
-    const customTrack: SongTrack = {
+    const customTrack: ChoirSongTrack = {
       id: `custom-${Date.now()}`,
       titleKey: '',
       artistKey: '',
@@ -461,52 +396,15 @@ export function ChoirAudioPlayer() {
         </div>
       </div>
 
-      {/* Custom Stream Input Accordion */}
       {showCustomBar && (
-        <form
+        <ChoirCustomStreamForm
+          dataPoints={dataPoints}
+          title={customTitleInput}
+          url={customUrlInput}
+          onTitleChange={setCustomTitleInput}
+          onUrlChange={setCustomUrlInput}
           onSubmit={handleCustomStreamSubmit}
-          className="mb-6 p-4 rounded-2xl bg-surface-card border border-primary/30 dark:bg-secondary/80 dark:border-primary-bright/30 space-y-3 animate-in fade-in-0 duration-200"
-        >
-          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-primary-ink dark:text-primary-on-dark">
-            <Globe size={14} className="text-accent-gold" />
-            <DataPoint as="span" name="choir.player.custom_stream_label" initialData={dataPoints}>
-              Custom Audio Stream / Song URL from Anywhere
-            </DataPoint>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-            <input
-              type="text"
-              value={customTitleInput}
-              onChange={(e) => setCustomTitleInput(e.target.value)}
-              placeholder={
-                dataPoints['choir.player.custom_title_placeholder'] || 'Stream Title (optional)'
-              }
-              className="px-3.5 py-2.5 rounded-xl bg-surface-muted border border-border text-foreground placeholder:text-muted-foreground dark:bg-black/40 dark:border-white/15 dark:text-white dark:placeholder-white/40 text-xs focus:outline-none focus:border-primary dark:focus:border-primary-bright"
-            />
-            <input
-              type="text"
-              required
-              value={customUrlInput}
-              onChange={(e) => setCustomUrlInput(e.target.value)}
-              placeholder={
-                dataPoints['choir.player.custom_stream_placeholder'] ||
-                'Stream URL (https://...), Supabase S3 path (audio/song.mp3), or s3://...'
-              }
-              className="sm:col-span-2 px-3.5 py-2.5 rounded-xl bg-surface-muted border border-border text-foreground placeholder:text-muted-foreground dark:bg-black/40 dark:border-white/15 dark:text-white dark:placeholder-white/40 text-xs focus:outline-none focus:border-primary dark:focus:border-primary-bright"
-            />
-          </div>
-          <div className="flex justify-end gap-2">
-            <button
-              type="submit"
-              className="px-4 py-2 rounded-xl bg-primary hover:bg-primary-dark dark:bg-primary-bright dark:hover:bg-primary-bright text-white font-bold text-xs uppercase tracking-wider shadow-sm transition-colors flex items-center gap-1.5"
-            >
-              <Radio size={13} />
-              <DataPoint as="span" name="choir.player.custom_stream_btn" initialData={dataPoints}>
-                Tune In
-              </DataPoint>
-            </button>
-          </div>
-        </form>
+        />
       )}
 
       {/* Station Navigation Header */}
@@ -543,61 +441,14 @@ export function ChoirAudioPlayer() {
         {activeNotes}
       </p>
 
-      {/* Preset Stations List */}
-      <div className="space-y-2">
-        <div className="text-xs font-bold uppercase tracking-wider text-foreground dark:text-ink-on-dark px-1">
-          <DataPoint as="span" name="choir.player.stations_heading" initialData={dataPoints}>
-            Community Stations & Anthems
-          </DataPoint>
-        </div>
-        {tracks.map((track, idx) => {
-          const isSelected = track.id === activeTrack.id;
-          const trackTitle = track.titleKey
-            ? dataPoints[track.titleKey] || track.defaultTitle
-            : track.defaultTitle;
-          return (
-            <button
-              key={track.id}
-              type="button"
-              onClick={() => selectTrack(track)}
-              aria-pressed={isSelected}
-              className={`w-full min-h-12 text-left px-4 py-3 rounded-2xl transition-all duration-300 ease-out flex items-center justify-between text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold ${
-                isSelected
-                  ? 'bg-primary/10 border border-primary/30 text-foreground dark:bg-primary-bright/20 dark:border-primary-bright/50 dark:text-white font-bold shadow-xs'
-                  : 'bg-surface-card border border-border text-muted-foreground hover:text-foreground hover:bg-surface-muted dark:bg-secondary/40 dark:border-transparent dark:text-ink-on-dark dark:hover:text-white dark:hover:bg-white/5'
-              }`}
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <span className="font-mono text-primary-ink dark:text-primary-on-dark text-xs font-bold shrink-0">
-                  {String(idx + 1).padStart(2, '0')}
-                </span>
-                <span className="truncate">{trackTitle}</span>
-                {isSelected && isPlaying && (
-                  <span className="inline-flex size-2 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse shrink-0" />
-                )}
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <span className="font-mono text-[10px] text-muted-foreground dark:text-ink-muted-on-dark">
-                  {displayDuration(track)}
-                </span>
-                <span
-                  className={`size-6 rounded-full flex items-center justify-center ${
-                    isSelected
-                      ? 'bg-primary text-white dark:bg-primary-bright'
-                      : 'bg-surface-muted text-foreground border border-border dark:border-transparent dark:bg-white/10 dark:text-ink-on-dark'
-                  }`}
-                >
-                  {isSelected && isPlaying ? (
-                    <Pause size={10} className="fill-current" />
-                  ) : (
-                    <Play size={10} className="fill-current ml-0.5" />
-                  )}
-                </span>
-              </div>
-            </button>
-          );
-        })}
-      </div>
+      <ChoirStationList
+        tracks={tracks}
+        activeTrack={activeTrack}
+        isPlaying={isPlaying}
+        dataPoints={dataPoints}
+        displayDuration={displayDuration}
+        onSelectTrack={selectTrack}
+      />
     </div>
   );
 }

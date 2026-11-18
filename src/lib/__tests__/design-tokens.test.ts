@@ -100,8 +100,8 @@ describe('admin and editor surfaces use tokens, not raw slate', () => {
     // (always truthy) rather than on the text.
     const sources = await Promise.all(SCANNED.map((relative) => sourceOf(relative)));
     const holders = SCANNED.filter((_, i) => /placeholder-slate-/.test(sources[i]));
-    expect(holders).toEqual(['src/components/admin/crm/CRMContactList.tsx']);
-    expect(await sourceOf('src/components/admin/crm/CRMContactList.tsx')).toMatch(
+    expect(holders).toEqual(['src/components/admin/crm/ContactBulkActionsBar.tsx']);
+    expect(await sourceOf('src/components/admin/crm/ContactBulkActionsBar.tsx')).toMatch(
       /placeholder-slate-400/
     );
   });

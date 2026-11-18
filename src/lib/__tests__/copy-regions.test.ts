@@ -83,6 +83,12 @@ describe('page copy region registry', () => {
       for (const match of source.matchAll(/<CopyRegion\s+id="([^"]+)"/g)) {
         rendered.add(match[1]);
       }
+      // Shared shells accept the region id as a prop and render `<CopyRegion
+      // id={copyRegionId}>`; the literal regex above cannot see through that
+      // after route modularization, so the call site is the evidence here.
+      for (const match of source.matchAll(/copyRegionId="([^"]+)"/g)) {
+        rendered.add(match[1]);
+      }
     }
 
     expect([...rendered].filter((id) => !registered.has(id))).toEqual([]);

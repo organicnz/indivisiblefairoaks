@@ -1,14 +1,6 @@
-import {
-  CalendarCheck,
-  DollarSign,
-  HeartHandshake,
-  MapPin,
-  Megaphone,
-  UsersRound,
-} from 'lucide-react';
-import Link from 'next/link';
 import { CRMContactList } from '@/components/admin/crm/CRMContactList';
-import { DataPoint } from '@/components/ui/DataPoint';
+import { CRMHeader } from '@/components/admin/crm/CRMHeader';
+import { CRMMetrics } from '@/components/admin/crm/CRMMetrics';
 import {
   getCRMContacts,
   getCRMEdgeFunctionHealth,
@@ -85,166 +77,20 @@ export default async function AdminCRMPage({
 
   return (
     <div className="space-y-8">
-      {/* Header Section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border pb-8">
-        <div>
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-white shadow-xs">
-              <UsersRound size={20} />
-            </div>
-            <span className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em]">
-              <DataPoint as="span" name="admin.crm.eyebrow" initialData={dataPoints}>
-                Admin Panel · Grassroots CRM
-              </DataPoint>
-            </span>
-          </div>
-          <h1 className="font-display text-3xl font-semibold tracking-[-0.03em] text-foreground sm:text-4xl">
-            <DataPoint as="span" name="admin.crm.title" initialData={dataPoints}>
-              Constituent directory
-            </DataPoint>
-          </h1>
-          <div className="h-1.5 w-24 bg-primary mt-3" />
-          <p className="mt-3 text-xs font-bold text-muted-foreground max-w-2xl">
-            <DataPoint as="span" name="admin.crm.subtitle" initialData={dataPoints}>
-              Track activists, resist choir singers, grassroots donors, and local supporters across
-              CA-06 and CA-03 with direct Resend outreach and campaign blasts.
-            </DataPoint>
-          </p>
-          <div className="flex flex-wrap items-center gap-2 mt-4">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              <DataPoint as="span" name="admin.crm.db_label" initialData={dataPoints}>
-                Postgres DB
-              </DataPoint>
-              : Live
-            </span>
-            <span
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold ${
-                backendStatus.storage
-                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                  : 'bg-amber-50 text-amber-700 border border-amber-200'
-              }`}
-            >
-              <span
-                className={`w-1.5 h-1.5 rounded-full ${backendStatus.storage ? 'bg-emerald-500' : 'bg-amber-500'}`}
-              />
-              <DataPoint as="span" name="admin.crm.storage_label" initialData={dataPoints}>
-                Supabase S3 Media
-              </DataPoint>
-              : {backendStatus.storage ? 'Connected' : 'Degraded'}
-            </span>
-            <span
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold ${
-                backendStatus.edgeFunction
-                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                  : 'bg-blue-50 text-blue-700 border border-blue-200'
-              }`}
-            >
-              <span
-                className={`w-1.5 h-1.5 rounded-full ${backendStatus.edgeFunction ? 'bg-emerald-500' : 'bg-blue-500'}`}
-              />
-              <DataPoint as="span" name="admin.crm.sender_label" initialData={dataPoints}>
-                Edge Sender
-              </DataPoint>
-              : {backendStatus.edgeFunction ? 'Ready' : 'Direct Fallback'}
-            </span>
-          </div>
-        </div>
+      <CRMHeader
+        dataPoints={dataPoints}
+        openTasks={stats.openTasks}
+        backendStatus={backendStatus}
+      />
 
-        {/* Action Buttons */}
-        <div className="flex flex-wrap items-center gap-3 self-start md:self-auto">
-          <Link
-            href="/admin/crm/tasks"
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-surface-card text-foreground hover:bg-surface-muted border border-border text-xs font-black uppercase tracking-wider rounded-xl transition-colors shadow-xs"
-          >
-            <CalendarCheck size={14} className="text-amber-600" />
-            <DataPoint as="span" name="admin.crm.followups_label" initialData={dataPoints}>
-              Follow-ups
-            </DataPoint>
-            {stats.openTasks > 0 ? ` (${stats.openTasks})` : ''}
-          </Link>
-          <Link
-            href="/admin/crm/broadcasts"
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-white hover:bg-primary-light text-xs font-black uppercase tracking-wider rounded-xl transition-colors shadow-xs"
-          >
-            <Megaphone size={14} className="text-primary-light" />
-            <DataPoint as="span" name="admin.crm.btn_compose" initialData={dataPoints}>
-              Email Broadcasts
-            </DataPoint>
-          </Link>
-        </div>
-      </div>
-
-      {/* KPI / Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total Constituents */}
-        <div className="bg-surface-card p-5 rounded-2xl border border-border shadow-xs flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
-            <UsersRound size={22} />
-          </div>
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">
-              <DataPoint as="span" name="admin.crm.kpi_contacts" initialData={dataPoints}>
-                Total Constituents
-              </DataPoint>
-            </p>
-            <p className="text-2xl font-black text-foreground mt-0.5">{stats.totalContacts}</p>
-          </div>
-        </div>
-
-        {/* Active Volunteers */}
-        <div className="bg-surface-card p-5 rounded-2xl border border-border shadow-xs flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-            <HeartHandshake size={22} />
-          </div>
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">
-              <DataPoint as="span" name="admin.crm.kpi_volunteers" initialData={dataPoints}>
-                Volunteers & Organizers
-              </DataPoint>
-            </p>
-            <p className="text-2xl font-black text-foreground mt-0.5">{stats.activeVolunteers}</p>
-          </div>
-        </div>
-
-        {/* Local District */}
-        <div className="bg-surface-card p-5 rounded-2xl border border-border shadow-xs flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
-            <MapPin size={22} />
-          </div>
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">
-              <DataPoint as="span" name="admin.crm.kpi_district" initialData={dataPoints}>
-                CA-06 / CA-03 Grassroots
-              </DataPoint>
-            </p>
-            <p className="text-2xl font-black text-foreground mt-0.5">{stats.localDistrict}</p>
-          </div>
-        </div>
-
-        {/* Grassroots Donors */}
-        <div className="bg-surface-card p-5 rounded-2xl border border-border shadow-xs flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
-            <DollarSign size={22} />
-          </div>
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">
-              <DataPoint as="span" name="admin.crm.kpi_donors" initialData={dataPoints}>
-                Grassroots Donors
-              </DataPoint>
-            </p>
-            <div className="flex items-baseline gap-2 mt-0.5">
-              <p className="text-2xl font-black text-foreground">{stats.totalDonors}</p>
-              <span className="text-xs font-bold text-amber-700">
-                $
-                {(stats.totalDonationsCents / 100).toLocaleString('en-US', {
-                  minimumFractionDigits: 2,
-                })}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
+      <CRMMetrics
+        dataPoints={dataPoints}
+        totalContacts={stats.totalContacts}
+        activeVolunteers={stats.activeVolunteers}
+        localDistrict={stats.localDistrict}
+        totalDonors={stats.totalDonors}
+        totalDonationsCents={stats.totalDonationsCents}
+      />
 
       {/* Directory & Filter Table */}
       <CRMContactList

@@ -1,0 +1,1214 @@
+'use client';
+
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
+import {
+  Activity,
+  ArrowDown,
+  ArrowUp,
+  Calendar,
+  Copy,
+  Database,
+  ExternalLink,
+  Eye,
+  EyeOff,
+  FilePlus2,
+  FolderOpen,
+  GripVertical,
+  History,
+  Keyboard,
+  Layers,
+  LayoutTemplate,
+  Link as LinkIcon,
+  ListTree,
+  Loader2,
+  Monitor,
+  Moon,
+  Newspaper,
+  Plus,
+  Redo2,
+  RefreshCw,
+  RotateCw,
+  Search,
+  Settings,
+  ShieldCheck,
+  SlidersHorizontal,
+  Smartphone,
+  Sparkles,
+  Sun,
+  Tablet,
+  Trash2,
+  Undo2,
+  UsersRound,
+  X,
+} from 'lucide-react';
+import { useState } from 'react';
+import { ConfirmAction } from '@/components/admin/ConfirmAction';
+import type { Block } from '@/lib/blocks';
+import { canRedo, canUndo } from '@/lib/editor-history';
+import { themeModeLabel } from '@/lib/theme';
+import { sectionLabelForBlock } from '@/lib/visual-sections';
+import type { VisualEditorSidebarProps } from './VisualEditorSidebar';
+
+export function DefaultContextZone(props: VisualEditorSidebarProps) {
+  const {
+    contentRow,
+    documentLoadState = 'idle',
+    dirty,
+    savingBackend,
+    sections,
+    blocks,
+    enabledSectionKeys,
+    history,
+    activeBlockIndex,
+    pageRegions,
+    unsaveableReason = null,
+    activeRegionId,
+    activeRegionLabel,
+    showSectionBadges,
+    showAllSectionBorders,
+    showInspector,
+    viewportMode,
+    deviceOrientation,
+    themeMode,
+    effectiveTheme,
+    backendStatus,
+    backendSummary,
+    showHealthDetails,
+    statusLoading,
+    modifiedBlocks,
+    modifiedDataPoints,
+    blockTypeOptions,
+    adminEditUrl,
+  } = props;
+
+  const [draggingBlockIndex, setDraggingBlockIndex] = useState<number | null>(null);
+  const [dragOverBlockIndex, setDragOverBlockIndex] = useState<number | null>(null);
+  const changeCount = modifiedBlocks.length + modifiedDataPoints.length;
+  const showChangeCount = dirty || modifiedDataPoints.length > 0;
+  const documentReady = documentLoadState === 'ready';
+  const documentOpening = documentLoadState === 'idle' || documentLoadState === 'loading';
+  const documentUnavailable = documentLoadState === 'degraded';
+  const canMutateDocument = documentReady && !unsaveableReason;
+  const regionSwitchBlockedReason = documentOpening
+    ? 'Wait for the saved document to open before switching regions'
+    : documentLoadState === 'degraded'
+      ? 'Reload the saved document before switching regions'
+      : null;
+  const themePreviewLabel = `${themeModeLabel(themeMode)}${themeMode === 'system' ? ` (${effectiveTheme})` : ''}`;
+
+  return (
+    <div className="flex flex-1 flex-col gap-3 overflow-y-auto overscroll-contain px-3 py-3 text-xs">
+      {props.isComposerWorkspace && (
+        <div
+          data-testid="canonical-editing-surface"
+          className="rounded-xl border border-accent-gold/40 bg-accent-gold/10 p-2.5"
+        >
+          <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-accent-gold">
+            <SlidersHorizontal size={12} />
+            <span>Composer workspace</span>
+          </span>
+          <p className="mt-1 text-[10px] leading-snug text-ink-muted-on-dark">
+            Click any block on the page to edit its content and design here. This is the only block
+            editor on this route.
+          </p>
+        </div>
+      )}
+
+      {/* ── Document info & status ─────────────────────────────────────── */}
+      <div className="flex items-center gap-2">
+        {contentRow ? (
+          <button
+            type="button"
+            onClick={props.onTogglePageStatus}
+            disabled={savingBackend || !documentReady}
+            title={
+              !documentReady
+                ? documentLoadState === 'degraded'
+                  ? 'Reload the saved document before changing publication status'
+                  : 'Wait for the saved document to open before changing publication status'
+                : 'Click to toggle between Published and Draft'
+            }
+            className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wider transition-colors ${
+              contentRow.status === 'publish'
+                ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30'
+                : 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30'
+            }`}
+          >
+            {contentRow.status === 'publish' ? 'Published' : 'Draft'}
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={props.onInitializeCMSPage}
+            disabled={
+              savingBackend ||
+              !documentReady ||
+              Boolean(unsaveableReason) ||
+              props.isVisualComposerOpen ||
+              Boolean(props.inlineSession) ||
+              Boolean(props.imageSession)
+            }
+            className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wider bg-accent/20 text-accent-gold hover:bg-accent/30 disabled:cursor-not-allowed disabled:opacity-40"
+            title={
+              !documentReady
+                ? documentLoadState === 'degraded'
+                  ? 'Reload the saved document before connecting this page'
+                  : 'Wait for the saved document to open before connecting this page'
+                : props.inlineSession
+                  ? 'Save or cancel the inline text edit before connecting this page'
+                  : props.imageSession
+                    ? 'Save or cancel the image edit before connecting this page'
+                    : props.isVisualComposerOpen
+                      ? 'Close the composer before connecting this page'
+                      : unsaveableReason ??
+                    (activeRegionId
+                      ? `Create the CMS row for the ${activeRegionLabel} region`
+                      : 'Click to sync page into Supabase content table')
+            }
+          >
+            Connect to Supabase
+          </button>
+        )}
+        <span
+          className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+            documentOpening
+              ? 'bg-white/10 text-ink-muted-on-dark'
+              : documentLoadState === 'degraded'
+                ? 'bg-rose-500/20 text-rose-300'
+                : savingBackend
+                  ? 'bg-sky-500/20 text-sky-300'
+                  : dirty || unsaveableReason || !contentRow
+                    ? 'bg-amber-500/20 text-accent-gold'
+                    : 'bg-emerald-500/20 text-emerald-400'
+          }`}
+        >
+          {documentOpening
+            ? 'Opening'
+            : documentLoadState === 'degraded'
+              ? 'Unavailable'
+              : savingBackend
+                ? 'Saving'
+                : dirty
+                  ? 'Unsaved'
+                  : unsaveableReason
+                    ? 'Region only'
+                    : !contentRow
+                      ? 'Not connected'
+                      : 'Saved'}
+        </span>
+      </div>
+
+      <p className="text-[11px] text-ink-muted-on-dark">
+        {documentOpening ? (
+          <span>Opening the saved document…</span>
+        ) : documentLoadState === 'degraded' ? (
+          <span className="font-bold text-rose-300">Saved document unavailable</span>
+        ) : (
+          <>
+            {sections.length} {sections.length === 1 ? 'block' : 'blocks'} in the document (
+            {dirty ? (
+              <span className="font-bold text-accent-gold">unsaved changes</span>
+            ) : unsaveableReason ? (
+              <span className="text-accent-gold">page-level copy is not savable</span>
+            ) : contentRow ? (
+              <span>saved</span>
+            ) : (
+              <span className="text-accent-gold">not connected to Supabase</span>
+            )}
+            ) · {enabledSectionKeys.size} framed
+          </>
+        )}
+      </p>
+
+      {/* ── Copy region selector ───────────────────────────────────────── */}
+      {unsaveableReason &&
+        documentLoadState !== 'loading' &&
+        documentLoadState !== 'degraded' && (
+        <div
+          data-testid="page-level-save-blocked"
+          className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-2 text-[10px] leading-snug text-accent-gold"
+        >
+          <p>{unsaveableReason}</p>
+          <button
+            type="button"
+            onClick={props.onOpenDataPointDrawer}
+            className="mt-1.5 font-bold underline underline-offset-2 hover:text-white focus:outline-none focus:ring-2 focus:ring-accent-gold/70"
+          >
+            Open DataPoints Matrix (⌘⇧D)
+          </button>
+        </div>
+      )}
+
+      {pageRegions.length > 0 && (
+        <fieldset className="flex w-full items-center gap-1 overflow-x-auto rounded-xl border border-white/10 bg-white/5 p-1">
+          <legend className="sr-only">Editable copy region</legend>
+          <button
+            type="button"
+            onClick={() => props.onSetRegion(null)}
+            disabled={!documentReady || Boolean(unsaveableReason)}
+            title={
+              !documentReady
+                ? regionSwitchBlockedReason ?? 'Wait for the saved document to open'
+                : unsaveableReason ?? 'Edit the whole-page document'
+            }
+            aria-pressed={activeRegionId === null}
+            className={`shrink-0 rounded-lg px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider transition-colors ${
+              activeRegionId === null
+                ? 'bg-accent-gold/20 text-accent-gold'
+                : 'text-ink-muted-on-dark hover:text-white'
+            }`}
+          >
+            Whole page
+          </button>
+          {pageRegions.map((region) => (
+            <button
+              key={region.id}
+              type="button"
+              onClick={() => props.onSetRegion(region.id)}
+              disabled={Boolean(regionSwitchBlockedReason)}
+              title={
+                regionSwitchBlockedReason ?? `Edit the ${region.label} copy region`
+              }
+              aria-pressed={region.id === activeRegionId}
+              className={`shrink-0 rounded-lg px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                region.id === activeRegionId
+                  ? 'bg-accent-gold/20 text-accent-gold'
+                  : 'text-ink-muted-on-dark hover:text-white'
+              }`}
+            >
+              {region.label}
+            </button>
+          ))}
+        </fieldset>
+      )}
+
+      {/* ── Primary actions ────────────────────────────────────────────── */}
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={props.onUndo}
+          disabled={!canUndo(history) || documentLoadState !== 'ready'}
+          title={
+            documentLoadState === 'loading'
+              ? 'Wait for the saved document to open before undoing'
+              : documentLoadState === 'degraded'
+                ? 'Reload the saved document before undoing'
+                : 'Undo the last change (⌘Z)'
+          }
+          aria-label="Undo the last change"
+          className={`inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-bold transition-colors disabled:opacity-40 ${
+            canUndo(history) && documentLoadState === 'ready'
+              ? 'border-white/15 bg-white/10 text-ink-on-dark hover:bg-white/15'
+              : 'border-white/10 bg-white/5 text-ink-muted-on-dark'
+          }`}
+        >
+          <Undo2 size={13} />
+          <span>Undo</span>
+        </button>
+        <button
+          type="button"
+          onClick={props.onRedo}
+          disabled={!canRedo(history) || documentLoadState !== 'ready'}
+          title={
+            documentLoadState === 'loading'
+              ? 'Wait for the saved document to open before redoing'
+              : documentLoadState === 'degraded'
+                ? 'Reload the saved document before redoing'
+                : 'Redo (⌘⇧Z)'
+          }
+          aria-label="Redo the last undone change"
+          className={`inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-bold transition-colors disabled:opacity-40 ${
+            canRedo(history) && documentLoadState === 'ready'
+              ? 'border-white/15 bg-white/10 text-ink-on-dark hover:bg-white/15'
+              : 'border-white/10 bg-white/5 text-ink-muted-on-dark'
+          }`}
+        >
+          <Redo2 size={13} />
+          <span>Redo</span>
+        </button>
+      </div>
+
+      <button
+        type="button"
+        onClick={props.onSave}
+        disabled={
+          savingBackend || !dirty || Boolean(unsaveableReason) || !documentReady
+        }
+        title={
+          !documentReady
+            ? documentLoadState === 'degraded'
+              ? 'Reload the saved document before saving'
+              : 'Wait for the saved document to open before saving'
+            : unsaveableReason ??
+              (contentRow
+                ? 'Write this document to Supabase'
+                : 'Create the Supabase CMS row for this page from what is on screen')
+        }
+        className={`inline-flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold uppercase tracking-wider shadow-raised transition-colors disabled:opacity-50 ${
+          dirty
+            ? 'bg-accent text-ink-strong hover:bg-accent-gold'
+            : 'bg-white/10 text-ink-muted-on-dark'
+        }`}
+      >
+        {savingBackend ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
+        <span>{contentRow ? (dirty ? 'Save' : 'Saved') : 'Connect'}</span>
+        <kbd className="hidden sm:inline-block ml-0.5 text-[9px] font-mono opacity-70">⌘S</kbd>
+      </button>
+
+      {/* ── Command palette & tools ────────────────────────────────────── */}
+      <div className="flex flex-col gap-2">
+        <button
+          type="button"
+          onClick={props.onOpenCommandPalette}
+          title="Open Command Palette & Jump to Block/DataPoint (⌘K)"
+          className="inline-flex w-full items-center gap-1.5 rounded-lg border border-accent-gold/40 bg-accent-gold/10 px-2.5 py-1.5 text-xs font-bold text-accent-gold transition-colors hover:bg-accent-gold/20 cursor-pointer"
+        >
+          <Search size={13} className="text-accent-gold" />
+          <span className="flex-1 text-left">Command</span>
+          <kbd className="rounded bg-black/30 px-1 py-0.5 text-[9px] font-mono">⌘K</kbd>
+        </button>
+
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={props.onOpenDataPointDrawer}
+            title="Open Page DataPoints Matrix (⌘K -> DataPoints)"
+            aria-label="Open DataPoints Matrix"
+            className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-sky-400/30 bg-sky-500/10 px-2.5 py-1.5 text-xs font-bold text-sky-300 transition-colors hover:bg-sky-500/20 cursor-pointer"
+          >
+            <Database size={13} className="text-sky-400" />
+            <span>DataPoints</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={props.onOpenA11yAuditor}
+            title="Run in-page Accessibility, SEO, and DataPoint audit (⌘⇧A)"
+            aria-label="Run Civic A11y and Health Audit"
+            className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-colors hover:bg-white/10 cursor-pointer"
+          >
+            <ShieldCheck size={13} className="text-emerald-400" />
+            <span>Audit</span>
+          </button>
+        </div>
+
+        <button
+          type="button"
+          onClick={props.onOpenDiffModal}
+          title="Review visual changes and draft diff against published version (⌘⇧V)"
+          className={`inline-flex w-full items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-bold transition-colors cursor-pointer ${
+            dirty || modifiedDataPoints.length > 0
+              ? 'border-accent-gold/40 bg-accent-gold/15 text-accent-gold hover:bg-accent-gold/25'
+              : 'border-white/10 bg-white/5 text-ink-on-dark hover:bg-white/10'
+          }`}
+        >
+          <Activity size={13} className="text-accent-gold" />
+          <span className="flex-1 text-left">Diff</span>
+          {showChangeCount && (
+            <span className="rounded-full bg-accent-gold/20 px-1.5 py-0.2 text-[9px] font-mono font-bold text-accent-gold">
+              {changeCount}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* ── Display toggles ────────────────────────────────────────────── */}
+      <div className="flex flex-col gap-2">
+        <button
+          type="button"
+          onClick={props.onToggleInspector}
+          title={
+            showInspector
+              ? 'Disable live element hover inspector HUD'
+              : 'Enable live element hover inspector HUD'
+          }
+          aria-pressed={showInspector}
+          className={`inline-flex w-full items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-bold transition-colors cursor-pointer ${
+            showInspector
+              ? 'border-emerald-500/50 bg-emerald-500/20 text-emerald-300'
+              : 'border-white/10 bg-white/5 text-ink-muted-on-dark hover:bg-white/10'
+          }`}
+        >
+          <Eye size={13} />
+          <span className="flex-1 text-left">Element HUD: {showInspector ? 'ON' : 'OFF'}</span>
+        </button>
+
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={props.onToggleBadges}
+            title={
+              showSectionBadges ? 'Hide in-page section badges' : 'Show in-page section badges'
+            }
+            aria-pressed={showSectionBadges}
+            className={`inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-bold transition-colors ${
+              showSectionBadges
+                ? 'border-accent-gold/50 bg-accent-gold/20 text-accent-gold'
+                : 'border-white/10 bg-white/5 text-ink-muted-on-dark hover:bg-white/10'
+            }`}
+          >
+            <Layers size={13} />
+            <span>Badges: {showSectionBadges ? 'ON' : 'OFF'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={props.onToggleFrames}
+            title={showAllSectionBorders ? 'Hide section frames' : 'Show section frames'}
+            aria-pressed={showAllSectionBorders}
+            className={`inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-bold transition-colors ${
+              showAllSectionBorders
+                ? 'border-accent-gold/50 bg-accent-gold/20 text-accent-gold'
+                : 'border-white/10 bg-white/5 text-ink-muted-on-dark hover:bg-white/10'
+            }`}
+          >
+            <Eye size={13} />
+            <span>Frames: {showAllSectionBorders ? 'ON' : 'OFF'}</span>
+          </button>
+        </div>
+      </div>
+
+      {/* ── Theme preview ──────────────────────────────────────────────── */}
+      <button
+        type="button"
+        onClick={props.onCycleTheme}
+        title={`Preview theme: ${themePreviewLabel} (click to cycle)`}
+        className="inline-flex w-full items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-colors duration-200 hover:bg-white/10 hover:text-white active:scale-95 cursor-pointer touch-manipulation focus-visible:ring-1 focus-visible:ring-accent-gold"
+      >
+        {themeMode === 'light' ? (
+          <Sun size={13} className="animate-in fade-in zoom-in-75 text-amber-300 duration-200" />
+        ) : themeMode === 'dark' ? (
+          <Moon size={13} className="animate-in fade-in zoom-in-75 text-blue-300 duration-200" />
+        ) : (
+          <span className="relative flex items-center justify-center">
+            <Monitor
+              size={13}
+              className="animate-in fade-in zoom-in-75 text-emerald-300 duration-200"
+            />
+            <span
+              aria-hidden="true"
+              className={`absolute -right-0.5 -top-0.5 size-1.5 rounded-full ring-1 ring-secondary ${
+                effectiveTheme === 'dark' ? 'bg-sky-400' : 'bg-amber-400'
+              }`}
+            />
+          </span>
+        )}
+        <span className="flex-1 text-left capitalize">
+          {themeModeLabel(themeMode)}
+          {themeMode === 'system' ? (
+            <span className="ml-1 text-[10px] font-medium lowercase text-ink-muted-on-dark">
+              ({effectiveTheme})
+            </span>
+          ) : null}
+        </span>
+      </button>
+
+      {/* ── Viewport switcher ──────────────────────────────────────────── */}
+      <fieldset
+        aria-label="Responsive viewport preview"
+        className="inline-flex w-full items-center rounded-lg border border-white/10 bg-white/5 p-0.5"
+      >
+        <legend className="sr-only">Responsive viewport preview</legend>
+        <button
+          type="button"
+          onClick={() => props.onSetViewportMode('desktop')}
+          title="Desktop full viewport (100% width)"
+          aria-label="Desktop viewport"
+          aria-pressed={viewportMode === 'desktop'}
+          className={`flex-1 rounded-md p-1.5 text-xs font-bold transition-colors ${
+            viewportMode === 'desktop'
+              ? 'bg-accent-gold/20 text-accent-gold'
+              : 'text-ink-muted-on-dark hover:text-white'
+          }`}
+        >
+          <Monitor size={13} />
+        </button>
+        <button
+          type="button"
+          onClick={() => props.onSetViewportMode('tablet')}
+          title="Tablet viewport preview (768px width)"
+          aria-label="Tablet viewport"
+          aria-pressed={viewportMode === 'tablet'}
+          className={`flex-1 rounded-md p-1.5 text-xs font-bold transition-colors ${
+            viewportMode === 'tablet'
+              ? 'bg-accent-gold/20 text-accent-gold'
+              : 'text-ink-muted-on-dark hover:text-white'
+          }`}
+        >
+          <Tablet size={13} />
+        </button>
+        <button
+          type="button"
+          onClick={() => props.onSetViewportMode('mobile')}
+          title="Mobile viewport preview (390px iPhone width)"
+          aria-label="Mobile viewport"
+          aria-pressed={viewportMode === 'mobile'}
+          className={`flex-1 rounded-md p-1.5 text-xs font-bold transition-colors ${
+            viewportMode === 'mobile'
+              ? 'bg-accent-gold/20 text-accent-gold'
+              : 'text-ink-muted-on-dark hover:text-white'
+          }`}
+        >
+          <Smartphone size={13} />
+        </button>
+        {viewportMode !== 'desktop' && (
+          <>
+            <button
+              type="button"
+              onClick={props.onRotateOrientation}
+              title={`Rotate device orientation (${deviceOrientation === 'portrait' ? 'Landscape' : 'Portrait'})`}
+              aria-label="Rotate device orientation"
+              className="rounded-md p-1.5 text-xs font-bold text-accent-gold transition-colors hover:bg-white/10"
+            >
+              <RotateCw size={13} />
+            </button>
+            <span className="px-1.5 text-[10px] font-mono font-bold text-accent-gold">
+              {viewportMode === 'mobile'
+                ? deviceOrientation === 'portrait'
+                  ? '390px'
+                  : '844px'
+                : deviceOrientation === 'portrait'
+                  ? '768px'
+                  : '1024px'}
+            </span>
+          </>
+        )}
+      </fieldset>
+
+      {/* ── Jump to block ──────────────────────────────────────────────── */}
+      {sections.length > 0 && (
+        <select
+          aria-label="Jump to block"
+          onChange={(e) => {
+            const blockIndex = Number.parseInt(e.target.value, 10);
+            if (Number.isInteger(blockIndex)) props.onJumpToBlock(blockIndex);
+          }}
+          className="w-full rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-accent-gold"
+          value=""
+        >
+          <option value="" disabled className="bg-secondary text-ink-on-dark">
+            Jump to block…
+          </option>
+          {sections.map((sec) => (
+            <option key={sec.key} value={sec.blockIndex} className="bg-secondary text-ink-on-dark">
+              {sec.ordinal}. {sec.label}
+            </option>
+          ))}
+        </select>
+      )}
+
+      {/* ── Add Block ──────────────────────────────────────────────────── */}
+      <DropdownMenu.Root>
+        <DropdownMenu.Trigger asChild>
+          <button
+            type="button"
+            disabled={!canMutateDocument}
+            title={
+              documentLoadState === 'loading'
+                ? 'Wait for the saved document to open before adding a block'
+                : documentLoadState === 'degraded'
+                  ? 'Reload the saved document before adding a block'
+                  : unsaveableReason ?? 'Add a block to this document'
+            }
+            className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-primary-bright px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-white shadow-xs transition-colors hover:bg-primary-light focus-visible:ring-2 focus-visible:ring-accent-gold disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-primary-bright"
+          >
+            <Plus size={14} />
+            <span>Add Block</span>
+          </button>
+        </DropdownMenu.Trigger>
+        <DropdownMenu.Portal>
+          <DropdownMenu.Content
+            align="start"
+            side="left"
+            sideOffset={8}
+            aria-label="Add block"
+            className="z-50 w-48 rounded-xl border border-white/15 bg-secondary p-1.5 shadow-float data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
+          >
+            {blockTypeOptions.map((option) => (
+              <DropdownMenu.Item
+                key={option.type}
+                onSelect={() => props.onAddBlock(option.type)}
+                className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-none"
+              >
+                {option.label}
+              </DropdownMenu.Item>
+            ))}
+            <div className="my-1 h-px bg-white/10" />
+            <DropdownMenu.Item
+              onSelect={() => props.onOpenBlockLibrary(null)}
+              className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-accent-gold hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-none"
+            >
+              <Layers size={13} />
+              <span>Element Library &amp; Templates…</span>
+            </DropdownMenu.Item>
+          </DropdownMenu.Content>
+        </DropdownMenu.Portal>
+      </DropdownMenu.Root>
+
+      {/* ── Design & page tools ────────────────────────────────────────── */}
+      <div className="flex flex-col gap-2">
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => props.onOpenVisualComposer('block', activeBlockIndex ?? 0)}
+            title="Visual Composer: Full Design & Box Model Inspector (⌘E)"
+            aria-label="Visual Composer Inspector"
+            className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-accent-gold/30 bg-accent-gold/15 px-2.5 py-1.5 text-xs font-bold text-accent-gold transition-colors hover:bg-accent-gold/25 focus-visible:ring-2 focus-visible:ring-accent-gold"
+          >
+            <SlidersHorizontal size={14} />
+            <span>Composer</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={props.onOpenPageNavigator}
+            title="Page Structure Navigator & Tree (⌘7)"
+            className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-sky-400/30 bg-sky-400/15 px-2.5 py-1.5 text-xs font-bold text-sky-300 transition-colors hover:bg-sky-400/25 focus-visible:ring-2 focus-visible:ring-sky-400"
+          >
+            <ListTree size={14} />
+            <span>Tree</span>
+          </button>
+        </div>
+
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => props.onOpenMedia('section')}
+            title="Open Supabase S3 Media Library"
+            aria-label="Open Supabase S3 Media Library"
+            className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-accent-gold"
+          >
+            <FolderOpen size={14} className="text-accent-gold" />
+            <span>Media</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={props.onOpenSettings}
+            disabled={!documentReady}
+            title={
+              documentOpening
+                ? 'Wait for the saved document to open before editing page settings'
+                : documentUnavailable
+                  ? 'Reload the saved document before editing page settings'
+                  : 'Edit page title, slug, and featured image'
+            }
+            className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-accent-gold disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-white/10"
+          >
+            <Settings size={14} />
+            <span>Settings</span>
+          </button>
+        </div>
+
+        {contentRow && (
+          <button
+            type="button"
+            onClick={props.onOpenRevisions}
+            disabled={!documentReady}
+            title={
+              documentOpening
+                ? 'Wait for the saved document to open before viewing revisions'
+                : documentUnavailable
+                  ? 'Reload the saved document before viewing revisions'
+                  : 'View page revision history and restore previous snapshots'
+            }
+            className="inline-flex w-full items-center gap-1.5 rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-accent-gold disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-white/10"
+          >
+            <History size={14} />
+            <span>Revisions</span>
+          </button>
+        )}
+      </div>
+
+      {/* ── Create & CRM ──────────────────────────────────────────────── */}
+      <DropdownMenu.Root>
+        <DropdownMenu.Trigger asChild>
+          <button
+            type="button"
+            title="Create or manage: Posts, Events, Bulletins, or Links"
+            aria-label="Create or manage: Posts, Events, Bulletins, or Links"
+            className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-primary-bright/40 bg-primary/20 px-2.5 py-1.5 text-xs font-bold text-primary-on-dark transition-colors hover:bg-primary/30 focus-visible:ring-2 focus-visible:ring-accent-gold"
+          >
+            <Plus size={14} className="text-accent-gold" />
+            <span>Publish</span>
+          </button>
+        </DropdownMenu.Trigger>
+        <DropdownMenu.Portal>
+          <DropdownMenu.Content
+            side="left"
+            align="start"
+            sideOffset={8}
+            className="z-50 min-w-48 rounded-xl border border-white/15 bg-secondary p-1.5 shadow-float data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
+          >
+            <DropdownMenu.Item
+              onSelect={props.onNewPost}
+              className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-none"
+            >
+              <FilePlus2 size={14} className="text-primary-on-dark" />
+              <span>New Post</span>
+            </DropdownMenu.Item>
+            <DropdownMenu.Item
+              onSelect={() => props.onOpenCRM('events')}
+              className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-none"
+            >
+              <Calendar size={14} className="text-purple-400" />
+              <span>Manage Events</span>
+            </DropdownMenu.Item>
+            <DropdownMenu.Item
+              onSelect={() => props.onOpenCRM('news')}
+              className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-none"
+            >
+              <Newspaper size={14} className="text-accent-gold" />
+              <span>Manage Bulletins</span>
+            </DropdownMenu.Item>
+            <DropdownMenu.Item
+              onSelect={() => props.onOpenCRM('links')}
+              className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-none"
+            >
+              <LinkIcon size={14} className="text-emerald-400" />
+              <span>Manage Action Links</span>
+            </DropdownMenu.Item>
+          </DropdownMenu.Content>
+        </DropdownMenu.Portal>
+      </DropdownMenu.Root>
+
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => props.onOpenCRM()}
+          title="Open Civic CRM (Constituents, Events, News, Links)"
+          aria-label="Open Civic CRM (Constituents, Events, News, Links)"
+          className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-accent-gold"
+        >
+          <UsersRound size={14} className="text-emerald-400" />
+          <span>CRM</span>
+        </button>
+
+        <a
+          href="/admin/crm/broadcasts"
+          target="_blank"
+          rel="noreferrer"
+          title="Open CRM Studio (Broadcasts & Constituents)"
+          aria-label="Open CRM Studio (Broadcasts & Constituents)"
+          className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-accent-gold"
+        >
+          <ExternalLink size={14} className="text-primary-on-dark" />
+          <span>Studio</span>
+        </a>
+      </div>
+
+      {/* ── Info: shortcuts & health ──────────────────────────────────── */}
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={props.onOpenShortcuts}
+            title="Keyboard shortcuts cheat sheet (⌘/)"
+            aria-label="Keyboard shortcuts cheat sheet"
+            className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-accent-gold"
+          >
+            <Keyboard size={14} className="text-accent-gold" />
+            <span>Shortcuts</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={props.onToggleHealthDetails}
+            title="Supabase Backend & Edge Function Health"
+            aria-label="Supabase Backend & Edge Function Health"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs font-bold text-ink-muted-on-dark hover:bg-white/10"
+          >
+            <Activity
+              size={13}
+              className={
+                backendStatus?.database && backendStatus?.storage && backendStatus?.edgeFunction
+                  ? 'text-emerald-400'
+                  : 'text-amber-400'
+              }
+            />
+            <span
+              className={`size-2 rounded-full ${
+                backendStatus?.database && backendStatus?.storage && backendStatus?.edgeFunction
+                  ? 'bg-emerald-400'
+                  : !backendStatus?.database || !backendStatus?.storage
+                    ? 'bg-rose-400'
+                    : 'bg-amber-400'
+              }`}
+            />
+          </button>
+        </div>
+
+        {showHealthDetails && backendStatus && (
+          <div className="rounded-xl border border-white/15 bg-white/5 p-3 text-xs space-y-2">
+            <div className="flex items-center justify-between border-b border-white/10 pb-1.5">
+              <span className="font-black uppercase tracking-wider text-white">Backend Health</span>
+              <button
+                type="button"
+                onClick={props.onProbeBackendHealth}
+                disabled={statusLoading}
+                className="p-1 text-slate-400 hover:text-white"
+                aria-label="Refresh health probe"
+              >
+                <RefreshCw size={12} className={statusLoading ? 'animate-spin' : ''} />
+              </button>
+            </div>
+            <div className="flex items-center justify-between text-ink-on-dark">
+              <span>Database (Postgres)</span>
+              <span
+                className={
+                  backendStatus.database ? 'font-bold text-emerald-400' : 'font-bold text-rose-400'
+                }
+              >
+                {backendStatus.database ? 'Connected' : 'Offline'}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-ink-on-dark">
+              <span>Supabase S3 Storage</span>
+              <span
+                className={
+                  backendStatus.storage ? 'font-bold text-emerald-400' : 'font-bold text-rose-400'
+                }
+              >
+                {backendStatus.storage ? 'media bucket ready' : 'Error'}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-ink-on-dark">
+              <span>Edge Functions</span>
+              <span
+                className={
+                  backendStatus.edgeFunction
+                    ? 'font-bold text-emerald-400'
+                    : 'font-bold text-amber-400'
+                }
+              >
+                {backendStatus.edgeFunction ? 'Healthy' : 'Fallback'}
+              </span>
+            </div>
+            {backendStatus.edgeFunctionDetails?.latencyMs !== undefined && (
+              <div className="text-right text-[10px] text-ink-muted-on-dark">
+                Latency: {backendStatus.edgeFunctionDetails.latencyMs}ms
+              </div>
+            )}
+            {backendSummary && (
+              <div className="space-y-1.5 border-t border-white/10 pt-2">
+                <div className="flex items-center justify-between text-ink-on-dark">
+                  <span>Constituents</span>
+                  <span className="font-bold">
+                    {backendSummary.crmTotal ?? '—'}
+                    <span className="font-medium text-ink-muted-on-dark">
+                      {' '}
+                      · {backendSummary.segments ?? '—'} segments
+                      {backendSummary.segments !== null && backendSummary.segmentsTruncated
+                        ? '+'
+                        : ''}
+                    </span>
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-ink-on-dark">
+                  <span>Civic content</span>
+                  <span className="font-bold">
+                    {backendSummary.events ?? '—'} events · {backendSummary.gallery ?? '—'} photos
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-ink-on-dark">
+                  <span>Media library</span>
+                  <span className="font-bold">
+                    {backendSummary.mediaItems ?? '—'} recent files
+                    {backendSummary.mediaItems !== null && backendSummary.mediaTruncated ? '+' : ''}
+                  </span>
+                </div>
+                {(backendSummary.mediaTruncated ||
+                  backendSummary.segmentsTruncated ||
+                  backendSummary.revisionsTruncated) && (
+                  <p className="text-[10px] text-ink-muted-on-dark">
+                    Capped window — open the picker for the full list.
+                  </p>
+                )}
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={props.onOpenDiagnostics}
+              className="mt-1 w-full rounded-md bg-white/5 py-1 text-center text-[11px] font-bold text-accent-gold transition-colors hover:bg-white/10 hover:text-white"
+            >
+              System Diagnostics →
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* ── Admin link ────────────────────────────────────────────────── */}
+      {adminEditUrl && (
+        <a
+          href={adminEditUrl}
+          target="_blank"
+          rel="noreferrer"
+          title="Open full admin page editor in new tab"
+          aria-label="Open full admin page editor in new tab"
+          className="inline-flex items-center gap-1 rounded-lg border border-white/10 px-2.5 py-1.5 text-xs font-bold text-ink-muted-on-dark hover:bg-white/10 hover:text-white"
+        >
+          <span className="flex-1">Admin</span>
+          <ExternalLink size={12} />
+        </a>
+      )}
+
+      {/* ── Exit ──────────────────────────────────────────────────────── */}
+      <button
+        type="button"
+        onClick={props.onToggle}
+        className="inline-flex w-full items-center justify-center gap-1 rounded-lg bg-white/10 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-colors hover:bg-white/20 focus-visible:ring-2 focus-visible:ring-accent-gold"
+      >
+        <X size={14} />
+        <span>Done</span>
+      </button>
+
+      {/* ── Block list ────────────────────────────────────────────────── */}
+      {blocks.length > 0 && (
+        <div className="flex flex-col gap-1.5 border-t border-white/10 pt-2">
+          <span className="text-[10px] font-black uppercase tracking-wider text-ink-muted-on-dark">
+            Blocks
+          </span>
+          <div className="flex flex-col gap-1">
+            {blocks.map((block, idx) => {
+              const label = sectionLabelForBlock(block);
+              const section = sections.find((item) => item.blockIndex === idx);
+              const framed = section ? enabledSectionKeys.has(section.key) : false;
+              const isDragging = draggingBlockIndex === idx;
+              const isDragOver = dragOverBlockIndex === idx;
+              return (
+                <section
+                  key={block.id}
+                  aria-label={`Block #${idx + 1}: ${label}`}
+                  data-testid="sidebar-block-item"
+                  onDragOver={(e) => {
+                    if (
+                      !canMutateDocument ||
+                      !props.onReorderSection ||
+                      draggingBlockIndex === null ||
+                      draggingBlockIndex === idx
+                    )
+                      return;
+                    e.preventDefault();
+                    if (e.dataTransfer) {
+                      e.dataTransfer.dropEffect = 'move';
+                    }
+                    if (dragOverBlockIndex !== idx) setDragOverBlockIndex(idx);
+                  }}
+                  onDragLeave={(e) => {
+                    if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+                    if (dragOverBlockIndex === idx) setDragOverBlockIndex(null);
+                  }}
+                  onDrop={(e) => {
+                    if (!canMutateDocument || !props.onReorderSection) return;
+                    const dragFrom =
+                      draggingBlockIndex ?? Number(e.dataTransfer?.getData('text/plain'));
+                    if (Number.isNaN(dragFrom) || dragFrom === idx) return;
+                    e.preventDefault();
+                    props.onReorderSection(dragFrom, idx);
+                    setDraggingBlockIndex(null);
+                    setDragOverBlockIndex(null);
+                  }}
+                  className={`flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] text-ink-on-dark transition-[border-color,background-color,opacity,box-shadow] duration-150 ${
+                    isDragOver
+                      ? 'border-accent-gold/80 bg-accent-gold/20 shadow-md ring-1 ring-accent-gold/50'
+                      : isDragging
+                        ? 'opacity-40 border-white/10 bg-white/5'
+                        : 'border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/10'
+                  }`}
+                >
+                  {props.onReorderSection && (
+                    <span
+                      draggable={canMutateDocument}
+                      aria-hidden="true"
+                      title={
+                        canMutateDocument
+                          ? `Drag block #${idx + 1} (${label}) to reorder`
+                          : 'Editing is locked until the saved document is ready'
+                      }
+                      onDragStart={(e) => {
+                        setDraggingBlockIndex(idx);
+                        if (e.dataTransfer) {
+                          e.dataTransfer.effectAllowed = 'move';
+                          e.dataTransfer.setData('text/plain', String(idx));
+                        }
+                      }}
+                      onDragEnd={() => {
+                        setDraggingBlockIndex(null);
+                        setDragOverBlockIndex(null);
+                      }}
+                      className={`select-none p-0.5 text-slate-400 hover:text-white touch-manipulation ${canMutateDocument ? 'cursor-grab active:cursor-grabbing' : 'cursor-not-allowed opacity-40'}`}
+                    >
+                      <GripVertical size={11} />
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    disabled={!canMutateDocument}
+                    onClick={() => {
+                      props.onJumpToBlock(idx);
+                      props.onOpenVisualComposer('block', idx);
+                    }}
+                    className="flex-1 truncate font-semibold text-left text-ink-on-dark hover:text-accent-gold transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-ink-on-dark"
+                    title={`Edit ${label} in sidebar`}
+                  >
+                    {label}
+                  </button>
+                  {section && (
+                    <button
+                      type="button"
+                      onClick={() => props.onToggleSectionFrame(idx)}
+                      aria-pressed={framed}
+                      aria-label={framed ? `Hide frame for ${label}` : `Show frame for ${label}`}
+                      title={framed ? 'Hide visual frame' : 'Show visual frame'}
+                      className={`p-0.5 transition-colors ${
+                        framed
+                          ? 'text-accent-gold hover:text-white'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      {framed ? <Eye size={11} /> : <EyeOff size={11} />}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    disabled={!canMutateDocument}
+                    onClick={() => props.onOpenVisualComposer('block', idx)}
+                    title="Visual Composer: Element Design & Box Model (⌘E)"
+                    aria-label={`Visual Composer for ${label}`}
+                    className="p-0.5 text-accent-gold hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <SlidersHorizontal size={11} />
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!canMutateDocument}
+                    onClick={() => props.onOpenVisualComposer('section', idx)}
+                    title="Row / Section Settings (Containers, Dividers & Grid)"
+                    aria-label={`Row settings for ${label}`}
+                    className="p-0.5 text-sky-400 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <LayoutTemplate size={11} />
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!canMutateDocument}
+                    onClick={() => props.onDuplicateSection(idx)}
+                    title="Duplicate block"
+                    aria-label={`Duplicate block ${label}`}
+                    className="p-0.5 text-slate-400 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <Copy size={11} />
+                  </button>
+                  {props.onDeleteSection && (
+                    <ConfirmAction
+                      label={`Delete block ${label}`}
+                      message={`Delete ${label}?`}
+                      confirmLabel="Delete"
+                      cancelLabel="Cancel"
+                      danger
+                      disabled={!canMutateDocument}
+                      idleClassName="p-0.5 text-slate-400 hover:text-rose-300 transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
+                      onConfirm={() => props.onDeleteSection?.(idx)}
+                    >
+                      <Trash2 size={11} />
+                    </ConfirmAction>
+                  )}
+                  {idx > 0 && (
+                    <button
+                      type="button"
+                      disabled={!canMutateDocument}
+                      onClick={() => props.onMoveSection(idx, 'up')}
+                      title="Move up"
+                      aria-label={`Move block ${label} up`}
+                      className="p-0.5 text-slate-400 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <ArrowUp size={11} />
+                    </button>
+                  )}
+                  {idx < blocks.length - 1 && (
+                    <button
+                      type="button"
+                      disabled={!canMutateDocument}
+                      onClick={() => props.onMoveSection(idx, 'down')}
+                      title="Move down"
+                      aria-label={`Move block ${label} down`}
+                      className="p-0.5 text-slate-400 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <ArrowDown size={11} />
+                    </button>
+                  )}
+                </section>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── Empty document or coded-route DataPoints ───────────────────── */}
+      {blocks.length === 0 &&
+        (props.isComposerWorkspace ? (
+          <div
+            data-testid="composer-empty-document"
+            className="flex flex-col gap-2 border-t border-white/10 pt-2 text-xs"
+          >
+            <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-accent-gold">
+              <FilePlus2 size={11} />
+              <span>Empty document</span>
+            </span>
+            <p className="text-[11px] leading-snug text-ink-muted-on-dark">
+              This row has no blocks yet. Add the first block here, or open the content editor to
+              build the page with the full block library.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => props.onOpenBlockLibrary(null)}
+                disabled={!canMutateDocument}
+                title={
+                  documentLoadState === 'loading'
+                    ? 'Wait for the saved document to open before adding a block'
+                    : documentLoadState === 'degraded'
+                      ? 'Reload the saved document before adding a block'
+                      : unsaveableReason ?? 'Add the first block to this document'
+                }
+                className="inline-flex items-center justify-center gap-1.5 rounded-md border border-accent-gold/40 bg-accent-gold/15 px-2.5 py-1 text-xs font-bold text-accent-gold transition-colors hover:bg-accent-gold/25 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-accent-gold/15"
+              >
+                <Plus size={12} />
+                <span>Add first block</span>
+              </button>
+              {props.adminEditUrl ? (
+                <a
+                  href={props.adminEditUrl}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-md border border-white/15 bg-white/5 px-2.5 py-1 text-xs font-bold text-ink-on-dark transition-colors hover:bg-white/10"
+                >
+                  <ExternalLink size={12} />
+                  <span>Content editor</span>
+                </a>
+              ) : null}
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2 border-t border-white/10 pt-2 text-xs">
+            <div className="flex items-center gap-2">
+              <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-accent-gold">
+                <Database size={11} className="text-sky-400" />
+                <span>Coded Route DataPoints:</span>
+              </span>
+            </div>
+            <p className="text-[11px] text-ink-muted-on-dark">
+              This page renders dynamic database fields. Click any element on page or open the
+              matrix to edit live copy.
+            </p>
+            <button
+              type="button"
+              onClick={props.onOpenDataPointDrawer}
+              className="inline-flex items-center justify-center gap-1.5 rounded-md border border-sky-400/40 bg-sky-500/20 px-2.5 py-1 text-xs font-bold text-sky-300 transition-colors hover:bg-sky-500/30 cursor-pointer"
+            >
+              <Database size={12} />
+              <span>Open DataPoints Matrix</span>
+            </button>
+          </div>
+        ))}
+    </div>
+  );
+}

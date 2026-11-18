@@ -1,6 +1,8 @@
-import { ExternalLink, ShieldAlert } from 'lucide-react';
 import type { Metadata } from 'next';
+import { AdminNotice } from '@/components/admin/AdminNotice';
+import { AdminStatGrid } from '@/components/admin/AdminStatGrid';
 import { IceReportModeration } from '@/components/admin/IceReportModeration';
+import { IceReportsHeader } from '@/components/admin/ice/IceReportsHeader';
 import { requireAdminPage } from '@/lib/admin-auth';
 import { listIceReportQueue, type IceReportStore } from '@/lib/ice-report-intake';
 import type { IceReportIntakeRow } from '@/lib/ice-report-shared';
@@ -29,71 +31,23 @@ export default async function AdminIceReportsPage() {
 
   return (
     <div>
-      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <div className="mb-4 flex items-center gap-3">
-            <span className="flex size-8 items-center justify-center rounded-full bg-primary text-white dark:bg-primary-bright">
-              <ShieldAlert size={14} aria-hidden="true" />
-            </span>
-            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground">
-              Private moderation
-            </span>
-          </div>
-          <h1 className="font-display text-4xl font-semibold tracking-[-0.03em] text-foreground">
-            ICE reports
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-            Raw reports are private. Unique low-risk reports may automatically publish a generated
-            city-level summary; similar reports are combined. Reports with safety flags or no
-            verified city wait here for manual review. First review prepares a sanitized draft; a
-            different admin must approve it before that draft appears publicly. Never copy names,
-            plates, addresses, contact details, or exact locations into a draft.
-          </p>
-        </div>
+      <IceReportsHeader />
 
-        <a
-          href="/ice-alerts#reviewed-reports"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex min-h-10 shrink-0 items-center gap-1.5 border border-border bg-surface-card px-3 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-foreground transition-colors hover:border-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-        >
-          View public section
-          <ExternalLink className="size-3" aria-hidden="true" />
-        </a>
-      </div>
+      <AdminStatGrid
+        stats={[
+          { label: 'Awaiting first review', value: firstReview },
+          { label: 'Awaiting second reviewer', value: secondReview },
+          { label: 'Retention window', value: '30 days' },
+        ]}
+      />
 
-      <div className="mb-5 grid gap-px border border-border bg-border sm:grid-cols-3">
-        <div className="bg-surface-card p-4">
-          <p className="font-mono text-[8px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
-            Awaiting first review
-          </p>
-          <p className="mt-1 font-display text-3xl font-semibold tracking-[-0.03em]">
-            {firstReview}
-          </p>
-        </div>
-        <div className="bg-surface-card p-4">
-          <p className="font-mono text-[8px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
-            Awaiting second reviewer
-          </p>
-          <p className="mt-1 font-display text-3xl font-semibold tracking-[-0.03em]">
-            {secondReview}
-          </p>
-        </div>
-        <div className="bg-surface-card p-4">
-          <p className="font-mono text-[8px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
-            Retention window
-          </p>
-          <p className="mt-1 font-display text-3xl font-semibold tracking-[-0.03em]">30 days</p>
-        </div>
-      </div>
-
-      <div className="mb-5 border border-accent/35 bg-accent/5 p-4 text-xs leading-relaxed text-muted-foreground">
+      <AdminNotice>
         <strong className="text-foreground">Two-person rule for this queue:</strong> the admin who
         prepares a held report&apos;s public draft cannot approve it. The database function re-checks
         this and writes only the allowlisted public fields. Automatic entries are generated
         city-level summaries, never raw text. A report is not evidence of a crime or a verified
         sighting.
-      </div>
+      </AdminNotice>
 
       {loadError ? (
         <div role="alert" className="border border-accent/40 bg-accent/10 p-5 text-sm">

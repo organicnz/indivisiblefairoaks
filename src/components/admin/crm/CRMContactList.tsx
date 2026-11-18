@@ -23,6 +23,7 @@ import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import { CRMContactEditorModal } from '@/components/admin/crm/CRMContactEditorModal';
 import { CRMImportModal } from '@/components/admin/crm/CRMImportModal';
 import { CRMPager } from '@/components/admin/crm/CRMPager';
+import { ContactBulkActionsBar } from '@/components/admin/crm/ContactBulkActionsBar';
 import {
   bulkDeleteCRMContacts,
   bulkUpdateCRMContacts,
@@ -1481,145 +1482,21 @@ export function CRMContactList({
         />
       )}
 
-      {/* Floating Bulk Actions Bar */}
       {selectedIds.size > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-secondary text-white px-5 py-3 rounded-2xl shadow-2xl border border-slate-700 flex flex-wrap items-center gap-4 animate-in fade-in slide-in-from-bottom-4 duration-200">
-          <div className="flex items-center gap-2 pr-3 border-r border-slate-700">
-            <span className="w-6 h-6 rounded-full bg-primary flex items-center justify-center text-xs font-black">
-              {selectedIds.size}
-            </span>
-            <span className="text-xs font-bold whitespace-nowrap">Selected</span>
-            <button
-              type="button"
-              onClick={() => setSelectedIds(new Set())}
-              className="text-xs text-muted-foreground hover:text-white underline ml-1"
-            >
-              Clear
-            </button>
-          </div>
-
-          {/* Bulk Status Select */}
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] font-medium text-muted-foreground whitespace-nowrap">
-              Status:
-            </span>
-            <select
-              disabled={bulkActionBusy}
-              onChange={(e) => {
-                if (e.target.value) {
-                  void handleBulkStatus(e.target.value);
-                  e.target.value = '';
-                }
-              }}
-              defaultValue=""
-              className="bg-slate-800 text-white text-xs font-bold rounded-lg px-2.5 py-1.5 border border-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50"
-            >
-              <option value="" disabled>
-                Change Status…
-              </option>
-              <option value="active_volunteer">Active Volunteer</option>
-              <option value="organizer">Organizer</option>
-              <option value="choir">Resistance Choir</option>
-              <option value="donor">Donor</option>
-              <option value="supporter">Supporter</option>
-              <option value="inactive">Inactive</option>
-            </select>
-          </div>
-
-          {/* Bulk Add Tag */}
-          <div className="flex items-center gap-1.5">
-            <input
-              type="text"
-              placeholder="+ Add Tag…"
-              value={bulkTagInput}
-              disabled={bulkActionBusy}
-              onChange={(e) => setBulkTagInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  void handleBulkAddTag();
-                }
-              }}
-              className="bg-slate-800 text-white placeholder-slate-400 text-xs rounded-lg px-2.5 py-1.5 border border-slate-700 w-28 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50"
-            />
-            <button
-              type="button"
-              onClick={() => void handleBulkAddTag()}
-              disabled={!bulkTagInput.trim() || bulkActionBusy}
-              className="px-2.5 py-1.5 bg-primary hover:bg-primary-light text-white text-xs font-bold rounded-lg transition-colors disabled:opacity-40"
-            >
-              Add
-            </button>
-          </div>
-
-          {/* Bulk District */}
-          <div className="flex items-center gap-1.5">
-            <input
-              type="text"
-              placeholder="District…"
-              value={bulkDistrictInput}
-              disabled={bulkActionBusy}
-              onChange={(e) => setBulkDistrictInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  void handleBulkDistrict();
-                }
-              }}
-              className="bg-slate-800 text-white placeholder-slate-400 text-xs rounded-lg px-2.5 py-1.5 border border-slate-700 w-24 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50"
-            />
-            <button
-              type="button"
-              onClick={() => void handleBulkDistrict()}
-              disabled={!bulkDistrictInput.trim() || bulkActionBusy}
-              className="px-2.5 py-1.5 bg-primary hover:bg-primary-light text-white text-xs font-bold rounded-lg transition-colors disabled:opacity-40"
-            >
-              Set
-            </button>
-          </div>
-
-          {/* Bulk Consent */}
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] font-medium text-muted-foreground whitespace-nowrap">
-              Email:
-            </span>
-            <select
-              disabled={bulkActionBusy}
-              onChange={(e) => {
-                if (e.target.value) {
-                  void handleBulkConsent(e.target.value as ConsentDecision);
-                  e.target.value = '';
-                }
-              }}
-              defaultValue=""
-              aria-label="Change email consent for selected constituents"
-              className="bg-slate-800 text-white text-xs font-bold rounded-lg px-2.5 py-1.5 border border-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50"
-            >
-              <option value="" disabled>
-                Consent…
-              </option>
-              <option value="opted_in">Opt in</option>
-              <option value="opted_out">Opt out</option>
-              <option value="unasked">Mark unasked</option>
-            </select>
-          </div>
-
-          {/* Bulk Delete */}
-          <div className="pl-2 border-r border-slate-700 sm:border-r-0 sm:border-l">
-            <ConfirmAction
-              label={`Delete ${selectedIds.size} constituents`}
-              message={`Delete ${selectedIds.size} selected constituents? This will remove all associated notes, tasks, and history permanently.`}
-              confirmLabel="Delete Selected"
-              danger
-              busy={bulkActionBusy}
-              idleClassName="px-3 py-1.5 bg-rose-900/60 hover:bg-rose-800 text-rose-200 border border-rose-700 text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 disabled:opacity-50"
-              onConfirm={() => void handleBulkDelete()}
-            >
-              <Trash2 size={13} />
-              Delete ({selectedIds.size})
-            </ConfirmAction>
-          </div>
-        </div>
+        <ContactBulkActionsBar
+          count={selectedIds.size}
+          busy={bulkActionBusy}
+          tagInput={bulkTagInput}
+          districtInput={bulkDistrictInput}
+          onClear={() => setSelectedIds(new Set())}
+          onTagInputChange={setBulkTagInput}
+          onDistrictInputChange={setBulkDistrictInput}
+          onBulkStatus={(status) => void handleBulkStatus(status)}
+          onBulkAddTag={() => void handleBulkAddTag()}
+          onBulkDistrict={() => void handleBulkDistrict()}
+          onBulkConsent={(consent) => void handleBulkConsent(consent)}
+          onBulkDelete={() => void handleBulkDelete()}
+        />
       )}
     </div>
   );
