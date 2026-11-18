@@ -1,0 +1,85 @@
+name: Warm ICE feed
+
+# Vercel promotes a production deployment before it reports `success` to
+# GitHub. This workflow spends the first upstream fetch after that promotion,
+# so a visitor does not pay the 13.6s cold rebuild.
+#
+# `deployment_status` is emitted by the Vercel GitHub app. GitHub-hosted is
+# deliberate here: the job is one HTTPS request and must not wait behind the
+# self-hosted runner queue.
+
+on:
+  deployment_status:
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: warm-ice-feed
+  cancel-in-progress: false
+
+jobs:
+  warm:
+    name: Warm /api/ice-rapid
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.deployment_status.state == 'success' &&
+       (github.event.deployment_status.environment == 'Production' ||
+        github.event.deployment.environment == 'Production'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Request the feed until it is warm
+        env:
+          SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
+        run: |
+          set -euo pipefail
+          test -n "$SITE_URL" || { echo "::error::NEXT_PUBLIC_SITE_URL is not set"; exit 1; }
+
+          endpoint="${SITE_URL%/}/api/ice-rapid"
+          attempt=1
+
+          while [ "$attempt" -le 3 ]; do
+            headers=$(mktemp)
+            body=$(mktemp)
+            elapsed=$(curl -sS --compressed --max-time 60 \
+              -D "$headers" -o "$body" -w '%{time_total}' "$endpoint" || true)
+            code=$(awk 'toupper($1) ~ /^HTTP\// { code = $2 } END { print code + 0 }' "$headers")
+            cache=$(awk 'BEGIN { IGNORECASE = 1 } /^x-vercel-cache:/ { gsub(/\r/, "", $2); value = $2 } END { print value }' "$headers")
+            alerts=$(jq -r '(.alerts // []) | length' "$body" 2>/dev/null || echo 0)
+
+            echo "attempt=$attempt HTTP=$code time=${elapsed}s cache=${cache:-unknown} alerts=$alerts"
+
+            if [ "$code" = "200" ] && [ "$alerts" -ge 1 ]; then
+              second_headers=$(mktemp)
+              second_body=$(mktemp)
+              second_elapsed=$(curl -sS --compressed --max-time 30 \
+                -D "$second_headers" -o "$second_body" -w '%{time_total}' "$endpoint" || true)
+              second_code=$(awk 'toupper($1) ~ /^HTTP\// { code = $2 } END { print code + 0 }' "$second_headers")
+              second_cache=$(awk 'BEGIN { IGNORECASE = 1 } /^x-vercel-cache:/ { gsub(/\r/, "", $2); value = $2 } END { print value }' "$second_headers")
+              second_alerts=$(jq -r '(.alerts // []) | length' "$second_body" 2>/dev/null || echo 0)
+
+              echo "warm HTTP=$second_code time=${second_elapsed}s cache=${second_cache:-unknown} alerts=$second_alerts"
+
+              if [ "$second_code" != "200" ] || [ "$second_alerts" -lt 1 ]; then
+                echo "::error::The warm ICE feed did not return a usable payload"
+                exit 1
+              fi
+
+              # The edge cache is the point of this job. A second request that
+              # is still rebuilding the upstream feed means the warm path did
+              # not take, even if the payload itself was valid.
+              awk -v t="$second_elapsed" 'BEGIN { exit !(t < 5) }' || {
+                echo "::error::The warm ICE feed still took ${second_elapsed}s on the second request"
+                exit 1
+              }
+
+              exit 0
+            fi
+
+            attempt=$((attempt + 1))
+            sleep 10
+          done
+
+          echo "::error::The ICE feed did not become warm after three attempts"
+          exit 1
