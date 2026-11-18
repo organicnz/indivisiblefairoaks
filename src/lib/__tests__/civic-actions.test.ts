@@ -336,34 +336,72 @@ describe('Civic Server Actions', () => {
       }
     });
 
-    it('saves a newsletter and revalidates', async () => {
+    it('creates a newsletter and records the audit entry', async () => {
       const saved = {
         slug: 'bulletin-summer',
         title: 'Summer Bulletin',
         date_label: 'July 2026',
         description: 'Summer organizing',
-        topics: ['Election Defense'],
+        topics: ['Election Defense', 'election defense'],
         sort_order: 1,
         published_at: '2026-07-01T00:00:00Z',
       };
+      const rows: Record<string, unknown>[] = [];
+      const audits: Record<string, unknown>[] = [];
 
       requireAdmin.mockResolvedValue({
-        adminClient: {
-          from: () => ({
-            upsert: () => ({
-              select: () => ({
-                single: async () => ({ data: saved, error: null }),
-              }),
-            }),
-          }),
-        },
+        adminClient: createMockAdminClient({
+          newsletters: { rows },
+          admin_audit_log: { rows: audits },
+        }),
+        adminUserId: 'admin-123',
+        adminEmail: 'admin@example.com',
+        mfaLevel: 'aal2',
       });
 
       const res = await saveCivicNewsletter(saved);
+
       expect(res.success).toBe(true);
-      if (res.success && res.data) {
-        expect(res.data.title).toBe('Summer Bulletin');
-      }
+      expect(rows).toHaveLength(1);
+      expect(rows[0]?.topics).toEqual(['Election Defense']);
+      expect(audits).toHaveLength(1);
+      expect(audits[0]).toMatchObject({
+        action: 'newsletter.create',
+        target_type: 'newsletter',
+        target_id: 'bulletin-summer',
+        outcome: 'success',
+      });
+    });
+
+    it('refuses to overwrite an existing bulletin when the slug is reused', async () => {
+      const rows = [
+        {
+          slug: 'bulletin-summer',
+          title: 'Original Bulletin',
+          date_label: 'July 2026',
+          description: 'Original summary',
+          topics: [],
+          sort_order: 1,
+          published_at: '2026-07-01T00:00:00Z',
+        },
+      ];
+      requireAdmin.mockResolvedValue({
+        adminClient: createMockAdminClient({ newsletters: { rows } }),
+      });
+
+      const res = await saveCivicNewsletter({
+        slug: 'bulletin-summer',
+        title: 'Replacement Bulletin',
+        date_label: 'August 2026',
+        description: 'This must not replace the original',
+        topics: [],
+        sort_order: 1,
+        published_at: '2026-08-01T00:00:00Z',
+      });
+
+      expect(res.success).toBe(false);
+      expect(rows).toHaveLength(1);
+      expect(rows[0]?.title).toBe('Original Bulletin');
     });
 
     it('renames an existing newsletter in place instead of creating a duplicate', async () => {
@@ -380,6 +418,9 @@ describe('Civic Server Actions', () => {
       ];
       requireAdmin.mockResolvedValue({
         adminClient: createMockAdminClient({ newsletters: { rows } }),
+        adminUserId: 'admin-123',
+        adminEmail: 'admin@example.com',
+        mfaLevel: 'aal2',
       });
 
       const res = await saveCivicNewsletter({
@@ -402,6 +443,9 @@ describe('Civic Server Actions', () => {
       const rows = [{ slug: 'bulletin-summer', title: 'Summer Bulletin' }];
       requireAdmin.mockResolvedValue({
         adminClient: createMockAdminClient({ newsletters: { rows } }),
+        adminUserId: 'admin-123',
+        adminEmail: 'admin@example.com',
+        mfaLevel: 'aal2',
       });
 
       const res = await deleteCivicNewsletter('bulletin-summer');
@@ -413,6 +457,9 @@ describe('Civic Server Actions', () => {
     it('reports a newsletter that no longer exists', async () => {
       requireAdmin.mockResolvedValue({
         adminClient: createMockAdminClient({ newsletters: { rows: [] } }),
+        adminUserId: 'admin-123',
+        adminEmail: 'admin@example.com',
+        mfaLevel: 'aal2',
       });
 
       const res = await deleteCivicNewsletter('bulletin-summer');

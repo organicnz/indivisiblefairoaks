@@ -9,7 +9,6 @@ import { useEditContext } from '@/components/layout/useEditContext';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { useDataPoints } from '@/hooks/useDataPoints';
 import { type CivicNewsletterRecord, deleteCivicNewsletter } from '@/lib/actions/civic';
-import { fetchWithTimeout } from '@/lib/service-fetch';
 import type { NewsletterRow } from '@/lib/queries/civic';
 
 export function InteractiveNewslettersList({
@@ -30,10 +29,15 @@ export function InteractiveNewslettersList({
   const [isEditorModalOpen, setIsEditorModalOpen] = useState(false);
 
   useEffect(() => {
+    // The page already renders the cached server list. Re-fetching it on every
+    // mount added a second request and could replace fresh server data with a
+    // minutes-old cached API response. Only the caller without server data
+    // needs the fallback.
+    if (initialNewsletters !== undefined) return;
     let cancelled = false;
     async function loadNewslettersFromApi() {
       try {
-        const res = await fetchWithTimeout('/api/civic/newsletters');
+        const res = await fetch('/api/civic/newsletters');
         if (res.ok) {
           const data = await res.json();
           if (!cancelled && Array.isArray(data.newsletters)) {
@@ -41,14 +45,14 @@ export function InteractiveNewslettersList({
           }
         }
       } catch {
-        // Fall back gracefully
+        // Keep the honest empty state rather than inventing rows.
       }
     }
-    loadNewslettersFromApi();
+    void loadNewslettersFromApi();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [initialNewsletters]);
 
   // Extract all unique topics
   const allTopics = useMemo(() => {
@@ -99,28 +103,25 @@ export function InteractiveNewslettersList({
 
   const handleDeleteNewsletter = async (slug: string, title: string) => {
     try {
-      const res = await fetchWithTimeout(
-        `/api/civic/newsletters?slug=${encodeURIComponent(slug)}`,
-        { method: 'DELETE' }
-      );
-      if (res.ok) {
+      // One authenticated path for both admin surfaces. The old API-first flow
+      // could report a 200 from a delete that matched no row, and its fallback
+      // made the same click write through two different clients.
+      const result = await deleteCivicNewsletter(slug);
+      if (result.success) {
         setNewslettersList((prev) => prev.filter((item) => item.slug !== slug));
         toast.success(`Bulletin "${title}" deleted`);
-      } else {
-        const fallbackRes = await deleteCivicNewsletter(slug);
-        if (fallbackRes.success) {
-          setNewslettersList((prev) => prev.filter((item) => item.slug !== slug));
-          toast.success(`Bulletin "${title}" deleted`);
-        } else {
-          toast.error(fallbackRes.error || 'Failed to delete bulletin');
-        }
+        return;
       }
+      toast.error(result.error || 'Failed to delete bulletin');
     } catch {
       toast.error('Failed to delete bulletin');
     }
   };
 
-  const handleNewsletterSaved = (savedRecord: CivicNewsletterRecord) => {
+  const handleNewsletterSaved = (
+    savedRecord: CivicNewsletterRecord,
+    previousSlug: string | null
+  ) => {
     setIsEditorModalOpen(false);
     const updated: NewsletterRow = {
       slug: savedRecord.slug,
@@ -133,13 +134,12 @@ export function InteractiveNewslettersList({
     };
 
     setNewslettersList((prev) => {
-      const idx = prev.findIndex((item) => item.slug === updated.slug);
-      if (idx >= 0) {
-        const next = [...prev];
-        next[idx] = updated;
-        return next;
-      }
-      return [updated, ...prev];
+      // A rename changes the slug, so matching only the saved slug left the old
+      // card behind and added a second one. Remove the row this editor opened.
+      const withoutOld = prev.filter(
+        (item) => item.slug !== updated.slug && (!previousSlug || item.slug !== previousSlug)
+      );
+      return [...withoutOld, updated];
     });
     toast.success(`Bulletin "${savedRecord.title}" saved successfully`);
   };

@@ -1,6 +1,7 @@
 // @vitest-environment node
 import type { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createMockAdminClient } from './supabase-mock';
 
 const createPublicClient = vi.hoisted(() => vi.fn());
 const requireAdminApi = vi.hoisted(() => vi.fn());
@@ -312,26 +313,16 @@ describe('Civic Newsletters Edge API Route (/api/civic/newsletters)', () => {
     );
   });
 
-  it('POST saves newsletter when user is admin', async () => {
-    const mockSaved = {
-      slug: 'winter-bulletin-2026',
-      title: 'Winter Bulletin',
-      date_label: 'December 2026',
-      description: 'End of year review',
-      topics: ['Review'],
-      sort_order: 20,
-    };
-
+  it('POST creates a newsletter when the slug is free', async () => {
+    const rows: Record<string, unknown>[] = [];
+    const audits: Record<string, unknown>[] = [];
     requireAdminApi.mockResolvedValue(
-      adminSession({
-        from: () => ({
-          upsert: () => ({
-            select: () => ({
-              single: async () => ({ data: mockSaved, error: null }),
-            }),
-          }),
-        }),
-      })
+      adminSession(
+        createMockAdminClient({
+          newsletters: { rows },
+          admin_audit_log: { rows: audits },
+        })
+      )
     );
 
     const req = new Request('https://indivisiblefairoaks.org/api/civic/newsletters', {
@@ -349,26 +340,59 @@ describe('Civic Newsletters Edge API Route (/api/civic/newsletters)', () => {
     const json = await res.json();
     expect(json.success).toBe(true);
     expect(json.newsletter.title).toBe('Winter Bulletin');
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.slug).toBe('winter-bulletin');
+    expect(audits[0]).toMatchObject({ action: 'newsletter.create', outcome: 'success' });
     expect(revalidateTag).toHaveBeenCalledWith('newsletters', 'hours');
     expect(revalidatePath).toHaveBeenCalledWith('/newsletters');
   });
 
-  it('POST renames an existing newsletter in place instead of upserting a duplicate', async () => {
-    const update = vi.fn(() => ({
-      eq: () => ({
-        select: () => ({
-          single: async () => ({
-            data: { slug: 'bulletin-autumn', title: 'Summer Bulletin' },
-            error: null,
-          }),
-        }),
-      }),
-    }));
-    const upsert = vi.fn();
+  it('POST refuses to replace a bulletin when a create reuses its slug', async () => {
+    const rows = [
+      {
+        slug: 'winter-bulletin',
+        title: 'Original Winter Bulletin',
+        date_label: 'December 2026',
+        description: 'Original summary',
+        topics: [],
+        sort_order: 10,
+        published_at: '2026-12-01T00:00:00Z',
+      },
+    ];
     requireAdminApi.mockResolvedValue(
-      adminSession({
-        from: () => ({ update, upsert }),
-      })
+      adminSession(createMockAdminClient({ newsletters: { rows } }))
+    );
+
+    const req = new Request('https://indivisiblefairoaks.org/api/civic/newsletters', {
+      method: 'POST',
+      body: JSON.stringify({
+        slug: 'winter-bulletin',
+        title: 'Replacement',
+        date_label: 'January 2027',
+        description: 'This must not overwrite the original',
+      }),
+    }) as unknown as NextRequest;
+
+    const res = await postNewsletter(req);
+    expect(res.status).toBe(409);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.title).toBe('Original Winter Bulletin');
+  });
+
+  it('POST renames an existing newsletter in place instead of creating a duplicate', async () => {
+    const rows = [
+      {
+        slug: 'bulletin-summer',
+        title: 'Summer Bulletin',
+        date_label: 'July 2026',
+        description: 'Summer organizing',
+        topics: [],
+        sort_order: 10,
+        published_at: '2026-07-01T00:00:00Z',
+      },
+    ];
+    requireAdminApi.mockResolvedValue(
+      adminSession(createMockAdminClient({ newsletters: { rows } }))
     );
 
     const req = new Request('https://indivisiblefairoaks.org/api/civic/newsletters', {
@@ -378,24 +402,30 @@ describe('Civic Newsletters Edge API Route (/api/civic/newsletters)', () => {
         original_slug: 'bulletin-summer',
         title: 'Summer Bulletin',
         date_label: 'July 2026',
+        description: 'Summer organizing',
       }),
     }) as unknown as NextRequest;
 
     const res = await postNewsletter(req);
     expect(res.status).toBe(200);
-    expect(update).toHaveBeenCalledWith(expect.objectContaining({ slug: 'bulletin-autumn' }));
-    expect(upsert).not.toHaveBeenCalled();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.slug).toBe('bulletin-autumn');
   });
 
   it('DELETE removes newsletter by slug when user is admin', async () => {
+    const rows = [
+      {
+        slug: 'fall-bulletin-2026',
+        title: 'Fall Bulletin',
+        date_label: 'October 2026',
+        description: 'Fall organizing',
+        topics: [],
+        sort_order: 10,
+        published_at: '2026-10-01T00:00:00Z',
+      },
+    ];
     requireAdminApi.mockResolvedValue(
-      adminSession({
-        from: () => ({
-          delete: () => ({
-            eq: async () => ({ error: null }),
-          }),
-        }),
-      })
+      adminSession(createMockAdminClient({ newsletters: { rows } }))
     );
 
     const req = new Request(
@@ -408,6 +438,7 @@ describe('Civic Newsletters Edge API Route (/api/civic/newsletters)', () => {
     const json = await res.json();
     expect(json.success).toBe(true);
     expect(json.deletedSlug).toBe('fall-bulletin-2026');
+    expect(rows).toHaveLength(0);
     expect(revalidateTag).toHaveBeenCalledWith('newsletters', 'hours');
     expect(revalidatePath).toHaveBeenCalledWith('/newsletters');
   });

@@ -1,8 +1,8 @@
 'use client';
 
-import { FilePlus2, Loader2, Newspaper, Pencil, Plus, RefreshCw, Search, Tag, Trash2 } from 'lucide-react';
+import { Clock3, FilePlus2, Loader2, Newspaper, Pencil, Plus, RefreshCw, Search, Tag, Trash2 } from 'lucide-react';
 import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import {
@@ -10,20 +10,50 @@ import {
   deleteCivicNewsletter,
   getCivicNewslettersAdmin,
 } from '@/lib/actions/civic';
+import { newsletterPublicationLabel } from '@/lib/newsletters';
 import { CivicNewsletterEditorModal } from './CivicNewsletterEditorModal';
 
 interface CivicNewsletterManagerProps {
   onRefreshParent?: () => void;
   /** Keep an in-progress visual-editing session alive by opening the CMS in a new tab. */
   newsLinkTarget?: '_self' | '_blank';
+  /** Server-rendered rows, so the admin never sees a spinner for data it already has. */
+  initialNewsletters?: CivicNewsletterRecord[];
+}
+
+function sortNewsletters(rows: CivicNewsletterRecord[]): CivicNewsletterRecord[] {
+  return [...rows].sort((a, b) => {
+    if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order;
+    return a.title.localeCompare(b.title);
+  });
+}
+
+function NewsletterStatusBadge({ publishedAt }: { publishedAt: string | null }) {
+  const label = newsletterPublicationLabel(publishedAt);
+  if (label === 'Scheduled') {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-800 dark:border-amber-500/40 dark:bg-amber-950/30 dark:text-amber-200">
+        <Clock3 size={9} aria-hidden="true" />
+        Scheduled
+      </span>
+    );
+  }
+  return (
+    <span className="rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-800 dark:border-emerald-500/40 dark:bg-emerald-950/30 dark:text-emerald-200">
+      Published
+    </span>
+  );
 }
 
 export function CivicNewsletterManager({
   onRefreshParent,
   newsLinkTarget = '_self',
+  initialNewsletters,
 }: CivicNewsletterManagerProps) {
-  const [newsletters, setNewsletters] = useState<CivicNewsletterRecord[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [newsletters, setNewsletters] = useState<CivicNewsletterRecord[]>(
+    initialNewsletters ? sortNewsletters(initialNewsletters) : []
+  );
+  const [loading, setLoading] = useState(initialNewsletters === undefined);
   const [searchQuery, setSearchQuery] = useState('');
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editingNewsletter, setEditingNewsletter] = useState<CivicNewsletterRecord | null>(null);
@@ -33,7 +63,7 @@ export function CivicNewsletterManager({
     try {
       const res = await getCivicNewslettersAdmin();
       if (res.success && res.data) {
-        setNewsletters(res.data);
+        setNewsletters(sortNewsletters(res.data));
       } else if (!res.success) {
         toast.error(res.error || 'Failed to load newsletters');
       }
@@ -45,8 +75,10 @@ export function CivicNewsletterManager({
   }, []);
 
   useEffect(() => {
-    fetchNewsletters();
-  }, [fetchNewsletters]);
+    // A server-rendered list is already the freshest answer this page has. The
+    // old unconditional fetch replaced it with a second request on every mount.
+    if (initialNewsletters === undefined) fetchNewsletters();
+  }, [fetchNewsletters, initialNewsletters]);
 
   const handleDelete = async (slug: string) => {
     try {
@@ -63,15 +95,16 @@ export function CivicNewsletterManager({
     }
   };
 
-  const filteredNewsletters = newsletters.filter((n) => {
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      n.title.toLowerCase().includes(q) ||
-      n.description.toLowerCase().includes(q) ||
-      n.topics.some((t) => t.toLowerCase().includes(q))
+  const filteredNewsletters = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return newsletters;
+    return newsletters.filter(
+      (n) =>
+        n.title.toLowerCase().includes(q) ||
+        n.description.toLowerCase().includes(q) ||
+        n.topics.some((t) => t.toLowerCase().includes(q))
     );
-  });
+  }, [newsletters, searchQuery]);
 
   return (
     <div className="flex flex-col h-full space-y-4">
@@ -161,6 +194,7 @@ export function CivicNewsletterManager({
                     <span className="px-2 py-0.5 rounded-full bg-primary/10 border border-primary/20 text-primary-ink dark:text-primary-on-dark text-[10px] font-black uppercase tracking-wider">
                       {item.date_label}
                     </span>
+                    <NewsletterStatusBadge publishedAt={item.published_at} />
                   </div>
                   <h4 className="text-sm font-bold text-foreground group-hover:text-primary transition-colors">
                     {item.title}
@@ -217,8 +251,13 @@ export function CivicNewsletterManager({
         isOpen={isEditorOpen}
         onClose={() => setIsEditorOpen(false)}
         newsletter={editingNewsletter}
-        onSaved={() => {
-          fetchNewsletters();
+        onSaved={(saved, previousSlug) => {
+          setNewsletters((previous) => {
+            const withoutOld = previous.filter(
+              (item) => item.slug !== saved.slug && (!previousSlug || item.slug !== previousSlug)
+            );
+            return sortNewsletters([...withoutOld, saved]);
+          });
           onRefreshParent?.();
         }}
       />

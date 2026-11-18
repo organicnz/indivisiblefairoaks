@@ -1,34 +1,28 @@
 import { revalidatePath, revalidateTag } from 'next/cache';
 import { type NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
+import { recordAdminAudit } from '@/lib/admin-audit';
 import { requireAdminApi } from '@/lib/admin-api-auth';
+import {
+  newsletterInputSchema,
+  normalizeNewsletterTopics,
+  slugifyNewsletter,
+} from '@/lib/newsletters';
 import { buildNewsletterVisibilityFilter } from '@/lib/queries/civic';
 import { createPublicClient } from '@/lib/supabase-server';
 
-const newsletterSchema = z.object({
-  slug: z.string().trim().min(1).max(120).optional(),
-  original_slug: z.string().trim().min(1).max(120).optional(),
-  title: z.string().trim().min(1, 'Title is required').max(200),
-  date_label: z.string().trim().min(1, 'Date label is required').max(100),
-  description: z.string().trim().default(''),
-  topics: z.array(z.string().trim()).default([]),
-  sort_order: z.number().int().default(0),
-  published_at: z.string().nullable().optional(),
-});
+const NO_STORE = { 'Cache-Control': 'no-store' } as const;
 
-function slugify(text: string): string {
-  return text
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 80);
+function revalidateNewsletters(): void {
+  revalidateTag('newsletters', 'hours');
+  revalidatePath('/newsletters');
+  revalidatePath('/news');
+  revalidatePath('/api/civic/newsletters');
 }
 
 /**
  * GET /api/civic/newsletters
- * Fetches public chapter newsletters. Future-dated bulletins are omitted until
- * their publication timestamp passes; the admin manager reads the full table.
+ * Public chapter bulletins. Future-dated entries are omitted until their
+ * publication timestamp passes; the admin manager reads the full table.
  */
 export async function GET() {
   try {
@@ -48,8 +42,10 @@ export async function GET() {
       { success: true, newsletters: data ?? [] },
       {
         status: 200,
+        // Short enough that an admin save is visible without a deploy, long
+        // enough that the public page's initial load is served from the edge.
         headers: {
-          'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400',
+          'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
         },
       }
     );
@@ -63,7 +59,8 @@ export async function GET() {
 
 /**
  * POST /api/civic/newsletters
- * Admin-authenticated upsert of a newsletter into Supabase DB newsletters table.
+ * Admin-authenticated create or update. A create is an INSERT: reusing an
+ * existing slug returns a conflict instead of silently replacing that bulletin.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -79,8 +76,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const json = await req.json();
-    const parsed = newsletterSchema.safeParse(json);
+    let json: unknown;
+    try {
+      json = await req.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
+
+    const parsed = newsletterInputSchema.safeParse(json);
     if (!parsed.success) {
       return NextResponse.json(
         { error: parsed.error.issues[0]?.message || 'Invalid newsletter payload' },
@@ -89,47 +92,112 @@ export async function POST(req: NextRequest) {
     }
 
     const payload = parsed.data;
-    const finalSlug = payload.slug
-      ? slugify(payload.slug)
-      : slugify(payload.title) || `newsletter-${Date.now()}`;
-    const originalSlug = payload.original_slug ? slugify(payload.original_slug) : null;
-    const isRename = Boolean(originalSlug && originalSlug !== finalSlug);
+    const finalSlug =
+      (payload.slug ? slugifyNewsletter(payload.slug) : '') ||
+      slugifyNewsletter(payload.title) ||
+      `newsletter-${Date.now()}`;
+    const originalSlug =
+      payload.original_slug !== undefined ? slugifyNewsletter(payload.original_slug) : null;
+    if (payload.original_slug !== undefined && !originalSlug) {
+      return NextResponse.json(
+        { error: 'The bulletin being edited has an invalid identifier. Refresh and try again.' },
+        { status: 400 }
+      );
+    }
 
-    const upsertRow = {
+    const existingResult = originalSlug
+      ? await auth.session.supabase
+          .from('newsletters')
+          .select('*')
+          .eq('slug', originalSlug)
+          .maybeSingle()
+      : await auth.session.supabase
+          .from('newsletters')
+          .select('slug')
+          .eq('slug', finalSlug)
+          .maybeSingle();
+    if (existingResult.error) {
+      return NextResponse.json({ error: existingResult.error.message }, { status: 500 });
+    }
+
+    const existing = existingResult.data;
+    if (originalSlug && !existing) {
+      return NextResponse.json(
+        { error: 'This bulletin no longer exists. Refresh and try again.' },
+        { status: 404 }
+      );
+    }
+    if (!originalSlug && existing) {
+      return NextResponse.json(
+        { error: `"${finalSlug}" is already used by another bulletin. Pick another slug.` },
+        { status: 409 }
+      );
+    }
+
+    const row = {
       slug: finalSlug,
       title: payload.title,
       date_label: payload.date_label,
       description: payload.description,
       topics: payload.topics,
       sort_order: payload.sort_order,
-      published_at: payload.published_at || new Date().toISOString(),
+      published_at: payload.published_at ?? new Date().toISOString(),
     };
 
-    const write = isRename
-      ? auth.session.supabase
-          .from('newsletters')
-          .update(upsertRow)
-          .eq('slug', originalSlug ?? finalSlug)
-      : auth.session.supabase.from('newsletters').upsert(upsertRow, { onConflict: 'slug' });
+    const auditAction = originalSlug ? 'newsletter.update' : 'newsletter.create';
+    const audit = (
+      outcome: 'success' | 'failure',
+      after: Record<string, unknown> | null,
+      error?: string
+    ) =>
+      recordAdminAudit(auth.session.adminClient, {
+        actorUserId: auth.session.adminUserId,
+        actorEmail: auth.session.adminEmail,
+        action: auditAction,
+        targetType: 'newsletter',
+        targetId: finalSlug,
+        targetLabel: row.title,
+        before: existing,
+        after,
+        mfaLevel: auth.session.mfaLevel,
+        outcome,
+        error: error ?? null,
+      });
+
+    const write = originalSlug
+      ? auth.session.supabase.from('newsletters').update(row).eq('slug', originalSlug)
+      : auth.session.supabase.from('newsletters').insert(row);
     const { data, error } = await write.select('*').single();
 
     if (error) {
-      if (error.code === '23505') {
-        return NextResponse.json(
-          { error: `"${finalSlug}" is already used by another bulletin.` },
-          { status: 409 }
-        );
-      }
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      const status =
+        error.code === '23505' ? 409 : error.code === 'PGRST116' ? 404 : 500;
+      const message =
+        error.code === '23505'
+          ? `"${finalSlug}" is already used by another bulletin. Pick another slug.`
+          : error.code === 'PGRST116'
+            ? 'This bulletin no longer exists. Refresh and try again.'
+            : error.message;
+      await audit('failure', null, message);
+      return NextResponse.json({ error: message }, { status });
     }
 
-    // The API path bypasses the server action's cache invalidation. Refresh the
-    // dedicated archive too, or editors keep seeing the old cached page.
-    revalidateTag('newsletters', 'hours');
-    revalidatePath('/newsletters');
-    revalidatePath('/news');
+    const saved = {
+      ...(data as Record<string, unknown>),
+      topics: normalizeNewsletterTopics(
+        Array.isArray((data as Record<string, unknown>).topics)
+          ? ((data as Record<string, unknown>).topics as string[])
+          : []
+      ),
+    };
 
-    return NextResponse.json({ success: true, newsletter: data }, { status: 200 });
+    await audit('success', saved);
+    revalidateNewsletters();
+
+    return NextResponse.json(
+      { success: true, newsletter: saved },
+      { status: 200, headers: NO_STORE }
+    );
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'Failed to save newsletter' },
@@ -140,7 +208,7 @@ export async function POST(req: NextRequest) {
 
 /**
  * DELETE /api/civic/newsletters
- * Admin-authenticated deletion of a newsletter from Supabase DB newsletters table.
+ * Admin-authenticated deletion. A missing row is a 404, not a success.
  */
 export async function DELETE(req: NextRequest) {
   try {
@@ -157,25 +225,61 @@ export async function DELETE(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url);
-    const slug = searchParams.get('slug');
+    const rawSlug = searchParams.get('slug');
+    const slug = rawSlug ? slugifyNewsletter(rawSlug) : '';
     if (!slug) {
       return NextResponse.json({ error: 'Newsletter slug is required' }, { status: 400 });
     }
 
-    const { error } = await auth.session.supabase
+    const { data: existing, error: lookupError } = await auth.session.supabase
       .from('newsletters')
-      .delete()
-      .eq('slug', slug);
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      .select('*')
+      .eq('slug', slug)
+      .maybeSingle();
+    if (lookupError) {
+      return NextResponse.json({ error: lookupError.message }, { status: 500 });
+    }
+    if (!existing) {
+      return NextResponse.json({ error: 'Newsletter not found' }, { status: 404 });
     }
 
-    revalidateTag('newsletters', 'hours');
-    revalidatePath('/newsletters');
-    revalidatePath('/news');
+    const audit = (outcome: 'success' | 'failure', error?: string) =>
+      recordAdminAudit(auth.session.adminClient, {
+        actorUserId: auth.session.adminUserId,
+        actorEmail: auth.session.adminEmail,
+        action: 'newsletter.delete',
+        targetType: 'newsletter',
+        targetId: slug,
+        targetLabel: existing.title ?? slug,
+        before: existing,
+        after: null,
+        mfaLevel: auth.session.mfaLevel,
+        outcome,
+        error: error ?? null,
+      });
 
-    return NextResponse.json({ success: true, deletedSlug: slug }, { status: 200 });
+    const { data: deleted, error } = await auth.session.supabase
+      .from('newsletters')
+      .delete()
+      .eq('slug', slug)
+      .select('slug')
+      .maybeSingle();
+    if (error) {
+      await audit('failure', error.message);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    if (!deleted) {
+      await audit('failure', 'Newsletter not found');
+      return NextResponse.json({ error: 'Newsletter not found' }, { status: 404 });
+    }
+
+    await audit('success');
+    revalidateNewsletters();
+
+    return NextResponse.json(
+      { success: true, deletedSlug: slug },
+      { status: 200, headers: NO_STORE }
+    );
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'Failed to delete newsletter' },

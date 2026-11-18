@@ -3,7 +3,14 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { revalidatePath, revalidateTag } from 'next/cache';
 import { z } from 'zod';
+import { recordAdminAudit } from '@/lib/admin-audit';
 import { requireAdmin } from '@/lib/admin-auth';
+import {
+  type NewsletterInput,
+  newsletterInputSchema,
+  normalizeNewsletterTopics,
+  slugifyNewsletter,
+} from '@/lib/newsletters';
 
 export interface CivicEventRecord {
   slug: string;
@@ -86,17 +93,6 @@ const eventSchema = z.object({
   rsvp_url: z.string().trim().max(500).default(''),
   highlight: z.boolean().default(false),
   sort_order: z.number().int().default(0),
-});
-
-const newsletterSchema = z.object({
-  slug: z.string().trim().min(1).max(120).optional(),
-  original_slug: z.string().trim().min(1).max(120).optional(),
-  title: z.string().trim().min(1, 'Title is required').max(200),
-  date_label: z.string().trim().min(1, 'Date label is required').max(100),
-  description: z.string().trim().default(''),
-  topics: z.array(z.string().trim()).default([]),
-  sort_order: z.number().int().default(0),
-  published_at: z.string().nullable().optional(),
 });
 
 /**
@@ -272,59 +268,112 @@ export async function getCivicNewslettersAdmin(): Promise<
 
 /**
  * Create or update a newsletter / bulletin post.
+ *
+ * A create is an INSERT, never an upsert. The old upsert made "New Bulletin"
+ * with a slug that already existed overwrite that bulletin — including its
+ * title, summary and publication date — while the UI said "created". An edit
+ * updates only the row named by `original_slug`, so a stale form reports that
+ * the bulletin no longer exists instead of resurrecting or replacing a row.
  */
 export async function saveCivicNewsletter(
-  rawInput: z.input<typeof newsletterSchema>
+  rawInput: NewsletterInput
 ): Promise<CivicActionResult<CivicNewsletterRecord>> {
   try {
-    const { adminClient } = await requireAdmin();
-    const parsed = newsletterSchema.safeParse(rawInput);
+    const { adminClient, adminUserId, adminEmail, mfaLevel } = await requireAdmin();
+    const parsed = newsletterInputSchema.safeParse(rawInput);
     if (!parsed.success) {
       return fail(parsed.error.issues[0]?.message || 'Invalid newsletter data');
     }
 
     const payload = parsed.data;
-    const finalSlug = payload.slug
-      ? slugify(payload.slug)
-      : slugify(payload.title) || `newsletter-${Date.now()}`;
-    const originalSlug = payload.original_slug ? slugify(payload.original_slug) : null;
-    const isRename = Boolean(originalSlug && originalSlug !== finalSlug);
+    const finalSlug =
+      (payload.slug ? slugifyNewsletter(payload.slug) : '') ||
+      slugifyNewsletter(payload.title) ||
+      `newsletter-${Date.now()}`;
+    const originalSlug =
+      payload.original_slug !== undefined ? slugifyNewsletter(payload.original_slug) : null;
+    if (payload.original_slug !== undefined && !originalSlug) {
+      return fail('The bulletin being edited has an invalid identifier. Refresh and try again.');
+    }
 
-    const upsertRow = {
+    // Read the row being edited (or prove the slug is free) before choosing the
+    // write. The result is also the audit record's "before" value.
+    const existingResult = originalSlug
+      ? await adminClient.from('newsletters').select('*').eq('slug', originalSlug).maybeSingle()
+      : await adminClient.from('newsletters').select('slug').eq('slug', finalSlug).maybeSingle();
+    if (existingResult.error) return fail(existingResult.error.message);
+
+    const existing = (existingResult.data as CivicNewsletterRecord | null) ?? null;
+    if (originalSlug && !existing) {
+      return fail('This bulletin no longer exists. Refresh and try again.');
+    }
+    if (!originalSlug && existing) {
+      return fail(`"${finalSlug}" is already used by another bulletin. Pick another slug.`);
+    }
+
+    const publishedAt = payload.published_at ?? new Date().toISOString();
+    const row = {
       slug: finalSlug,
       title: payload.title,
       date_label: payload.date_label,
       description: payload.description,
       topics: payload.topics,
       sort_order: payload.sort_order,
-      published_at: payload.published_at || new Date().toISOString(),
+      published_at: publishedAt,
     };
 
-    const write = isRename
-      ? adminClient.from('newsletters').update(upsertRow).eq('slug', originalSlug ?? finalSlug)
-      : adminClient.from('newsletters').upsert(upsertRow, { onConflict: 'slug' });
+    const auditAction = originalSlug ? 'newsletter.update' : 'newsletter.create';
+    const audit = (
+      outcome: 'success' | 'failure',
+      after: Record<string, unknown> | null,
+      error?: string
+    ) =>
+      recordAdminAudit(adminClient, {
+        actorUserId: adminUserId,
+        actorEmail: adminEmail,
+        action: auditAction,
+        targetType: 'newsletter',
+        targetId: finalSlug,
+        targetLabel: row.title,
+        before: existing,
+        after,
+        mfaLevel,
+        outcome,
+        error: error ?? null,
+      });
+
+    const write = originalSlug
+      ? adminClient.from('newsletters').update(row).eq('slug', originalSlug)
+      : adminClient.from('newsletters').insert(row);
     const { data, error } = await write.select('*').single();
 
     if (error) {
-      if (error.code === '23505') {
-        return fail(`"${finalSlug}" is already used by another bulletin.`);
-      }
-      return fail(error.message);
+      const message =
+        error.code === '23505'
+          ? `"${finalSlug}" is already used by another bulletin. Pick another slug.`
+          : error.code === 'PGRST116'
+            ? 'This bulletin no longer exists. Refresh and try again.'
+            : error.message;
+      await audit('failure', null, message);
+      return fail(message);
     }
 
+    const saved = {
+      ...(data as Record<string, unknown>),
+      topics: normalizeNewsletterTopics(
+        Array.isArray((data as Record<string, unknown>).topics)
+          ? ((data as Record<string, unknown>).topics as string[])
+          : []
+      ),
+    } as CivicNewsletterRecord;
+
+    await audit('success', saved as unknown as Record<string, unknown>);
     revalidateTag('newsletters', 'hours');
     revalidatePath('/newsletters');
     revalidatePath('/news');
+    revalidatePath('/api/civic/newsletters');
 
-    return {
-      success: true,
-      data: {
-        ...(data as Record<string, unknown>),
-        topics: Array.isArray((data as Record<string, unknown>).topics)
-          ? ((data as Record<string, unknown>).topics as string[])
-          : [],
-      } as CivicNewsletterRecord,
-    };
+    return { success: true, data: saved };
   } catch (err) {
     return fail(err instanceof Error ? err.message : 'Failed to save newsletter');
   }
@@ -335,9 +384,31 @@ export async function saveCivicNewsletter(
  */
 export async function deleteCivicNewsletter(slug: string): Promise<CivicActionResult> {
   try {
-    const { adminClient } = await requireAdmin();
-    const cleanSlug = slugify(slug);
+    const { adminClient, adminUserId, adminEmail, mfaLevel } = await requireAdmin();
+    const cleanSlug = slugifyNewsletter(slug);
     if (!cleanSlug) return fail('Newsletter slug is required');
+
+    const { data: existing, error: lookupError } = await adminClient
+      .from('newsletters')
+      .select('*')
+      .eq('slug', cleanSlug)
+      .maybeSingle();
+    if (lookupError) return fail(lookupError.message);
+
+    const audit = (outcome: 'success' | 'failure', error?: string) =>
+      recordAdminAudit(adminClient, {
+        actorUserId: adminUserId,
+        actorEmail: adminEmail,
+        action: 'newsletter.delete',
+        targetType: 'newsletter',
+        targetId: cleanSlug,
+        targetLabel: (existing as CivicNewsletterRecord | null)?.title ?? cleanSlug,
+        before: existing,
+        after: null,
+        mfaLevel,
+        outcome,
+        error: error ?? null,
+      });
 
     const { data: deleted, error } = await adminClient
       .from('newsletters')
@@ -345,12 +416,20 @@ export async function deleteCivicNewsletter(slug: string): Promise<CivicActionRe
       .eq('slug', cleanSlug)
       .select('slug')
       .maybeSingle();
-    if (error) return fail(error.message);
-    if (!deleted) return fail('Newsletter not found');
+    if (error) {
+      await audit('failure', error.message);
+      return fail(error.message);
+    }
+    if (!deleted) {
+      await audit('failure', 'Newsletter not found');
+      return fail('Newsletter not found');
+    }
 
+    await audit('success');
     revalidateTag('newsletters', 'hours');
     revalidatePath('/newsletters');
     revalidatePath('/news');
+    revalidatePath('/api/civic/newsletters');
 
     return { success: true };
   } catch (err) {
