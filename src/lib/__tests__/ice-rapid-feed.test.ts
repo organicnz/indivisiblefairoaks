@@ -305,6 +305,45 @@ describe('getRapidFeed', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
+  it('reports a live build with a cache age of zero', async () => {
+    const { getRapidFeedResult } = await import('@/lib/ice-rapid-feed');
+    const result = await getRapidFeedResult();
+
+    expect(result.feed.alerts).toHaveLength(2);
+    expect(result.meta.source).toBe('live');
+    expect(result.meta.ageSeconds).toBeGreaterThanOrEqual(0);
+    expect(result.meta.cacheAgeSeconds).toBe(0);
+  });
+
+  it('reports a memory hit and its age on the second request', async () => {
+    const { getRapidFeedResult } = await import('@/lib/ice-rapid-feed');
+    await getRapidFeedResult();
+    vi.advanceTimersByTime(10_000);
+
+    const result = await getRapidFeedResult();
+
+    expect(result.meta.source).toBe('memory');
+    expect(result.meta.ageSeconds).toBe(10);
+    expect(result.meta.cacheAgeSeconds).toBe(10);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('reports a durable cache hit with the snapshot and cache ages', async () => {
+    vi.mocked(cacheModule.readPersistedRapidFeed).mockResolvedValue({
+      feed: PERSISTED_FEED,
+      fetchedAt: '2026-11-15T05:55:00.000Z',
+    });
+
+    const { getRapidFeedResult } = await import('@/lib/ice-rapid-feed');
+    const result = await getRapidFeedResult();
+
+    expect(result.feed).toBe(PERSISTED_FEED);
+    expect(result.meta.source).toBe('durable');
+    expect(result.meta.ageSeconds).toBe(7_200);
+    expect(result.meta.cacheAgeSeconds).toBe(300);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it('returns a fresh persisted snapshot without touching upstream sources', async () => {
     vi.mocked(cacheModule.readPersistedRapidFeed).mockResolvedValue({
       feed: PERSISTED_FEED,

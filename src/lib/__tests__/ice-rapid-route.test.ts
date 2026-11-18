@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const getRapidFeed = vi.hoisted(() => vi.fn());
+const getRapidFeedResult = vi.hoisted(() => vi.fn());
 const getRapidPublicCases = vi.hoisted(() => vi.fn(async () => []));
 const usable = vi.hoisted(() => vi.fn(() => true));
 
@@ -11,7 +11,7 @@ vi.mock('next/server', async (importOriginal) => {
 });
 
 vi.mock('@/lib/ice-rapid-feed', () => ({
-  getRapidFeed,
+  getRapidFeedResult,
   hasUsableRapidFeed: usable,
 }));
 
@@ -65,29 +65,56 @@ const FEED = {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  getRapidFeed.mockResolvedValue(FEED);
+  getRapidFeedResult.mockResolvedValue({
+    feed: FEED,
+    meta: { source: 'live', ageSeconds: 12, cacheAgeSeconds: 0 },
+  });
   getRapidPublicCases.mockResolvedValue([]);
   usable.mockReturnValue(true);
 });
 
 describe('GET /api/ice-rapid', () => {
-  it('serves the normalized feed with a long stale window', async () => {
+  it('serves the normalized feed with a long stale window and provenance headers', async () => {
     const response = await GET();
 
     expect(response.status).toBe(200);
     expect(response.headers.get('cache-control')).toContain('stale-while-revalidate=86400');
     expect(response.headers.get('cache-control')).toContain('stale-if-error=86400');
+    expect(response.headers.get('x-ice-feed-source')).toBe('live');
+    expect(response.headers.get('x-ice-feed-age')).toBe('12');
+    expect(response.headers.get('x-ice-feed-cache-age')).toBe('0');
     expect(await response.json()).toMatchObject({ alerts: FEED.alerts, publicCases: [] });
+  });
+
+  it.each([
+    ['memory', 14, 3],
+    ['durable', 7_200, 300],
+  ] as const)('labels a %s response with its feed and cache age', async (source, age, cacheAge) => {
+    getRapidFeedResult.mockResolvedValue({
+      feed: FEED,
+      meta: { source, ageSeconds: age, cacheAgeSeconds: cacheAge },
+    });
+
+    const response = await GET();
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('x-ice-feed-source')).toBe(source);
+    expect(response.headers.get('x-ice-feed-age')).toBe(String(age));
+    expect(response.headers.get('x-ice-feed-cache-age')).toBe(String(cacheAge));
   });
 
   it('answers 503 without poisoning the edge cache when every source is unavailable', async () => {
     usable.mockReturnValue(false);
-    getRapidFeed.mockResolvedValue({ ...FEED, alerts: [], officialReleases: [] });
+    getRapidFeedResult.mockResolvedValue({
+      feed: { ...FEED, alerts: [], officialReleases: [] },
+      meta: { source: 'live', ageSeconds: 0, cacheAgeSeconds: 0 },
+    });
 
     const response = await GET();
 
     expect(response.status).toBe(503);
     expect(response.headers.get('cache-control')).toBe('no-store');
     expect(response.headers.get('retry-after')).toBe('5');
+    expect(response.headers.get('x-ice-feed-source')).toBe('live');
   });
 });

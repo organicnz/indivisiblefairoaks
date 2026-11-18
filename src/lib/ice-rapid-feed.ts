@@ -83,8 +83,33 @@ type OfficialParseResult = {
   latestAt: string | null;
 };
 
+export type RapidFeedOrigin = 'memory' | 'durable' | 'live';
+
+export type RapidFeedMeta = {
+  /** Where this response's feed object came from. */
+  source: RapidFeedOrigin;
+  /** Whole seconds since `feed.generatedAt`; never negative. */
+  ageSeconds: number;
+  /** Whole seconds since this cache entry was created; 0 for a live build. */
+  cacheAgeSeconds: number;
+};
+
+export type RapidFeedResult = {
+  feed: RapidFeedBase;
+  meta: RapidFeedMeta;
+};
+
 let memoryCache: { at: number; feed: RapidFeedBase } | null = null;
-const inFlight = new Map<'fresh' | 'cached', Promise<RapidFeedBase>>();
+const inFlight = new Map<'fresh' | 'cached', Promise<RapidFeedResult>>();
+
+function wholeSeconds(ms: number): number {
+  return Number.isFinite(ms) ? Math.max(0, Math.floor(ms / 1000)) : 0;
+}
+
+function feedAgeSeconds(feed: RapidFeedBase, now: number): number {
+  const generatedMs = Date.parse(feed.generatedAt);
+  return Number.isFinite(generatedMs) ? wholeSeconds(now - generatedMs) : 0;
+}
 
 function decodeXml(value: string) {
   return value
@@ -649,16 +674,25 @@ async function fetchOfficial(now: Date) {
 }
 
 /**
- * Build the public feed. A source failure never turns into invented data; it is
- * reported as unavailable so the UI can be explicit about what is missing.
+ * Build the public feed and retain where the returned snapshot came from. This
+ * is the route-facing form; `getRapidFeed` remains the feed-only API used by
+ * the surge cron and existing callers.
  */
-export async function getRapidFeed(
+export async function getRapidFeedResult(
   options: { fresh?: boolean } = {}
-): Promise<RapidFeedBase> {
+): Promise<RapidFeedResult> {
   const mode = options.fresh ? 'fresh' : 'cached';
+  const now = Date.now();
 
-  if (mode === 'cached' && memoryCache && Date.now() - memoryCache.at < MEMORY_CACHE_MS) {
-    return memoryCache.feed;
+  if (mode === 'cached' && memoryCache && now - memoryCache.at < MEMORY_CACHE_MS) {
+    return {
+      feed: memoryCache.feed,
+      meta: {
+        source: 'memory',
+        ageSeconds: feedAgeSeconds(memoryCache.feed, now),
+        cacheAgeSeconds: wholeSeconds(now - memoryCache.at),
+      },
+    };
   }
   const pending = inFlight.get(mode);
   if (pending) return pending;
@@ -668,6 +702,16 @@ export async function getRapidFeed(
   });
   inFlight.set(mode, request);
   return request;
+}
+
+/**
+ * Build the public feed. A source failure never turns into invented data; it is
+ * reported as unavailable so the UI can be explicit about what is missing.
+ */
+export async function getRapidFeed(
+  options: { fresh?: boolean } = {}
+): Promise<RapidFeedBase> {
+  return (await getRapidFeedResult(options)).feed;
 }
 
 export function hasUsableRapidFeed(feed: RapidFeedBase): boolean {
@@ -695,17 +739,26 @@ function fallbackSource(
   };
 }
 
-async function resolveRapidFeed(fresh: boolean): Promise<RapidFeedBase> {
+async function resolveRapidFeed(fresh: boolean): Promise<RapidFeedResult> {
   const persisted = await readPersistedRapidFeed(PERSISTED_CACHE_MAX_AGE_MS);
+  const now = Date.now();
 
   if (
     !fresh &&
     persisted &&
     hasUsableRapidFeed(persisted.feed) &&
-    Date.now() - Date.parse(persisted.fetchedAt) <= PERSISTED_CACHE_FRESH_MS
+    now - Date.parse(persisted.fetchedAt) <= PERSISTED_CACHE_FRESH_MS
   ) {
-    memoryCache = { at: Date.now(), feed: persisted.feed };
-    return persisted.feed;
+    const fetchedMs = Date.parse(persisted.fetchedAt);
+    memoryCache = { at: now, feed: persisted.feed };
+    return {
+      feed: persisted.feed,
+      meta: {
+        source: 'durable',
+        ageSeconds: feedAgeSeconds(persisted.feed, now),
+        cacheAgeSeconds: Number.isFinite(fetchedMs) ? wholeSeconds(now - fetchedMs) : 0,
+      },
+    };
   }
 
   return buildRapidFeed(persisted);
@@ -713,7 +766,7 @@ async function resolveRapidFeed(fresh: boolean): Promise<RapidFeedBase> {
 
 async function buildRapidFeed(
   persisted: PersistedRapidFeed | null
-): Promise<RapidFeedBase> {
+): Promise<RapidFeedResult> {
   const now = new Date();
   const citiesPromise = getIceHeatmapSnapshot()
     .then((snapshot) => snapshot.cities)
@@ -764,5 +817,12 @@ async function buildRapidFeed(
     await persistRapidFeed(feed);
   }
 
-  return feed;
+  return {
+    feed,
+    meta: {
+      source: 'live',
+      ageSeconds: feedAgeSeconds(feed, Date.now()),
+      cacheAgeSeconds: 0,
+    },
+  };
 }
