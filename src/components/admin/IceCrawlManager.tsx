@@ -285,8 +285,9 @@ export function IceCrawlManager({ sources }: { sources: IceCrawlSource[] }) {
       <p className="flex items-start gap-2 text-[10px] leading-relaxed text-muted-foreground">
         <ShieldCheck className="mt-0.5 size-3.5 shrink-0 text-primary" aria-hidden="true" />
         Scheduled runs use <code className="font-mono">POST /api/ice-crawl/run</code> with the cron
-        bearer token. The source allowlist is the boundary: this crawler does not recursively follow
-        external links or crawl the open internet.
+        bearer token. The source allowlist remains the publication boundary: nationwide discovery
+        queues external headlines, but an article is only fetched after an admin confirms the
+        chapter may republish it.
       </p>
     </div>
   );

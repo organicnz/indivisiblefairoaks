@@ -35,6 +35,22 @@ export type IceSourceReport = {
   published_at: string;
 };
 
+export type IceCrawlDiscoveryStatus = 'pending' | 'approved' | 'rejected';
+
+export type IceCrawlDiscovery = {
+  id: string;
+  url: string;
+  title: string;
+  publisher: string | null;
+  published_at: string | null;
+  discovery_query: string;
+  status: IceCrawlDiscoveryStatus;
+  source_id: string | null;
+  discovered_at: string;
+  reviewed_at: string | null;
+  review_note: string | null;
+};
+
 export type IceCrawlSummary = {
   status: IceCrawlSourceStatus;
   pagesFetched: number;

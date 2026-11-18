@@ -1,5 +1,10 @@
 import { NextResponse } from 'next/server';
 import { crawlAllIceSources } from '@/lib/ice-crawl';
+import { discoverNationwideIceCandidates } from '@/lib/ice-crawl-discovery';
+import {
+  getIceCrawlStore,
+  insertIceCrawlDiscoveries,
+} from '@/lib/ice-crawl-store';
 import { isE2EMode } from '@/lib/e2e-mode';
 import { env } from '@/lib/env';
 
@@ -26,9 +31,36 @@ export async function POST(req: Request) {
     return json({ ok: true, skipped: 'test-build', sources: 0 });
   }
 
+  let discovery: {
+    provider: string;
+    found: number;
+    queued: number;
+    errors: string[];
+  } | null = null;
+  try {
+    const store = getIceCrawlStore();
+    if (store) {
+      const candidates = await discoverNationwideIceCandidates({ forceGkg: true });
+      discovery = {
+        provider: candidates.provider,
+        found: candidates.candidates.length,
+        queued: await insertIceCrawlDiscoveries(store, candidates.candidates),
+        errors: candidates.errors,
+      };
+    }
+  } catch {
+    // A discovery outage must not stop the approved-source crawl.
+    discovery = {
+      provider: 'none',
+      found: 0,
+      queued: 0,
+      errors: ['Nationwide discovery failed.'],
+    };
+  }
+
   try {
     const results = await crawlAllIceSources();
-    return json({ ok: true, sources: results.length, results });
+    return json({ ok: true, discovery, sources: results.length, results });
   } catch {
     return json({ ok: false, code: 'crawler-not-configured' }, 503);
   }

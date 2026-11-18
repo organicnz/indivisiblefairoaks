@@ -5,6 +5,8 @@ import {
   type IceSourceReportFilters,
 } from '@/lib/ice-source-report-search';
 import type {
+  IceCrawlDiscovery,
+  IceCrawlDiscoveryStatus,
   IceCrawlSource,
   IceCrawlSourceStatus,
   IceSourceExtractionMethod,
@@ -105,6 +107,27 @@ type IceCrawlDatabase = {
         >;
         Relationships: [];
       };
+      ice_crawl_discoveries: {
+        Row: IceCrawlDiscovery;
+        Insert: {
+          url: string;
+          title: string;
+          publisher?: string | null;
+          published_at?: string | null;
+          discovery_query: string;
+          status?: IceCrawlDiscoveryStatus;
+          source_id?: string | null;
+          reviewed_at?: string | null;
+          review_note?: string | null;
+        };
+        Update: Partial<{
+          status: IceCrawlDiscoveryStatus;
+          source_id: string | null;
+          reviewed_at: string | null;
+          review_note: string | null;
+        }>;
+        Relationships: [];
+      };
       ice_crawl_pages: {
         Row: IceCrawlPageRow;
         Insert: IceCrawlPageInput & { source_id: string };
@@ -167,6 +190,76 @@ export async function listIceCrawlSources(store: IceCrawlStore) {
     .order('created_at', { ascending: false });
   if (error) throw new Error(`crawl sources failed: ${error.message}`);
   return data ?? [];
+}
+
+export async function listIceCrawlDiscoveries(
+  store: IceCrawlStore,
+  status: IceCrawlDiscoveryStatus = 'pending',
+  limit = 30
+) {
+  const { data, error } = await store
+    .from('ice_crawl_discoveries')
+    .select('*')
+    .eq('status', status)
+    .order('discovered_at', { ascending: false })
+    .limit(Math.min(Math.max(1, limit), 100));
+  if (error) throw new Error(`crawl discoveries failed: ${error.message}`);
+  return (data ?? []) as IceCrawlDiscovery[];
+}
+
+export async function getIceCrawlDiscovery(store: IceCrawlStore, id: string) {
+  const { data, error } = await store
+    .from('ice_crawl_discoveries')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle();
+  if (error) throw new Error(`crawl discovery failed: ${error.message}`);
+  return data as IceCrawlDiscovery | null;
+}
+
+export async function insertIceCrawlDiscoveries(
+  store: IceCrawlStore,
+  rows: Array<{
+    url: string;
+    title: string;
+    publisher: string | null;
+    published_at: string | null;
+    discovery_query: string;
+  }>
+) {
+  if (rows.length === 0) return 0;
+  let inserted = 0;
+  for (let offset = 0; offset < rows.length; offset += 50) {
+    const chunk = rows.slice(offset, offset + 50);
+    const { data, error } = await store
+      .from('ice_crawl_discoveries')
+      .upsert(chunk, { onConflict: 'url', ignoreDuplicates: true })
+      .select('id');
+    if (error) throw new Error(`crawl discovery insert failed: ${error.message}`);
+    inserted += data?.length ?? 0;
+  }
+  return inserted;
+}
+
+export async function reviewIceCrawlDiscovery(
+  store: IceCrawlStore,
+  id: string,
+  row: {
+    status: Exclude<IceCrawlDiscoveryStatus, 'pending'>;
+    source_id?: string | null;
+    reviewed_at: string;
+    review_note: string | null;
+  }
+) {
+  const { data, error } = await store
+    .from('ice_crawl_discoveries')
+    .update(row)
+    .eq('id', id)
+    .eq('status', 'pending')
+    .select('*')
+    .maybeSingle();
+  if (error) throw new Error(`crawl discovery review failed: ${error.message}`);
+  return data as IceCrawlDiscovery | null;
 }
 
 export async function getIceCrawlSource(store: IceCrawlStore, id: string) {

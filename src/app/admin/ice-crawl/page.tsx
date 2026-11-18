@@ -1,13 +1,15 @@
 import { Globe2, ScanSearch } from 'lucide-react';
 import type { Metadata } from 'next';
+import { IceCrawlDiscovery } from '@/components/admin/IceCrawlDiscovery';
 import { IceCrawlManager } from '@/components/admin/IceCrawlManager';
 import { requireAdminPage } from '@/lib/admin-auth';
 import {
   getIceCrawlStore,
+  listIceCrawlDiscoveries,
   listIceCrawlSources,
   type IceCrawlStore,
 } from '@/lib/ice-crawl-store';
-import type { IceCrawlSource } from '@/lib/ice-crawl-types';
+import type { IceCrawlDiscovery as IceCrawlDiscoveryRow, IceCrawlSource } from '@/lib/ice-crawl-types';
 
 export const instant = false;
 
@@ -20,16 +22,25 @@ export default async function AdminIceCrawlPage() {
   const { adminClient } = await requireAdminPage('/admin/ice-crawl');
   const store = getIceCrawlStore();
   let sources: IceCrawlSource[] = [];
+  let discoveries: IceCrawlDiscoveryRow[] = [];
   let loadError = false;
+  let discoveryLoadError = false;
 
   if (store) {
+    const crawlerStore = adminClient as unknown as IceCrawlStore;
     try {
-      sources = await listIceCrawlSources(adminClient as unknown as IceCrawlStore);
+      sources = await listIceCrawlSources(crawlerStore);
     } catch {
       loadError = true;
     }
+    try {
+      discoveries = await listIceCrawlDiscoveries(crawlerStore, 'pending', 30);
+    } catch {
+      discoveryLoadError = true;
+    }
   } else {
     loadError = true;
+    discoveryLoadError = true;
   }
 
   const enabled = sources.filter((source) => source.enabled).length;
@@ -98,6 +109,8 @@ export default async function AdminIceCrawlPage() {
         silently claiming a complete run. AI extraction only uses verbatim excerpts and falls back to
         deterministic extraction when Z.AI is not configured or cannot produce a grounded result.
       </div>
+
+      <IceCrawlDiscovery discoveries={discoveries} loadError={discoveryLoadError} />
 
       {loadError ? (
         <div role="alert" className="border border-accent/40 bg-accent/10 p-5 text-sm">
