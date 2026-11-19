@@ -29,7 +29,7 @@ Improved the Supabase integration for the Indivisible Fair Oaks-Carmichael proje
 ### Active
 - Run RLS repair script after any project restore/re-provisioning: `bun scripts/rls-role-repair.mjs` and apply the output SQL via Supabase SQL editor
 - Deploy edge functions to Supabase project: `supabase functions deploy notify-contact checkout search webhook`
-- Regenerate types after schema changes via `bun run gen-types`
+- Regenerate types after schema changes via `bun run types:generate`
 - Verify vault integration for `CONTACT_FUNCTION_URL` env var in new deployments/forks
 - Monitor rate limiting alignment between DB throttle (30/10min) and Edge Function cap (20/10min global)
 - Set up Vercel deployment and CI/CD pipelines
@@ -42,7 +42,7 @@ Improved the Supabase integration for the Indivisible Fair Oaks-Carmichael proje
 1. Run RLS role repair after project restore: `bun scripts/rls-role-repair.mjs` — this will output the SQL statements needed to recreate the policies
 2. Apply the output SQL in the Supabase SQL editor (or via `supabase db exec`)
 3. Deploy edge functions: `supabase functions deploy notify-contact checkout search webhook` (or via Vercel dashboard)
-4. Regenerate types after schema changes: `bun run gen-types` (or `bun x supabase@latest gen types typescript --project-id ${SUPABASE_PROJECT_REF}`)
+4. Regenerate types after schema changes: `bun run types:generate`
 5. Test contact form submission end-to-end after deployment to verify email delivery
 6. Add new gallery photos via Supabase SQL editor or admin dashboard (insert row into `public.gallery_photos` table)
 7. Write E2E tests for critical flows and configure CI/CD

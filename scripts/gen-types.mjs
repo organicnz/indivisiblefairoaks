@@ -8,6 +8,7 @@
 // type union with 60+ foreign tables that break type inference.
 import { resolve } from 'node:path';
 import { loadEnvLocal } from './load-env-local.mjs';
+import { APP_TABLES } from './schema-tables.mjs';
 
 const checkOnly = process.argv.includes('--check');
 
@@ -25,33 +26,6 @@ function projectRef() {
   return ['wcoaql', 'glwxwceqktpckt'].join('');
 }
 
-// App-owned tables — the ONLY tables this Next.js storefront uses.
-// Audiobookshelf, code-review, and other tenant tables share the same
-// Supabase project but must not appear in TypeScript types.
-const APP_TABLES = new Set([
-  'coalition_links',
-  'contact_submissions',
-  'content',
-  'content_media',
-  'content_revisions',
-  'crm_activities',
-  'crm_broadcasts',
-  'crm_contacts',
-  'crm_email_events',
-  'crm_segments',
-  'crm_tasks',
-  'data_points',
-  'error_reports',
-  'events',
-  'faqs',
-  'gallery_photos',
-  'newsletters',
-  'partners',
-  'profiles',
-  'search_rate_limit',
-  'walle_knowledge_snapshots',
-]);
-
 const ref = projectRef();
 console.log(`Generating types for project ${ref} ...`);
 
@@ -62,8 +36,12 @@ console.log(`Generating types for project ${ref} ...`);
 //
 // stderr is inherited so the Supabase CLI's own progress output still streams
 // to the terminal while stdout is captured.
+//
+// The CLI is pinned to an exact version: a floating tag would make the committed
+// types a function of whatever the registry served that day. `--bun` selects
+// Bun's runtime, matching the rest of the repository.
 const proc = Bun.spawn(
-  ['bun', 'x', 'supabase@latest', 'gen', 'types', 'typescript', `--remote=${ref}`],
+  ['bun', 'x', '--bun', 'supabase@3.2.0', 'gen', 'types', 'typescript', `--remote=${ref}`],
   {
     env: { ...process.env, ...Bun.env },
     stdout: 'pipe',

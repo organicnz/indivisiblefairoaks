@@ -27,8 +27,19 @@ if (!/^SUPABASE_ACCESS_TOKEN=.{5,}$/m.test(envLocal)) {
 }
 
 console.log('🗄️   Migrations changed — dry-running local → remote diff...');
+// Keep this CLI pin in step with scripts/gen-types.mjs.
 if (
-  runInherit(['bun', 'x', 'supabase@latest', 'db', 'push', '--linked', '--dry-run', '--yes']) !== 0
+  runInherit([
+    'bun',
+    'x',
+    '--bun',
+    'supabase@3.2.0',
+    'db',
+    'push',
+    '--linked',
+    '--dry-run',
+    '--yes',
+  ]) !== 0
 ) {
   console.log('');
   console.log('✖  Migration dry-run failed (see output above).');

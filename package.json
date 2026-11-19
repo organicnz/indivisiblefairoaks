@@ -23,6 +23,7 @@
     "test:coverage": "bun --bun vitest run --coverage",
     "types:generate": "bun scripts/gen-types.mjs",
     "types:check": "bun scripts/check-supabase-types.mjs",
+    "types:check:static": "bun scripts/check-migration-types.mjs",
     "content:export": "bun scripts/export-content-rows.mjs",
     "ice:verify": "bun scripts/verify-ice-heatmap.mjs",
     "content:archive:preview": "bun scripts/preview-content-archive.mjs",

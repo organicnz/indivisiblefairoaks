@@ -439,6 +439,16 @@ jobs:
         run: bun scripts/check-schema-hygiene.mjs
         continue-on-error: true
 
+      # Static migration ↔ generated-type consistency. No token and no install:
+      # it parses the checked-in migrations and src/types/supabase.ts, so it also
+      # runs on fork PRs that receive no secrets. Advisory while existing drift
+      # is cleared — the script exits 0 in --advisory mode and emits a warning
+      # annotation for each run with findings. A script failure (as opposed to a
+      # finding) still fails this step, because that is a broken guard rather
+      # than a schema decision.
+      - name: Check migration/type consistency (advisory)
+        run: bun scripts/check-migration-types.mjs --advisory
+
   # ── 4. Build + E2E — E2E's fixture, NOT a merge gate ──────────────────────
   # DO NOT add this to branch protection's required checks.
   #

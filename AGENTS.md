@@ -640,8 +640,9 @@ password is byte-identical to what it was before.
 
 **A guard keeps it done.** `scripts/hooks/no-node-runtime.mjs` blocks Node
 shebangs, `node:child_process`, a second package manager (`npm`, `npx`,
-`yarn`, `pnpm`), the `actions/setup-node` workflow step, an `engines.node`
-declaration, and imports of `node-fetch` or `dotenv`. Without it the failure
+`yarn`, `pnpm`), an unpinned `bun x` / `bunx` invocation, the
+`actions/setup-node` workflow step, an `engines.node` declaration, and imports
+of `node-fetch` or `dotenv`. Without it the failure
 mode is not a red build — it is a green local machine and a red runner,
 because a `#!/usr/bin/env node` shebang works perfectly on a laptop that
 still has Node and breaks on every machine this project actually runs on.
@@ -1468,7 +1469,7 @@ pre-commit gate, so drift fails at commit time rather than at 3am.
      `workers: 1` in CI) to prevent multiple concurrent Chromium instances from fighting
      against Next.js (`next start`) and the mock server for memory.
 - **The local lefthook gates are therefore the real gates**, and they do run on
-  every push: 35 pre-commit guards, then lint → unit → coverage → types → build →
+  every push: 36 pre-commit guards, then lint → unit → coverage → types → build →
   peer-deps → 135 Playwright specs (135 + no running tests). Migrations and Edge Functions are **not**
   deployed by hand: `supabase.yml` is the only delivery path and a push touching
   `supabase/**` is its trigger, so the fix and the deploy are one action. It pushed
@@ -1617,7 +1618,7 @@ deployed green and broke silently.
 ## Delivery Gates (lefthook)
 
 - **pre-commit**: secrets, migration guards, RLS/SECURITY DEFINER, Biome, oxlint, typecheck, env contracts (local `.env`, the GitHub Actions inventory, and the secrets registry in `--offline` mode — no network, because a hook that needs a token is a hook that gets bypassed), lockfile pairing, data-points seed↔reader↔fallback consistency (`scripts/check-data-points.mjs` — a seed nobody reads, a read nobody seeds, and a wired fallback that disagrees with its seed all fail, with accepted findings annotated in `scripts/data-points-baseline.json`, and that ratchet only shrinks), documentation numeric claims (`scripts/check-doc-claims.mjs` re-derives guard counts, the suppression baseline, `lefthook.yml`'s length, spec totals and the two coverage floors from their sources of truth), the no-Node-runtime guard (`scripts/hooks/no-node-runtime.mjs` — a Node shebang, a second package manager or a `setup-node` step works on a laptop with Node installed and breaks on every runner this project has; and a local binary invoked as `bun <bin>` rather than `bun --bun <bin>`, which hands the program to Node.js wherever Node.js is installed and to Bun only where it is not — the same divergence, wearing a different hat. The rule reads the local bin set out of `node_modules/.bin`, so a dependency that arrives tomorrow is covered without the guard being edited. CI runs it over the **whole tree** with `--all`, not just the staged subset, so a violation that arrived by a merge is caught too), the test-environment guard (`scripts/hooks/vitest-environment.mjs` — **every** test file must declare its Vitest environment on its first line, because Vitest constructs an environment per file and jsdom's construction was 63% of the unit suite's time; the guard also requires the `node` environment on any test that reaches for `Bun.*`, directly or through an imported script, because Vitest's `jsdom` environment replaces the worker's global with the jsdom window's and the `Bun` global does not survive that swap on every platform), and `playwright test --list` when `e2e/**` changes (spec parse only — no browser launch).
-- **`lefthook.yml` is 644 lines of wiring; the logic is in `scripts/hooks/*.mjs`.** Every
+- **`lefthook.yml` is 666 lines of wiring; the logic is in `scripts/hooks/*.mjs`.** Every
   guard that was a `run: |` bash block is now a `bun scripts/hooks/<name>.mjs` call, and
   its rationale comment moved into that file's header — where it sits beside the code it
   explains rather than four hundred lines above it. `lefthook.yml` keeps what only it can

@@ -176,7 +176,7 @@ rather than a packaging one:
 ### If you have a PAT, use the CLI — it is the same deploy CI runs
 
 ```bash
-SUPABASE_ACCESS_TOKEN=sbp_… bunx --bun supabase functions deploy sync-mobilize-events \
+SUPABASE_ACCESS_TOKEN=sbp_… bunx --bun supabase@3.2.0 functions deploy sync-mobilize-events \
   --project-ref mojsubkqjdruhpxbzgme --use-api
 ```
 

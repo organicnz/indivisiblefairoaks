@@ -28,6 +28,9 @@
  *     alongside Bun produces a second lockfile, a second resolution, and a
  *     `bun install --frozen-lockfile` CI failure that looks like a supply
  *     chain attack.
+ *   - unpinned `bun x` / `bunx` invocations — the package is resolved outside
+ *     `bun.lock`, so `latest` makes the same commit run different code over
+ *     time. Pin the exact version, e.g. `bun x --bun supabase@3.2.0`.
  *   - `setup-node` in a workflow — the same, in CI, where it is invisible
  *     until the runner is replaced.
  *   - `engines.node` in package.json — declaring a Node engine tells a
@@ -155,6 +158,7 @@
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { run } from '../bun-exec.mjs';
+import { findUnpinnedBunx } from './unpinned-bunx.mjs';
 
 const argv = process.argv.slice(2);
 const scanAll = argv.includes('--all');
@@ -293,6 +297,16 @@ const RULES = [
     test: (line) =>
       /(^|[\s;&|('"`=])npm\s+(install|ci|add|exec|run|publish|uninstall)\b/.test(line) ||
       /(^|[\s;&|('"`=])(npx|yarn|pnpm)\s+\S/.test(line),
+  },
+  {
+    name: 'unpinned package runner',
+    why:
+      'registry tools invoked through Bun\'s package runner sit outside bun.lock; a tag or missing version means the same commit can run different code. ' +
+      'Pin an exact version, e.g. `supabase@3.2.0`.',
+    test: (line) => findUnpinnedBunx(line) !== null,
+    // The npx shim forwards arbitrary user arguments to Bun by design. It is
+    // the one place where the package name is not known at edit time.
+    exemptFiles: new Set(['bin/npx']),
   },
   {
     name: 'setup-node action',
@@ -639,6 +653,7 @@ for (const file of targets) {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     for (const rule of RULES) {
+      if (rule.exemptFiles?.has(file)) continue;
       if (rule.comments !== false && isComment(line)) continue;
       if (!rule.test(line)) continue;
       violations.push({
@@ -684,7 +699,7 @@ if (scanAll && scanned === 0) {
 
 if (violations.length > 0) {
   console.log('');
-  console.log('✖  Node.js runtime reintroduced:');
+  console.log('✖  Node.js runtime or unpinned registry tooling reintroduced:');
   console.log('');
   for (const v of violations) {
     const where = v.line ? `${v.file}:${v.line}` : v.file;
