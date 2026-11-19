@@ -12,11 +12,23 @@ import {
 } from './VisualEditOverlay.harness';
 import { type OverlayMediaSelection, overlayMocks } from './VisualEditOverlay.mocks';
 
-vi.mock('@/lib/actions/content', () => overlayMocks.content);
-vi.mock('@/lib/actions/crm', () => overlayMocks.crm);
+vi.mock('@/lib/actions/content', async () => {
+  const { overlayMocks } = await import('./VisualEditOverlay.mocks');
+  return overlayMocks.content;
+});
+vi.mock('@/lib/actions/crm', async () => {
+  const { overlayMocks } = await import('./VisualEditOverlay.mocks');
+  return overlayMocks.crm;
+});
 vi.mock('../CRMPanel', () => ({ CRMPanel: () => null }));
-vi.mock('@/lib/actions/visual', () => overlayMocks.visual);
-vi.mock('sonner', () => ({ toast: overlayMocks.toast }));
+vi.mock('@/lib/actions/visual', async () => {
+  const { overlayMocks } = await import('./VisualEditOverlay.mocks');
+  return overlayMocks.visual;
+});
+vi.mock('sonner', async () => {
+  const { overlayMocks } = await import('./VisualEditOverlay.mocks');
+  return { toast: overlayMocks.toast };
+});
 vi.mock('@/components/layout/useEditContext', () => ({
   useEditContext: () => overlayMocks.editContext,
 }));

@@ -371,7 +371,7 @@ export function CRMContactEditorModal({ contact, isOpen, onClose, onSaved }: Pro
                 <button
                   type="button"
                   onClick={handleMergeDuplicate}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-amber-400 bg-white px-3 py-2 text-xs font-bold text-amber-950 transition-colors hover:bg-amber-100 dark:border-amber-600 dark:bg-transparent dark:text-amber-100 dark:hover:bg-amber-900/40"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-amber-400 bg-card px-3 py-2 text-xs font-bold text-amber-950 transition-colors hover:bg-amber-100 dark:border-amber-600 dark:bg-transparent dark:text-amber-100 dark:hover:bg-amber-900/40"
                 >
                   <GitMerge size={13} aria-hidden="true" /> Merge duplicate
                 </button>
