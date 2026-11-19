@@ -6,7 +6,6 @@ import {
   parseAdminAuditFilters,
 } from '@/lib/admin-audit-read';
 
-export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 const NO_STORE = {
