@@ -15,12 +15,14 @@ import {
   filterNewsPosts,
   hasNewsQuery,
   hasNewsletterTopic,
+  inspectNewsText,
   isAllNewsletterTopics,
   matchesNewsText,
   mergeNewsletterRows,
   NEWSLETTER_CARD_EXCERPT_LENGTH,
   NEWSLETTER_LONG_SENTENCE_WORDS,
   normalizeNewsText,
+  newsletterTopicKey,
   parseNewsQuery,
   parseNewsletterTopicInput,
   rankNewsletters,
@@ -35,6 +37,7 @@ import {
   splitNewsTextHighlights,
   tidyNewsletterText,
   tokenizeNewsQuery,
+  uniqueNewsletterTopics,
 } from '@/lib/news-text';
 
 const newsletter = {
@@ -134,6 +137,19 @@ describe('news and newsletter text processing', () => {
   it('recognizes the all-topic sentinel after whitespace and case folding', () => {
     expect(isAllNewsletterTopics('  all   topics ', 'All Topics')).toBe(true);
     expect(isAllNewsletterTopics('Housing', 'All Topics')).toBe(false);
+    expect(isAllNewsletterTopics('', '')).toBe(false);
+  });
+
+  it('shares one topic identity across filtering, counting and card chips', () => {
+    expect(newsletterTopicKey('  Élection Defense! ')).toBe('election defense');
+    expect(newsletterTopicKey('Arts & Culture')).toBe('arts and culture');
+    expect(
+      uniqueNewsletterTopics(
+        [' Election Defense ', 'election defense!', 'All Topics', 'Tous les sujets', 'Choir'],
+        'Tous les sujets'
+      )
+    ).toEqual(['Election Defense', 'Choir']);
+    expect(uniqueNewsletterTopics(['', '  ', '!!!'])).toEqual([]);
   });
 
   it('collects topics in first-seen order and removes case-insensitive duplicates', () => {
@@ -434,6 +450,21 @@ describe('news and newsletter text processing', () => {
     );
     expect(unfinished.map((suggestion) => suggestion.id)).toContain('ending-punctuation');
     expect(NEWSLETTER_CARD_EXCERPT_LENGTH).toBe(220);
+  });
+
+  it('inspects text once and exposes the prepared review and tidy action', () => {
+    const inspection = inspectNewsText('  One two  ', { cardLength: 5 });
+
+    expect(inspection.analysis.words).toBe(2);
+    expect(inspection.tidied).toBe('One two');
+    expect(inspection.canTidy).toBe(true);
+    expect(inspection.suggestions.map((suggestion) => suggestion.id)).toContain('card-length');
+
+    const empty = inspectNewsText('   ');
+    expect(empty.analysis.words).toBe(0);
+    expect(empty.suggestions).toEqual([]);
+    expect(empty.tidied).toBe('');
+    expect(empty.canTidy).toBe(false);
   });
 
   it('tidies pasted spacing without changing the words', () => {

@@ -2,6 +2,7 @@ import { NEWSLETTER_CARD_EXCERPT_LENGTH } from './newsletter';
 import {
   analyzeNewsletterText,
   NEWSLETTER_LONG_SENTENCE_WORDS,
+  type NewsTextAnalysis,
 } from './newsletter-stats';
 import { normalizeNewsText } from './normalize';
 
@@ -16,6 +17,8 @@ export type NewsTextSuggestion = {
 export type NewsTextReviewOptions = {
   /** How much of the summary the public card can show before it clamps. */
   cardLength?: number;
+  /** Reuse an analysis the caller already computed for the same value. */
+  analysis?: NewsTextAnalysis;
 };
 
 const STOP_WORDS = new Set([
@@ -120,7 +123,7 @@ export function reviewNewsText(
   const text = value.trim();
   if (!text) return [];
 
-  const analysis = analyzeNewsletterText(text);
+  const analysis = options.analysis ?? analyzeNewsletterText(text);
   const cardLength = Math.max(
     1,
     Math.floor(options.cardLength ?? NEWSLETTER_CARD_EXCERPT_LENGTH)

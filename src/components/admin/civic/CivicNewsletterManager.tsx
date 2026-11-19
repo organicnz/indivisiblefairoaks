@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { NewsletterTopicFilter } from '@/components/newsletters/NewsletterTopicFilter';
 import {
@@ -34,12 +34,14 @@ export function CivicNewsletterManager({
   const [loading, setLoading] = useState(initialNewsletters === undefined);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editingNewsletter, setEditingNewsletter] = useState<CivicNewsletterRecord | null>(null);
+  const openerRef = useRef<HTMLElement | null>(null);
   const {
     searchQuery,
     setSearchQuery,
     effectiveQuery,
     activeTopic,
     setActiveTopic,
+    allTopicsLabel,
     allTopics,
     topicCounts,
     results,
@@ -86,9 +88,21 @@ export function CivicNewsletterManager({
   };
 
   const openCreate = () => {
+    openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setEditingNewsletter(null);
     setIsEditorOpen(true);
   };
+
+  const closeEditor = useCallback(() => {
+    setIsEditorOpen(false);
+    // The editor is controlled from a button outside Radix's trigger tree, so
+    // the dialog cannot restore focus itself. Return it to the control that
+    // opened the editor after the dialog has unmounted.
+    requestAnimationFrame(() => {
+      const opener = openerRef.current;
+      if (opener?.isConnected) opener.focus();
+    });
+  }, []);
 
   return (
     <div className="flex h-full flex-col space-y-4">
@@ -107,6 +121,7 @@ export function CivicNewsletterManager({
         activeTopic={activeTopic}
         onTopicChange={setActiveTopic}
         resultsId="admin-newsletter-results"
+        allTopicsLabel={allTopicsLabel}
         variant="admin"
         maxVisible={8}
         counts={topicCounts}
@@ -117,6 +132,7 @@ export function CivicNewsletterManager({
         total={newsletters.length}
         query={effectiveQuery}
         activeTopic={activeTopic}
+        allTopicsLabel={allTopicsLabel}
         onClearFilters={clearFilters}
       />
 
@@ -128,6 +144,7 @@ export function CivicNewsletterManager({
         clearLabel={effectiveQuery && !topicFiltered ? 'Clear search' : 'Clear filters'}
         onClearFilters={clearFilters}
         onEdit={(item) => {
+          openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
           setEditingNewsletter(item);
           setIsEditorOpen(true);
         }}
@@ -136,7 +153,7 @@ export function CivicNewsletterManager({
 
       <CivicNewsletterEditorModal
         isOpen={isEditorOpen}
-        onClose={() => setIsEditorOpen(false)}
+        onClose={closeEditor}
         newsletter={editingNewsletter}
         onSaved={(saved, previousSlug) => {
           setNewsletters((previous) => mergeNewsletterRows(previous, saved, previousSlug));

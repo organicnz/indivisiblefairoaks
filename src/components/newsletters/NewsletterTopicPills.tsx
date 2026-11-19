@@ -1,5 +1,6 @@
 import { Tag } from 'lucide-react';
 import { HighlightedText } from '@/components/ui/HighlightedText';
+import { uniqueNewsletterTopics } from '@/lib/news-text';
 import { cn } from '@/lib/utils';
 
 type NewsletterTopicPillsProps = {
@@ -36,7 +37,9 @@ export function NewsletterTopicPills({
   variant = 'card',
   className,
 }: NewsletterTopicPillsProps) {
-  const list = Array.isArray(topics) ? topics : [];
+  // Cards and admin rows must agree with the filter's identity rules. Legacy
+  // rows can still contain duplicate spellings or a stored sentinel tag.
+  const list = uniqueNewsletterTopics(topics);
   if (list.length === 0) return null;
 
   return (

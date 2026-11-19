@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { CivicNewsletterEditorModal } from '@/components/admin/civic/CivicNewsletterEditorModal';
 import { useEditContext } from '@/components/layout/useEditContext';
@@ -11,7 +11,7 @@ import { NewsletterResultsSummary } from '@/components/newsletters/NewsletterRes
 import { useDataPoints } from '@/hooks/useDataPoints';
 import { useNewsletterArchive } from '@/hooks/useNewsletterArchive';
 import { type CivicNewsletterRecord, deleteCivicNewsletter } from '@/lib/actions/civic';
-import { mergeNewsletterRows, sortNewsletters } from '@/lib/news-text';
+import { ALL_NEWSLETTER_TOPICS, mergeNewsletterRows, sortNewsletters } from '@/lib/news-text';
 import type { NewsletterRow } from '@/lib/queries/civic';
 
 export function InteractiveNewslettersList({
@@ -30,6 +30,8 @@ export function InteractiveNewslettersList({
   const [selectedNewsletterForEdit, setSelectedNewsletterForEdit] =
     useState<CivicNewsletterRecord | null>(null);
   const [isEditorModalOpen, setIsEditorModalOpen] = useState(false);
+  const openerRef = useRef<HTMLElement | null>(null);
+  const allTopicsLabel = dataPoints['news.topic.all'] || ALL_NEWSLETTER_TOPICS;
   const {
     searchQuery,
     setSearchQuery,
@@ -40,7 +42,7 @@ export function InteractiveNewslettersList({
     topicCounts,
     results: filteredNewsletters,
     clearFilters,
-  } = useNewsletterArchive(newslettersList);
+  } = useNewsletterArchive(newslettersList, { allTopicsLabel });
 
   useEffect(() => {
     // The page already renders the cached server list. Re-fetching it on every
@@ -69,11 +71,13 @@ export function InteractiveNewslettersList({
   }, [initialNewsletters]);
 
   const handleOpenCreateModal = () => {
+    openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setSelectedNewsletterForEdit(null);
     setIsEditorModalOpen(true);
   };
 
   const handleOpenEditModal = (item: NewsletterRow) => {
+    openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setSelectedNewsletterForEdit({
       slug: item.slug,
       title: item.title,
@@ -86,6 +90,16 @@ export function InteractiveNewslettersList({
       published_at: item.published_at ?? null,
     });
     setIsEditorModalOpen(true);
+  };
+
+  const closeEditor = () => {
+    setIsEditorModalOpen(false);
+    // The edit button lives outside Radix's trigger tree. Without this, closing
+    // the controlled dialog leaves focus on the document body.
+    requestAnimationFrame(() => {
+      const opener = openerRef.current;
+      if (opener?.isConnected) opener.focus();
+    });
   };
 
   const handleDeleteNewsletter = async (slug: string, title: string) => {
@@ -137,12 +151,14 @@ export function InteractiveNewslettersList({
           onTopicChange={setActiveTopic}
           onAdd={isAdmin ? handleOpenCreateModal : undefined}
           resultsId="newsletter-results"
+          allTopicsLabel={allTopicsLabel}
         />
         <NewsletterResultsSummary
           shown={filteredNewsletters.length}
           total={newslettersList.length}
           query={effectiveQuery}
           activeTopic={activeTopic}
+          allTopicsLabel={allTopicsLabel}
           onClearFilters={clearFilters}
         />
       </div>
@@ -174,7 +190,7 @@ export function InteractiveNewslettersList({
       {isEditorModalOpen ? (
         <CivicNewsletterEditorModal
           isOpen={isEditorModalOpen}
-          onClose={() => setIsEditorModalOpen(false)}
+          onClose={closeEditor}
           newsletter={selectedNewsletterForEdit}
           onSaved={handleNewsletterSaved}
         />

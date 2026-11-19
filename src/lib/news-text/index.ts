@@ -9,6 +9,7 @@
 
 export * from './normalize';
 export * from './match';
+export * from './topics';
 export * from './fields';
 export * from './search';
 export * from './ranking';
@@ -18,3 +19,4 @@ export * from './newsletter';
 export * from './newsletter-topics';
 export * from './newsletter-stats';
 export * from './review';
+export * from './insights';

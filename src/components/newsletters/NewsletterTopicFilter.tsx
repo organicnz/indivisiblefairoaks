@@ -6,7 +6,7 @@ import {
   ALL_NEWSLETTER_TOPICS,
   hasNewsletterTopic,
   isAllNewsletterTopics,
-  normalizeNewsText,
+  newsletterTopicKey,
   type NewsletterTopicCounts,
 } from '@/lib/news-text';
 import { cn } from '@/lib/utils';
@@ -80,7 +80,7 @@ export function NewsletterTopicFilter({
         const count = counts
           ? isAllNewsletterTopics(topic)
             ? counts.all
-            : (counts.byTopic[normalizeNewsText(topic)] ?? 0)
+            : (counts.byTopic[newsletterTopicKey(topic)] ?? 0)
           : null;
         const label = topic === ALL_NEWSLETTER_TOPICS ? allTopicsLabel : topic;
 

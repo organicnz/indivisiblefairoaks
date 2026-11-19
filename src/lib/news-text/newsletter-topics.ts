@@ -1,10 +1,6 @@
-import { cleanNewsletterTopicLabel, normalizeNewsletterTopics } from '@/lib/newsletters';
-import { normalizeNewsText } from './normalize';
-import {
-  ALL_NEWSLETTER_TOPICS,
-  filterNewsletters,
-  type NewsletterTextFields,
-} from './search';
+import { normalizeNewsletterTopics } from '@/lib/newsletters';
+import { ALL_NEWSLETTER_TOPICS, newsletterTopicKey, uniqueNewsletterTopics } from './topics';
+import { filterNewsletters, type NewsletterTextFields } from './search';
 
 const TOPIC_LIST_MARKER = /^(?:[-*•]+|\d+[.)])\s*/;
 const TOPIC_SEPARATOR = /[,;|\t\r\n]+|\s*[•·]\s*/;
@@ -45,19 +41,15 @@ export type NewsletterTopicCounts = {
  */
 export function countNewsletterTopics<T extends NewsletterTextFields>(
   items: readonly T[],
-  query = ''
+  query = '',
+  allTopicsLabel = ALL_NEWSLETTER_TOPICS
 ): NewsletterTopicCounts {
   const matching = filterNewsletters(items, { query });
   const byTopic: Record<string, number> = {};
 
   for (const item of matching) {
-    const topics = Array.isArray(item.topics) ? item.topics : [];
-    const seen = new Set<string>();
-    for (const rawTopic of topics) {
-      const topic = cleanNewsletterTopicLabel(rawTopic);
-      const key = normalizeNewsText(topic);
-      if (!key || key === normalizeNewsText(ALL_NEWSLETTER_TOPICS) || seen.has(key)) continue;
-      seen.add(key);
+    for (const topic of uniqueNewsletterTopics(item.topics, allTopicsLabel)) {
+      const key = newsletterTopicKey(topic);
       byTopic[key] = (byTopic[key] ?? 0) + 1;
     }
   }

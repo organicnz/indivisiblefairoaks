@@ -1,4 +1,3 @@
-import { cleanNewsletterTopicLabel } from '@/lib/newsletters';
 import {
   NEWS_POST_FIELD_WEIGHTS,
   newsletterSearchFields,
@@ -11,20 +10,13 @@ import {
   prepareNewsFields,
   scorePreparedNewsText,
 } from './match';
-import { normalizeNewsText, parseNewsQuery } from './normalize';
-
-export const ALL_NEWSLETTER_TOPICS = 'All Topics';
-
-/**
- * The sentinel is a label, not a value to compare with `===`: the CMS can
- * translate the chip while the active filter stays on the sentinel.
- */
-export function isAllNewsletterTopics(
-  topic: string,
-  allTopicsLabel = ALL_NEWSLETTER_TOPICS
-): boolean {
-  return normalizeNewsText(topic) === normalizeNewsText(allTopicsLabel);
-}
+import { parseNewsQuery } from './normalize';
+import {
+  ALL_NEWSLETTER_TOPICS,
+  isAllNewsletterTopics,
+  newsletterTopicKey,
+  uniqueNewsletterTopics,
+} from './topics';
 
 export type NewsletterTextFields = {
   title: string;
@@ -48,30 +40,19 @@ export type NewsPostTextFields = {
 
 /** All unique topics in first-seen order, with case-insensitive duplicates removed. */
 export function collectNewsletterTopics(
-  items: readonly Pick<NewsletterTextFields, 'topics'>[]
+  items: readonly Pick<NewsletterTextFields, 'topics'>[],
+  allTopicsLabel = ALL_NEWSLETTER_TOPICS
 ): string[] {
-  const topics: string[] = [];
-  const seen = new Set<string>();
-  for (const item of items) {
-    if (!Array.isArray(item.topics)) continue;
-    for (const rawTopic of item.topics) {
-      const topic = cleanNewsletterTopicLabel(rawTopic);
-      if (!topic) continue;
-      const key = normalizeNewsText(topic);
-      // "All Topics" is the archive's sentinel, not a real tag. A stored copy
-      // would otherwise render a second, duplicate filter chip.
-      if (!key || key === normalizeNewsText(ALL_NEWSLETTER_TOPICS) || seen.has(key)) continue;
-      seen.add(key);
-      topics.push(topic);
-    }
-  }
-  return topics;
+  return uniqueNewsletterTopics(
+    items.flatMap((item) => (Array.isArray(item.topics) ? item.topics : [])),
+    allTopicsLabel
+  );
 }
 
 /** Compare topic labels by the same normalization used by search. */
 export function hasNewsletterTopic(topics: readonly string[], topic: string): boolean {
-  const key = normalizeNewsText(topic);
-  return Boolean(key) && topics.some((candidate) => normalizeNewsText(candidate) === key);
+  const key = newsletterTopicKey(topic);
+  return Boolean(key) && topics.some((candidate) => newsletterTopicKey(candidate) === key);
 }
 
 function matchesNewsletterTopic(

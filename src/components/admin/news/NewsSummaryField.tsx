@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { NewsFieldHeader } from '@/components/admin/news/NewsFieldHeader';
 import { NewsTextReview } from '@/components/admin/news/NewsTextReview';
 import { NewsTextStats } from '@/components/admin/news/NewsTextStats';
-import { analyzeNewsText, tidyNewsText } from '@/lib/news-text';
+import { inspectNewsText } from '@/lib/news-text';
 import { cn } from '@/lib/utils';
 
 type GeneratedSummaryAction = {
@@ -51,8 +51,7 @@ export function NewsSummaryField({
   generatedSummary,
   className,
 }: NewsSummaryFieldProps) {
-  const analysis = analyzeNewsText(value);
-  const tidied = tidyNewsText(value);
+  const { analysis, suggestions, tidied, canTidy } = inspectNewsText(value, { cardLength });
   const helpId = `${id}-help`;
   const reviewId = `${id}-review`;
   const describedBy = value.trim() ? `${helpId} ${reviewId}` : helpId;
@@ -106,7 +105,7 @@ export function NewsSummaryField({
           <button
             type="button"
             onClick={() => onChange(tidied)}
-            disabled={!value.trim() || tidied === value}
+            disabled={!canTidy}
             title="Normalize line breaks and repeated spaces without changing the wording"
             aria-label="Tidy summary spacing"
             className="inline-flex items-center gap-1 text-[10px] font-bold text-primary-ink transition-colors hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-40 dark:text-primary-on-dark"
@@ -117,7 +116,12 @@ export function NewsSummaryField({
         </div>
       </div>
 
-      <NewsTextReview id={reviewId} value={value} cardLength={cardLength} />
+      <NewsTextReview
+        id={reviewId}
+        value={value}
+        cardLength={cardLength}
+        suggestions={suggestions}
+      />
     </div>
   );
 }

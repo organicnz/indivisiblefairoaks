@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { normalizeNewsText } from './news-text/normalize';
 
 /**
  * One contract for bulletin writes.
@@ -66,15 +67,9 @@ export function cleanNewsletterTopicLabel(value: string): string {
 }
 
 function topicKey(value: string): string {
-  return foldSpecialLetters(
-    cleanNewsletterTopicLabel(value)
-      .normalize('NFKD')
-      .replace(/[\u0300-\u036F]/g, '')
-      .toLowerCase()
-      .replace(/&/g, ' and ')
-      .replace(/\s+/g, ' ')
-      .trim()
-  );
+  // Topic identity must match the read-side search fold: accents, apostrophes,
+  // punctuation and `&` cannot make two chips for the same subject.
+  return normalizeNewsText(cleanNewsletterTopicLabel(value));
 }
 
 /**
@@ -91,7 +86,7 @@ export function normalizeNewsletterTopics(topics: readonly string[]): string[] {
     const value = cleanNewsletterTopicLabel(topic);
     if (!value) continue;
     const key = topicKey(value);
-    if (seen.has(key)) continue;
+    if (!key || seen.has(key)) continue;
     seen.add(key);
     normalized.push(value);
   }

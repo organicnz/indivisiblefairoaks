@@ -18,6 +18,8 @@ type NewsletterFilterBarProps = {
   onAdd?: () => void;
   /** The id of the archive grid this bar filters. */
   resultsId?: string;
+  /** Optional CMS-translated sentinel label; falls back to the data-point value. */
+  allTopicsLabel?: string;
 };
 
 /** Search, topic chips and the admin add action for the public bulletin archive. */
@@ -31,7 +33,11 @@ export function NewsletterFilterBar({
   onTopicChange,
   onAdd,
   resultsId,
+  allTopicsLabel,
 }: NewsletterFilterBarProps) {
+  const sentinelLabel =
+    allTopicsLabel || dataPoints['news.topic.all'] || ALL_NEWSLETTER_TOPICS;
+
   return (
     <div className="civic-panel flex flex-col items-stretch justify-between gap-4 p-4 md:flex-row md:items-center">
       <NewsSearchField
@@ -54,7 +60,7 @@ export function NewsletterFilterBar({
         topics={topics}
         activeTopic={activeTopic}
         onTopicChange={onTopicChange}
-        allTopicsLabel={dataPoints['news.topic.all'] || ALL_NEWSLETTER_TOPICS}
+        allTopicsLabel={sentinelLabel}
         resultsId={resultsId}
         counts={topicCounts}
       />

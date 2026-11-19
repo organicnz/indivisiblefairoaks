@@ -7,8 +7,8 @@ import { NewsletterBasicsFields } from '@/components/admin/news/NewsletterBasics
 import { NewsletterPreviewCard } from '@/components/admin/news/NewsletterPreviewCard';
 import { NewsletterPublicationField } from '@/components/admin/news/NewsletterPublicationField';
 import { NewsletterSortingField } from '@/components/admin/news/NewsletterSortingField';
-import { NewsletterSummaryField } from '@/components/admin/news/NewsletterSummaryField';
 import { NewsletterTopicsField } from '@/components/admin/news/NewsletterTopicsField';
+import { NewsSummaryField } from '@/components/admin/news/NewsSummaryField';
 import {
   Dialog,
   DialogContent,
@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/Dialog';
 import { type CivicNewsletterRecord, saveCivicNewsletter } from '@/lib/actions/civic';
 import { instantToPacificInput, pacificWallToInstant } from '@/lib/calendar-time';
-import { parseNewsletterTopicInput } from '@/lib/news-text';
+import { NEWSLETTER_CARD_EXCERPT_LENGTH, parseNewsletterTopicInput } from '@/lib/news-text';
 import {
   NEWSLETTER_LIMITS,
   newsletterPublicationState,
@@ -412,9 +412,22 @@ export function CivicNewsletterEditorModal({
                 onDateLabelChange={(value) => updateDraft({ dateLabel: value })}
               />
 
-              <NewsletterSummaryField
-                description={draft.description}
+              <NewsSummaryField
+                id="civic-news-description"
+                label="Summary / overview"
+                value={draft.description}
                 onChange={(value) => updateDraft({ description: value })}
+                maxLength={NEWSLETTER_LIMITS.description}
+                cardLength={NEWSLETTER_CARD_EXCERPT_LENGTH}
+                rows={5}
+                required
+                placeholder="Summarize the priorities, actions, and decisions a reader should know about."
+                help={
+                  <>
+                    Plain text. Keep it to a short archive summary; the full issue remains in the
+                    chapter&rsquo;s email or PDF archive.
+                  </>
+                }
               />
 
               <NewsletterTopicsField
