@@ -58,6 +58,12 @@ export function PageMasthead({
         aria-hidden="true"
         className="paper-grid pointer-events-none absolute inset-0 opacity-40 [mask-image:linear-gradient(to_bottom,black,transparent)]"
       />
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute -right-16 -top-28 hidden select-none font-display text-[26rem] leading-none text-foreground/[0.025] md:block print:hidden"
+      >
+        §
+      </span>
       <div
         className={`relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 ${
           compact ? 'py-10 md:py-12 lg:py-14' : 'py-12 md:py-16 lg:py-20'
@@ -77,9 +83,14 @@ export function PageMasthead({
           <div className="hidden min-w-0 lg:col-span-4 lg:flex lg:justify-end">
             {visual ?? (
               <div aria-hidden="true" className="relative shrink-0">
+                {/* Registration ticks give the plate the feel of a trimmed
+                    proof sheet, while the offset stock keeps it from looking
+                    like a generic icon tile. */}
+                <span className="absolute -left-2 -top-2 size-4 border-l border-t border-foreground/35" />
+                <span className="absolute -bottom-2 -right-2 size-4 border-b border-r border-foreground/35" />
                 <div className="absolute inset-0 translate-x-2.5 translate-y-2.5 border border-foreground/20 bg-surface-deep/60" />
                 <div
-                  className={`relative flex aspect-square items-center justify-center border border-foreground/30 bg-surface-card ${
+                  className={`relative flex aspect-square flex-col items-center justify-center border border-foreground/30 bg-surface-card ${
                     compact ? 'w-32 xl:w-36' : 'w-44 xl:w-52'
                   }`}
                 >
@@ -89,11 +100,19 @@ export function PageMasthead({
                     strokeWidth={0.7}
                     className={`text-primary ${compact ? 'size-14' : 'size-24 xl:size-28'}`}
                   />
+                  <span className="absolute inset-x-2 bottom-2 flex items-center justify-between border-t border-foreground/15 pt-1 font-mono text-[7px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                    <span>{compact ? 'Ref.' : 'Chapter file'}</span>
+                    <span>No. 01</span>
+                  </span>
                 </div>
               </div>
             )}
-          </div>
+                    </div>
         </div>
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute bottom-0 left-4 h-0.5 w-16 bg-accent sm:left-6 lg:left-8"
+        />
       </div>
     </section>
   );

@@ -37,6 +37,7 @@ export function InteractiveNewslettersList({
     activeTopic,
     setActiveTopic,
     allTopics,
+    topicCounts,
     results: filteredNewsletters,
     clearFilters,
   } = useNewsletterArchive(newslettersList);
@@ -131,10 +132,10 @@ export function InteractiveNewslettersList({
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
           topics={allTopics}
+          topicCounts={topicCounts}
           activeTopic={activeTopic}
           onTopicChange={setActiveTopic}
-          isAdmin={isAdmin}
-          onAdd={handleOpenCreateModal}
+          onAdd={isAdmin ? handleOpenCreateModal : undefined}
           resultsId="newsletter-results"
         />
         <NewsletterResultsSummary
@@ -142,6 +143,7 @@ export function InteractiveNewslettersList({
           total={newslettersList.length}
           query={effectiveQuery}
           activeTopic={activeTopic}
+          onClearFilters={clearFilters}
         />
       </div>
 

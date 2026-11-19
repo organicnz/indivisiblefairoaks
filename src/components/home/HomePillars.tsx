@@ -90,9 +90,15 @@ export function HomePillars({ dataPoints }: { dataPoints: Record<string, string>
                 return (
                   <article
                     key={pillar.titleName}
-                    className="group min-w-0 border-t border-foreground/25 py-6 transition-colors duration-300 hover:border-primary/50 sm:py-7"
+                    className="group relative min-w-0 border-t border-foreground/25 py-6 transition-colors duration-300 hover:border-primary/50 sm:py-7"
                   >
-                    <div className="flex items-center justify-between gap-4">
+                    <span
+                      aria-hidden="true"
+                      className="pointer-events-none absolute right-0 top-2 select-none font-display text-6xl font-semibold leading-none tracking-[-0.06em] text-foreground/[0.06] transition-colors duration-300 group-hover:text-primary/10 sm:text-7xl"
+                    >
+                      0{index + 1}
+                    </span>
+                    <div className="relative z-10 flex items-center">
                       <span className="flex size-9 shrink-0 items-center justify-center border border-foreground/20 bg-background transition-colors duration-300 group-hover:border-primary/40 group-hover:bg-surface-card">
                         <Icon
                           size={18}
@@ -100,12 +106,6 @@ export function HomePillars({ dataPoints }: { dataPoints: Record<string, string>
                           className="text-primary transition-colors duration-300 group-hover:text-accent"
                           aria-hidden="true"
                         />
-                      </span>
-                      <span
-                        aria-hidden="true"
-                        className="font-mono text-[10px] font-bold tracking-[0.14em] text-muted-foreground"
-                      >
-                        0{index + 1}
                       </span>
                     </div>
                     <DataPoint

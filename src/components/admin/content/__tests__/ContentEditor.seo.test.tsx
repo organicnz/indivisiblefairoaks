@@ -143,6 +143,7 @@ describe('ContentEditor SEO meta fields', () => {
     });
 
     expect(container.textContent).toContain('4 words');
+    expect(container.textContent).toContain('Add one or two sentences of context');
     await act(async () => {
       const saveBtn = [...container.querySelectorAll('button')].find(
         (button) => button.textContent === 'Save'

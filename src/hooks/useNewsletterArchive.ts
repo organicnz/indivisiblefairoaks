@@ -4,7 +4,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ALL_NEWSLETTER_TOPICS,
   collectNewsletterTopics,
+  countNewsletterTopics,
   hasNewsletterTopic,
+  isAllNewsletterTopics,
   type NewsletterTextFields,
   searchNewsletters,
 } from '@/lib/news-text';
@@ -46,17 +48,31 @@ export function useNewsletterArchive<T extends NewsletterTextFields>(items: read
     [activeTopic, items, search.effectiveQuery]
   );
 
+  const topicCounts = useMemo(
+    () => countNewsletterTopics(items, search.effectiveQuery),
+    [items, search.effectiveQuery]
+  );
+
   const clearFilters = useCallback(() => {
     search.clearSearch();
     setActiveTopic(ALL_NEWSLETTER_TOPICS);
   }, [search.clearSearch]);
+
+  // One derived truth for all result surfaces. The admin empty state and the
+  // public archive previously each checked query/topic independently, which is
+  // exactly how a clear button ends up saying "search" after a topic filter.
+  const topicFiltered = !isAllNewsletterTopics(activeTopic);
+  const filtering = search.searching || topicFiltered;
 
   return {
     ...search,
     activeTopic,
     setActiveTopic,
     allTopics,
+    topicCounts,
     results,
+    topicFiltered,
+    filtering,
     clearFilters,
   };
 }

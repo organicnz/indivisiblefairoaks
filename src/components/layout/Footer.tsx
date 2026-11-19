@@ -58,7 +58,7 @@ export async function Footer() {
               electing progressive leaders, and taking direct non-violent action for our community.
             </DataPoint>
             <div className="mt-5 flex items-start gap-2.5 border border-white/15 bg-white/5 p-3 text-xs text-ink-on-dark">
-              <MapPin className="text-accent-gold shrink-0 mt-0.5" size={16} />
+              <MapPin className="text-accent-gold shrink-0 mt-0.5" size={16} aria-hidden="true" />
               <DataPoint name="footer.meeting_notice" as="span" initialData={dataPoints}>
                 Meetings held monthly in Carmichael, CA. Bring a non-perishable food item for local
                 food banks!
@@ -68,7 +68,7 @@ export async function Footer() {
 
           {/* Site Navigation */}
           <div>
-            <h2 className="mb-4 font-display text-xl font-semibold tracking-[-0.02em] text-accent-gold">
+            <h2 className="mb-4 border-t border-accent-gold/35 pt-3 font-display text-xl font-semibold tracking-[-0.02em] text-accent-gold">
               <DataPoint name="footer.col_explore" initialData={dataPoints}>
                 Explore
               </DataPoint>
@@ -133,7 +133,7 @@ export async function Footer() {
 
           {/* Action & Engagement */}
           <div>
-            <h2 className="mb-4 font-display text-xl font-semibold tracking-[-0.02em] text-accent-gold">
+            <h2 className="mb-4 border-t border-accent-gold/35 pt-3 font-display text-xl font-semibold tracking-[-0.02em] text-accent-gold">
               <DataPoint name="footer.col_involved" initialData={dataPoints}>
                 Get Involved
               </DataPoint>
@@ -156,7 +156,7 @@ export async function Footer() {
                   href="/choir"
                   className="hover:text-white transition-colors flex items-center gap-1.5"
                 >
-                  <Music size={14} className="text-primary-on-dark-muted" />
+                  <Music size={14} className="text-primary-on-dark-muted" aria-hidden="true" />
                   <DataPoint name="footer.nav.sing" as="span" initialData={dataPoints}>
                     Sing in the Choir
                   </DataPoint>
@@ -167,7 +167,7 @@ export async function Footer() {
                   href="mailto:subscribe@indivisiblefairoaks.org"
                   className="hover:text-white transition-colors flex items-center gap-1.5"
                 >
-                  <Mail size={14} className="text-primary-on-dark-muted" />
+                  <Mail size={14} className="text-primary-on-dark-muted" aria-hidden="true" />
                   <DataPoint name="footer.nav.subscribe" as="span" initialData={dataPoints}>
                     Subscribe to Newsletter
                   </DataPoint>
@@ -178,7 +178,7 @@ export async function Footer() {
                   href="/donate"
                   className="inline-flex items-center gap-1.5 text-accent-gold hover:text-accent-gold font-bold transition-colors"
                 >
-                  <Heart size={14} className="fill-accent-gold" />
+                  <Heart size={14} className="fill-accent-gold" aria-hidden="true" />
                   <DataPoint name="footer.nav.donate" as="span" initialData={dataPoints}>
                     Donate via ActBlue
                   </DataPoint>
@@ -189,7 +189,7 @@ export async function Footer() {
 
           {/* Contact & Transparency */}
           <div>
-            <h2 className="mb-4 font-display text-xl font-semibold tracking-[-0.02em] text-accent-gold">
+            <h2 className="mb-4 border-t border-accent-gold/35 pt-3 font-display text-xl font-semibold tracking-[-0.02em] text-accent-gold">
               <DataPoint name="footer.col_connect" initialData={dataPoints}>
                 Connect With Us
               </DataPoint>
@@ -239,7 +239,7 @@ export async function Footer() {
 
         {/* Bottom Bar */}
         <div className="mt-12 pt-8 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-ink-muted-on-dark">
-          <p>
+          <p className="text-center sm:text-left">
             © <CopyrightYear /> Indivisible Fair Oaks-Carmichael.{' '}
             <DataPoint name="footer.copyright_disclaimer" as="span" initialData={dataPoints}>
               All rights reserved. Grassroots volunteer organization.

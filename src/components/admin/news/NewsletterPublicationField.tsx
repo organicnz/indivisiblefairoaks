@@ -1,4 +1,5 @@
 import { CalendarClock, Clock3 } from 'lucide-react';
+import { NewsFieldHeader } from '@/components/admin/news/NewsFieldHeader';
 import { formatPacificDateTime, pacificWallToInstant } from '@/lib/calendar-time';
 
 type NewsletterPublicationFieldProps = {
@@ -24,12 +25,7 @@ export function NewsletterPublicationField({
     <div className="rounded-sm border border-border bg-surface-muted/40 p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="flex-1">
-          <label
-            htmlFor="civic-news-published-at"
-            className="mb-1 block text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground"
-          >
-            Publication time (Pacific)
-          </label>
+          <NewsFieldHeader label="Publication time (Pacific)" htmlFor="civic-news-published-at" />
           <input
             id="civic-news-published-at"
             type="datetime-local"

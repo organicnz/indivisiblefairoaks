@@ -46,6 +46,8 @@ type RapidAlertFeedProps = {
   onRefresh: () => void;
   onClearFilters: () => void;
   hasFilters: boolean;
+  /** Hide the duplicate historical link when the page-level error banner owns it. */
+  showHistoricalLink?: boolean;
 };
 
 type FeedTab = 'community' | 'official';
@@ -230,6 +232,7 @@ export function RapidAlertFeed({
   onRefresh,
   onClearFilters,
   hasFilters,
+  showHistoricalLink = true,
 }: RapidAlertFeedProps) {
   const [tab, setTab] = useState<FeedTab>('community');
   const tabRefs = useRef<Record<FeedTab, HTMLButtonElement | null>>({
@@ -431,7 +434,7 @@ export function RapidAlertFeed({
                 />
                 {isRefreshing ? 'Checking feed' : 'Check again'}
               </button>
-              {communityUnavailable ? (
+              {communityUnavailable && showHistoricalLink ? (
                 <a href="#historical-foia" className={EMPTY_ACTION_CLASS}>
                   Historical map
                 </a>

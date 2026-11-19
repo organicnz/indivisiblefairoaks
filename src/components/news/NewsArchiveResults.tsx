@@ -37,6 +37,7 @@ export function NewsArchiveResults({
           query={query}
           singular="story"
           plural="stories"
+          onClear={onClearSearch}
         />
         {posts.length === 0 ? (
           <div className="civic-panel p-8 text-center text-muted-foreground dark:text-ink-muted-on-dark">

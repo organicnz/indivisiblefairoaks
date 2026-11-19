@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { NewsletterTopicFilter } from '@/components/newsletters/NewsletterTopicFilter';
 import {
   type CivicNewsletterRecord,
   deleteCivicNewsletter,
   getCivicNewslettersAdmin,
 } from '@/lib/actions/civic';
-import { ALL_NEWSLETTER_TOPICS, mergeNewsletterRows, sortNewsletters } from '@/lib/news-text';
+import { mergeNewsletterRows, sortNewsletters } from '@/lib/news-text';
 import { NewsletterManagerResults } from '@/components/admin/news/NewsletterManagerResults';
 import { NewsletterManagerToolbar } from '@/components/admin/news/NewsletterManagerToolbar';
 import { NewsletterResultsSummary } from '@/components/newsletters/NewsletterResultsSummary';
@@ -33,8 +34,19 @@ export function CivicNewsletterManager({
   const [loading, setLoading] = useState(initialNewsletters === undefined);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editingNewsletter, setEditingNewsletter] = useState<CivicNewsletterRecord | null>(null);
-  const { searchQuery, setSearchQuery, effectiveQuery, results, clearSearch } =
-    useNewsletterArchive(newsletters);
+  const {
+    searchQuery,
+    setSearchQuery,
+    effectiveQuery,
+    activeTopic,
+    setActiveTopic,
+    allTopics,
+    topicCounts,
+    results,
+    topicFiltered,
+    filtering,
+    clearFilters,
+  } = useNewsletterArchive(newsletters);
 
   const fetchNewsletters = useCallback(async () => {
     setLoading(true);
@@ -90,18 +102,31 @@ export function CivicNewsletterManager({
         resultsId="admin-newsletter-results"
       />
 
+      <NewsletterTopicFilter
+        topics={allTopics}
+        activeTopic={activeTopic}
+        onTopicChange={setActiveTopic}
+        resultsId="admin-newsletter-results"
+        variant="admin"
+        maxVisible={8}
+        counts={topicCounts}
+      />
+
       <NewsletterResultsSummary
         shown={results.length}
         total={newsletters.length}
         query={effectiveQuery}
-        activeTopic={ALL_NEWSLETTER_TOPICS}
+        activeTopic={activeTopic}
+        onClearFilters={clearFilters}
       />
 
       <NewsletterManagerResults
         loading={loading}
         newsletters={results}
         query={effectiveQuery}
-        onClearSearch={clearSearch}
+        filtering={filtering}
+        clearLabel={effectiveQuery && !topicFiltered ? 'Clear search' : 'Clear filters'}
+        onClearFilters={clearFilters}
         onEdit={(item) => {
           setEditingNewsletter(item);
           setIsEditorOpen(true);

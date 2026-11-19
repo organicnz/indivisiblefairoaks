@@ -1,14 +1,14 @@
 import {
   NEWSLETTER_LONG_SENTENCE_WORDS,
-  type NewsletterTextAnalysis,
+  type NewsTextAnalysis,
 } from '@/lib/news-text';
 
-type NewsletterTextStatsProps = {
-  analysis: NewsletterTextAnalysis;
+type NewsTextStatsProps = {
+  analysis: NewsTextAnalysis;
 };
 
-/** Live readability stats for the plain-text bulletin summary. */
-export function NewsletterTextStats({ analysis }: NewsletterTextStatsProps) {
+/** Live readability stats for any editable news or bulletin summary. */
+export function NewsTextStats({ analysis }: NewsTextStatsProps) {
   if (analysis.words === 0) return null;
 
   return (

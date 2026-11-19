@@ -120,6 +120,7 @@ describe('InteractivePostsList', () => {
     });
 
     expect(container.textContent).toContain('1 story matching');
+    expect(container.textContent).toContain('Use “quotes” around a phrase');
     expect(container.textContent).toContain('Why Fair Oaks Needs Strong Public Schools');
     expect(container.textContent).not.toContain('Mobilizing Carmichael');
     expect(

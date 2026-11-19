@@ -1,6 +1,17 @@
 import { cleanNewsletterTopicLabel } from '@/lib/newsletters';
-import { matchesNewsText, normalizeNewsText, resolveNewsQuery } from './normalize';
-import { rankNewsletters, rankNewsPosts } from './ranking';
+import {
+  NEWS_POST_FIELD_WEIGHTS,
+  newsletterSearchFields,
+  newsletterSearchWeights,
+  newsPostSearchFields,
+} from './fields';
+import {
+  matchesNewsText,
+  matchesPreparedNewsText,
+  prepareNewsFields,
+  scorePreparedNewsText,
+} from './match';
+import { normalizeNewsText, parseNewsQuery } from './normalize';
 
 export const ALL_NEWSLETTER_TOPICS = 'All Topics';
 
@@ -63,6 +74,16 @@ export function hasNewsletterTopic(topics: readonly string[], topic: string): bo
   return Boolean(key) && topics.some((candidate) => normalizeNewsText(candidate) === key);
 }
 
+function matchesNewsletterTopic(
+  item: NewsletterTextFields,
+  options: NewsletterFilterOptions
+): boolean {
+  const topic = options.topic ?? ALL_NEWSLETTER_TOPICS;
+  if (!topic.trim() || isAllNewsletterTopics(topic, options.allTopicsLabel)) return true;
+  const topics = Array.isArray(item.topics) ? item.topics : [];
+  return hasNewsletterTopic(topics, topic);
+}
+
 /**
  * Filter the archive by topic and free text.
  *
@@ -75,23 +96,12 @@ export function filterNewsletters<T extends NewsletterTextFields>(
   items: readonly T[],
   options: NewsletterFilterOptions = {}
 ): T[] {
-  const { query = '', topic = ALL_NEWSLETTER_TOPICS, allTopicsLabel = ALL_NEWSLETTER_TOPICS } =
-    options;
-  const topicKey = normalizeNewsText(topic);
-  const isAllTopics = isAllNewsletterTopics(topic, allTopicsLabel);
-
-  return items.filter((item) => {
-    const topics = Array.isArray(item.topics) ? item.topics : [];
-    const matchesTopic =
-      !topicKey ||
-      isAllTopics ||
-      hasNewsletterTopic(topics, topic);
-
-    return (
-      matchesTopic &&
-      matchesNewsText([item.title, item.description, item.date_label, ...topics], query)
-    );
-  });
+  const { query = '' } = options;
+  return items.filter(
+    (item) =>
+      matchesNewsletterTopic(item, options) &&
+      matchesNewsText(newsletterSearchFields(item), query)
+  );
 }
 
 /** Filter published news posts by title, excerpt and slug. */
@@ -99,7 +109,47 @@ export function filterNewsPosts<T extends NewsPostTextFields>(
   posts: readonly T[],
   query: string
 ): T[] {
-  return posts.filter((post) => matchesNewsText([post.title, post.excerpt, post.slug], query));
+  return posts.filter((post) => matchesNewsText(newsPostSearchFields(post), query));
+}
+
+type SearchCollectionOptions<T> = {
+  query: string;
+  fields: (item: T) => readonly (string | null | undefined)[];
+  weights: (item: T) => readonly number[];
+  accepts?: (item: T) => boolean;
+};
+
+/**
+ * Filter, match and rank a collection in one prepared pass.
+ *
+ * The previous high-level APIs filtered first and ranked the survivors, which
+ * normalized every searchable field twice. Preparing each candidate once also
+ * guarantees that the row that survives filtering is the same row the ranking
+ * scored.
+ */
+function searchNewsCollection<T>(
+  items: readonly T[],
+  options: SearchCollectionOptions<T>
+): T[] {
+  const parsed = parseNewsQuery(options.query);
+  const candidates = options.accepts ? items.filter(options.accepts) : [...items];
+  if (parsed.tokens.length === 0) return candidates;
+
+  return candidates
+    .map((item, index) => {
+      const fields = prepareNewsFields(options.fields(item));
+      if (!matchesPreparedNewsText(fields, parsed)) return null;
+      return {
+        item,
+        index,
+        score: scorePreparedNewsText(fields, parsed, options.weights(item)),
+      };
+    })
+    .filter(
+      (entry): entry is { item: T; index: number; score: number } => entry !== null
+    )
+    .sort((a, b) => b.score - a.score || a.index - b.index)
+    .map(({ item }) => item);
 }
 
 /** Filter and rank news posts through the same public-search contract. */
@@ -107,8 +157,11 @@ export function searchNewsPosts<T extends NewsPostTextFields>(
   posts: readonly T[],
   query: string
 ): T[] {
-  const normalized = resolveNewsQuery(query);
-  return rankNewsPosts(filterNewsPosts(posts, normalized), normalized);
+  return searchNewsCollection(posts, {
+    query,
+    fields: newsPostSearchFields,
+    weights: () => NEWS_POST_FIELD_WEIGHTS,
+  });
 }
 
 /** Filter and rank bulletins, including their topic-filter semantics. */
@@ -116,9 +169,10 @@ export function searchNewsletters<T extends NewsletterTextFields>(
   items: readonly T[],
   options: NewsletterFilterOptions = {}
 ): T[] {
-  const normalized = resolveNewsQuery(options.query ?? '');
-  return rankNewsletters(
-    filterNewsletters(items, { ...options, query: normalized }),
-    normalized
-  );
+  return searchNewsCollection(items, {
+    query: options.query ?? '',
+    fields: newsletterSearchFields,
+    weights: newsletterSearchWeights,
+    accepts: (item) => matchesNewsletterTopic(item, options),
+  });
 }

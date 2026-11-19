@@ -14,7 +14,8 @@ export function HomeGathering({
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="grid overflow-hidden border border-border border-l-4 border-l-accent bg-surface-card md:grid-cols-[minmax(0,1fr)_15rem]">
           <div className="min-w-0 px-5 py-5 md:px-7 md:py-6">
-            <div className="inline-flex items-center gap-2 border-b border-accent pb-1 text-[10px] font-bold uppercase tracking-[0.16em] text-accent">
+            <div className="civic-stamp border-accent text-accent">
+              <CalendarDays size={11} aria-hidden="true" />
               <DataPoint as="span" name="home.gathering.badge" initialData={dataPoints}>
                 Next Community Gathering
               </DataPoint>
@@ -67,7 +68,7 @@ export function HomeGathering({
             )}
           </div>
 
-          <div className="flex flex-col justify-center gap-2 border-t border-border px-5 py-5 md:border-l md:border-t-0 md:px-5">
+          <div className="flex flex-col justify-center gap-2 border-t border-border px-5 py-5 md:border-l md:border-dashed md:border-t-0 md:px-5">
             {card.calendarUrl ? (
               <a
                 href={card.calendarUrl}

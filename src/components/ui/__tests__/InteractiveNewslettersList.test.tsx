@@ -161,8 +161,8 @@ describe('InteractiveNewslettersList', () => {
       );
     });
 
-    const topic = [...container.querySelectorAll<HTMLButtonElement>('button')].find(
-      (button) => button.textContent?.trim() === 'Choir Actions'
+    const topic = [...container.querySelectorAll<HTMLButtonElement>('button')].find((button) =>
+      button.textContent?.trim().startsWith('Choir Actions')
     );
     expect(topic).not.toBeUndefined();
     await act(async () => {
@@ -211,6 +211,55 @@ describe('InteractiveNewslettersList', () => {
     expect(container.textContent).toContain('Fall Bulletin');
     expect(container.textContent).toContain('Choir Night');
     expect(container.textContent).not.toContain('Showing');
+  });
+
+  it('keeps every topic reachable and clears a topic from the result summary', async () => {
+    const topicNames = ['Housing', 'Schools', 'Choir', 'Elections', 'Health', 'Climate', 'Food'];
+    await act(async () => {
+      root.render(
+        <InteractiveNewslettersList
+          initialNewsletters={topicNames.map((topic, index) => ({
+            slug: topic.toLowerCase(),
+            title: `${topic} Bulletin`,
+            date_label: 'October 2026',
+            description: `${topic} organizing update.`,
+            topics: [topic],
+            sort_order: index,
+            published_at: null,
+          }))}
+        />
+      );
+    });
+
+    const more = [...container.querySelectorAll<HTMLButtonElement>('button')].find((button) =>
+      /more topics/i.test(button.textContent ?? '')
+    );
+    expect(more).not.toBeUndefined();
+    await act(async () => {
+      more?.click();
+    });
+
+    const climate = [...container.querySelectorAll<HTMLButtonElement>('button')].find((button) =>
+      button.textContent?.trim().startsWith('Climate')
+    );
+    expect(climate).not.toBeUndefined();
+    await act(async () => {
+      climate?.click();
+    });
+
+    expect(container.textContent).toContain('Climate Bulletin');
+    expect(container.textContent).not.toContain('Housing Bulletin');
+    expect(container.textContent).toContain('Show all topics');
+
+    const reset = [...container.querySelectorAll<HTMLButtonElement>('button')].find(
+      (button) => button.textContent?.trim() === 'Show all topics'
+    );
+    await act(async () => {
+      reset?.click();
+    });
+
+    expect(container.textContent).toContain('Housing Bulletin');
+    expect(container.textContent).toContain('Climate Bulletin');
   });
 
   it('shows the stored publication instant as Pacific wall time when an admin opens edit', async () => {

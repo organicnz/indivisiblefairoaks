@@ -248,6 +248,7 @@
     background: var(--background);
     scroll-behavior: smooth;
     scroll-padding-top: calc(var(--header-clearance) + 1rem);
+    scrollbar-gutter: stable;
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
   }
@@ -371,9 +372,20 @@
   }
 
   .civic-kicker::before,
-  .civic-frame::after {
+  .civic-frame::after,
+  .civic-section-head::after {
     background: CanvasText;
     forced-color-adjust: none;
+  }
+}
+
+/* Readers who ask for stronger contrast get firmer editorial rules without a
+   wholesale colour swap. */
+@media (prefers-contrast: more) {
+  .civic-page .civic-section,
+  .civic-page .civic-section-head,
+  .civic-page .civic-panel {
+    border-color: var(--foreground);
   }
 }
 
@@ -385,11 +397,25 @@ footer a:focus-visible {
 }
 
 @layer components {
+  /* Footer link lists use a brass underline rather than a colour swap alone;
+     the rule stays legible in both palettes and reads like a printed index. */
+  footer ul a:hover,
+  footer ul a:focus-visible {
+    text-decoration-line: underline;
+    text-decoration-color: var(--accent-gold-on-dark);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.3em;
+  }
+}
+
+@layer components {
   /* Shared editorial vocabulary. These are deliberately structural primitives,
      not a second component library: every public page gets its eyebrow, rules,
      and paper grid from the same three classes. */
   .civic-kicker {
     display: inline-flex;
+    max-width: 100%;
+    flex-wrap: wrap;
     align-items: center;
     gap: 0.65rem;
     color: var(--primary-ink);
@@ -438,7 +464,10 @@ footer a:focus-visible {
 
   .civic-stamp {
     display: inline-flex;
+    max-width: 100%;
+    flex-wrap: wrap;
     align-items: center;
+    overflow-wrap: anywhere;
     gap: 0.4rem;
     border: 1px solid color-mix(in srgb, var(--foreground) 28%, transparent);
     padding: 0.35rem 0.55rem;
@@ -447,7 +476,7 @@ footer a:focus-visible {
     font-size: 0.625rem;
     font-weight: 700;
     letter-spacing: 0.12em;
-    line-height: 1;
+    line-height: 1.2;
     text-transform: uppercase;
   }
 

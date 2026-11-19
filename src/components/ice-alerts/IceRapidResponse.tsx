@@ -461,6 +461,7 @@ export function IceRapidResponse({ snapshot, initialState, children }: IceRapidR
               onRefresh={refresh}
               onClearFilters={clearFilters}
               hasFilters={hasFilters}
+              showHistoricalLink={!(status === 'error' && !feed)}
             />
 
           </div>

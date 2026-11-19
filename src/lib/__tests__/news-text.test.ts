@@ -4,6 +4,7 @@ import {
   analyzeNewsletterText,
   buildNewsSearchSnippet,
   collectNewsletterTopics,
+  countNewsletterTopics,
   containsNewsPhrase,
   countNewsletterParagraphs,
   countNewsletterSentences,
@@ -17,12 +18,14 @@ import {
   isAllNewsletterTopics,
   matchesNewsText,
   mergeNewsletterRows,
+  NEWSLETTER_CARD_EXCERPT_LENGTH,
   NEWSLETTER_LONG_SENTENCE_WORDS,
   normalizeNewsText,
   parseNewsQuery,
   parseNewsletterTopicInput,
   rankNewsletters,
   rankNewsPosts,
+  reviewNewsText,
   resolveNewsQuery,
   scoreNewsText,
   searchNewsPosts,
@@ -141,6 +144,26 @@ describe('news and newsletter text processing', () => {
       ])
     ).toEqual(['Election Defense', 'choir']);
     expect(collectNewsletterTopics([{ topics: ['All Topics', 'Choir'] }])).toEqual(['Choir']);
+  });
+
+  it('counts topic chips under the current search query', () => {
+    const bulletin = {
+      ...newsletter,
+      slug: 'choir-bulletin',
+      title: 'Choir Night',
+      description: 'Music and organizing in the park.',
+      topics: ['Choir Actions'],
+    };
+
+    expect(countNewsletterTopics([newsletter, bulletin]).all).toBe(2);
+    expect(countNewsletterTopics([newsletter, bulletin]).byTopic).toEqual({
+      'election defense': 1,
+      'choir actions': 2,
+    });
+    expect(countNewsletterTopics([newsletter, bulletin], 'election')).toEqual({
+      all: 1,
+      byTopic: { 'election defense': 1, 'choir actions': 1 },
+    });
   });
 
   it('searches news posts and bulletins through one filtered-and-ranked API', () => {
@@ -275,6 +298,31 @@ describe('news and newsletter text processing', () => {
     ]);
   });
 
+  it('ranks whole-word matches ahead of longer-word prefixes', () => {
+    const posts = [
+      { title: 'Schooling Update', excerpt: '', slug: 'schooling-update' },
+      { title: 'School Update', excerpt: '', slug: 'school-update' },
+    ];
+
+    expect(searchNewsPosts(posts, 'school').map((post) => post.title)).toEqual([
+      'School Update',
+      'Schooling Update',
+    ]);
+  });
+
+  it('filters bulletins by topic even when the query is empty', () => {
+    const bulletins = [
+      { ...newsletter, slug: 'elections', title: 'Election Update', topics: ['Elections'] },
+      { ...newsletter, slug: 'choir', title: 'Choir Night', topics: ['Choir Actions'] },
+    ];
+
+    expect(
+      searchNewsletters(bulletins, { query: '', topic: 'Choir Actions' }).map(
+        (item) => item.title
+      )
+    ).toEqual(['Choir Night']);
+  });
+
   it('builds a snippet around the first matching word and preserves the original wording', () => {
     const text = `${'Introductory context. '.repeat(20)}Schools funding matters here.${' More context.'.repeat(20)}`;
     const snippet = buildNewsSearchSnippet(text, 'funding', 90);
@@ -317,6 +365,17 @@ describe('news and newsletter text processing', () => {
     ]);
   });
 
+  it('keeps a quoted phrase in one continuous highlight run', () => {
+    const segments = splitNewsTextHighlights('Our Public schools funding', '"public schools"');
+
+    expect(segments.map((segment) => segment.text).join('')).toBe(
+      'Our Public schools funding'
+    );
+    expect(segments.filter((segment) => segment.matched).map((segment) => segment.text)).toEqual([
+      'Public schools',
+    ]);
+  });
+
   it('analyzes word, sentence and paragraph counts in one pass', () => {
     const analysis = analyzeNewsletterText('One two. Three four!\n\nFive six?');
 
@@ -350,6 +409,31 @@ describe('news and newsletter text processing', () => {
 
     expect(analysis.longSentences).toBe(1);
     expect(analysis.averageWordsPerSentence).toBe(longWordCount);
+  });
+
+  it('reviews summaries for card fit, readability, repetition and completeness', () => {
+    const clean = reviewNewsText(
+      'A clear summary about the budget vote and what it means for local families.'
+    );
+    expect(clean).toEqual([]);
+
+    const short = reviewNewsText('Too short.');
+    expect(short.map((suggestion) => suggestion.id)).toContain('short');
+
+    const long = reviewNewsText(
+      `${'word '.repeat(NEWSLETTER_LONG_SENTENCE_WORDS + 2).trim()}.`,
+      { cardLength: 80 }
+    );
+    const longIds = long.map((suggestion) => suggestion.id);
+    expect(longIds).toContain('card-length');
+    expect(longIds).toContain('long-sentence');
+    expect(longIds).toContain('repeated-word');
+
+    const unfinished = reviewNewsText(
+      'Organizers gathered downtown to discuss the budget and next steps'
+    );
+    expect(unfinished.map((suggestion) => suggestion.id)).toContain('ending-punctuation');
+    expect(NEWSLETTER_CARD_EXCERPT_LENGTH).toBe(220);
   });
 
   it('tidies pasted spacing without changing the words', () => {

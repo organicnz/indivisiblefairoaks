@@ -28,6 +28,9 @@ export const MAX_BODY_BYTES = 64 * 1024;
 /** The card summary / excerpt ceiling, shared by the editor and write schema. */
 export const CONTENT_EXCERPT_MAX = 400;
 
+/** How much of the card summary the news card can show before it clamps. */
+export const CONTENT_CARD_EXCERPT_LENGTH = 180;
+
 /**
  * Why a body cannot be saved, or null when it can.
  *

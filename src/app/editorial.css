@@ -32,7 +32,12 @@
   font-family: var(--font-fraunces), Georgia, serif;
   font-weight: 600;
   letter-spacing: -0.03em;
+  overflow-wrap: break-word;
   text-transform: none;
+}
+
+.civic-page :where(a, button, summary) {
+  touch-action: manipulation;
 }
 
 .civic-page :is(.font-black) {
@@ -89,11 +94,32 @@
 }
 
 .civic-page .civic-section-head {
+  position: relative;
   display: grid;
   gap: 1.25rem;
   padding-block-end: 1.5rem;
   margin-block-end: 2rem;
   border-bottom: 1px solid var(--border);
+}
+
+/* CMS copy can arrive as one long token. Keep grid children from forcing the
+   section wider than the viewport before their own wrapping rules apply. */
+.civic-page .civic-section-head > * {
+  min-width: 0;
+}
+
+/* A short signal-red rule turns every section head into a registration mark,
+   not just another boxed heading. The section still owns the full hairline;
+   this is the printed "start here" tick that gives the page a repeatable
+   visual rhythm without adding another card. */
+.civic-page .civic-section-head::after {
+  content: '';
+  position: absolute;
+  inset-inline-start: 0;
+  inset-block-end: -1px;
+  width: 3.5rem;
+  height: 2px;
+  background: var(--accent);
 }
 
 @media (min-width: 48rem) {
@@ -155,6 +181,7 @@
   line-height: 0.99;
   letter-spacing: -0.045em;
   color: var(--foreground);
+  overflow-wrap: break-word;
   text-wrap: balance;
 }
 
@@ -180,6 +207,7 @@
   font-weight: 400;
   letter-spacing: -0.01em;
   line-height: 1.55;
+  overflow-wrap: break-word;
   text-wrap: pretty;
 }
 
@@ -199,6 +227,7 @@
 }
 
 .civic-page .civic-panel {
+  min-width: 0;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--surface-card);
@@ -212,6 +241,26 @@
   border-color: var(--primary);
   outline: 2px solid color-mix(in srgb, var(--primary) 28%, transparent);
   outline-offset: 2px;
+}
+
+/* Interactive cards get a shallow printed-plate lift on pointer devices.
+   Motion stays optional: touch and reduced-motion readers keep the calm,
+   flat paper state. */
+.civic-page .civic-card-lift {
+  transition:
+    transform var(--duration-fast) var(--ease-sensory),
+    border-color var(--duration-fast) var(--ease-sensory),
+    box-shadow var(--duration-fast) var(--ease-sensory),
+    background-color var(--duration-fast) var(--ease-sensory);
+}
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .civic-page .civic-card-lift:hover,
+  .civic-page .civic-card-lift:focus-within {
+    transform: translate(-2px, -2px);
+    border-color: color-mix(in srgb, var(--primary) 42%, var(--border));
+    box-shadow: 3px 3px 0 color-mix(in srgb, var(--foreground) 12%, transparent);
+  }
 }
 
 .civic-page .civic-panel--muted {
@@ -251,6 +300,7 @@
   font-weight: 700;
   letter-spacing: 0.12em;
   line-height: 1.4;
+  overflow-wrap: anywhere;
   text-transform: uppercase;
 }
 
@@ -260,6 +310,7 @@
 
 .civic-page .civic-link-arrow {
   display: inline-flex;
+  max-width: 100%;
   min-height: 2.75rem;
   align-items: center;
   gap: 0.5rem;
@@ -269,6 +320,7 @@
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
+  text-wrap: balance;
   transition:
     color var(--duration-fast) var(--ease-sensory),
     border-color var(--duration-fast) var(--ease-sensory);

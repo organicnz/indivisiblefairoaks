@@ -579,6 +579,14 @@ export function RapidMapPanel({
                 </a>
               </div>
 
+              {/* The feed memo is generated from safe city-level fields; this
+                  persistent note makes the privacy boundary explicit without
+                  rendering raw report text that may contain identifying detail. */}
+              <p className="mt-3 border-t border-border pt-2.5 text-[10px] leading-relaxed text-muted-foreground">
+                City-level locations only. Street addresses, vehicle plates, and identities are
+                not republished.
+              </p>
+
               <RapidCityWatch
                 alert={selectedAlert}
                 cityAlerts={cityAlerts}

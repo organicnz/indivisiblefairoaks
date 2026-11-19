@@ -25,21 +25,27 @@ export function HomeHero({
               editor; the JSX below is the fallback until they do. */}
           <div className="min-w-0 lg:col-span-7">
             <div>
-              <div className="flex items-center justify-between gap-4 border-b border-foreground/20 pb-4">
-                <div className="civic-kicker">
+              <div className="border-b border-foreground/20 pb-4">
+                <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-foreground/10 pb-2.5">
+                  <span className="inline-flex items-center gap-2 font-mono text-[9px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
+                    <span aria-hidden="true" className="size-1.5 bg-accent" />
+                    The Chapter Broadsheet
+                  </span>
+                  <DataPoint
+                    as="span"
+                    name="home.hero.location_stamp"
+                    initialData={dataPoints}
+                    className="hidden font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground sm:block"
+                  >
+                    Fair Oaks · Carmichael, CA
+                  </DataPoint>
+                </div>
+                <div className="civic-kicker mt-3">
                   <Sparkles size={13} aria-hidden="true" />
                   <DataPoint name="home.hero.eyebrow" initialData={dataPoints}>
                     Sacramento County Grassroots Action
                   </DataPoint>
                 </div>
-                <DataPoint
-                  as="span"
-                  name="home.hero.location_stamp"
-                  initialData={dataPoints}
-                  className="civic-stamp hidden sm:inline-flex"
-                >
-                  Fair Oaks · Carmichael, CA
-                </DataPoint>
               </div>
 
               <CopyRegion id="home-hero">
@@ -72,7 +78,7 @@ export function HomeHero({
               <div className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-3">
                 <Link
                   href="/events"
-                  className="inline-flex h-12 items-center gap-2 rounded-sm border border-primary bg-primary px-5 text-xs font-bold uppercase tracking-[0.14em] text-white transition-colors duration-300 hover:border-primary-dark hover:bg-primary-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                  className="inline-flex min-h-12 max-w-full items-center gap-2 rounded-sm border border-primary bg-primary px-5 py-3 text-xs font-bold uppercase tracking-[0.14em] text-white transition-colors duration-300 hover:border-primary-dark hover:bg-primary-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                 >
                   <DataPoint as="span" name="home.hero.btn_actions" initialData={dataPoints}>
                     Upcoming Actions
@@ -81,7 +87,7 @@ export function HomeHero({
                 </Link>
                 <Link
                   href="/donate"
-                  className="inline-flex h-12 items-center gap-2 rounded-sm border border-accent-gold bg-accent-gold px-5 text-xs font-bold uppercase tracking-[0.14em] text-ink-strong transition-all duration-300 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                  className="inline-flex min-h-12 max-w-full items-center gap-2 rounded-sm border border-accent-gold bg-accent-gold px-5 py-3 text-xs font-bold uppercase tracking-[0.14em] text-ink-strong transition-all duration-300 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                 >
                   <Heart size={15} className="fill-current" aria-hidden="true" />
                   <DataPoint as="span" name="home.hero.btn_support" initialData={dataPoints}>
@@ -90,7 +96,7 @@ export function HomeHero({
                 </Link>
                 <Link
                   href="/choir"
-                  className="inline-flex h-12 items-center gap-2 border-b border-foreground/30 text-xs font-bold uppercase tracking-[0.14em] text-foreground transition-colors duration-300 hover:border-accent hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                  className="inline-flex min-h-12 max-w-full items-center gap-2 border-b border-foreground/30 py-2 text-xs font-bold uppercase tracking-[0.14em] text-foreground transition-colors duration-300 hover:border-accent hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                 >
                   <Music size={15} aria-hidden="true" />
                   <DataPoint as="span" name="home.hero.btn_choir" initialData={dataPoints}>

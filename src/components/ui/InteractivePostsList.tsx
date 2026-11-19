@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useMemo } from 'react';
 import { useEditContext } from '@/components/layout/useEditContext';
 import { NewsArchiveResults } from '@/components/news/NewsArchiveResults';
-import { NewsSearchField } from '@/components/ui/NewsSearchField';
+import { NEWS_SEARCH_HINT, NewsSearchField } from '@/components/ui/NewsSearchField';
 import { useNewsSearch } from '@/hooks/useNewsSearch';
 import { searchNewsPosts } from '@/lib/news-text';
 import type { PublishedPostSummary } from '@/lib/queries/content';
@@ -50,6 +50,7 @@ export function InteractivePostsList({ initialPosts }: InteractivePostsListProps
             testId="news-search"
             clearLabel="Clear news search"
             resultsId="news-results"
+            hint={NEWS_SEARCH_HINT}
           />
 
           <a

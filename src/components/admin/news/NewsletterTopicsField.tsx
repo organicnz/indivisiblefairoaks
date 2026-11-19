@@ -1,4 +1,5 @@
 import { Plus, Tag } from 'lucide-react';
+import { NewsFieldHeader } from '@/components/admin/news/NewsFieldHeader';
 import { NEWSLETTER_LIMITS } from '@/lib/newsletters';
 
 type NewsletterTopicsFieldProps = {
@@ -22,14 +23,11 @@ export function NewsletterTopicsField({
 
   return (
     <div>
-      <div className="mb-1 flex items-center justify-between gap-3">
-        <span className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
-          Key topics &amp; campaign tags
-        </span>
-        <span className="font-mono text-[10px] text-muted-foreground">
-          {previewTopicCount}/{NEWSLETTER_LIMITS.topics}
-        </span>
-      </div>
+      <NewsFieldHeader
+        as="span"
+        label="Key topics & campaign tags"
+        count={`${previewTopicCount}/${NEWSLETTER_LIMITS.topics}`}
+      />
       <div className="flex items-center gap-2">
         <input
           id="civic-news-topic-input"
@@ -43,7 +41,7 @@ export function NewsletterTopicsField({
               onRemoveTopic(lastTopic);
               return;
             }
-            if (event.key === 'Enter' || event.key === ',') {
+            if (event.key === 'Enter' || event.key === ',' || event.key === ';') {
               event.preventDefault();
               onAddTopic();
             }
@@ -91,7 +89,8 @@ export function NewsletterTopicsField({
         </div>
       ) : null}
       <p id="civic-news-topic-help" className="mt-1 text-[10px] text-muted-foreground">
-        Press Enter, comma, or semicolon after each topic. You can paste a separated list.
+        Press Enter, comma, or semicolon after each topic. Paste a comma, semicolon, or
+        line-separated list to add several at once.
       </p>
     </div>
   );

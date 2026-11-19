@@ -176,31 +176,3 @@ export function containsNewsPhrase(
   }
   return false;
 }
-
-/**
- * Match every query token against the combined searchable fields.
- *
- * This is deliberately token-based rather than a raw substring of one field:
- * "summer bulletin" should find a July title whose summary says "summer" even
- * when the words are not adjacent, and punctuation/accent differences should
- * not hide a row. An empty query matches everything.
- */
-export function matchesNewsText(
-  fields: readonly (string | null | undefined)[],
-  query: string
-): boolean {
-  const { tokens, phrases } = parseNewsQuery(query);
-  if (tokens.length === 0) return true;
-  const normalizedFields = fields
-    .filter((field): field is string => typeof field === 'string' && field.length > 0)
-    .map((field) => normalizeNewsText(field))
-    .filter(Boolean);
-  const haystack = normalizedFields.join(' ');
-  const words = haystack ? haystack.split(' ') : [];
-  return (
-    tokens.every((token) => words.some((word) => matchesNewsWord(word, token))) &&
-    phrases.every((phrase) =>
-      normalizedFields.some((field) => containsNewsPhrase(field.split(' '), phrase))
-    )
-  );
-}

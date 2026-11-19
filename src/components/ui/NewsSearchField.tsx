@@ -1,7 +1,11 @@
 'use client';
 
 import { Search, X } from 'lucide-react';
+import { useId } from 'react';
 import { cn } from '@/lib/utils';
+
+export const NEWS_SEARCH_HINT =
+  'Use “quotes” around a phrase to match those words together.';
 
 type NewsSearchVariant = 'news' | 'newsletter' | 'admin';
 
@@ -44,6 +48,8 @@ type NewsSearchFieldProps = {
   clearLabel?: string;
   /** The id of the result region this field filters, for assistive technology. */
   resultsId?: string;
+  /** Optional visible syntax help; pairs with an aria-describedby link. */
+  hint?: string;
 };
 
 /** One controlled search field for the news page, archive and admin manager. */
@@ -58,10 +64,12 @@ export function NewsSearchField({
   iconSize = 14,
   clearLabel = 'Clear search',
   resultsId,
+  hint,
 }: NewsSearchFieldProps) {
   const styles = VARIANT_STYLES[variant];
+  const hintId = useId();
   return (
-    <div className={cn('relative', className)}>
+    <div className={cn('relative min-w-0', className)}>
       <Search
         className={cn('absolute pointer-events-none', styles.icon)}
         size={iconSize}
@@ -74,6 +82,7 @@ export function NewsSearchField({
         enterKeyHint="search"
         aria-label={ariaLabel}
         aria-controls={resultsId}
+        aria-describedby={hint ? hintId : undefined}
         data-testid={testId}
         placeholder={placeholder}
         value={value}
@@ -95,6 +104,14 @@ export function NewsSearchField({
         >
           <X size={13} aria-hidden="true" />
         </button>
+      ) : null}
+      {hint ? (
+        <p
+          id={hintId}
+          className="mt-1.5 break-words text-[10px] leading-snug text-muted-foreground dark:text-ink-muted-on-dark"
+        >
+          {hint}
+        </p>
       ) : null}
     </div>
   );

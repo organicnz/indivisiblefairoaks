@@ -131,4 +131,35 @@ describe('CivicNewsletterManager', () => {
     expect(container.textContent).toContain('Fall Bulletin');
     expect(container.textContent).toContain('Choir Night');
   });
+
+  it('filters the admin list by topic and returns to the complete archive', async () => {
+    await act(async () => {
+      root.render(<CivicNewsletterManager initialNewsletters={newsletters} />);
+    });
+
+    const topic = [...container.querySelectorAll<HTMLButtonElement>('button')].find((button) =>
+      button.textContent?.trim().startsWith('Choir Actions')
+    );
+    expect(topic).not.toBeUndefined();
+
+    await act(async () => {
+      topic?.click();
+    });
+
+    expect(container.textContent).toContain('Choir Night');
+    expect(container.textContent).not.toContain('Fall Bulletin');
+    expect(container.textContent).toContain('Showing 1 of 2 bulletins in Choir Actions');
+
+    const allTopics = [...container.querySelectorAll<HTMLButtonElement>('button')].find((button) =>
+      button.textContent?.trim().startsWith('All Topics')
+    );
+    expect(allTopics).not.toBeUndefined();
+
+    await act(async () => {
+      allTopics?.click();
+    });
+
+    expect(container.textContent).toContain('Fall Bulletin');
+    expect(container.textContent).toContain('Choir Night');
+  });
 });

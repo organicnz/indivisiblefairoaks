@@ -1,9 +1,11 @@
 'use client';
 
-import { Clock3, Newspaper, Pencil, Tag, Trash2 } from 'lucide-react';
+import { Clock3, Newspaper, Pencil, Trash2 } from 'lucide-react';
 import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import { HighlightedText } from '@/components/ui/HighlightedText';
 import { NewsSearchExcerpt } from '@/components/ui/NewsSearchExcerpt';
+import { NewsletterTopicPills } from '@/components/newsletters/NewsletterTopicPills';
+import { NEWSLETTER_CARD_EXCERPT_LENGTH } from '@/lib/news-text';
 import { newsletterPublicationLabel } from '@/lib/newsletters';
 import type { CivicNewsletterRecord } from '@/lib/actions/civic';
 
@@ -37,8 +39,6 @@ export function NewsletterManagerRow({
   onEdit,
   onDelete,
 }: NewsletterManagerRowProps) {
-  const topics = Array.isArray(newsletter.topics) ? newsletter.topics : [];
-
   return (
     <div className="group flex flex-col items-start justify-between gap-4 rounded-2xl border border-border bg-surface-card p-4 shadow-2xs transition-all hover:border-primary/40 sm:flex-row sm:items-center">
       <div className="flex items-start gap-3.5">
@@ -60,25 +60,15 @@ export function NewsletterManagerRow({
               <NewsSearchExcerpt
                 text={newsletter.description}
                 query={searchQuery}
-                maxLength={220}
+                maxLength={NEWSLETTER_CARD_EXCERPT_LENGTH}
               />
             </p>
           ) : null}
-          {topics.length > 0 ? (
-            <div className="mt-2 flex flex-wrap gap-1">
-              {topics.map((topic) => (
-                <span
-                  key={topic}
-                  className="inline-flex items-center gap-1 rounded-md bg-muted/60 px-2 py-0.5 text-[10px] font-bold text-muted-foreground"
-                >
-                  <Tag size={9} aria-hidden="true" />
-                  <span>
-                    <HighlightedText text={topic} query={searchQuery} />
-                  </span>
-                </span>
-              ))}
-            </div>
-          ) : null}
+          <NewsletterTopicPills
+            topics={newsletter.topics}
+            query={searchQuery}
+            variant="admin"
+          />
         </div>
       </div>
 

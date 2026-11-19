@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { GalleryImage } from '@/components/gallery/GalleryImage';
 import { HighlightedText } from '@/components/ui/HighlightedText';
 import { NewsSearchExcerpt } from '@/components/ui/NewsSearchExcerpt';
+import { CONTENT_CARD_EXCERPT_LENGTH } from '@/lib/content';
 import type { PublishedPostSummary } from '@/lib/queries/content';
 import { AdminEditLink, PostDate } from './NewsPostMeta';
 
@@ -14,7 +15,7 @@ type PostCardProps = {
 
 export function PostCard({ post, isAdmin, searchQuery }: PostCardProps) {
   return (
-    <article className="civic-panel group flex min-w-0 flex-col overflow-hidden transition-colors hover:border-primary/40 dark:hover:border-primary-bright/40">
+    <article className="civic-panel civic-card-lift group flex min-w-0 flex-col overflow-hidden hover:border-primary/40 dark:hover:border-primary-bright/40">
       {post.featured_image ? (
         <div className="relative aspect-[16/9] overflow-hidden border-b border-border">
           <GalleryImage
@@ -45,7 +46,11 @@ export function PostCard({ post, isAdmin, searchQuery }: PostCardProps) {
 
           {post.excerpt ? (
             <p className="line-clamp-3 text-sm leading-relaxed text-muted-foreground dark:text-ink-on-dark">
-              <NewsSearchExcerpt text={post.excerpt} query={searchQuery} maxLength={180} />
+              <NewsSearchExcerpt
+                text={post.excerpt}
+                query={searchQuery}
+                maxLength={CONTENT_CARD_EXCERPT_LENGTH}
+              />
             </p>
           ) : null}
         </div>

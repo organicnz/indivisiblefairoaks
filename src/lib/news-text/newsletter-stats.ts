@@ -98,6 +98,9 @@ export type NewsletterTextAnalysis = {
   longSentences: number;
 };
 
+/** Generic alias for news posts, card excerpts, and future authoring fields. */
+export type NewsTextAnalysis = NewsletterTextAnalysis;
+
 /** One live analysis pass for the editor stats and any future preview surface. */
 export function analyzeNewsletterText(value: string): NewsletterTextAnalysis {
   const words = countNewsletterWords(value);
@@ -133,3 +136,7 @@ export function tidyNewsletterText(value: string): string {
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
+
+/** Readable aliases for non-newsletter authoring surfaces. */
+export const analyzeNewsText = analyzeNewsletterText;
+export const tidyNewsText = tidyNewsletterText;

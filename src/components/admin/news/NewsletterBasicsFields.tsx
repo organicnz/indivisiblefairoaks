@@ -1,5 +1,6 @@
 import { RotateCcw } from 'lucide-react';
 import type { RefObject } from 'react';
+import { NewsFieldHeader } from '@/components/admin/news/NewsFieldHeader';
 import { NEWSLETTER_LIMITS, slugifyNewsletter } from '@/lib/newsletters';
 
 type NewsletterBasicsFieldsProps = {
@@ -26,17 +27,12 @@ export function NewsletterBasicsFields({
   return (
     <>
       <div>
-        <div className="mb-1 flex items-center justify-between gap-3">
-          <label
-            htmlFor="civic-news-title"
-            className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground"
-          >
-            Bulletin title <span aria-hidden="true">*</span>
-          </label>
-          <span className="font-mono text-[10px] text-muted-foreground">
-            {title.length}/{NEWSLETTER_LIMITS.title}
-          </span>
-        </div>
+        <NewsFieldHeader
+          label="Bulletin title"
+          htmlFor="civic-news-title"
+          required
+          count={`${title.length}/${NEWSLETTER_LIMITS.title}`}
+        />
         <input
           ref={titleInputRef}
           id="civic-news-title"
@@ -52,12 +48,7 @@ export function NewsletterBasicsFields({
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <label
-            htmlFor="civic-news-slug"
-            className="mb-1 block text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground"
-          >
-            Public identifier
-          </label>
+          <NewsFieldHeader label="Public identifier" htmlFor="civic-news-slug" />
           <div className="flex items-center gap-2">
             <input
               id="civic-news-slug"
@@ -90,12 +81,7 @@ export function NewsletterBasicsFields({
         </div>
 
         <div>
-          <label
-            htmlFor="civic-news-date-label"
-            className="mb-1 block text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground"
-          >
-            Issue / date label <span aria-hidden="true">*</span>
-          </label>
+          <NewsFieldHeader label="Issue / date label" htmlFor="civic-news-date-label" required />
           <input
             id="civic-news-date-label"
             type="text"

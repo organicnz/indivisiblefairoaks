@@ -1,5 +1,8 @@
 import type { NewsletterTextFields } from './search';
 
+/** The public card's summary width; key facts should fit inside it. */
+export const NEWSLETTER_CARD_EXCERPT_LENGTH = 220;
+
 /**
  * Row ordering and merge helpers for the bulletin archive. Text statistics and
  * topic parsing live in `newsletter-stats.ts` and `newsletter-topics.ts` so a

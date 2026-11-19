@@ -2,54 +2,36 @@
 
 import { Plus } from 'lucide-react';
 import { DataPoint } from '@/components/ui/DataPoint';
-import { NewsSearchField } from '@/components/ui/NewsSearchField';
-import {
-  ALL_NEWSLETTER_TOPICS,
-  hasNewsletterTopic,
-  isAllNewsletterTopics,
-} from '@/lib/news-text';
+import { NEWS_SEARCH_HINT, NewsSearchField } from '@/components/ui/NewsSearchField';
+import { NewsletterTopicFilter } from '@/components/newsletters/NewsletterTopicFilter';
+import { ALL_NEWSLETTER_TOPICS, type NewsletterTopicCounts } from '@/lib/news-text';
 
 type NewsletterFilterBarProps = {
   dataPoints: Record<string, string>;
   searchQuery: string;
   onSearchChange: (value: string) => void;
   topics: string[];
+  topicCounts?: NewsletterTopicCounts;
   activeTopic: string;
   onTopicChange: (topic: string) => void;
-  isAdmin: boolean;
-  onAdd: () => void;
+  /** Optional authoring action; its presence, not a role flag, reveals it. */
+  onAdd?: () => void;
   /** The id of the archive grid this bar filters. */
   resultsId?: string;
 };
 
-/**
- * Search, topic chips and the admin add action for the public bulletin archive.
- *
- * The active topic is appended when it falls past the six-chip window. Without
- * that, changing or removing rows could make the selected filter disappear
- * while still narrowing the results.
- */
+/** Search, topic chips and the admin add action for the public bulletin archive. */
 export function NewsletterFilterBar({
   dataPoints,
   searchQuery,
   onSearchChange,
   topics,
+  topicCounts,
   activeTopic,
   onTopicChange,
-  isAdmin,
   onAdd,
   resultsId,
 }: NewsletterFilterBarProps) {
-  const activeIsAll = isAllNewsletterTopics(activeTopic);
-  const visibleTopics = topics.slice(0, 6);
-  if (
-    activeTopic.trim() &&
-    !activeIsAll &&
-    !hasNewsletterTopic(visibleTopics, activeTopic)
-  ) {
-    visibleTopics.push(activeTopic);
-  }
-
   return (
     <div className="civic-panel flex flex-col items-stretch justify-between gap-4 p-4 md:flex-row md:items-center">
       <NewsSearchField
@@ -65,40 +47,19 @@ export function NewsletterFilterBar({
         iconSize={16}
         clearLabel="Clear bulletin search"
         resultsId={resultsId}
+        hint={NEWS_SEARCH_HINT}
       />
 
-      <div
-        role="group"
-        aria-label="Filter bulletins by topic"
-        className="flex flex-wrap items-center gap-1.5"
-      >
-        {visibleTopics.map((topic) => (
-          <button
-            key={topic}
-            type="button"
-            aria-pressed={
-              isAllNewsletterTopics(topic)
-                ? activeIsAll
-                : hasNewsletterTopic([topic], activeTopic)
-            }
-            aria-controls={resultsId}
-            onClick={() => onTopicChange(topic)}
-            className={`min-h-10 border px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.1em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
-              (isAllNewsletterTopics(topic)
-                ? activeIsAll
-                : hasNewsletterTopic([topic], activeTopic))
-                ? 'border-primary bg-primary text-white'
-                : 'border-border bg-surface-muted/60 text-muted-foreground hover:bg-surface-card hover:text-foreground dark:text-ink-muted-on-dark dark:hover:bg-white/5 dark:hover:text-ink-on-dark'
-            }`}
-          >
-            {topic === ALL_NEWSLETTER_TOPICS
-              ? dataPoints['news.topic.all'] || ALL_NEWSLETTER_TOPICS
-              : topic}
-          </button>
-        ))}
-      </div>
+      <NewsletterTopicFilter
+        topics={topics}
+        activeTopic={activeTopic}
+        onTopicChange={onTopicChange}
+        allTopicsLabel={dataPoints['news.topic.all'] || ALL_NEWSLETTER_TOPICS}
+        resultsId={resultsId}
+        counts={topicCounts}
+      />
 
-      {isAdmin ? (
+      {onAdd ? (
         <button
           type="button"
           onClick={onAdd}

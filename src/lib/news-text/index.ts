@@ -8,6 +8,8 @@
  */
 
 export * from './normalize';
+export * from './match';
+export * from './fields';
 export * from './search';
 export * from './ranking';
 export * from './highlight';
@@ -15,3 +17,4 @@ export * from './snippet';
 export * from './newsletter';
 export * from './newsletter-topics';
 export * from './newsletter-stats';
+export * from './review';

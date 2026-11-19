@@ -2,7 +2,7 @@
 
 import { FilePlus2, Plus, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
-import { NewsSearchField } from '@/components/ui/NewsSearchField';
+import { NEWS_SEARCH_HINT, NewsSearchField } from '@/components/ui/NewsSearchField';
 
 type NewsletterManagerToolbarProps = {
   searchQuery: string;
@@ -37,6 +37,7 @@ export function NewsletterManagerToolbar({
           iconSize={15}
           clearLabel="Clear newsletter search"
           resultsId={resultsId}
+          hint={NEWS_SEARCH_HINT}
         />
 
         <button

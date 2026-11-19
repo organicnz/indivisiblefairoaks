@@ -1,4 +1,5 @@
 import { CalendarClock, Check, Eye } from 'lucide-react';
+import { NewsletterTopicPills } from '@/components/newsletters/NewsletterTopicPills';
 
 type NewsletterPreviewCardProps = {
   dateLabel: string;
@@ -39,18 +40,7 @@ export function NewsletterPreviewCard({
         <p className="mt-2 line-clamp-6 text-xs leading-relaxed text-muted-foreground">
           {description || 'A short summary of this bulletin will appear here.'}
         </p>
-        {topics.length > 0 ? (
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            {topics.map((topic) => (
-              <span
-                key={topic}
-                className="border border-border bg-surface-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground"
-              >
-                {topic}
-              </span>
-            ))}
-          </div>
-        ) : null}
+        <NewsletterTopicPills topics={topics} variant="preview" />
         <div className="mt-5 flex items-center justify-between gap-3 border-t border-border pt-3 text-[10px] font-bold text-muted-foreground">
           <span>Request full issue</span>
           <span>PDF &amp; email archive</span>

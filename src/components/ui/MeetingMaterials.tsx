@@ -342,7 +342,7 @@ export function MeetingMaterials() {
             {PRINTABLE_HANDOUTS.map((handout) => (
               <div
                 key={handout.id}
-                className="civic-panel flex flex-col justify-between p-6 transition-colors hover:border-primary/40"
+                className="civic-panel civic-card-lift flex flex-col justify-between p-6 hover:border-primary/40"
               >
                 <div className="space-y-3">
                   <div className="flex items-center justify-between gap-2">

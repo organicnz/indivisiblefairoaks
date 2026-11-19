@@ -5,6 +5,8 @@ import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { HighlightedText } from '@/components/ui/HighlightedText';
 import { NewsSearchExcerpt } from '@/components/ui/NewsSearchExcerpt';
+import { NewsletterTopicPills } from '@/components/newsletters/NewsletterTopicPills';
+import { NEWSLETTER_CARD_EXCERPT_LENGTH } from '@/lib/news-text';
 import type { NewsletterRow } from '@/lib/queries/civic';
 
 type NewsletterCardProps = {
@@ -24,10 +26,8 @@ export function NewsletterCard({
   onDelete,
   searchQuery,
 }: NewsletterCardProps) {
-  const topics = Array.isArray(newsletter.topics) ? newsletter.topics : [];
-
   return (
-    <article className="civic-panel flex flex-col justify-between p-6 transition-colors hover:border-primary/40">
+    <article className="civic-panel civic-card-lift flex flex-col justify-between p-6 hover:border-primary/40">
       <div className="space-y-3">
         <div className="flex items-center justify-between gap-3">
           <span className="text-xs font-bold uppercase tracking-wider text-primary-ink dark:text-accent-gold">
@@ -82,22 +82,11 @@ export function NewsletterCard({
             <NewsSearchExcerpt
               text={newsletter.description}
               query={searchQuery}
-              maxLength={220}
+              maxLength={NEWSLETTER_CARD_EXCERPT_LENGTH}
             />
           </p>
         ) : null}
-        {topics.length > 0 ? (
-          <div className="flex flex-wrap gap-1.5 pt-2">
-            {topics.map((topic, index) => (
-              <span
-                key={`${topic}-${index}`}
-                className="border border-border bg-surface-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground dark:text-ink-on-dark"
-              >
-                <HighlightedText text={topic} query={searchQuery} />
-              </span>
-            ))}
-          </div>
-        ) : null}
+        <NewsletterTopicPills topics={newsletter.topics} query={searchQuery} />
       </div>
 
       <div className="mt-6 flex items-center justify-between border-t border-border pt-6 dark:border-white/10">

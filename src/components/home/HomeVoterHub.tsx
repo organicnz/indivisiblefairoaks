@@ -95,7 +95,7 @@ export function HomeVoterHub({ dataPoints }: { dataPoints: Record<string, string
               return (
                 <div
                   key={card.titleName}
-                  className="civic-panel group relative flex h-full flex-col justify-between overflow-hidden p-5 hover:border-primary/50 sm:p-6"
+                  className="civic-panel civic-card-lift group relative flex h-full flex-col justify-between overflow-hidden p-5 hover:border-primary/50 sm:p-6"
                 >
                   <span
                     aria-hidden="true"

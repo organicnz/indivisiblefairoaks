@@ -1,3 +1,5 @@
+import { NewsFieldHeader } from '@/components/admin/news/NewsFieldHeader';
+
 type NewsletterSortingFieldProps = {
   sortOrder: number;
   onChange: (value: number) => void;
@@ -13,12 +15,7 @@ export function NewsletterSortingField({
         Archive ordering
       </summary>
       <div className="border-t border-border px-4 py-3">
-        <label
-          htmlFor="civic-news-sort"
-          className="mb-1 block text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground"
-        >
-          Sort order
-        </label>
+        <NewsFieldHeader label="Sort order" htmlFor="civic-news-sort" />
         <input
           id="civic-news-sort"
           type="number"
