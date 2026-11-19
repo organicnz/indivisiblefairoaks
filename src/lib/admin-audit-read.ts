@@ -34,6 +34,9 @@ export const ADMIN_AUDIT_ACTION_LABELS: Record<AdminAuditAction, string> = {
   'crm.contact.delete': 'Contact deleted',
   'crm.contact.bulk_delete': 'Bulk contacts deleted',
   'crm.contact.bulk_update': 'Bulk contacts updated',
+  'crm.contact.merge': 'Contacts merged',
+  'crm.contacts.export': 'Contacts exported',
+  'crm.contacts.import': 'Contacts imported',
   'crm.broadcast.send': 'Broadcast sent',
   'crm.broadcast.self_test': 'Broadcast self-test',
   'content.publish': 'Content published',
@@ -53,6 +56,7 @@ export const ADMIN_AUDIT_ACTION_OPTIONS: AdminAuditActionOption[] = (
 export const ADMIN_AUDIT_TARGET_TYPE_LABELS: Record<AdminAuditTargetType, string> = {
   profile: 'Admin profile',
   crm_contact: 'Constituent',
+  crm_operation: 'CRM operation',
   crm_broadcast: 'Broadcast',
   content: 'Page or post',
   event: 'Event',

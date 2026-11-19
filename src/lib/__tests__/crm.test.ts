@@ -652,6 +652,57 @@ describe('Civic CRM Server Actions', () => {
   });
 
   describe('exportCRMContacts', () => {
+    it('records the applied filters, row counts and actor for a successful export', async () => {
+      tables.crm_contacts = {
+        rows: [
+          {
+            id: 'c1',
+            email: 'one@example.com',
+            first_name: 'One',
+            last_name: null,
+            phone: null,
+            address: null,
+            district: 'CA-06',
+            city: null,
+            zip_code: null,
+            status: 'supporter',
+            tags: [],
+            notes: null,
+            do_not_email: false,
+            total_donated_cents: 0,
+            source: null,
+            created_at: '2026-01-01T00:00:00Z',
+          },
+        ],
+      };
+      tables.admin_audit_log = { rows: [] };
+
+      await exportCRMContacts({ status: 'supporter', district: 'CA-06', consent: 'opted_in' });
+
+      expect(tables.admin_audit_log.rows?.[0]).toMatchObject({
+        actor_user_id: session.adminUserId,
+        actor_email: session.adminEmail,
+        action: 'crm.contacts.export',
+        target_type: 'crm_operation',
+        target_id: 'crm-export',
+        outcome: 'success',
+        error: null,
+        metadata: {
+          format: 'csv',
+          filters: {
+            query: null,
+            statuses: ['supporter'],
+            districts: ['CA-06'],
+            tags: [],
+            consent: 'opted_in',
+          },
+          exported_count: 1,
+          matched_count: 1,
+          truncated: false,
+        },
+      });
+    });
+
     it('returns a CSV covering the full filtered set', async () => {
       // 75 matching rows is more than the 50-row default page, so an export
       // that quietly used the directory's page size would report 50 and fail
@@ -783,12 +834,19 @@ describe('Civic CRM Server Actions', () => {
 
     it('returns an error object when the database query fails', async () => {
       tables.crm_contacts = { rows: [], error: { message: 'connection timeout' } };
+      tables.admin_audit_log = { rows: [] };
 
       const res = await exportCRMContacts({});
 
       expect(res.error).toMatch(/connection timeout/i);
       expect(res.count).toBe(0);
       expect(res.csv).toBe('');
+      expect(tables.admin_audit_log.rows?.[0]).toMatchObject({
+        action: 'crm.contacts.export',
+        outcome: 'failure',
+        error: 'connection timeout',
+        metadata: { exported_count: 0, matched_count: 0, truncated: false },
+      });
     });
 
     it('includes the unsubscribed_at column in both header and rows', async () => {
@@ -1250,12 +1308,21 @@ describe('Civic CRM Server Actions', () => {
 
   describe('mergeCRMContacts', () => {
     it('refuses to merge a contact into itself', async () => {
+      tables.admin_audit_log = { rows: [] };
       const res = await mergeCRMContacts({ keepId: 'same-id', removeId: 'same-id' });
       expect(res.success).toBe(false);
       expect(res.error).toMatch(/itself/);
       // Declined before touching the table: merging a contact into itself would
       // move everything onto it and then delete the row it just moved onto.
-      expect(mockAdminClient.from).not.toHaveBeenCalled();
+      expect(mockAdminClient.from).not.toHaveBeenCalledWith('crm_contacts');
+      expect(tables.admin_audit_log.rows?.[0]).toMatchObject({
+        action: 'crm.contact.merge',
+        target_type: 'crm_contact',
+        target_id: 'same-id',
+        outcome: 'failure',
+        error: 'Cannot merge a contact into itself',
+        metadata: { merged_contact_count: 0 },
+      });
     });
 
     /**
@@ -1305,6 +1372,7 @@ describe('Civic CRM Server Actions', () => {
         ],
       };
       mockAdminClient.rpc.mockResolvedValue({ error: null });
+      tables.admin_audit_log = { rows: [] };
 
       const res = await mergeCRMContacts({ keepId: 'keep-uuid', removeId: 'remove-uuid' });
 
@@ -1318,8 +1386,37 @@ describe('Civic CRM Server Actions', () => {
       });
 
       // Both rows are read first, so a missing contact is reported as a sentence
-      // rather than as the RPC's exception.
-      expect(mockAdminClient.from).toHaveBeenCalledTimes(2);
+      // rather than as the RPC's exception. The audit insert is the only other
+      // use of `from`.
+      expect(
+        mockAdminClient.from.mock.calls.filter(([table]) => table === 'crm_contacts')
+      ).toHaveLength(2);
+      expect(tables.admin_audit_log.rows?.[0]).toMatchObject({
+        actor_user_id: session.adminUserId,
+        actor_email: session.adminEmail,
+        action: 'crm.contact.merge',
+        target_type: 'crm_contact',
+        target_id: 'keep-uuid',
+        target_label: 'keep@example.com + remove@example.com',
+        before: {
+          contacts: [
+            expect.objectContaining({ id: 'keep-uuid' }),
+            expect.objectContaining({ id: 'remove-uuid' }),
+          ],
+        },
+        after: {
+          kept_contact_id: 'keep-uuid',
+          removed_contact_id: 'remove-uuid',
+          merged: true,
+        },
+        outcome: 'success',
+        metadata: {
+          keep_id: 'keep-uuid',
+          remove_id: 'remove-uuid',
+          requested_contact_count: 2,
+          merged_contact_count: 1,
+        },
+      });
 
       // And nothing is written outside the statement. This is the assertion that
       // would fail if someone reintroduced the four-statement version: each of

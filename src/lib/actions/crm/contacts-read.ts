@@ -10,7 +10,7 @@ import {
 } from '@/lib/crm-limits';
 import { type CRMTagScan, getCachedCRMTags } from '@/lib/crm-tag-scan';
 import type { ConsentDecision, CRMActivity, CRMContact, CRMTask } from '@/types/crm';
-import { type AdminClient, escapeIlikeOrValue, requireCRMAdmin } from './shared';
+import { type AdminClient, escapeIlikeOrValue, recordCRMAudit, requireCRMAdmin } from './shared';
 
 export interface GetCRMContactsParams {
   query?: string;
@@ -68,6 +68,17 @@ function resolveFilters({
     // the absence of one — hence `null` rather than `undefined` here, and `.is()`
     // below.
     doNotEmail: consent === undefined ? undefined : crmContactDoNotEmail(consent),
+  };
+}
+
+/** The applied directory filters, normalized the same way the query sees them. */
+function auditExportFilters(filters: ContactFilterState, consent?: ConsentDecision) {
+  return {
+    query: filters.q || null,
+    statuses: filters.statuses,
+    districts: filters.districts,
+    tags: filters.tags,
+    consent: consent ?? null,
   };
 }
 
@@ -216,8 +227,29 @@ export async function exportCRMContacts(params: GetCRMContactsParams = {}): Prom
   truncated: boolean;
   error?: string;
 }> {
-  const { adminClient } = await requireCRMAdmin();
+  const admin = await requireCRMAdmin();
+  const { adminClient } = admin;
   const filters = resolveFilters(params);
+  const auditExport = (
+    outcome: 'success' | 'failure',
+    counts: { count: number; matchedCount: number; truncated: boolean },
+    error?: string
+  ) =>
+    recordCRMAudit(admin, {
+      action: 'crm.contacts.export',
+      targetType: 'crm_operation',
+      targetId: 'crm-export',
+      targetLabel: 'Constituent CSV export',
+      outcome,
+      error: error ?? null,
+      metadata: {
+        format: 'csv',
+        filters: auditExportFilters(filters, params.consent),
+        exported_count: counts.count,
+        matched_count: counts.matchedCount,
+        truncated: counts.truncated,
+      },
+    });
   /*
    * The full filtered set, not just the visible page — but capped, because a
    * chapter with tens of thousands of rows would otherwise hold the whole
@@ -237,6 +269,7 @@ export async function exportCRMContacts(params: GetCRMContactsParams = {}): Prom
    */
   const result = await fetchContactPage(adminClient, filters, 1, CRM_EXPORT_LIMIT);
   if (result.error) {
+    await auditExport('failure', { count: 0, matchedCount: 0, truncated: false }, result.error);
     return { csv: '', count: 0, matchedCount: 0, truncated: false, error: result.error };
   }
 
@@ -295,7 +328,7 @@ export async function exportCRMContacts(params: GetCRMContactsParams = {}): Prom
     ])
   );
   const matchedCount = result.totalCount;
-  return {
+  const counts = {
     csv: [header, ...lines].join('\r\n'),
     count: result.contacts.length,
     matchedCount,
@@ -305,6 +338,8 @@ export async function exportCRMContacts(params: GetCRMContactsParams = {}): Prom
     // truncated, and only the mismatch knows the difference.
     truncated: result.contacts.length < matchedCount,
   };
+  await auditExport('success', counts);
+  return counts;
 }
 
 const CONTACT_TASK_LIMIT = 50;

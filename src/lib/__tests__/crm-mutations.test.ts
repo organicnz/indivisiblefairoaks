@@ -395,16 +395,76 @@ describe('CRM mutation failure paths', () => {
       // backup loses every street address in the chapter.
       expect(tables.crm_contacts.rows?.[0]?.address).toBe('4821 Fair Oaks Blvd');
     });
+
+    it('records one operation audit with actor, counts and outcome', async () => {
+      tables.crm_contacts = { rows: [] };
+      tables.admin_audit_log = { rows: [] };
+
+      const res = await importCRMContacts({ csv });
+
+      expect(res).toMatchObject({ success: true, imported: 2, skipped: 0 });
+      expect(tables.admin_audit_log.rows).toHaveLength(1);
+      expect(tables.admin_audit_log.rows?.[0]).toMatchObject({
+        actor_user_id: session.adminUserId,
+        actor_email: session.adminEmail,
+        action: 'crm.contacts.import',
+        target_type: 'crm_operation',
+        target_id: 'crm-import',
+        outcome: 'success',
+        error: null,
+        metadata: {
+          format: 'csv',
+          total_row_count: 2,
+          parsed_row_count: 2,
+          invalid_row_count: 0,
+          imported_count: 2,
+          skipped_count: 0,
+          failed_row_count: 0,
+          error_count: 0,
+          errors: [],
+        },
+      });
+    });
+
+    it('audits a rejected import with its parse errors and outcome', async () => {
+      tables.admin_audit_log = { rows: [] };
+
+      const res = await importCRMContacts({ csv: 'nothing,useful\nhere,either' });
+
+      expect(res.success).toBe(false);
+      expect(tables.admin_audit_log.rows?.[0]).toMatchObject({
+        actor_user_id: session.adminUserId,
+        action: 'crm.contacts.import',
+        target_type: 'crm_operation',
+        outcome: 'failure',
+        error: 'No valid rows found in CSV',
+        metadata: {
+          parsed_row_count: 0,
+          invalid_row_count: expect.any(Number),
+          error_count: expect.any(Number),
+          imported_count: 0,
+          skipped_count: 0,
+        },
+      });
+    });
   });
 
   describe('mergeCRMContacts', () => {
     it('refuses to merge a contact into itself', async () => {
       // Otherwise the merge deletes the row it just moved everything onto, and
       // the person is gone from the directory entirely.
+      tables.admin_audit_log = { rows: [] };
       const res = await mergeCRMContacts({ keepId: 'c1', removeId: 'c1' });
       expect(res.success).toBe(false);
-      expect(mockAdminClient.from).not.toHaveBeenCalled();
+      expect(mockAdminClient.from).not.toHaveBeenCalledWith('crm_contacts');
       expect(mockAdminClient.rpc).not.toHaveBeenCalled();
+      expect(tables.admin_audit_log.rows?.[0]).toMatchObject({
+        action: 'crm.contact.merge',
+        target_id: 'c1',
+        outcome: 'failure',
+        error: 'Cannot merge a contact into itself',
+        metadata: { requested_contact_count: 2, merged_contact_count: 0 },
+      });
     });
 
     /**
@@ -421,6 +481,7 @@ describe('CRM mutation failure paths', () => {
      */
     it('reports the RPC error rather than claiming a rolled-back merge succeeded', async () => {
       tables.crm_contacts = { rows: [{ id: 'keep-1' }, { id: 'dup-1' }] };
+      tables.admin_audit_log = { rows: [] };
       mockAdminClient.rpc.mockResolvedValue({
         error: { message: 'the duplicate contact no longer exists' },
       });
@@ -433,8 +494,19 @@ describe('CRM mutation failure paths', () => {
       // issued from the app at all, which is the property the RPC bought: there
       // is no window in which the duplicate's timeline has moved and the survivor
       // has not been updated.
-      expect(mockAdminClient.from).toHaveBeenCalledTimes(2);
+      expect(
+        mockAdminClient.from.mock.calls.filter(([table]) => table === 'crm_contacts')
+      ).toHaveLength(2);
       expect(mockAdminClient.from).toHaveBeenCalledWith('crm_contacts');
+      expect(tables.admin_audit_log.rows?.[0]).toMatchObject({
+        actor_user_id: session.adminUserId,
+        action: 'crm.contact.merge',
+        target_type: 'crm_contact',
+        target_id: 'keep-1',
+        outcome: 'failure',
+        error: 'Merge failed: the duplicate contact no longer exists',
+        metadata: { requested_contact_count: 2, merged_contact_count: 0 },
+      });
     });
 
     it('surfaces a read failure instead of claiming a contact is missing', async () => {
@@ -966,6 +1038,9 @@ describe('CRM mutation failure paths', () => {
         affected_count: 1,
         affected_ids: ['c1'],
         changed_fields: ['status'],
+        field_changes: {
+          status: [{ contact_id: 'c1', old_value: 'supporter', new_value: 'active_volunteer' }],
+        },
       });
     });
 
@@ -1251,6 +1326,56 @@ describe('CRM mutation failure paths', () => {
           affected_ids: ['c1', 'c2'],
           updated_count: 2,
           changed_fields: ['status', 'district', 'tags', 'consent'],
+          field_changes: {
+            status: [
+              {
+                contact_id: 'c1',
+                old_value: 'supporter',
+                new_value: 'active_volunteer',
+              },
+              {
+                contact_id: 'c2',
+                old_value: 'supporter',
+                new_value: 'active_volunteer',
+              },
+            ],
+            district: [
+              { contact_id: 'c1', old_value: null, new_value: 'CA-06' },
+              { contact_id: 'c2', old_value: null, new_value: 'CA-06' },
+            ],
+            tags: [
+              { contact_id: 'c1', old_value: ['old'], new_value: ['new-tag'] },
+              { contact_id: 'c2', old_value: ['old'], new_value: ['new-tag'] },
+            ],
+            consent: [
+              {
+                contact_id: 'c1',
+                old_value: {
+                  decision: 'opted_in',
+                  do_not_email: false,
+                  unsubscribed_at: null,
+                },
+                new_value: {
+                  decision: 'opted_out',
+                  do_not_email: true,
+                  unsubscribed_at: expect.any(String),
+                },
+              },
+              {
+                contact_id: 'c2',
+                old_value: {
+                  decision: 'opted_in',
+                  do_not_email: false,
+                  unsubscribed_at: null,
+                },
+                new_value: {
+                  decision: 'opted_out',
+                  do_not_email: true,
+                  unsubscribed_at: expect.any(String),
+                },
+              },
+            ],
+          },
         },
         before: {
           contact_ids: ['c1', 'c2'],

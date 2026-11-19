@@ -16,6 +16,9 @@ export type AdminAuditAction =
   | 'crm.contact.delete'
   | 'crm.contact.bulk_delete'
   | 'crm.contact.bulk_update'
+  | 'crm.contact.merge'
+  | 'crm.contacts.export'
+  | 'crm.contacts.import'
   | 'crm.broadcast.send'
   | 'crm.broadcast.self_test'
   | 'content.publish'
@@ -30,6 +33,7 @@ export type AdminAuditAction =
 export type AdminAuditTargetType =
   | 'profile'
   | 'crm_contact'
+  | 'crm_operation'
   | 'crm_broadcast'
   | 'content'
   | 'event'

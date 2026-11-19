@@ -64,6 +64,12 @@ type BulkContactChange = {
   after: Record<string, unknown>;
 };
 
+type BulkAuditFieldChange = {
+  contact_id: string;
+  old_value: unknown;
+  new_value: unknown;
+};
+
 /** Keep only the values a bulk operation actually changed, keyed by contact. */
 function snapshotBulkContact(
   contact: BulkAuditContact,
@@ -78,6 +84,60 @@ function snapshotBulkContact(
     snapshot.unsubscribed_at = contact.unsubscribed_at ?? null;
   }
   return snapshot;
+}
+
+/** A readable consent state plus the stored columns that produce it. */
+function auditConsentValue(snapshot: Record<string, unknown>) {
+  const doNotEmail = snapshot.do_not_email;
+  return {
+    decision: doNotEmail === true ? 'opted_out' : doNotEmail === false ? 'opted_in' : 'unasked',
+    do_not_email: doNotEmail ?? null,
+    unsubscribed_at: snapshot.unsubscribed_at ?? null,
+  };
+}
+
+/**
+ * Per-contact old/new values for the fields this operation touched.
+ *
+ * The top-level before/after snapshots already hold this, but the audit
+ * explorer's metadata is what consumers index and review. Keeping the values
+ * grouped by field makes a bulk row self-explanatory without writing one audit
+ * row per contact.
+ */
+function bulkAuditFieldChanges(
+  changes: BulkContactChange[],
+  fields: BulkAuditFieldSet
+): Record<string, BulkAuditFieldChange[]> {
+  const result: Record<string, BulkAuditFieldChange[]> = {};
+  if (fields.status) {
+    result.status = changes.map(({ id, before, after }) => ({
+      contact_id: id,
+      old_value: before.status ?? null,
+      new_value: after.status ?? null,
+    }));
+  }
+  if (fields.district) {
+    result.district = changes.map(({ id, before, after }) => ({
+      contact_id: id,
+      old_value: before.district ?? null,
+      new_value: after.district ?? null,
+    }));
+  }
+  if (fields.tags) {
+    result.tags = changes.map(({ id, before, after }) => ({
+      contact_id: id,
+      old_value: before.tags ?? [],
+      new_value: after.tags ?? [],
+    }));
+  }
+  if (fields.consent) {
+    result.consent = changes.map(({ id, before, after }) => ({
+      contact_id: id,
+      old_value: auditConsentValue(before),
+      new_value: auditConsentValue(after),
+    }));
+  }
+  return result;
 }
 
 function countBulkDistribution(values: string[]): CRMBulkUpdateDistributionEntry[] {
@@ -688,6 +748,7 @@ export async function bulkUpdateCRMContacts({
           : {}),
         ...(updatedCount === undefined ? {} : { updated_count: updatedCount }),
         changed_fields: changedFields,
+        field_changes: bulkAuditFieldChanges(changes, auditFields),
       },
     });
 
@@ -1142,20 +1203,62 @@ export async function importCRMContacts({ csv }: { csv: string }): Promise<
     warning?: string;
   }>
 > {
-  const { adminClient, adminUserId } = await requireCRMAdmin();
+  const admin = await requireCRMAdmin();
+  const { adminClient, adminUserId } = admin;
+  let parsedRows = 0;
+  let invalidRows = 0;
+  let failedRows = 0;
+
+  const auditImport = (
+    outcome: 'success' | 'failure',
+    details: {
+      imported?: number;
+      skipped?: number;
+      errors?: CRMImportError[];
+      error?: string;
+    } = {}
+  ) => {
+    const errors = details.errors ?? [];
+    return recordCRMAudit(admin, {
+      action: 'crm.contacts.import',
+      targetType: 'crm_operation',
+      targetId: 'crm-import',
+      targetLabel: 'CSV constituent import',
+      outcome,
+      error: details.error ?? null,
+      metadata: {
+        format: 'csv',
+        csv_chars: csv.length,
+        total_row_count: parsedRows + invalidRows,
+        parsed_row_count: parsedRows,
+        invalid_row_count: invalidRows,
+        imported_count: details.imported ?? 0,
+        skipped_count: details.skipped ?? 0,
+        failed_row_count: failedRows,
+        error_count: errors.length,
+        errors: errors.slice(0, 50),
+      },
+    });
+  };
 
   if (!csv.trim()) {
+    await auditImport('failure', { error: 'CSV content is required' });
     return { success: false, error: 'CSV content is required' };
   }
   if (csv.length > 500_000) {
+    await auditImport('failure', { error: 'CSV too large (max 500KB)' });
     return { success: false, error: 'CSV too large (max 500KB)' };
   }
 
   const { rows, errors } = parseCRMImportCsv(csv);
+  parsedRows = rows.length;
+  invalidRows = errors.length;
   if (rows.length === 0) {
+    await auditImport('failure', { errors, error: 'No valid rows found in CSV' });
     return { success: false, errors, error: 'No valid rows found in CSV' };
   }
   if (rows.length > 2000) {
+    await auditImport('failure', { errors, error: 'Import capped at 2000 rows per upload' });
     return { success: false, error: 'Import capped at 2000 rows per upload' };
   }
 
@@ -1178,6 +1281,10 @@ export async function importCRMContacts({ csv }: { csv: string }): Promise<
       // cannot silently unbound it.
       .limit(LOOKUP_CHUNK);
     if (lookupError) {
+      await auditImport('failure', {
+        errors,
+        error: `Existing-email lookup failed: ${lookupError.message}`,
+      });
       return {
         success: false,
         error: `Existing-email lookup failed: ${lookupError.message}`,
@@ -1238,6 +1345,7 @@ export async function importCRMContacts({ csv }: { csv: string }): Promise<
       .select('id');
 
     if (error) {
+      failedRows += chunk.length;
       insertErrors.push({
         line: 0,
         message:
@@ -1267,6 +1375,18 @@ export async function importCRMContacts({ csv }: { csv: string }): Promise<
   // "Imported 0, skipped N" (e.g. every insert failed) is a false positive.
   const insertFailed = insertErrors.some((e) => e.message.startsWith('Insert failed'));
   const success = imported > 0 || (skipped > 0 && !insertFailed);
+  const error = success
+    ? undefined
+    : insertFailed
+      ? 'All inserts failed — no contacts were imported'
+      : undefined;
+
+  await auditImport(success ? 'success' : 'failure', {
+    imported,
+    skipped,
+    errors: insertErrors,
+    error,
+  });
 
   revalidateCRMRoutes();
   return {
@@ -1275,11 +1395,7 @@ export async function importCRMContacts({ csv }: { csv: string }): Promise<
     skipped,
     invalidRows: errors.length,
     errors: insertErrors.slice(0, 50),
-    error: success
-      ? undefined
-      : insertFailed
-        ? 'All inserts failed — no contacts were imported'
-        : undefined,
+    error,
     ...(activityFailed
       ? {
           warning:
@@ -1296,25 +1412,64 @@ export async function mergeCRMContacts({
   keepId: string;
   removeId: string;
 }): Promise<CRMResult> {
-  const { adminClient, adminUserId } = await requireCRMAdmin();
+  const admin = await requireCRMAdmin();
+  const { adminClient, adminUserId } = admin;
+  const targetId = keepId.trim() || 'crm-merge';
+  let keepContact: CRMContact | null = null;
+  let removeContact: CRMContact | null = null;
+
+  const auditMerge = (outcome: 'success' | 'failure', error?: string, before?: unknown) =>
+    recordCRMAudit(admin, {
+      action: 'crm.contact.merge',
+      targetType: 'crm_contact',
+      targetId,
+      targetLabel:
+        [keepContact?.email, removeContact?.email].filter(Boolean).join(' + ') || 'Contact merge',
+      before: before ?? null,
+      after:
+        outcome === 'success'
+          ? { kept_contact_id: keepId, removed_contact_id: removeId, merged: true }
+          : null,
+      outcome,
+      error: error ?? null,
+      metadata: {
+        keep_id: keepId,
+        remove_id: removeId,
+        requested_contact_count: 2,
+        merged_contact_count: outcome === 'success' ? 1 : 0,
+      },
+    });
 
   if (keepId === removeId) {
-    return { success: false, error: 'Cannot merge a contact into itself' };
+    const message = 'Cannot merge a contact into itself';
+    await auditMerge('failure', message);
+    return { success: false, error: message };
   }
 
   // A failed lookup is not a missing contact. `maybeSingle()` keeps "no row"
   // distinct from a real database error, so the latter is reported as a
   // failure instead of as a merge precondition.
-  const [{ data: keep, error: keepError }, { data: remove, error: removeError }] =
+  const [{ data: keepData, error: keepError }, { data: removeData, error: removeError }] =
     await Promise.all([
       adminClient.from('crm_contacts').select('*').eq('id', keepId).maybeSingle(),
       adminClient.from('crm_contacts').select('*').eq('id', removeId).maybeSingle(),
     ]);
+  keepContact = (keepData as CRMContact | null) ?? null;
+  removeContact = (removeData as CRMContact | null) ?? null;
+  const beforeMerge = { contacts: [keepContact, removeContact].filter(Boolean) };
 
-  if (keepError) return { success: false, error: keepError.message };
-  if (removeError) return { success: false, error: removeError.message };
-  if (!keep || !remove) {
-    return { success: false, error: 'Both contacts must exist to merge' };
+  if (keepError) {
+    await auditMerge('failure', keepError.message, beforeMerge);
+    return { success: false, error: keepError.message };
+  }
+  if (removeError) {
+    await auditMerge('failure', removeError.message, beforeMerge);
+    return { success: false, error: removeError.message };
+  }
+  if (!keepContact || !removeContact) {
+    const message = 'Both contacts must exist to merge';
+    await auditMerge('failure', message, beforeMerge);
+    return { success: false, error: message };
   }
 
   /*
@@ -1356,9 +1511,12 @@ export async function mergeCRMContacts({
   });
 
   if (mergeError) {
-    return { success: false, error: `Merge failed: ${mergeError.message}` };
+    const message = `Merge failed: ${mergeError.message}`;
+    await auditMerge('failure', message, beforeMerge);
+    return { success: false, error: message };
   }
 
+  await auditMerge('success', undefined, beforeMerge);
   revalidateCRMRoutes(keepId);
   return { success: true };
 }
