@@ -1,7 +1,7 @@
 'use client';
 
 import { Search, X } from 'lucide-react';
-import { useId } from 'react';
+import { useId, useRef } from 'react';
 import { cn } from '@/lib/utils';
 
 export const NEWS_SEARCH_HINT =
@@ -68,6 +68,7 @@ export function NewsSearchField({
 }: NewsSearchFieldProps) {
   const styles = VARIANT_STYLES[variant];
   const hintId = useId();
+  const inputRef = useRef<HTMLInputElement>(null);
   return (
     <div className={cn('relative min-w-0', className)}>
       <Search
@@ -76,6 +77,7 @@ export function NewsSearchField({
         aria-hidden="true"
       />
       <input
+        ref={inputRef}
         type="search"
         autoComplete="off"
         spellCheck={false}
@@ -93,12 +95,18 @@ export function NewsSearchField({
             onChange('');
           }
         }}
-        className={styles.input}
+        className={cn(
+          styles.input,
+          '[&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden'
+        )}
       />
       {value ? (
         <button
           type="button"
-          onClick={() => onChange('')}
+          onClick={() => {
+            onChange('');
+            inputRef.current?.focus();
+          }}
           aria-label={clearLabel}
           className={cn('absolute', styles.clear)}
         >

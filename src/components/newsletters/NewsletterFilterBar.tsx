@@ -39,10 +39,10 @@ export function NewsletterFilterBar({
     allTopicsLabel || dataPoints['news.topic.all'] || ALL_NEWSLETTER_TOPICS;
 
   return (
-    <div className="civic-panel flex flex-col items-stretch justify-between gap-4 p-4 md:flex-row md:items-center">
+    <div className="civic-panel flex flex-col items-stretch gap-4 p-4 md:flex-row md:items-start">
       <NewsSearchField
         variant="newsletter"
-        className="flex-1"
+        className="w-full md:min-w-[21rem] md:flex-1"
         value={searchQuery}
         onChange={onSearchChange}
         placeholder={
@@ -56,14 +56,16 @@ export function NewsletterFilterBar({
         hint={NEWS_SEARCH_HINT}
       />
 
-      <NewsletterTopicFilter
-        topics={topics}
-        activeTopic={activeTopic}
-        onTopicChange={onTopicChange}
-        allTopicsLabel={sentinelLabel}
-        resultsId={resultsId}
-        counts={topicCounts}
-      />
+      <div className="min-w-0 md:flex-[2]">
+        <NewsletterTopicFilter
+          topics={topics}
+          activeTopic={activeTopic}
+          onTopicChange={onTopicChange}
+          allTopicsLabel={sentinelLabel}
+          resultsId={resultsId}
+          counts={topicCounts}
+        />
+      </div>
 
       {onAdd ? (
         <button

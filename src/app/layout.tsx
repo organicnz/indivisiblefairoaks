@@ -42,11 +42,16 @@ const inter = localFont({
   weight: '100 900',
 });
 
+// Outfit remains available to legacy CMS blocks, but it is not part of the
+// public type system. Preloading a third face made every page fetch it even
+// when no above-the-fold element used it; the public shell uses Inter and
+// Fraunces only.
 const outfit = localFont({
   src: './fonts/Outfit-Variable.woff2',
   variable: '--font-outfit',
   display: 'swap',
   weight: '100 900',
+  preload: false,
 });
 
 // Display face for the civic-poster identity. Fraunces is a variable serif with

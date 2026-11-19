@@ -92,7 +92,7 @@ export function NewsletterCard({
       <div className="mt-6 flex items-center justify-between border-t border-border pt-6 dark:border-white/10">
         <a
           href="mailto:contact@indivisiblefairoaks.org?subject=Archive%20Request%20-%20Bulletin"
-          className="flex items-center gap-1 rounded-xs text-xs font-bold text-primary-ink hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:text-primary-on-dark"
+          className="flex min-h-6 items-center gap-1 rounded-xs text-xs font-bold text-primary-ink hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:text-primary-on-dark"
         >
           <DataPoint name="news.read_bulletin" as="span" initialData={dataPoints}>
             Request Full Issue

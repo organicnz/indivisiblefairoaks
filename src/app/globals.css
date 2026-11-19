@@ -352,8 +352,7 @@
     padding-block: 1.5rem;
   }
 
-  .civic-page .civic-panel,
-  .civic-page .civic-frame {
+  .civic-page .civic-panel {
     break-inside: avoid;
   }
 
@@ -372,7 +371,6 @@
   }
 
   .civic-kicker::before,
-  .civic-frame::after,
   .civic-section-head::after {
     background: CanvasText;
     forced-color-adjust: none;
@@ -405,6 +403,25 @@ footer a:focus-visible {
     text-decoration-color: var(--accent-gold-on-dark);
     text-decoration-thickness: 1px;
     text-underline-offset: 0.3em;
+  }
+
+  /* The footer is a compact index, but its links still need a real hit area.
+     WCAG 2.2 2.5.8 asks for 24x24 CSS pixels; on touch-sized screens use the
+     project's 44px target so a thumb does not land between two links. */
+  footer ul a,
+  footer .footer-meta a,
+  footer a[href^='mailto:'] {
+    display: flex;
+    align-items: center;
+    min-height: 1.5rem;
+  }
+
+  @media (max-width: 767px) {
+    footer ul a,
+    footer .footer-meta a,
+    footer a[href^='mailto:'] {
+      min-height: 2.75rem;
+    }
   }
 }
 
@@ -441,25 +458,6 @@ footer a:focus-visible {
       linear-gradient(to right, color-mix(in srgb, var(--foreground) 7%, transparent) 1px, transparent 1px),
       linear-gradient(to bottom, color-mix(in srgb, var(--foreground) 7%, transparent) 1px, transparent 1px);
     background-size: 64px 64px;
-  }
-
-  .civic-rule {
-    border: 0;
-    border-block-start: 1px solid var(--border);
-  }
-
-  .civic-frame {
-    position: relative;
-    border: 1px solid color-mix(in srgb, var(--foreground) 22%, transparent);
-    background: var(--surface-card);
-  }
-
-  .civic-frame::after {
-    content: '';
-    position: absolute;
-    inset: 0.5rem;
-    border: 1px solid color-mix(in srgb, var(--foreground) 10%, transparent);
-    pointer-events: none;
   }
 
   .civic-stamp {

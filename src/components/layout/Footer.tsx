@@ -238,7 +238,7 @@ export async function Footer() {
         </div>
 
         {/* Bottom Bar */}
-        <div className="mt-12 pt-8 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-ink-muted-on-dark">
+        <div className="footer-meta mt-12 pt-8 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-ink-muted-on-dark">
           <p className="text-center sm:text-left">
             © <CopyrightYear /> Indivisible Fair Oaks-Carmichael.{' '}
             <DataPoint name="footer.copyright_disclaimer" as="span" initialData={dataPoints}>

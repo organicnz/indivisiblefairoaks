@@ -103,7 +103,7 @@ export function NewsletterTopicFilter({
             <span className="min-w-0 truncate">{label}</span>
             {count !== null ? (
               <span
-                className="ml-1 shrink-0 font-mono text-[9px] opacity-70"
+                className="ml-1 shrink-0 font-mono text-[9px]"
                 aria-hidden="true"
               >
                 {count}

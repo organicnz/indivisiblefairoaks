@@ -223,7 +223,7 @@ export function ActionAlertsSubscription({ initialData, className = '' }: Action
                 <span>Or prefer email client?</span>
                 <a
                   href="mailto:subscribe@indivisiblefairoaks.org?subject=Subscribe%20to%20Indivisible%20Fair%20Oaks%20Newsletter"
-                  className="inline-flex items-center gap-1 font-bold text-ink-strong dark:text-accent-gold hover:underline underline-offset-4 transition-colors"
+                  className="inline-flex min-h-6 items-center gap-1 font-bold text-ink-strong dark:text-accent-gold hover:underline underline-offset-4 transition-colors"
                 >
                   <DataPoint initialData={initialData} as="span" name="news.subscribe.btn">
                     Email to Subscribe

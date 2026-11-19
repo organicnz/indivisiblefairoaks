@@ -65,28 +65,9 @@
   outline-offset: 2px;
 }
 
-.civic-page .civic-measure {
-  max-width: var(--civic-measure);
-}
-
 .civic-page .civic-section {
   padding-block: var(--civic-section-space);
   border-top: 1px solid var(--border);
-}
-
-/* Sections can sit on paper, muted stock, or ink. The rhythm stays the same;
-   only the stock changes. */
-.civic-page .civic-section--paper {
-  background: var(--background);
-}
-
-.civic-page .civic-section--muted {
-  background: var(--surface-muted);
-}
-
-.civic-page .civic-section--ink {
-  background: var(--secondary);
-  color: var(--ink-on-dark);
 }
 
 .civic-page .civic-section:first-of-type {
@@ -267,17 +248,6 @@
   background: var(--surface-muted);
 }
 
-.civic-page .civic-panel--ink {
-  border-color: color-mix(in srgb, var(--ink-on-dark) 25%, transparent);
-  background: var(--secondary);
-  color: var(--ink-on-dark);
-}
-
-.civic-page .civic-rule {
-  border: 0;
-  border-block-start: 1px solid var(--border);
-}
-
 .civic-page .civic-data-row {
   display: grid;
   gap: 0.75rem;
@@ -335,29 +305,6 @@
   border-color: var(--primary);
   outline: 2px solid var(--primary);
   outline-offset: 3px;
-}
-
-.civic-page .civic-index-link {
-  display: flex;
-  min-height: 2.75rem;
-  align-items: baseline;
-  gap: 0.75rem;
-  border-block-start: 1px solid var(--border);
-  padding-block: 0.75rem;
-  color: var(--muted-foreground);
-  font-size: 0.75rem;
-  font-weight: 600;
-  transition: color var(--duration-fast) var(--ease-sensory);
-}
-
-.civic-page .civic-index-link:hover {
-  color: var(--primary-ink);
-}
-
-.civic-page .civic-index-link span:first-child {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 0.625rem;
-  letter-spacing: 0.08em;
 }
 
 /* Missing photography is normal in a volunteer archive. Treat it as a printed

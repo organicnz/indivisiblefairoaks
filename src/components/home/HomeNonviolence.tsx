@@ -5,7 +5,7 @@ const COMMITMENTS = ['Disciplined', 'Lawful', 'De-escalating', 'Peaceful'];
 
 export function HomeNonviolence({ dataPoints }: { dataPoints: Record<string, string> }) {
   return (
-    <section className="civic-section relative overflow-hidden border-y border-border bg-secondary text-ink-on-dark">
+    <section className="civic-section relative overflow-hidden border-b border-border bg-secondary text-ink-on-dark">
       <div
         aria-hidden="true"
         className="paper-grid pointer-events-none absolute inset-0 opacity-[0.06]"
