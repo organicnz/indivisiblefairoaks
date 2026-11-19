@@ -68,7 +68,7 @@ export function GalleryGrid({
               {photo.category}
             </span>
             {photo.signQuote && (
-              <span className="max-w-full truncate bg-accent-gold px-2.5 py-0.5 text-[11px] font-bold text-ink-strong">
+              <span className="max-w-full line-clamp-2 bg-accent-gold px-2.5 py-0.5 text-[11px] font-bold text-ink-strong">
                 “{photo.signQuote}”
               </span>
             )}
@@ -78,10 +78,14 @@ export function GalleryGrid({
             <span className="line-clamp-2 block font-display text-xl font-semibold leading-snug text-white transition-colors group-hover:text-accent-gold">
               {galleryCaption(photo)}
             </span>
-            <div className="flex items-center justify-between text-xs text-ink-muted-on-dark">
-              <span className="flex max-w-[70%] items-center gap-1 truncate">
-                <MapPin size={12} className="shrink-0 text-accent-gold" aria-hidden="true" />
-                <span className="truncate">{photo.location}</span>
+            <div className="flex items-start justify-between gap-2 text-xs text-ink-muted-on-dark">
+              <span className="flex min-w-0 max-w-[70%] items-start gap-1">
+                <MapPin
+                  size={12}
+                  className="mt-0.5 shrink-0 text-accent-gold"
+                  aria-hidden="true"
+                />
+                <span className="line-clamp-2">{photo.location}</span>
               </span>
               <span className="shrink-0 font-mono text-[10px]">{photo.date}</span>
             </div>
