@@ -18,7 +18,7 @@ export function WebReportsEmptyState({
   return (
     <div className="mt-8 border border-border bg-surface-card p-5 text-sm leading-relaxed text-muted-foreground">
       <p className="font-semibold text-foreground">
-        {filtered ? 'No reports match these filters.' : 'No republished reports have been published yet.'}
+        {filtered ? 'No reports match these filters.' : 'No source-attributed reports have been published yet.'}
       </p>
       <p className="mt-1">
         {filtered

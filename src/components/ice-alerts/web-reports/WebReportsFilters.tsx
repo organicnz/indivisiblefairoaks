@@ -118,7 +118,7 @@ export function WebReportsFilters({ filters, filtered, total }: WebReportsFilter
                   {total === 1 ? '' : 's'} for <FilterSummary filters={filters} />.
                 </>
               ) : (
-                'Search full source text, titles, source labels, and cities. Results stay city-level.'
+                'Search source records, titles, source labels, and cities. Results stay city-level.'
               )}
             </p>
             {total > 0 ? (

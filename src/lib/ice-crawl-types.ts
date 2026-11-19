@@ -28,6 +28,8 @@ export type IceSourceReport = {
   source_retrieved_at: string;
   title: string;
   text_content: string;
+  refined_text: string | null;
+  refined_at: string | null;
   city: string | null;
   state_code: string | null;
   kind: IceSourceReportKind;

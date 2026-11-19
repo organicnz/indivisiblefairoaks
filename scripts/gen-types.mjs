@@ -9,6 +9,8 @@
 import { resolve } from 'node:path';
 import { loadEnvLocal } from './load-env-local.mjs';
 
+const checkOnly = process.argv.includes('--check');
+
 await loadEnvLocal({ path: resolve('.env.local') });
 
 function projectRef() {
@@ -90,8 +92,41 @@ if (exitCode !== 0) {
 
 // Post-process: strip non-app tables from the Tables block
 const filtered = filterTables(raw, APP_TABLES);
-await Bun.write(resolve('src/types/supabase.ts'), filtered);
+const target = resolve('src/types/supabase.ts');
+
+if (checkOnly) {
+  let existing = '';
+  try {
+    existing = await Bun.file(target).text();
+  } catch {
+    console.error(`✖  ${target} does not exist.`);
+    console.error('   Run `bun run types:generate`.');
+    process.exit(1);
+  }
+
+  if (normalizeGeneratedTypes(existing) !== normalizeGeneratedTypes(filtered)) {
+    console.error('');
+    console.error('✖  src/types/supabase.ts does not match the live schema.');
+    console.error('   Run `bun run types:generate` and commit the regenerated file.');
+    process.exit(1);
+  }
+
+  console.log('✔  src/types/supabase.ts matches the live schema.');
+  process.exit(0);
+}
+
+await Bun.write(target, filtered);
 console.log(`✔ Filtered to ${APP_TABLES.size} app tables → src/types/supabase.ts`);
+
+/**
+ * Compare the committed file and the freshly generated output semantically.
+ *
+ * Line endings are a checkout detail, and a missing final newline is not a
+ * schema difference. Everything inside the file is compared byte-for-byte.
+ */
+function normalizeGeneratedTypes(source) {
+  return source.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n').trimEnd();
+}
 
 /**
  * Remove table entries from the Database['public']['Tables'] block that are

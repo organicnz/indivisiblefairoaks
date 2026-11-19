@@ -15,8 +15,8 @@ function escapeXml(value: string) {
     .replace(/'/g, '&apos;');
 }
 
-function optionalXml(tag: string, value: string | null) {
-  return value === null ? `    <${tag} />` : `    <${tag}>${escapeXml(value)}</${tag}>`;
+function optionalXml(tag: string, value: string | null | undefined) {
+  return value == null ? `    <${tag} />` : `    <${tag}>${escapeXml(value)}</${tag}>`;
 }
 
 /**
@@ -57,6 +57,8 @@ export function serializeIceSourceReportsXml(
     lines.push(`    <source_retrieved_at>${escapeXml(report.source_retrieved_at)}</source_retrieved_at>`);
     lines.push(`    <title>${escapeXml(report.title)}</title>`);
     lines.push(`    <text_content>${escapeXml(report.text_content)}</text_content>`);
+    lines.push(optionalXml('refined_text', report.refined_text));
+    lines.push(optionalXml('refined_at', report.refined_at));
     lines.push(optionalXml('city', report.city));
     lines.push(optionalXml('state_code', report.state_code));
     lines.push(`    <kind>${escapeXml(report.kind)}</kind>`);

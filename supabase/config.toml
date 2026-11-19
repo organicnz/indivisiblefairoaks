@@ -451,6 +451,9 @@ verify_jwt = true
 [functions.ice-case-brief]
 verify_jwt = true
 
+[functions.ice-source-refine]
+verify_jwt = true
+
 [functions.walle-refresh]
 verify_jwt = true
 

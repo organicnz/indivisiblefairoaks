@@ -19,24 +19,28 @@ export function WebReportsMasthead({ total, filtered }: WebReportsMastheadProps)
           </Link>
           <CopyRegion id="ice-web-reports-intro">
             <div>
-              <p className="civic-section-index mt-6">Republished from the web</p>
+              <p className="civic-section-index mt-6">Source-attributed web reports</p>
               <h1 className="mt-2 max-w-3xl font-display text-4xl font-semibold leading-[0.95] tracking-[-0.045em] sm:text-6xl">
-                Every republished report, with its source.
+                AI-refined digests. Original sources one click away.
               </h1>
               <p className="mt-4 max-w-3xl text-sm leading-relaxed text-muted-foreground">
-                Full readable passages republished from approved public sources. Every entry keeps
-                its original URL, source label, publication time, and retrieval time. Visible
-                headlines are generalized to the city when the original contains a street-level
-                location. Browse the full national archive, or narrow it to the nearest city with
-                collected reports. These reports are not independently verified by this chapter,
-                and the source&apos;s own terms may apply.
+                These reading panels show AI-refined digests of reports from approved public
+                sources, not republished articles. The panel does not embed the source article; a
+                Supabase AI endpoint paraphrases it, checks for copied passages and invented
+                figures, and caches the result. Every entry keeps its original URL, source label,
+                publication
+                time, and retrieval time. Visible headlines are generalized to the city when the
+                original contains a street-level location. Browse the full national archive, or
+                narrow it to the nearest city with collected reports. Digests are not independently
+                verified by this chapter, and the source&apos;s own terms may apply. If a digest cannot
+                be generated, the panel offers the original-source link instead of copied text.
               </p>
             </div>
           </CopyRegion>
           <div className="mt-4 flex flex-wrap items-center gap-2">
             <p className="inline-flex items-center gap-2 border border-border bg-surface-card px-3 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.09em] text-muted-foreground">
               <Globe2 className="size-3" aria-hidden="true" />
-              {total.toLocaleString('en-US')} {filtered ? 'matching' : 'republished'} report
+              {total.toLocaleString('en-US')} {filtered ? 'matching' : 'source-attributed'} report
               {total === 1 ? '' : 's'}
             </p>
             <Link

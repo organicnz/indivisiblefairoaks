@@ -1,4 +1,4 @@
-import { ArrowUpRight, Globe2, ShieldQuestion } from 'lucide-react';
+import { ArrowUpRight, ShieldQuestion, Sparkles } from 'lucide-react';
 import { connection } from 'next/server';
 import {
   getIceCrawlStore,
@@ -15,6 +15,7 @@ import {
   iceSourceReportTitleGeneralized,
 } from '@/lib/ice-source-report-search';
 import { CopyRegion } from '@/components/cms/CopyRegion';
+import { WebReportRefinedSummary } from '@/components/ice-alerts/web-reports/WebReportRefinedSummary';
 
 async function readWebReports() {
   const store = getIceCrawlStore();
@@ -50,20 +51,22 @@ export async function WebReportsSection() {
           <div>
             <CopyRegion id="ice-rapid-web-reports-intro">
               <div>
-                <p className="civic-section-index">Republished from the web</p>
+                <p className="civic-section-index">Source-attributed web reports</p>
                 <h2
                   id="ice-web-reports-title"
                   className="mt-2 max-w-2xl font-display text-4xl font-semibold leading-[0.95] tracking-[-0.045em] sm:text-5xl"
                 >
-                  Republished from the web. Kept with its source.
+                  Source-attributed reports. Refined for reading.
                 </h2>
                 <p className="mt-4 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-                  These full readable passages are republished from approved public sources. Every
-                  entry keeps its original URL, source label, publication time, and retrieval time.
-                  Visible headlines are generalized to the city when the original contains a
-                  street-level location. They are not independently verified by this chapter, and
-                  the source&apos;s own terms may apply. Some source text may include details from
-                  the original publication; the map and city watch use city-level locations only.
+                  These are AI-refined digests of reports published by approved public sources. The
+                  reading panel does not embed the source article; it asks a Supabase AI endpoint for
+                  a grounded paraphrase, checks it for copied passages and invented figures, and
+                  caches the result. Every entry keeps its original URL, source label, publication
+                  time, and retrieval time. Visible headlines are generalized to the city when the
+                  original contains a street-level location. Digests are not independently verified
+                  by this chapter, and the source&apos;s own terms may apply. If a digest cannot be
+                  generated, the panel offers the original-source link instead of copied text.
                 </p>
               </div>
             </CopyRegion>
@@ -78,7 +81,7 @@ export async function WebReportsSection() {
                 href="/ice-alerts/web-reports"
                 className="inline-flex min-h-9 items-center gap-1.5 border border-border bg-surface-card px-3 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.09em] text-foreground transition-colors hover:border-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               >
-                Browse all {total.toLocaleString('en-US')} republished reports
+                Browse all {total.toLocaleString('en-US')} source-attributed reports
                 <ArrowUpRight className="size-3" aria-hidden="true" />
               </a>
             )}
@@ -127,8 +130,8 @@ export function WebReportCard({ report }: { report: IceSourceReport }) {
     <article className="border border-border bg-surface-card p-5">
       <div className="flex flex-wrap items-center gap-1.5">
         <span className="inline-flex items-center gap-1 border border-accent/35 bg-accent/5 px-1.5 py-0.5 font-mono text-[8px] font-bold uppercase tracking-[0.08em] text-accent">
-          <Globe2 className="size-2.5" aria-hidden="true" />
-          Republished
+          <Sparkles className="size-2.5" aria-hidden="true" />
+          AI digest
         </span>
         <span className="border border-border bg-background px-1.5 py-0.5 font-mono text-[8px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
           {iceSourceKindLabel(report.kind)}
@@ -149,7 +152,7 @@ export function WebReportCard({ report }: { report: IceSourceReport }) {
       {titleGeneralized ? (
         <p className="mt-1 text-[9px] leading-relaxed text-muted-foreground">
           The original headline may contain a street-level location, so the visible headline is
-          generalized. The source URL and full source text remain available below.
+          generalized. The source URL and an AI-refined summary remain available below.
         </p>
       ) : null}
       {showSourceTitle ? (
@@ -172,17 +175,11 @@ export function WebReportCard({ report }: { report: IceSourceReport }) {
         <span>Retrieved {sourceDate(report.source_retrieved_at)}</span>
       </p>
 
-      <details className="group mt-3 border border-border bg-background">
-        <summary className="flex min-h-9 cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.09em] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
-          Read full source text
-          <span className="text-muted-foreground transition-transform group-open:rotate-180" aria-hidden="true">
-            ▾
-          </span>
-        </summary>
-        <div className="whitespace-pre-line border-t border-border px-3 py-3 text-xs leading-relaxed text-foreground">
-          {report.text_content}
-        </div>
-      </details>
+      <WebReportRefinedSummary
+        reportId={report.id}
+        initialText={report.refined_text}
+        sourceUrl={report.source_url}
+      />
 
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
         <a
@@ -195,7 +192,7 @@ export function WebReportCard({ report }: { report: IceSourceReport }) {
           <ArrowUpRight className="size-3" aria-hidden="true" />
         </a>
         <span className="font-mono text-[8px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
-          Source text / {report.extraction_method}
+          AI summary / {report.extraction_method}
         </span>
       </div>
     </article>

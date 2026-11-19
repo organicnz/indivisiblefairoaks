@@ -15,6 +15,8 @@ const REPORT: IceSourceReport = {
   source_retrieved_at: '2026-11-16T19:00:00.000Z',
   title: 'Report <headline>',
   text_content: 'Line one & line two\nLine three "quoted".',
+  refined_text: null,
+  refined_at: null,
   city: 'Sacramento',
   state_code: 'CA',
   kind: 'enforcement',

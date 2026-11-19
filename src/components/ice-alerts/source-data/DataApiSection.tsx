@@ -53,7 +53,7 @@ export function DataApiSection() {
   "perPage": 20,
   "totalPages": 177,
   "filters": { "query": "", "kind": "all", "stateCode": "", "city": "" },
-  "reports": [ { "id": "...", "source_url": "...", "text_content": "..." } ]
+  "reports": [ { "id": "...", "source_url": "...", "refined_text": "..." } ]
 }`}
               </pre>
             </div>
@@ -73,8 +73,9 @@ export function DataApiSection() {
               <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
                 The chapter does not independently verify these reports. Source text remains the
                 publisher&apos;s; its terms may apply. Do not use this dataset to identify, locate, or
-                harass any person. Structured location is city-level; the full source text is
-                preserved verbatim.
+                harass any person. Structured location is city-level. The data layer keeps the
+                attributed source extract for research; the public reading panel shows a cached AI
+                digest, not copied prose.
               </p>
             </section>
 

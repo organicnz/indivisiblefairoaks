@@ -85,6 +85,11 @@ export type IceSourceReportInput = {
   published_at?: string;
 };
 
+export type IceSourceReportRefinementRow = Pick<
+  IceSourceReport,
+  'id' | 'source_url' | 'source_title' | 'title' | 'text_content' | 'refined_text' | 'refined_at'
+>;
+
 export type IceSourceReportSummary = Pick<
   IceSourceReport,
   | 'id'
@@ -161,7 +166,10 @@ type IceCrawlDatabase = {
       ice_source_reports: {
         Row: IceSourceReport;
         Insert: IceSourceReportInput;
-        Update: Partial<IceSourceReportInput>;
+        Update: Partial<IceSourceReportInput> & {
+          refined_text?: string | null;
+          refined_at?: string | null;
+        };
         Relationships: [];
       };
       ice_heatmap_releases: {
@@ -595,6 +603,58 @@ export async function getPublishedSourceReportCitySummary(
   };
 }
 
+export async function getSourceReportForRefinement(
+  store: IceCrawlStore,
+  id: string
+): Promise<IceSourceReportRefinementRow | null> {
+  const { data, error } = await store
+    .from('ice_source_reports')
+    .select('id, source_url, source_title, title, text_content, refined_text, refined_at')
+    .eq('id', id)
+    .lte('published_at', new Date().toISOString())
+    .maybeSingle();
+  if (error) throw new Error(`source report refinement read failed: ${error.message}`);
+  return (data as IceSourceReportRefinementRow | null) ?? null;
+}
+
+export async function saveSourceReportRefinement(
+  store: IceCrawlStore,
+  id: string,
+  text: string,
+  refinedAt: string
+): Promise<boolean> {
+  const { data, error } = await store
+    .from('ice_source_reports')
+    .update({ refined_text: text, refined_at: refinedAt })
+    .eq('id', id)
+    .select('id');
+  if (error) throw new Error(`source report refinement write failed: ${error.message}`);
+  return (data?.length ?? 0) > 0;
+}
+
+function toPublicSourceReport(row: IceSourceReport): IceSourceReport {
+  // Select `*` so the archive remains readable between an app deploy and the
+  // reading-panel migration. The mapper keeps internal crawl fields out of the
+  // public projection and turns absent new columns into nulls.
+  return {
+    id: row.id,
+    source_name: row.source_name,
+    source_url: row.source_url,
+    source_title: row.source_title,
+    source_published_at: row.source_published_at,
+    source_retrieved_at: row.source_retrieved_at,
+    title: row.title,
+    text_content: row.text_content,
+    refined_text: row.refined_text ?? null,
+    refined_at: row.refined_at ?? null,
+    city: row.city,
+    state_code: row.state_code,
+    kind: row.kind,
+    extraction_method: row.extraction_method,
+    published_at: row.published_at,
+  };
+}
+
 export async function getPublishedSourceReports(
   store: IceCrawlStore,
   limit = 12,
@@ -605,9 +665,7 @@ export async function getPublishedSourceReports(
   const to = from + Math.max(1, limit) - 1;
   let query = store
     .from('ice_source_reports')
-    .select(
-      'id, source_name, source_url, source_title, source_published_at, source_retrieved_at, title, text_content, city, state_code, kind, extraction_method, published_at'
-    )
+    .select('*')
     .order('published_at', { ascending: false });
 
   if (filters?.kind && filters.kind !== 'all') {
@@ -629,5 +687,5 @@ export async function getPublishedSourceReports(
 
   const { data, error } = await query.range(from, to);
   if (error) throw new Error(`source reports failed: ${error.message}`);
-  return (data ?? []) as IceSourceReport[];
+  return ((data ?? []) as IceSourceReport[]).map(toPublicSourceReport);
 }

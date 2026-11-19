@@ -514,6 +514,17 @@ export const REGISTRY = {
     owner: OWNERS['edge-runtime'],
     stores: ['edge-secret'],
   },
+  ICE_REFINE_RATE_LIMIT_MAX: {
+    exposure: EXPOSURE.public,
+    owner: OWNERS['edge-runtime'],
+    stores: ['edge-secret'],
+    note: 'Per-IP ceiling for the source crawler\'s line-selection calls. Tuning, not a credential.',
+  },
+  ICE_REFINE_RATE_LIMIT_WINDOW_MIN: {
+    exposure: EXPOSURE.public,
+    owner: OWNERS['edge-runtime'],
+    stores: ['edge-secret'],
+  },
   SEARCH_RATE_LIMIT_MAX: { exposure: EXPOSURE.public, owner: OWNERS['edge-runtime'], stores: ['edge-secret'] },
   SEARCH_RATE_LIMIT_WINDOW_MIN: { exposure: EXPOSURE.public, owner: OWNERS['edge-runtime'], stores: ['edge-secret'] },
   SEARCH_RPC_TIMEOUT_MS: { exposure: EXPOSURE.public, owner: OWNERS['edge-runtime'], stores: ['edge-secret'] },

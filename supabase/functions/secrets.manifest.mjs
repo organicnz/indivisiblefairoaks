@@ -139,6 +139,23 @@ export const FUNCTION_SECRETS = {
     ICE_AI_RATE_LIMIT_MAX: { verify: false, note: 'Defaults in code.' },
     ICE_AI_RATE_LIMIT_WINDOW_MIN: { verify: false, note: 'Defaults in code.' },
   },
+  'ice-source-refine': {
+    ZAI_API_KEY: {
+      verify: false,
+      note: 'Primary model provider for source-line selection. Falls back to Groq.',
+    },
+    GROQ_API_KEY: {
+      verify: false,
+      note: 'Fallback model provider. The crawler uses deterministic cleaning if both fail.',
+    },
+    ICE_ZAI_MODEL: { verify: false, note: 'Model name, not a credential.' },
+    ICE_GROQ_MODEL: { verify: false, note: 'Model name, not a credential.' },
+    ICE_REFINE_RATE_LIMIT_MAX: {
+      verify: false,
+      note: 'Per-IP request ceiling for crawler refinement. Defaults in code.',
+    },
+    ICE_REFINE_RATE_LIMIT_WINDOW_MIN: { verify: false, note: 'Defaults in code.' },
+  },
   'walle-refresh': {
     WALLE_REFRESH_TOKEN: {
       verify: false,
@@ -170,6 +187,7 @@ export const SHARED = {
     'walle-refresh',
     'wall-e-chat',
     'ice-case-brief',
+    'ice-source-refine',
     'data-points',
   ],
 }

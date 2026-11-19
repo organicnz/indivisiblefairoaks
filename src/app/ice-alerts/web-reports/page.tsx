@@ -18,9 +18,9 @@ import {
 import { pageMetadata } from '@/lib/metadata';
 
 export const metadata: Metadata = pageMetadata({
-  title: 'Republished Web Reports | ICE Alert',
+  title: 'Source-Attributed Web Reports | ICE Alert',
   description:
-    'Browse source-attributed reports republished from approved public web sources nationwide or near your location, with the original URL, source label, publication time, and full readable source text.',
+    'Browse AI-refined, source-grounded digests of reports from approved public web sources nationwide or near your location, with the original URL, source label, and publication time.',
   path: '/ice-alerts/web-reports',
   robots: { index: false, follow: false },
 });
