@@ -7,7 +7,10 @@ import { MobilizeImportModal } from '@/components/admin/civic/MobilizeImportModa
 import { useEditContext } from '@/components/layout/useEditContext';
 import { fetchWithTimeout } from '@/lib/service-fetch';
 import { CivicEventCard } from '@/components/ui/CivicEventCard';
-import { EventsCalendarToolbar } from '@/components/ui/EventsCalendarToolbar';
+import {
+  EVENT_CATEGORIES,
+  EventsCalendarToolbar,
+} from '@/components/ui/EventsCalendarToolbar';
 import type { CivicEvent } from '@/components/ui/civic-event';
 import { EVENTS, withUpcomingFallback } from '@/components/ui/events-calendar-fallback';
 import { DataPoint } from '@/components/ui/DataPoint';
@@ -54,6 +57,26 @@ export function InteractiveEventsCalendar({
     }
   }, []);
 
+  // Issue #180: homepage quick hits link to a filtered calendar. Reading the
+  // query string in an effect keeps `/events` statically prerenderable while
+  // still applying the requested category as soon as the page hydrates. The
+  // popstate listener keeps the visible filter honest when the visitor uses
+  // browser back/forward between filtered views.
+  useEffect(() => {
+    const applyCategoryFromUrl = () => {
+      const category = new URLSearchParams(window.location.search).get('category');
+      setActiveCategory(
+        category && (EVENT_CATEGORIES as readonly string[]).includes(category)
+          ? category
+          : 'All Actions'
+      );
+    };
+
+    applyCategoryFromUrl();
+    window.addEventListener('popstate', applyCategoryFromUrl);
+    return () => window.removeEventListener('popstate', applyCategoryFromUrl);
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     async function loadEventsFromApi() {
@@ -73,6 +96,24 @@ export function InteractiveEventsCalendar({
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  const handleCategoryChange = useCallback((category: string) => {
+    setActiveCategory(category);
+
+    // Keep the selected category in the URL so a filtered view can be shared
+    // or refreshed without losing the user's choice.
+    const url = new URL(window.location.href);
+    if (category === 'All Actions') {
+      url.searchParams.delete('category');
+    } else {
+      url.searchParams.set('category', category);
+    }
+    window.history.replaceState(
+      window.history.state,
+      '',
+      `${url.pathname}${url.search}${url.hash}`
+    );
   }, []);
 
   const filteredEvents = eventsList.filter((event) => {
@@ -189,7 +230,7 @@ export function InteractiveEventsCalendar({
         isAdmin={isAdmin}
         activeCategory={activeCategory}
         searchQuery={searchQuery}
-        onCategoryChange={setActiveCategory}
+        onCategoryChange={handleCategoryChange}
         onSearchQueryChange={setSearchQuery}
         onAddEvent={handleOpenCreateModal}
         onImportMobilize={() => setIsMobilizeModalOpen(true)}

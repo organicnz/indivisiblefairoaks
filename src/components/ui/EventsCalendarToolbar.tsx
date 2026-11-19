@@ -10,7 +10,7 @@ import {
 import { ChevronDown, Download, Plus, Search, X } from 'lucide-react';
 import { useRef, useState } from 'react';
 
-const CATEGORIES = [
+export const EVENT_CATEGORIES = [
   'All Actions',
   'Meetings',
   'Resistance Choir',
@@ -149,7 +149,7 @@ export function EventsCalendarToolbar({
     onWheel={handleFiltersWheel}
     className="flex items-center gap-1.5 flex-nowrap overflow-x-auto scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden flex-1 min-w-0 py-1"
   >
-    {CATEGORIES.map((cat) => (
+    {EVENT_CATEGORIES.map((cat) => (
       <button
         key={cat}
         type="button"

@@ -17,11 +17,11 @@ export const PARTNER_FALLBACK: Partner[] = [
     },
     {
       slug: 'indivisible-ca-statestrong',
-      name: 'Indivisible California StateStrong',
+      name: 'Indivisible CA: StateStrong',
       category: 'Statewide Coalition',
       description:
         'Connecting dozens of local Indivisible chapters across California to coordinate legislative advocacy in Sacramento and champion state-level progressive policy.',
-      url: 'https://indivisibleca.org',
+      url: 'https://www.castatestrong.org/',
     },
     {
       slug: 'sister-district-sac',
@@ -45,7 +45,23 @@ export const PARTNER_FALLBACK: Partner[] = [
       category: 'Voting Rights & Nonpartisan Guides',
       description:
         'Empowering voters and defending democracy through nonpartisan ballot analysis, candidate forums, and local high school voter registration drives.',
-      url: 'https://my.lwv.org/california/sacramento-county',
+      url: 'https://www.lwvsacramento.org',
+    },
+    {
+      slug: 'norcal-resist',
+      name: 'NorCal Resist',
+      category: 'Community Solidarity Partner',
+      description:
+        'Community members organizing for a better world through shared resources and support.',
+      url: 'https://www.norcalresist.org',
+    },
+    {
+      slug: 'coalition-against-project-2025',
+      name: 'Coalition Against Project 2025',
+      category: 'National Democracy Coalition',
+      description:
+        'A regional coalition opposing Project 2025, with partner organizations, a shared action calendar, and tools for local resistance.',
+      url: 'https://www.opposeproject2025.org/',
     },
     {
       slug: 'aclu-norcal',

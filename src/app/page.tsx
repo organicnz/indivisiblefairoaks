@@ -5,6 +5,7 @@ import { HomeGathering } from '@/components/home/HomeGathering';
 import { HomeHero } from '@/components/home/HomeHero';
 import { HomeNonviolence } from '@/components/home/HomeNonviolence';
 import { HomePillars } from '@/components/home/HomePillars';
+import { HomeQuickHits } from '@/components/home/HomeQuickHits';
 import { HomeSupportCta } from '@/components/home/HomeSupportCta';
 import { HomeVoterHub } from '@/components/home/HomeVoterHub';
 import { CivicActionTicker } from '@/components/ui/CivicActionTicker';
@@ -27,6 +28,7 @@ export default async function HomePage() {
   return (
     <div className="civic-page flex w-full flex-col">
       <HomeHero photos={galleryPhotos} dataPoints={dataPoints} />
+      <HomeQuickHits dataPoints={dataPoints} />
       <CivicActionTicker items={tickerItems} initialData={dataPoints} />
       <HomeGathering card={card} dataPoints={dataPoints} />
       <HomePillars dataPoints={dataPoints} />

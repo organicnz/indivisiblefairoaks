@@ -62,17 +62,24 @@ export const LINKS_DATA: LinkItem[] = [
       'Community members organizing for a better world through shared resources and support.',
   },
   {
+    name: 'Coalition Against Project 2025',
+    category: 'Movement Partners',
+    url: 'https://www.opposeproject2025.org/',
+    description:
+      'A regional coalition opposing Project 2025, with partner organizations, a shared action calendar, and tools for local resistance.',
+  },
+  {
     name: 'American River Democrats',
     category: 'Movement Partners',
     url: 'https://www.ardems.org',
     description: 'Community organization serving East Sacramento County communities.',
   },
   {
-    name: 'Indivisible California State Network',
+    name: 'Indivisible CA: StateStrong',
     category: 'Movement Partners',
-    url: 'https://indivisibleca.org',
+    url: 'https://www.castatestrong.org/',
     description:
-      'Coordinating Indivisible chapters across California for Sacramento legislative advocacy and statewide election protection.',
+      'A coalition of grassroots Indivisible groups across California, empowering constituents to make their voices heard in Sacramento and pass progressive state policy.',
   },
   {
     name: 'Mobilize.us Indivisible Directory',

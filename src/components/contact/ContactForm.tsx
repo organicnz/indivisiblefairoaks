@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { type ContactResult, type EmailStatus, submitContact } from '@/app/contact/actions';
 
@@ -15,6 +15,19 @@ export function ContactForm({ dataPoints }: ContactFormProps) {
   const [errorMessage, setErrorMessage] = useState('');
   const [senderEmail, setSenderEmail] = useState('');
   const [copyStatus, setCopyStatus] = useState<EmailStatus>('not-requested');
+  const messageRef = useRef<HTMLTextAreaElement>(null);
+
+  // The homepage's workgroup quick hit arrives with `topic=workgroup`. Start
+  // the message with that context so the volunteer does not have to guess what
+  // a workgroup is or retype the request. Never overwrite text the visitor has
+  // already entered (for example after a failed submit).
+  useEffect(() => {
+    const topic = new URLSearchParams(window.location.search).get('topic');
+    if (topic === 'workgroup' && messageRef.current && !messageRef.current.value) {
+      messageRef.current.value =
+        'I’d like to join a chapter workgroup. Please let me know which groups need help and how to get started.';
+    }
+  }, []);
 
   const statusMessageId =
     status === 'success'
@@ -52,7 +65,7 @@ export function ContactForm({ dataPoints }: ContactFormProps) {
   };
 
   return (
-          <div>
+          <div id="contact-form" className="scroll-mt-28">
             <h2 className="font-display text-3xl font-semibold tracking-[-0.03em]">Send a message</h2>
             <p className="mt-2 mb-8 max-w-xl text-sm leading-relaxed text-muted-foreground">
               Messages are read by chapter volunteers. For urgent voter assistance, use the county
@@ -192,6 +205,7 @@ export function ContactForm({ dataPoints }: ContactFormProps) {
                 </DataPoint>
               </label>
               <textarea
+                ref={messageRef}
                 name="message"
                 id="message"
                 rows={5}
