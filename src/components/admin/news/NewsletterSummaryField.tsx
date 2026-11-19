@@ -37,10 +37,11 @@ export function NewsletterSummaryField({
         rows={5}
         placeholder="Summarize the priorities, actions, and decisions a reader should know about."
         required
+        aria-describedby="civic-news-description-help"
         className="w-full resize-y rounded-sm border border-border bg-background px-3.5 py-2.5 text-sm font-medium leading-relaxed transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
       />
       <div className="mt-1 flex items-start justify-between gap-3">
-        <p className="text-[10px] leading-relaxed text-muted-foreground">
+        <p id="civic-news-description-help" className="text-[10px] leading-relaxed text-muted-foreground">
           Plain text. Keep it to a short archive summary; the full issue remains in the
           chapter&rsquo;s email or PDF archive. <NewsletterTextStats analysis={analysis} />
         </p>

@@ -51,6 +51,22 @@ const MEDIA_OVERLAY_ALLOWLIST = new Set([
   'src/components/home/HeroPhotoFrame.tsx',
 ]);
 
+/**
+ * Some public pages intentionally delegate their visual surface to a shell.
+ * The page file then has no `civic-page` string of its own, even though the
+ * shell applies it at runtime. Keep that delegation explicit and verify the
+ * shell really owns the surface, rather than exempting the page blindly.
+ */
+const DELEGATED_CIVIC_SURFACES = new Map([
+  ['src/app/login/page.tsx', ['src/components/auth/LoginForm.tsx']],
+  ['src/app/privacy-policy/page.tsx', ['src/components/legal/LegalPageShell.tsx']],
+  ['src/app/terms-and-conditions/page.tsx', ['src/components/legal/LegalPageShell.tsx']],
+  [
+    'src/app/ice-alerts/reunification/status/page.tsx',
+    ['src/components/ice-alerts/reunification-status/StatusShell.tsx'],
+  ],
+]);
+
 const ADMIN_LAYOUT = 'src/app/admin/layout.tsx';
 
 async function exists(path) {
@@ -145,9 +161,18 @@ for (const file of targets) {
     }
   }
 
+  const delegatedSurfaces = DELEGATED_CIVIC_SURFACES.get(file) ?? [];
+  const delegatedSurfaceCoversPage = await Promise.all(
+    delegatedSurfaces.map(async (path) => {
+      if (!(await exists(path))) return false;
+      return /\bcivic-page\b/.test(await Bun.file(`${ROOT}/${path}`).text());
+    })
+  ).then((results) => results.length > 0 && results.every(Boolean));
+
   if (
     publicPages.includes(file) &&
     !/\bcivic-page\b/.test(text) &&
+    !delegatedSurfaceCoversPage &&
     !/export\s+default\s+function\s+\w*[Rr]edirect/.test(text)
   ) {
     failures.push({

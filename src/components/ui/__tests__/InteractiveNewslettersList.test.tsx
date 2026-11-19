@@ -173,6 +173,46 @@ describe('InteractiveNewslettersList', () => {
     expect(container.textContent).not.toContain('Fall Bulletin');
   });
 
+  it('treats a whitespace-only query as the complete archive', async () => {
+    await act(async () => {
+      root.render(
+        <InteractiveNewslettersList
+          initialNewsletters={[
+            {
+              slug: 'fall-bulletin',
+              title: 'Fall Bulletin',
+              date_label: 'October 2026',
+              description: 'Election defense.',
+              topics: ['Elections'],
+              sort_order: 10,
+              published_at: null,
+            },
+            {
+              slug: 'choir-night',
+              title: 'Choir Night',
+              date_label: 'September 2026',
+              description: 'Music and organizing.',
+              topics: ['Choir Actions'],
+              sort_order: 20,
+              published_at: null,
+            },
+          ]}
+        />
+      );
+    });
+
+    const search = container.querySelector<HTMLInputElement>('[data-testid="newsletter-search"]');
+    if (!search) throw new Error('newsletter search did not render');
+
+    await act(async () => {
+      setInputValue(search, '   ');
+    });
+
+    expect(container.textContent).toContain('Fall Bulletin');
+    expect(container.textContent).toContain('Choir Night');
+    expect(container.textContent).not.toContain('Showing');
+  });
+
   it('shows the stored publication instant as Pacific wall time when an admin opens edit', async () => {
     mockEditContext.isAdmin = true;
     await act(async () => {

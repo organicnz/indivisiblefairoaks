@@ -2,6 +2,7 @@
 
 import { Eye } from 'lucide-react';
 import { CONTENT_TYPES, type ContentType } from '@/lib/content';
+import { ContentExcerptField } from './ContentExcerptField';
 import { ContentImageInput } from './ContentImageInput';
 
 interface ContentEditorSettingsPanelProps {
@@ -21,6 +22,7 @@ interface ContentEditorSettingsPanelProps {
   siteHost: string;
   derivedExcerpt: string;
   excerpt: string;
+  onExcerptChange: (value: string) => void;
   onUseGeneratedSummary: () => void;
 }
 
@@ -41,6 +43,7 @@ export function ContentEditorSettingsPanel({
   siteHost,
   derivedExcerpt,
   excerpt,
+  onExcerptChange,
   onUseGeneratedSummary,
 }: ContentEditorSettingsPanelProps) {
   return (
@@ -114,6 +117,18 @@ export function ContentEditorSettingsPanel({
         />
       </div>
 
+      <div className="space-y-3 rounded-2xl border border-border bg-surface-card p-5 shadow-xs">
+        <h2 className="font-display text-xs font-semibold tracking-[-0.01em] text-muted-foreground">
+          Card summary
+        </h2>
+        <ContentExcerptField
+          excerpt={excerpt}
+          derivedExcerpt={derivedExcerpt}
+          onChange={onExcerptChange}
+          onUseGeneratedSummary={onUseGeneratedSummary}
+        />
+      </div>
+
       {/*
         SEO meta fields. Stored in content.metadata as meta_title /
         meta_description; generateMetadata uses them when present and falls
@@ -128,6 +143,7 @@ export function ContentEditorSettingsPanel({
         <label className="block text-xs font-medium text-muted-foreground">
           Meta title
           <input
+            id="content-meta-title"
             type="text"
             value={metaTitle}
             onChange={(e) => onMetaTitleChange(e.target.value)}
@@ -146,6 +162,7 @@ export function ContentEditorSettingsPanel({
         <label className="block text-xs font-medium text-muted-foreground">
           Meta description
           <textarea
+            id="content-meta-description"
             value={metaDescription}
             onChange={(e) => onMetaDescriptionChange(e.target.value)}
             placeholder={derivedExcerpt || 'No summary yet.'}
@@ -184,17 +201,8 @@ export function ContentEditorSettingsPanel({
           {siteHost}/{slug || '…'}
         </p>
         <p className="text-xs leading-relaxed text-muted-foreground">
-          {metaDescription.trim() || excerpt.trim() || derivedExcerpt || 'No summary yet.'}
+          {metaDescription.trim() || derivedExcerpt || 'No summary yet.'}
         </p>
-        {!metaDescription.trim() && !excerpt.trim() && derivedExcerpt && (
-          <button
-            type="button"
-            onClick={onUseGeneratedSummary}
-            className="text-xs font-medium text-primary dark:text-primary-on-dark underline underline-offset-2 focus-visible:ring-2 focus-visible:ring-primary"
-          >
-            Use the generated summary
-          </button>
-        )}
       </div>
     </aside>
   );

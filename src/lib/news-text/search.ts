@@ -1,6 +1,19 @@
-import { matchesNewsText, matchesNewsWord, normalizeNewsText, tokenizeNewsQuery } from './normalize';
+import { cleanNewsletterTopicLabel } from '@/lib/newsletters';
+import { matchesNewsText, normalizeNewsText, resolveNewsQuery } from './normalize';
+import { rankNewsletters, rankNewsPosts } from './ranking';
 
 export const ALL_NEWSLETTER_TOPICS = 'All Topics';
+
+/**
+ * The sentinel is a label, not a value to compare with `===`: the CMS can
+ * translate the chip while the active filter stays on the sentinel.
+ */
+export function isAllNewsletterTopics(
+  topic: string,
+  allTopicsLabel = ALL_NEWSLETTER_TOPICS
+): boolean {
+  return normalizeNewsText(topic) === normalizeNewsText(allTopicsLabel);
+}
 
 export type NewsletterTextFields = {
   title: string;
@@ -8,6 +21,12 @@ export type NewsletterTextFields = {
   date_label?: string | null;
   topics?: readonly string[] | null;
   sort_order?: number | null;
+};
+
+export type NewsletterFilterOptions = {
+  query?: string;
+  topic?: string;
+  allTopicsLabel?: string;
 };
 
 export type NewsPostTextFields = {
@@ -25,15 +44,23 @@ export function collectNewsletterTopics(
   for (const item of items) {
     if (!Array.isArray(item.topics)) continue;
     for (const rawTopic of item.topics) {
-      const topic = rawTopic.trim();
+      const topic = cleanNewsletterTopicLabel(rawTopic);
       if (!topic) continue;
       const key = normalizeNewsText(topic);
-      if (!key || seen.has(key)) continue;
+      // "All Topics" is the archive's sentinel, not a real tag. A stored copy
+      // would otherwise render a second, duplicate filter chip.
+      if (!key || key === normalizeNewsText(ALL_NEWSLETTER_TOPICS) || seen.has(key)) continue;
       seen.add(key);
       topics.push(topic);
     }
   }
   return topics;
+}
+
+/** Compare topic labels by the same normalization used by search. */
+export function hasNewsletterTopic(topics: readonly string[], topic: string): boolean {
+  const key = normalizeNewsText(topic);
+  return Boolean(key) && topics.some((candidate) => normalizeNewsText(candidate) === key);
 }
 
 /**
@@ -46,23 +73,19 @@ export function collectNewsletterTopics(
  */
 export function filterNewsletters<T extends NewsletterTextFields>(
   items: readonly T[],
-  options: {
-    query?: string;
-    topic?: string;
-    allTopicsLabel?: string;
-  } = {}
+  options: NewsletterFilterOptions = {}
 ): T[] {
   const { query = '', topic = ALL_NEWSLETTER_TOPICS, allTopicsLabel = ALL_NEWSLETTER_TOPICS } =
     options;
   const topicKey = normalizeNewsText(topic);
-  const allTopicsKey = normalizeNewsText(allTopicsLabel);
+  const isAllTopics = isAllNewsletterTopics(topic, allTopicsLabel);
 
   return items.filter((item) => {
     const topics = Array.isArray(item.topics) ? item.topics : [];
     const matchesTopic =
       !topicKey ||
-      topicKey === allTopicsKey ||
-      topics.some((candidate) => normalizeNewsText(candidate) === topicKey);
+      isAllTopics ||
+      hasNewsletterTopic(topics, topic);
 
     return (
       matchesTopic &&
@@ -79,75 +102,23 @@ export function filterNewsPosts<T extends NewsPostTextFields>(
   return posts.filter((post) => matchesNewsText([post.title, post.excerpt, post.slug], query));
 }
 
-/**
- * Score how strongly a row matches the query. Each field carries its own weight
- * so a title hit outranks a summary hit, and a complete match gets a bonus.
- * Exposed for the ranking helpers and for callers that need a custom field set.
- */
-export function scoreNewsText(
-  fields: readonly (string | null | undefined)[],
-  query: string,
-  weights?: readonly number[]
-): number {
-  const tokens = tokenizeNewsQuery(query);
-  if (tokens.length === 0) return 0;
-
-  let score = 0;
-  fields.forEach((field, index) => {
-    if (typeof field !== 'string' || field.length === 0) return;
-    const words = normalizeNewsText(field).split(' ').filter(Boolean);
-    if (words.length === 0) return;
-
-    const matched = tokens.filter((token) =>
-      words.some((word) => matchesNewsWord(word, token))
-    ).length;
-    if (matched === 0) return;
-
-    const weight = weights?.[index] ?? 1;
-    score += matched * weight;
-    if (matched === tokens.length) score += weight;
-  });
-  return score;
-}
-
-/**
- * Rank matching posts so title hits and complete multi-word matches lead.
- * Ties retain the caller's original order.
- */
-export function rankNewsPosts<T extends NewsPostTextFields>(
+/** Filter and rank news posts through the same public-search contract. */
+export function searchNewsPosts<T extends NewsPostTextFields>(
   posts: readonly T[],
   query: string
 ): T[] {
-  if (tokenizeNewsQuery(query).length === 0) return [...posts];
-  return posts
-    .map((post, index) => ({
-      post,
-      index,
-      score: scoreNewsText([post.title, post.excerpt, post.slug], query, [8, 4, 2]),
-    }))
-    .sort((a, b) => b.score - a.score || a.index - b.index)
-    .map(({ post }) => post);
+  const normalized = resolveNewsQuery(query);
+  return rankNewsPosts(filterNewsPosts(posts, normalized), normalized);
 }
 
-/** Rank matching bulletins by title, topic, summary and date label. */
-export function rankNewsletters<T extends NewsletterTextFields>(
+/** Filter and rank bulletins, including their topic-filter semantics. */
+export function searchNewsletters<T extends NewsletterTextFields>(
   items: readonly T[],
-  query: string
+  options: NewsletterFilterOptions = {}
 ): T[] {
-  if (tokenizeNewsQuery(query).length === 0) return [...items];
-  return items
-    .map((item, index) => {
-      const topics = Array.isArray(item.topics) ? item.topics : [];
-      return {
-        item,
-        index,
-        score: scoreNewsText(
-          [item.title, item.description, item.date_label, ...topics],
-          query,
-          [10, 4, 2, ...topics.map(() => 6)]
-        ),
-      };
-    })
-    .sort((a, b) => b.score - a.score || a.index - b.index)
-    .map(({ item }) => item);
+  const normalized = resolveNewsQuery(options.query ?? '');
+  return rankNewsletters(
+    filterNewsletters(items, { ...options, query: normalized }),
+    normalized
+  );
 }

@@ -246,6 +246,10 @@
 @layer base {
   html {
     background: var(--background);
+    scroll-behavior: smooth;
+    scroll-padding-top: calc(var(--header-clearance) + 1rem);
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
   }
 
   body {
@@ -260,6 +264,36 @@
     background-size: 24px 24px;
     color: var(--foreground);
     -webkit-font-smoothing: antialiased;
+    /* Decorative offset plates bleed a few pixels outside their column. Clip
+       only the horizontal axis so a narrow viewport never grows a scrollbar. */
+    overflow-x: clip;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Respect the reader's motion preference at the stylesheet level as well as
+     inside the few components that animate with JavaScript. */
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      scroll-behavior: auto !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  /* The fixed masthead must not sit on top of an anchored heading. */
+  :where(h1, h2, h3, h4, h5, h6, [id]) {
+    scroll-margin-top: calc(var(--header-clearance) + 1rem);
+  }
+
+  :where(p, li, dd, dt) {
+    overflow-wrap: break-word;
   }
 
   h1,
@@ -273,6 +307,81 @@
     letter-spacing: -0.025em;
     text-wrap: balance;
   }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Print treatment
+
+   The public pages are designed as a broadsheet. Printing one should produce
+   the article, not the fixed chrome, controls, or atmospheric canvas. This
+   intentionally leaves in-page headers intact; only the site-owned banner,
+   footer, and floating surfaces are removed.
+───────────────────────────────────────────────────────────────────────────── */
+@media print {
+  :root {
+    --background: #fff;
+    --foreground: #000;
+    --surface-card: #fff;
+    --surface-muted: #fff;
+    --surface-deep: #fff;
+    --muted-foreground: #333;
+    --border: #999;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+    background-image: none !important;
+    color: #000 !important;
+  }
+
+  body > header,
+  body > footer,
+  body > canvas,
+  .floating-safe-position,
+  .floating-safe-position-panel {
+    display: none !important;
+  }
+
+  main {
+    display: block !important;
+  }
+
+  .civic-page .civic-section {
+    padding-block: 1.5rem;
+  }
+
+  .civic-page .civic-panel,
+  .civic-page .civic-frame {
+    break-inside: avoid;
+  }
+
+  a[href] {
+    text-decoration: underline;
+    text-underline-offset: 0.15em;
+  }
+}
+
+/* Forced-colors mode should preserve the editorial rules and focus state even
+   when the palette is replaced by the operating system. */
+@media (forced-colors: active) {
+  :where(a, button, input, textarea, select, summary, [tabindex]):focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+
+  .civic-kicker::before,
+  .civic-frame::after {
+    background: CanvasText;
+    forced-color-adjust: none;
+  }
+}
+
+/* Footer chrome sits on the ink surface, so its fallback focus ring uses the
+   brass token rather than the page primary. */
+footer a:focus-visible {
+  outline: 2px solid var(--accent-gold-on-dark);
+  outline-offset: 3px;
 }
 
 @layer components {

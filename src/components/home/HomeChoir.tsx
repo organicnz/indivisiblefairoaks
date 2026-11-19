@@ -8,7 +8,7 @@ export function HomeChoir({ dataPoints }: { dataPoints: Record<string, string> }
     <section className="civic-section bg-surface-muted text-foreground">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-          <div className="lg:col-span-7 space-y-6">
+          <div className="min-w-0 space-y-6 lg:col-span-7">
             <div className="civic-kicker">
               <Music size={13} aria-hidden="true" />
               <DataPoint name="home.choir.eyebrow" initialData={dataPoints}>
@@ -19,7 +19,7 @@ export function HomeChoir({ dataPoints }: { dataPoints: Record<string, string> }
               name="home.choir.headline"
               as="h2"
               initialData={dataPoints}
-              className="font-display text-4xl font-semibold leading-[0.98] tracking-[-0.04em] text-foreground sm:text-5xl"
+              className="max-w-[15ch] font-display text-4xl font-semibold leading-[0.98] tracking-[-0.04em] text-foreground sm:text-5xl"
             >
               Every good protest movement needs music.
             </DataPoint>
@@ -27,7 +27,7 @@ export function HomeChoir({ dataPoints }: { dataPoints: Record<string, string> }
               name="home.choir.intro"
               as="p"
               initialData={dataPoints}
-              className="text-base sm:text-lg text-muted-foreground dark:text-ink-on-dark leading-relaxed"
+              className="text-pretty text-base sm:text-lg text-muted-foreground dark:text-ink-on-dark leading-relaxed"
             >
               Music lifts us up and has sustained justice movements throughout history. We gather
               to weave our voices together in chants and songs of resistance, building vibrant
@@ -77,32 +77,33 @@ export function HomeChoir({ dataPoints }: { dataPoints: Record<string, string> }
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-4 pt-2">
+            <div className="flex flex-wrap items-center gap-4 pt-2">
               <Link
                 href="/choir"
-                className="inline-flex min-h-11 items-center gap-2 border border-primary bg-primary px-5 py-3 text-[11px] font-bold uppercase tracking-[0.12em] text-white transition-colors hover:border-primary-dark hover:bg-primary-dark"
+                className="inline-flex min-h-11 items-center gap-2 border border-primary bg-primary px-5 py-3 text-[11px] font-bold uppercase tracking-[0.12em] text-white transition-colors hover:border-primary-dark hover:bg-primary-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               >
                 <span>Choir Details & Video</span>
-                <ArrowRight size={14} />
+                <ArrowRight size={14} aria-hidden="true" />
               </Link>
               <a
                 href="https://www.mobilize.us/indivisible/"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex min-h-11 items-center gap-2 border border-foreground/30 px-5 py-3 text-[11px] font-bold uppercase tracking-[0.12em] text-foreground transition-colors hover:border-primary hover:text-primary-ink"
+                className="inline-flex min-h-11 items-center gap-2 border border-foreground/30 px-5 py-3 text-[11px] font-bold uppercase tracking-[0.12em] text-foreground transition-colors hover:border-primary hover:text-primary-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               >
                 Register via Mobilize
               </a>
             </div>
           </div>
 
-          <div className="lg:col-span-5">
-            <div className="border border-foreground/25 bg-surface-card p-4 sm:p-6">
+          <div className="min-w-0 lg:col-span-5">
+            <div className="relative overflow-hidden border border-foreground/25 border-l-4 border-l-accent bg-surface-card p-4 sm:p-6">
+              <span aria-hidden="true" className="absolute left-0 top-0 h-1 w-16 bg-accent" />
               <div className="flex items-center justify-between mb-4">
-                <span className="civic-meta text-primary-ink">
+                <span className="civic-meta shrink-0 text-primary-ink">
                   Protest In Song
                 </span>
-                <span className="text-[11px] text-muted-foreground dark:text-ink-muted-on-dark">
+                <span className="max-w-[15ch] text-right text-[11px] leading-snug text-muted-foreground dark:text-ink-muted-on-dark">
                   Fair Oaks Blvd & Manzanita Ave
                 </span>
               </div>
@@ -112,7 +113,7 @@ export function HomeChoir({ dataPoints }: { dataPoints: Record<string, string> }
                 poster="/images/gallery/carmichael-resistance-choir.jpg"
                 className="mb-4"
               />
-              <p className="text-xs text-muted-foreground dark:text-ink-muted-on-dark italic mb-6">
+              <p className="mb-6 text-pretty text-xs leading-relaxed text-muted-foreground dark:text-ink-muted-on-dark italic">
                 &ldquo;
                 <DataPoint name="home.choir.quote" initialData={dataPoints}>
                   We will sing our protest to the afternoon rush hour and community businesses.

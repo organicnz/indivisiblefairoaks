@@ -21,6 +21,8 @@ export function NewsletterBasicsFields({
   onSlugChange,
   onDateLabelChange,
 }: NewsletterBasicsFieldsProps) {
+  const storedSlug = slugifyNewsletter(slug) || slugifyNewsletter(title) || 'auto-generated';
+
   return (
     <>
       <div>
@@ -62,8 +64,13 @@ export function NewsletterBasicsFields({
               type="text"
               value={slug}
               onChange={(event) => onSlugChange(event.target.value)}
+              onBlur={() => {
+                const normalized = slugifyNewsletter(slug);
+                if (normalized && normalized !== slug) onSlugChange(normalized);
+              }}
               maxLength={NEWSLETTER_LIMITS.slug}
               placeholder="auto-generated-from-title"
+              aria-describedby="civic-news-slug-help"
               className="min-h-10 w-full rounded-sm border border-border bg-background px-3 py-2 font-mono text-xs transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
             />
             <button
@@ -76,11 +83,9 @@ export function NewsletterBasicsFields({
               <RotateCcw size={14} aria-hidden="true" />
             </button>
           </div>
-          <p className="mt-1 truncate text-[10px] text-muted-foreground">
+          <p id="civic-news-slug-help" className="mt-1 truncate text-[10px] text-muted-foreground">
             Stored identifier:{' '}
-            <span className="font-mono">
-              {slug || slugifyNewsletter(title) || 'auto-generated'}
-            </span>
+            <span className="font-mono">{storedSlug}</span>
           </p>
         </div>
 

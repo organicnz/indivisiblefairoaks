@@ -1,43 +1,4 @@
-import { matchesNewsWord, normalizeNewsText, tokenizeNewsQuery } from './normalize';
-
-export type NewsTextSegment = {
-  text: string;
-  matched: boolean;
-};
-
-function matchesAnyToken(value: string, tokens: readonly string[]): boolean {
-  const normalized = normalizeNewsText(value);
-  if (!normalized) return false;
-  const words = normalized.split(' ');
-  return tokens.some((token) => words.some((word) => matchesNewsWord(word, token)));
-}
-
-/**
- * Split text into alternating plain and matched segments for safe React
- * rendering. The original spelling and punctuation are preserved exactly.
- */
-export function splitNewsTextHighlights(text: string, query: string): NewsTextSegment[] {
-  if (!text) return [];
-  const tokens = tokenizeNewsQuery(query);
-  if (tokens.length === 0) return [{ text, matched: false }];
-
-  const segments: NewsTextSegment[] = [];
-  const append = (value: string, matched: boolean) => {
-    if (!value) return;
-    const previous = segments[segments.length - 1];
-    if (previous && previous.matched === matched) {
-      previous.text += value;
-      return;
-    }
-    segments.push({ text: value, matched });
-  };
-
-  for (const part of text.split(/(\s+)/)) {
-    if (!part) continue;
-    append(part, part.trim() ? matchesAnyToken(part, tokens) : false);
-  }
-  return segments;
-}
+import { matchesNewsWord, normalizeNewsText, parseNewsQuery } from './normalize';
 
 /**
  * Build a compact excerpt around the first matching word. This keeps search
@@ -53,25 +14,63 @@ export function buildNewsSearchSnippet(
   if (!source || maxLength <= 0) return '';
   if (source.length <= maxLength) return source;
 
-  const tokens = tokenizeNewsQuery(query);
-  let matchStart = -1;
-  let matchLength = 0;
-  if (tokens.length > 0) {
-    let offset = 0;
-    for (const part of source.split(/(\s+)/)) {
-      if (part && part.trim() && matchesAnyToken(part, tokens)) {
-        matchStart = offset;
-        matchLength = part.length;
-        break;
-      }
-      offset += part.length;
+  const { tokens, phrases } = parseNewsQuery(query);
+  // A whitespace-only or punctuation-only query is not a search. Returning the
+  // source keeps the caller's normal excerpt instead of silently cropping it
+  // from the front just because a snippet was requested.
+  if (tokens.length === 0) return source;
+
+  const parts: { start: number; end: number; words: string[] }[] = [];
+  let offset = 0;
+  for (const part of source.split(/(\s+)/)) {
+    if (part && part.trim()) {
+      parts.push({
+        start: offset,
+        end: offset + part.length,
+        words: normalizeNewsText(part).split(' ').filter(Boolean),
+      });
     }
+    offset += part.length;
   }
 
+  const words = parts.flatMap((part) => part.words.map((word) => ({ word, part })));
+  const phraseMatch = (() => {
+    for (const phrase of phrases) {
+      if (phrase.length === 0 || phrase.length > words.length) continue;
+      for (let start = 0; start <= words.length - phrase.length; start += 1) {
+        if (
+          phrase.every((word, index) => words[start + index]?.word === word)
+        ) {
+          return {
+            start: words[start].part.start,
+            end: words[start + phrase.length - 1].part.end,
+          };
+        }
+      }
+    }
+    return null;
+  })();
+
+  const tokenMatch = phraseMatch
+    ? null
+    : words.find(({ word }) => tokens.some((token) => matchesNewsWord(word, token)));
+  const matchStart = phraseMatch?.start ?? tokenMatch?.part.start ?? -1;
+  const matchLength = phraseMatch
+    ? phraseMatch.end - phraseMatch.start
+    : tokenMatch
+      ? tokenMatch.part.end - tokenMatch.part.start
+      : 0;
+
+  // The query matched a different field (usually the title). Cropping this
+  // text from the front would imply a match that is not here and add an
+  // ellipsis to an excerpt the reader could have seen whole.
+  if (matchStart === -1) return source;
+
   let start =
-    matchStart === -1
-      ? 0
-      : Math.max(0, matchStart - Math.floor((maxLength - matchLength) / 2));
+    Math.max(
+      0,
+      matchStart - Math.floor((maxLength - Math.min(matchLength, maxLength)) / 2)
+    );
   if (start > 0) {
     const previousSpace = source.lastIndexOf(' ', start);
     start = previousSpace === -1 ? 0 : previousSpace + 1;

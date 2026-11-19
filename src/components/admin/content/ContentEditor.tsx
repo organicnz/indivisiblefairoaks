@@ -1045,6 +1045,10 @@ export function ContentEditor({ initial, siteHost }: Props) {
           siteHost={siteHost}
           derivedExcerpt={derivedExcerpt}
           excerpt={excerpt}
+          onExcerptChange={(value) => {
+            noteEdit('type:excerpt');
+            setExcerpt(value);
+          }}
           onUseGeneratedSummary={() => {
             noteEdit(null);
             setExcerpt(derivedExcerpt.replace(/…$/, ''));

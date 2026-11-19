@@ -4,7 +4,7 @@ import { ArrowRight, PenLine, Trash2 } from 'lucide-react';
 import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { HighlightedText } from '@/components/ui/HighlightedText';
-import { buildNewsSearchSnippet } from '@/lib/news-text';
+import { NewsSearchExcerpt } from '@/components/ui/NewsSearchExcerpt';
 import type { NewsletterRow } from '@/lib/queries/civic';
 
 type NewsletterCardProps = {
@@ -25,16 +25,13 @@ export function NewsletterCard({
   searchQuery,
 }: NewsletterCardProps) {
   const topics = Array.isArray(newsletter.topics) ? newsletter.topics : [];
-  const description = searchQuery
-    ? buildNewsSearchSnippet(newsletter.description, searchQuery, 220)
-    : newsletter.description;
 
   return (
     <article className="civic-panel flex flex-col justify-between p-6 transition-colors hover:border-primary/40">
       <div className="space-y-3">
         <div className="flex items-center justify-between gap-3">
           <span className="text-xs font-bold uppercase tracking-wider text-primary-ink dark:text-accent-gold">
-            {newsletter.date_label}
+            <HighlightedText text={newsletter.date_label} query={searchQuery} />
           </span>
 
           <div className="flex items-center gap-2">
@@ -49,7 +46,7 @@ export function NewsletterCard({
                 <button
                   type="button"
                   onClick={() => onEdit(newsletter)}
-                  className="inline-flex cursor-pointer items-center gap-1 text-[11px] font-bold text-accent-gold transition-colors hover:text-white"
+                  className="inline-flex cursor-pointer items-center gap-1 text-[11px] font-bold text-accent-gold transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold"
                   title="Edit this bulletin"
                 >
                   <PenLine size={11} aria-hidden="true" />
@@ -65,7 +62,7 @@ export function NewsletterCard({
                   message={`Delete bulletin "${newsletter.title}" from archives?`}
                   danger
                   onConfirm={() => onDelete(newsletter.slug, newsletter.title)}
-                  idleClassName="inline-flex items-center gap-1 text-[11px] font-bold text-rose-400 hover:text-rose-300 transition-colors cursor-pointer"
+                  idleClassName="inline-flex items-center gap-1 text-[11px] font-bold text-rose-400 hover:text-rose-300 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
                 >
                   <Trash2 size={11} aria-hidden="true" />
                   <DataPoint name="news.admin.btn_delete" as="span" initialData={dataPoints}>
@@ -80,9 +77,15 @@ export function NewsletterCard({
         <h3 className="font-display text-2xl font-semibold leading-snug tracking-[-0.02em]">
           <HighlightedText text={newsletter.title} query={searchQuery} />
         </h3>
-        <p className="text-xs leading-relaxed text-muted-foreground dark:text-ink-on-dark">
-          <HighlightedText text={description} query={searchQuery} />
-        </p>
+        {newsletter.description ? (
+          <p className="text-xs leading-relaxed text-muted-foreground dark:text-ink-on-dark">
+            <NewsSearchExcerpt
+              text={newsletter.description}
+              query={searchQuery}
+              maxLength={220}
+            />
+          </p>
+        ) : null}
         {topics.length > 0 ? (
           <div className="flex flex-wrap gap-1.5 pt-2">
             {topics.map((topic, index) => (

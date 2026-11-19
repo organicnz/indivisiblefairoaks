@@ -1,21 +1,17 @@
 'use client';
 
-import { Loader2, Newspaper } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import {
   type CivicNewsletterRecord,
   deleteCivicNewsletter,
   getCivicNewslettersAdmin,
 } from '@/lib/actions/civic';
-import {
-  filterNewsletters,
-  mergeNewsletterRows,
-  rankNewsletters,
-  sortNewsletters,
-} from '@/lib/news-text';
-import { NewsletterManagerRow } from '@/components/admin/news/NewsletterManagerRow';
+import { ALL_NEWSLETTER_TOPICS, mergeNewsletterRows, sortNewsletters } from '@/lib/news-text';
+import { NewsletterManagerResults } from '@/components/admin/news/NewsletterManagerResults';
 import { NewsletterManagerToolbar } from '@/components/admin/news/NewsletterManagerToolbar';
+import { NewsletterResultsSummary } from '@/components/newsletters/NewsletterResultsSummary';
+import { useNewsletterArchive } from '@/hooks/useNewsletterArchive';
 import { CivicNewsletterEditorModal } from './CivicNewsletterEditorModal';
 
 interface CivicNewsletterManagerProps {
@@ -35,9 +31,10 @@ export function CivicNewsletterManager({
     initialNewsletters ? sortNewsletters(initialNewsletters) : []
   );
   const [loading, setLoading] = useState(initialNewsletters === undefined);
-  const [searchQuery, setSearchQuery] = useState('');
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editingNewsletter, setEditingNewsletter] = useState<CivicNewsletterRecord | null>(null);
+  const { searchQuery, setSearchQuery, effectiveQuery, results, clearSearch } =
+    useNewsletterArchive(newsletters);
 
   const fetchNewsletters = useCallback(async () => {
     setLoading(true);
@@ -76,11 +73,6 @@ export function CivicNewsletterManager({
     }
   };
 
-  const filteredNewsletters = useMemo(
-    () => rankNewsletters(filterNewsletters(newsletters, { query: searchQuery }), searchQuery),
-    [newsletters, searchQuery]
-  );
-
   const openCreate = () => {
     setEditingNewsletter(null);
     setIsEditorOpen(true);
@@ -95,42 +87,27 @@ export function CivicNewsletterManager({
         onRefresh={() => void fetchNewsletters()}
         onAddNewsletter={openCreate}
         newsLinkTarget={newsLinkTarget}
+        resultsId="admin-newsletter-results"
       />
 
-      <div className="min-h-[300px] flex-1 space-y-2.5 overflow-y-auto pr-1">
-        {loading ? (
-          <div className="flex flex-col items-center justify-center gap-2 py-16 text-muted-foreground">
-            <Loader2 size={24} className="animate-spin text-primary" aria-hidden="true" />
-            <span className="text-xs font-semibold">Loading newsletters...</span>
-          </div>
-        ) : filteredNewsletters.length === 0 ? (
-          <div className="space-y-2 rounded-2xl border border-dashed border-border bg-surface-muted/30 p-8 py-16 text-center">
-            <Newspaper
-              size={28}
-              className="mx-auto text-muted-foreground/60"
-              aria-hidden="true"
-            />
-            <p className="text-sm font-bold text-foreground">No newsletters found</p>
-            <p className="mx-auto max-w-sm text-xs text-muted-foreground">
-              {searchQuery
-                ? 'Try adjusting your search query.'
-                : 'Publish your chapter’s first action bulletin or legislative summary.'}
-            </p>
-          </div>
-        ) : (
-          filteredNewsletters.map((newsletter) => (
-            <NewsletterManagerRow
-              key={newsletter.slug}
-              newsletter={newsletter}
-              onEdit={(item) => {
-                setEditingNewsletter(item);
-                setIsEditorOpen(true);
-              }}
-              onDelete={(slug) => void handleDelete(slug)}
-            />
-          ))
-        )}
-      </div>
+      <NewsletterResultsSummary
+        shown={results.length}
+        total={newsletters.length}
+        query={effectiveQuery}
+        activeTopic={ALL_NEWSLETTER_TOPICS}
+      />
+
+      <NewsletterManagerResults
+        loading={loading}
+        newsletters={results}
+        query={effectiveQuery}
+        onClearSearch={clearSearch}
+        onEdit={(item) => {
+          setEditingNewsletter(item);
+          setIsEditorOpen(true);
+        }}
+        onDelete={(slug) => void handleDelete(slug)}
+      />
 
       <CivicNewsletterEditorModal
         isOpen={isEditorOpen}

@@ -1,24 +1,22 @@
 'use client';
 
-import { ArrowLeft, Check, ExternalLink, Loader2, Trash2 } from 'lucide-react';
+import { ArrowLeft, ExternalLink } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import { CivicEventManager } from '@/components/admin/civic/CivicEventManager';
 import { CivicLinkManager } from '@/components/admin/civic/CivicLinkManager';
 import { CivicNewsletterManager } from '@/components/admin/civic/CivicNewsletterManager';
 import { CRMContactEditorModal } from '@/components/admin/crm/CRMContactEditorModal';
-import { CRMPanelContactFilters } from '@/components/visual-edit/CRMPanelContactFilters';
 import { CRMPanelContactHeader } from '@/components/visual-edit/CRMPanelContactHeader';
+import {
+  CRM_CONTACT_PAGE_SIZE,
+  CRMPanelContactList,
+} from '@/components/visual-edit/CRMPanelContactList';
 import { CRMPanelContactOverview } from '@/components/visual-edit/CRMPanelContactOverview';
 import { CRMPanelContactTasks } from '@/components/visual-edit/CRMPanelContactTasks';
 import { CRMPanelContactTimeline } from '@/components/visual-edit/CRMPanelContactTimeline';
 import { CRMPanelHeader } from '@/components/visual-edit/CRMPanelHeader';
-import {
-  CONSENT_COLORS,
-  CONSENT_OPTIONS,
-  STATUS_COLORS,
-} from '@/components/visual-edit/crm-panel-styles';
+import { CONSENT_OPTIONS } from '@/components/visual-edit/crm-panel-styles';
 import { CRMTaskForm } from '@/components/admin/crm/CRMTaskForm';
 import {
   Dialog,
@@ -42,7 +40,7 @@ import {
   setCRMEmailConsent,
   updateCRMNote,
 } from '@/lib/actions/crm';
-import { consentLabel, filtersFromSegment, splitActiveValues } from '@/lib/crm-filters';
+import { filtersFromSegment, splitActiveValues } from '@/lib/crm-filters';
 import type {
   ConsentFilter,
   CRMActivity,
@@ -187,15 +185,13 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({
     [searchQuery, consentFilter, appliedSegment, statusFilter, selectedTag, districtFilter]
   );
 
-  const PAGE_SIZE = 25;
-
   const loadContacts = useCallback(async () => {
     setLoading(true);
     try {
       const res = await getCRMContacts({
         ...contactQueryArgs(),
         page,
-        pageSize: PAGE_SIZE,
+        pageSize: CRM_CONTACT_PAGE_SIZE,
       });
       setContacts(res.contacts);
       setTotalCount(res.totalCount);
@@ -817,343 +813,59 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({
             </div>
           ) : (
             <div className="flex h-[calc(85vh-80px)] overflow-hidden">
-              {/* Contact List */}
-              <div
-                className={`w-full md:w-96 flex flex-col border-r border-border bg-muted/30 shrink-0 ${
-                  selectedContact || showSegments ? 'hidden md:flex' : 'flex'
-                }`}
-              >
-                {/* Search & Filters */}
-                <CRMPanelContactFilters
-                  searchInputRef={searchInputRef}
-                  searchQuery={searchQuery}
-                  onSearchChange={(value) => {
-                    setSearchQuery(value);
-                    setPage(1);
-                  }}
-                  consentFilter={consentFilter}
-                  onConsentChange={(value) => {
-                    setConsentFilter(value);
-                    setPage(1);
-                  }}
-                  statusFilter={statusFilter}
-                  onStatusChange={(value) => {
-                    setStatusFilter(value);
-                    setPage(1);
-                  }}
-                  selectedTag={selectedTag}
-                  onTagChange={(value) => {
-                    setSelectedTag(value);
-                    setPage(1);
-                  }}
-                  districtFilter={districtFilter}
-                  onDistrictChange={(value) => {
-                    setDistrictFilter(value);
-                    setPage(1);
-                  }}
-                  availableTags={availableTags}
-                  appliedSegment={appliedSegment}
-                  hasActiveFilters={hasActiveFilters}
-                  onClearSegment={handleClearSegment}
-                  onResetFilters={handleResetFilters}
-                />
-
-                {/* Select All & Multi-Select Toolbar */}
-                {contacts.length > 0 && (
-                  <div className="px-3 py-1.5 bg-muted/50 border-b border-border flex items-center justify-between text-xs">
-                    <label className="flex items-center gap-2 cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        aria-label="Select all constituents on page"
-                        checked={
-                          contacts.length > 0 && contacts.every((c) => selectedContactIds.has(c.id))
-                        }
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedContactIds((prev) => {
-                              const next = new Set(prev);
-                              for (const c of contacts) {
-                                next.add(c.id);
-                              }
-                              return next;
-                            });
-                          } else {
-                            setSelectedContactIds((prev) => {
-                              const next = new Set(prev);
-                              for (const c of contacts) {
-                                next.delete(c.id);
-                              }
-                              return next;
-                            });
-                          }
-                        }}
-                        className="rounded border-border text-primary focus:ring-primary w-3.5 h-3.5 cursor-pointer"
-                      />
-                      <span className="text-muted-foreground font-medium">
-                        {selectedContactIds.size > 0
-                          ? `${selectedContactIds.size} selected`
-                          : `Select all (${contacts.length})`}
-                      </span>
-                    </label>
-                    {selectedContactIds.size > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => setSelectedContactIds(new Set())}
-                        className="text-muted-foreground hover:text-foreground text-[11px] underline"
-                        aria-label="Clear selection"
-                      >
-                        Clear
-                      </button>
-                    )}
-                  </div>
-                )}
-
-                {selectedContactIds.size > 0 && (
-                  <div className="p-2.5 bg-primary/5 border-b border-primary/20 space-y-2">
-                    <div className="flex items-center justify-between text-xs font-bold text-primary">
-                      <span className="flex items-center gap-1.5">
-                        <Check size={13} className="text-primary" />
-                        <span>Bulk Actions ({selectedContactIds.size})</span>
-                      </span>
-                      {isBulkUpdating && (
-                        <Loader2 size={12} className="animate-spin text-primary" />
-                      )}
-                    </div>
-                    <div className="grid grid-cols-2 gap-1.5">
-                      <select
-                        onChange={(e) => {
-                          if (e.target.value) {
-                            void handleBulkStatus(e.target.value as CRMContactStatus);
-                            e.target.value = '';
-                          }
-                        }}
-                        defaultValue=""
-                        disabled={isBulkUpdating}
-                        aria-label="Bulk update status"
-                        className="px-2 py-1 rounded bg-background border border-border text-[11px] font-medium focus:ring-1 focus:ring-primary truncate disabled:opacity-50"
-                      >
-                        <option value="" disabled>
-                          Change status…
-                        </option>
-                        <option value="active_volunteer">Active volunteer</option>
-                        <option value="supporter">Supporter</option>
-                        <option value="donor">Donor</option>
-                        <option value="choir">Choir</option>
-                        <option value="organizer">Organizer</option>
-                        <option value="inactive">Inactive</option>
-                      </select>
-                      <select
-                        onChange={(e) => {
-                          if (e.target.value) {
-                            void handleBulkConsent(
-                              e.target.value as 'opted_in' | 'opted_out' | 'unasked'
-                            );
-                            e.target.value = '';
-                          }
-                        }}
-                        defaultValue=""
-                        disabled={isBulkUpdating}
-                        aria-label="Bulk update consent"
-                        className="px-2 py-1 rounded bg-background border border-border text-[11px] font-medium focus:ring-1 focus:ring-primary truncate disabled:opacity-50"
-                      >
-                        <option value="" disabled>
-                          Change consent…
-                        </option>
-                        <option value="opted_in">Opt in</option>
-                        <option value="opted_out">Opt out</option>
-                        <option value="unasked">Never asked</option>
-                      </select>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <input
-                        type="text"
-                        value={bulkTagInput}
-                        onChange={(e) => setBulkTagInput(e.target.value)}
-                        placeholder="Add tag to selected…"
-                        disabled={isBulkUpdating}
-                        aria-label="Bulk tag name input"
-                        className="w-full px-2 py-1 text-[11px] rounded bg-background border border-border focus:ring-1 focus:ring-primary focus:outline-none disabled:opacity-50"
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            void handleBulkAddTag();
-                          }
-                        }}
-                      />
-                      <button
-                        type="button"
-                        onClick={handleBulkAddTag}
-                        disabled={!bulkTagInput.trim() || isBulkUpdating}
-                        aria-label="Apply bulk tag"
-                        className="px-2 py-1 text-[11px] font-bold rounded bg-primary text-white hover:bg-primary-light disabled:opacity-50 shrink-0 transition-colors"
-                      >
-                        Tag
-                      </button>
-                      <ConfirmAction
-                        label={`Delete ${selectedContactIds.size} constituents`}
-                        message={`Delete ${selectedContactIds.size} selected constituents? This cannot be undone.`}
-                        confirmLabel="Delete all"
-                        danger
-                        onConfirm={handleBulkDelete}
-                        idleClassName="p-1 rounded bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 text-xs transition-colors shrink-0 disabled:opacity-50"
-                      >
-                        <Trash2 size={13} />
-                      </ConfirmAction>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <input
-                        type="text"
-                        value={bulkDistrictInput}
-                        onChange={(e) => setBulkDistrictInput(e.target.value)}
-                        placeholder="Assign district (e.g. CA-06)…"
-                        disabled={isBulkUpdating}
-                        aria-label="Bulk district input"
-                        className="w-full px-2 py-1 text-[11px] rounded bg-background border border-border focus:ring-1 focus:ring-primary focus:outline-none disabled:opacity-50"
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            void handleBulkDistrict();
-                          }
-                        }}
-                      />
-                      <button
-                        type="button"
-                        onClick={handleBulkDistrict}
-                        disabled={!bulkDistrictInput.trim() || isBulkUpdating}
-                        aria-label="Apply bulk district"
-                        className="px-2 py-1 text-[11px] font-bold rounded bg-primary text-white hover:bg-primary-light disabled:opacity-50 shrink-0 transition-colors"
-                      >
-                        District
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Contact List */}
-                <div className="flex-1 overflow-y-auto overscroll-contain">
-                  {loading ? (
-                    <div className="p-4 text-center text-muted-foreground">
-                      <Loader2 className="mx-auto h-6 w-6 animate-spin" />
-                    </div>
-                  ) : contacts.length === 0 ? (
-                    <div className="p-4 text-center text-muted-foreground">
-                      <p className="font-medium">No constituents found</p>
-                      <p className="text-xs mt-1">Adjust your search or create a new constituent</p>
-                    </div>
-                  ) : (
-                    <ul className="divide-y divide-border">
-                      {contacts.map((contact) => (
-                        <li
-                          key={contact.id}
-                          className={`flex items-start gap-2.5 px-3 py-2 transition-colors ${
-                            selectedContact?.id === contact.id
-                              ? 'bg-primary/10'
-                              : 'hover:bg-background/50'
-                          }`}
-                        >
-                          <input
-                            type="checkbox"
-                            aria-label={`Select ${contact.first_name} ${contact.last_name}`}
-                            checked={selectedContactIds.has(contact.id)}
-                            onChange={(e) => {
-                              e.stopPropagation();
-                              setSelectedContactIds((prev) => {
-                                const next = new Set(prev);
-                                if (e.target.checked) {
-                                  next.add(contact.id);
-                                } else {
-                                  next.delete(contact.id);
-                                }
-                                return next;
-                              });
-                            }}
-                            className="rounded border-border text-primary focus:ring-primary w-3.5 h-3.5 mt-1 shrink-0 cursor-pointer"
-                          />
-                          <button
-                            type="button"
-                            className="flex-1 min-w-0 text-left cursor-pointer focus:outline-none"
-                            onClick={() => setSelectedContact(contact)}
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <div className="flex-1 min-w-0">
-                                <p className="font-medium truncate text-foreground text-sm">
-                                  {contact.first_name} {contact.last_name}
-                                </p>
-                                <p className="text-xs text-muted-foreground truncate">
-                                  {contact.email}
-                                </p>
-                              </div>
-                              <div className="flex items-center gap-1 shrink-0">
-                                <span
-                                  className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                                    STATUS_COLORS[contact.status] ||
-                                    'bg-muted text-muted-foreground'
-                                  }`}
-                                >
-                                  {contact.status.replace('_', ' ')}
-                                </span>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-1.5 mt-1">
-                              {contact.district && (
-                                <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-primary/10 text-primary border border-primary/20">
-                                  {contact.district}
-                                </span>
-                              )}
-                              {CONSENT_OPTIONS.map((opt) => {
-                                const currentConsent = consentLabel(contact.do_not_email);
-                                return (
-                                  <span
-                                    key={opt.value}
-                                    className={`px-1.5 py-0.5 rounded text-[9px] font-medium ${
-                                      currentConsent === opt.value
-                                        ? CONSENT_COLORS[opt.value]
-                                        : 'bg-muted/50 text-muted-foreground'
-                                    }`}
-                                  >
-                                    {opt.value === 'opted_in'
-                                      ? '✓'
-                                      : opt.value === 'opted_out'
-                                        ? '✗'
-                                        : '?'}
-                                  </span>
-                                );
-                              })}
-                            </div>
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-
-                  {/* Pagination */}
-                  {totalCount > PAGE_SIZE && (
-                    <div className="p-3 border-t border-border flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground">
-                        Page {page} of {Math.ceil(totalCount / PAGE_SIZE)} ({totalCount} total)
-                      </span>
-                      <div className="flex gap-1">
-                        <button
-                          type="button"
-                          disabled={page === 1 || loading}
-                          onClick={() => setPage((p) => p - 1)}
-                          className="px-2 py-1 text-xs rounded border border-border hover:bg-muted disabled:opacity-50"
-                        >
-                          Prev
-                        </button>
-                        <button
-                          type="button"
-                          disabled={page * PAGE_SIZE >= totalCount || loading}
-                          onClick={() => setPage((p) => p + 1)}
-                          className="px-2 py-1 text-xs rounded border border-border hover:bg-muted disabled:opacity-50"
-                        >
-                          Next
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
+              <CRMPanelContactList
+                searchInputRef={searchInputRef}
+                searchQuery={searchQuery}
+                onSearchChange={(value) => {
+                  setSearchQuery(value);
+                  setPage(1);
+                }}
+                consentFilter={consentFilter}
+                onConsentChange={(value) => {
+                  setConsentFilter(value);
+                  setPage(1);
+                }}
+                statusFilter={statusFilter}
+                onStatusChange={(value) => {
+                  setStatusFilter(value);
+                  setPage(1);
+                }}
+                selectedTag={selectedTag}
+                onTagChange={(value) => {
+                  setSelectedTag(value);
+                  setPage(1);
+                }}
+                districtFilter={districtFilter}
+                onDistrictChange={(value) => {
+                  setDistrictFilter(value);
+                  setPage(1);
+                }}
+                availableTags={availableTags}
+                appliedSegment={appliedSegment}
+                hasActiveFilters={hasActiveFilters}
+                onClearSegment={handleClearSegment}
+                onResetFilters={handleResetFilters}
+                contacts={contacts}
+                selectedContact={selectedContact}
+                onSelectContact={(contact) => setSelectedContact(contact)}
+                showSegments={showSegments}
+                loading={loading}
+                totalCount={totalCount}
+                page={page}
+                onPageChange={(next) => setPage(next)}
+                selectedContactIds={selectedContactIds}
+                onSelectedContactIdsChange={setSelectedContactIds}
+                isBulkUpdating={isBulkUpdating}
+                bulkTagInput={bulkTagInput}
+                onBulkTagInputChange={(value) => setBulkTagInput(value)}
+                bulkDistrictInput={bulkDistrictInput}
+                onBulkDistrictInputChange={(value) => setBulkDistrictInput(value)}
+                onBulkStatus={(status) => void handleBulkStatus(status)}
+                onBulkConsent={(consent) => void handleBulkConsent(consent)}
+                onBulkAddTag={() => void handleBulkAddTag()}
+                onBulkDistrict={() => void handleBulkDistrict()}
+                onBulkDelete={() => void handleBulkDelete()}
+              />
 
               {/* Detail / Editor Panel */}
               <div

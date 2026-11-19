@@ -18,6 +18,8 @@ export function NewsletterTopicsField({
   onAddTopic,
   onRemoveTopic,
 }: NewsletterTopicsFieldProps) {
+  const lastTopic = topics[topics.length - 1];
+
   return (
     <div>
       <div className="mb-1 flex items-center justify-between gap-3">
@@ -36,6 +38,11 @@ export function NewsletterTopicsField({
           value={topicInput}
           onChange={(event) => onTopicInputChange(event.target.value)}
           onKeyDown={(event) => {
+            if (event.key === 'Backspace' && !topicInput && lastTopic) {
+              event.preventDefault();
+              onRemoveTopic(lastTopic);
+              return;
+            }
             if (event.key === 'Enter' || event.key === ',') {
               event.preventDefault();
               onAddTopic();
@@ -44,15 +51,16 @@ export function NewsletterTopicsField({
           onBlur={() => {
             if (topicInput.trim()) onAddTopic();
           }}
-          maxLength={NEWSLETTER_LIMITS.topic}
+          maxLength={NEWSLETTER_LIMITS.topicInput}
           placeholder="e.g. Election Defense, Choir Actions, Food Drive"
+          aria-describedby="civic-news-topic-help"
           className="min-h-10 flex-1 rounded-sm border border-border bg-background px-3 py-2 text-xs font-medium transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
         />
         <button
           type="button"
           onClick={onAddTopic}
           disabled={!topicInput.trim() || previewTopicCount >= NEWSLETTER_LIMITS.topics}
-          className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-sm border border-border bg-secondary px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-secondary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50"
+          className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-sm border border-border bg-secondary px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-secondary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-50"
         >
           <Plus size={14} aria-hidden="true" />
           Add tag
@@ -81,11 +89,10 @@ export function NewsletterTopicsField({
             </span>
           ))}
         </div>
-      ) : (
-        <p className="mt-1 text-[10px] text-muted-foreground">
-          Press Enter or comma after each topic.
-        </p>
-      )}
+      ) : null}
+      <p id="civic-news-topic-help" className="mt-1 text-[10px] text-muted-foreground">
+        Press Enter, comma, or semicolon after each topic. You can paste a separated list.
+      </p>
     </div>
   );
 }

@@ -6,6 +6,8 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CivicNewsletterEditorModal } from '@/components/admin/civic/CivicNewsletterEditorModal';
 import { type CivicNewsletterRecord, saveCivicNewsletter } from '@/lib/actions/civic';
+import { NEWSLETTER_LONG_SENTENCE_WORDS } from '@/lib/news-text';
+import { NEWSLETTER_LIMITS } from '@/lib/newsletters';
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -112,6 +114,8 @@ describe('CivicNewsletterEditorModal', () => {
     const description = document.querySelector<HTMLTextAreaElement>('#civic-news-description');
     if (!topicInput || !description) throw new Error('editor fields did not render');
 
+    expect(topicInput.maxLength).toBe(NEWSLETTER_LIMITS.topicInput);
+
     await act(async () => {
       setInputValue(topicInput, 'Election Defense, Choir Actions');
     });
@@ -196,6 +200,30 @@ describe('CivicNewsletterEditorModal', () => {
     expect((preview?.textContent?.match(/Election Defense/g) ?? []).length).toBe(1);
   });
 
+  it('derives a canonical public identifier from an accented title', async () => {
+    await act(async () => {
+      root.render(
+        <CivicNewsletterEditorModal
+          isOpen={true}
+          onClose={vi.fn()}
+          newsletter={null}
+          onSaved={vi.fn()}
+        />
+      );
+    });
+
+    const title = document.querySelector<HTMLInputElement>('#civic-news-title');
+    const slug = document.querySelector<HTMLInputElement>('#civic-news-slug');
+    if (!title || !slug) throw new Error('basics fields did not render');
+
+    await act(async () => {
+      setInputValue(title, 'Café & Conversation');
+    });
+
+    expect(slug.value).toBe('cafe-conversation');
+    expect(document.body.textContent).toContain('Stored identifier: cafe-conversation');
+  });
+
   it('tidies pasted summary spacing and reports the live sentence count', async () => {
     await act(async () => {
       root.render(
@@ -215,7 +243,9 @@ describe('CivicNewsletterEditorModal', () => {
       setInputValue(description, '  One   two \r\n\r\n\r\n three  ');
     });
     expect(document.body.textContent).toContain('3 words');
-    expect(document.body.textContent).toContain('1 sentence');
+    // Two paragraphs are two independent sentences/fragments even when the
+    // author has not typed terminal punctuation yet.
+    expect(document.body.textContent).toContain('2 sentences');
 
     const tidy = [...document.querySelectorAll<HTMLButtonElement>('button')].find((button) =>
       /tidy spacing/i.test(button.textContent ?? '')
@@ -228,5 +258,28 @@ describe('CivicNewsletterEditorModal', () => {
     });
 
     expect(description.value).toBe('One two\n\nthree');
+  });
+
+  it('flags a summary sentence that is too long to scan', async () => {
+    await act(async () => {
+      root.render(
+        <CivicNewsletterEditorModal
+          isOpen={true}
+          onClose={vi.fn()}
+          newsletter={null}
+          onSaved={vi.fn()}
+        />
+      );
+    });
+
+    const description = document.querySelector<HTMLTextAreaElement>('#civic-news-description');
+    if (!description) throw new Error('summary field did not render');
+
+    const longSentence = `${'word '.repeat(NEWSLETTER_LONG_SENTENCE_WORDS + 1).trim()}.`;
+    await act(async () => {
+      setInputValue(description, longSentence);
+    });
+
+    expect(document.body.textContent).toContain('1 long sentence');
   });
 });

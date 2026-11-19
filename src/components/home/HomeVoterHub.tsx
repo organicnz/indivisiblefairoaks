@@ -52,10 +52,10 @@ const VOTER_CARDS: VoterCard[] = [
 
 export function HomeVoterHub({ dataPoints }: { dataPoints: Record<string, string> }) {
   return (
-    <section className="py-16 md:py-24 bg-background text-foreground">
+    <section className="civic-section bg-background text-foreground">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
-          <div>
+        <div className="civic-section-head">
+          <div className="min-w-0">
             <DataPoint
               name="home.voter.eyebrow"
               as="span"
@@ -68,42 +68,58 @@ export function HomeVoterHub({ dataPoints }: { dataPoints: Record<string, string
               name="home.voter.headline"
               as="h2"
               initialData={dataPoints}
-              className="mt-4 font-display text-4xl font-semibold leading-[0.98] tracking-[-0.04em] sm:text-5xl"
+              className="mt-4 max-w-[18ch] font-display text-4xl font-semibold leading-[0.98] tracking-[-0.04em] sm:text-5xl"
             >
               Voter Education &amp; Rights Hub
             </DataPoint>
           </div>
           <Link
             href="/voter-info"
-            className="inline-flex items-center gap-2 text-sm font-bold text-primary-ink dark:text-primary-on-dark hover:text-primary-dark dark:hover:text-primary-on-dark-muted transition-colors uppercase tracking-wider"
+            className="civic-link-arrow group justify-self-start md:justify-self-end"
           >
             <DataPoint as="span" name="home.voter.view_all" initialData={dataPoints}>
               View All 7 Voter Guides
             </DataPoint>
-            <ArrowRight size={16} aria-hidden="true" />
+            <ArrowRight
+              size={15}
+              aria-hidden="true"
+              className="transition-transform group-hover:translate-x-1 motion-reduce:transform-none"
+            />
           </Link>
         </div>
 
         <CopyRegion id="home-voter-hub">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {VOTER_CARDS.map((card) => {
+            {VOTER_CARDS.map((card, index) => {
               const Icon = card.icon;
               return (
                 <div
                   key={card.titleName}
-                  className="flex flex-col justify-between border-t border-foreground/25 pt-6 transition-colors hover:border-primary/60"
+                  className="civic-panel group relative flex h-full flex-col justify-between overflow-hidden p-5 hover:border-primary/50 sm:p-6"
                 >
-                  <div>
-                    <div
-                      className={`mb-4 flex size-10 items-center justify-center border border-border bg-background ${card.iconClassName}`}
-                    >
-                      <Icon size={20} />
+                  <span
+                    aria-hidden="true"
+                    className="absolute inset-x-0 top-0 h-0.5 origin-left scale-x-0 bg-primary transition-transform duration-300 group-hover:scale-x-100 motion-reduce:transition-none"
+                  />
+                  <div className="min-w-0">
+                    <div className="mb-6 flex items-start justify-between gap-3">
+                      <div
+                        className={`flex size-11 items-center justify-center border border-border bg-background transition-colors duration-300 group-hover:border-primary/40 ${card.iconClassName}`}
+                      >
+                        <Icon size={20} aria-hidden="true" />
+                      </div>
+                      <span
+                        aria-hidden="true"
+                        className="pt-1 font-mono text-[10px] font-bold tracking-[0.16em] text-muted-foreground"
+                      >
+                        0{index + 1}
+                      </span>
                     </div>
                     <DataPoint
                       name={card.titleName}
                       as="h3"
                       initialData={dataPoints}
-                      className="text-lg font-bold text-foreground mb-2"
+                      className="font-display text-2xl font-semibold leading-snug tracking-[-0.03em] text-foreground"
                     >
                       {card.title}
                     </DataPoint>
@@ -111,19 +127,23 @@ export function HomeVoterHub({ dataPoints }: { dataPoints: Record<string, string
                       name={card.descriptionName}
                       as="p"
                       initialData={dataPoints}
-                      className="text-xs text-muted-foreground leading-relaxed mb-4"
+                      className="mt-3 text-sm leading-relaxed text-muted-foreground"
                     >
                       {card.description}
                     </DataPoint>
                   </div>
                   <Link
                     href="/voter-info"
-                    className="text-xs font-bold text-primary-ink dark:text-primary-on-dark hover:text-primary-dark dark:hover:text-primary-on-dark-muted flex items-center gap-1.5"
+                    className="mt-6 flex min-h-11 items-center justify-between gap-3 border-t border-border pt-4 text-[10px] font-bold uppercase tracking-[0.12em] text-primary-ink transition-colors hover:text-primary-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface-card dark:text-primary-on-dark dark:hover:text-primary-on-dark-muted"
                   >
                     <DataPoint as="span" name={card.buttonName} initialData={dataPoints}>
                       {card.buttonLabel}
                     </DataPoint>
-                    <ArrowRight size={14} />
+                    <ArrowRight
+                      size={14}
+                      aria-hidden="true"
+                      className="transition-transform duration-300 group-hover:translate-x-0.5 motion-reduce:transform-none"
+                    />
                   </Link>
                 </div>
               );

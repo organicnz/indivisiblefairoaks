@@ -6,6 +6,7 @@ import { IS_PRODUCTION_SITE } from '@/config/site';
 import { recordAdminAudit } from '@/lib/admin-audit';
 import { requireAdmin } from '@/lib/admin-auth';
 import {
+  CONTENT_EXCERPT_MAX,
   CONTENT_TYPES,
   type ContentType,
   describeOversizedBody,
@@ -64,7 +65,7 @@ const contentSchema = z.object({
   id: z.number().int().positive().optional(),
   title: z.string().trim().min(1, 'Title is required').max(200),
   slug: slugSchema,
-  excerpt: z.string().trim().max(400).nullable().optional(),
+  excerpt: z.string().trim().max(CONTENT_EXCERPT_MAX).nullable().optional(),
   type: z.enum(CONTENT_TYPES).default('page'),
   status: z.enum(['publish', 'draft']).default('draft'),
   /** Rendered HTML from the block editor. */

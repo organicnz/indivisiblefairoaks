@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils';
+import { displayNewsQuery } from '@/lib/news-text';
 
 type SearchResultsSummaryProps = {
   count: number;
@@ -16,12 +17,14 @@ export function SearchResultsSummary({
   plural,
   className,
 }: SearchResultsSummaryProps) {
-  const trimmed = query.trim();
+  const trimmed = displayNewsQuery(query);
   if (!trimmed) return null;
 
   return (
     <p
       aria-live="polite"
+      aria-atomic="true"
+      role="status"
       className={cn(
         'text-xs font-bold uppercase tracking-wider text-muted-foreground dark:text-ink-muted-on-dark',
         className

@@ -74,19 +74,22 @@ export function PageMasthead({
             {meta ? <div className="mt-7">{meta}</div> : null}
           </div>
 
-          <div className="hidden lg:col-span-4 lg:flex lg:justify-end">
+          <div className="hidden min-w-0 lg:col-span-4 lg:flex lg:justify-end">
             {visual ?? (
-              <div
-                aria-hidden="true"
-                className={`flex aspect-square items-center justify-center border border-foreground/30 bg-surface-card ${
-                  compact ? 'w-32 xl:w-36' : 'w-44 xl:w-52'
-                }`}
-              >
-                <Icon
-                  aria-hidden="true"
-                  strokeWidth={0.7}
-                  className={`text-primary ${compact ? 'size-14' : 'size-24 xl:size-28'}`}
-                />
+              <div aria-hidden="true" className="relative shrink-0">
+                <div className="absolute inset-0 translate-x-2.5 translate-y-2.5 border border-foreground/20 bg-surface-deep/60" />
+                <div
+                  className={`relative flex aspect-square items-center justify-center border border-foreground/30 bg-surface-card ${
+                    compact ? 'w-32 xl:w-36' : 'w-44 xl:w-52'
+                  }`}
+                >
+                  <span className="absolute left-2 top-2 size-1.5 bg-accent" />
+                  <Icon
+                    aria-hidden="true"
+                    strokeWidth={0.7}
+                    className={`text-primary ${compact ? 'size-14' : 'size-24 xl:size-28'}`}
+                  />
+                </div>
               </div>
             )}
           </div>

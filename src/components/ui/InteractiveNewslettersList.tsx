@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { CivicNewsletterEditorModal } from '@/components/admin/civic/CivicNewsletterEditorModal';
 import { useEditContext } from '@/components/layout/useEditContext';
@@ -9,15 +9,9 @@ import { NewsletterEmptyState } from '@/components/newsletters/NewsletterEmptySt
 import { NewsletterFilterBar } from '@/components/newsletters/NewsletterFilterBar';
 import { NewsletterResultsSummary } from '@/components/newsletters/NewsletterResultsSummary';
 import { useDataPoints } from '@/hooks/useDataPoints';
+import { useNewsletterArchive } from '@/hooks/useNewsletterArchive';
 import { type CivicNewsletterRecord, deleteCivicNewsletter } from '@/lib/actions/civic';
-import {
-  ALL_NEWSLETTER_TOPICS,
-  collectNewsletterTopics,
-  filterNewsletters,
-  mergeNewsletterRows,
-  rankNewsletters,
-  sortNewsletters,
-} from '@/lib/news-text';
+import { mergeNewsletterRows, sortNewsletters } from '@/lib/news-text';
 import type { NewsletterRow } from '@/lib/queries/civic';
 
 export function InteractiveNewslettersList({
@@ -33,11 +27,19 @@ export function InteractiveNewslettersList({
   const [newslettersList, setNewslettersList] = useState<NewsletterRow[]>(() =>
     sortNewsletters(initialNewsletters ?? [])
   );
-  const [searchQuery, setSearchQuery] = useState('');
-  const [activeTopic, setActiveTopic] = useState(ALL_NEWSLETTER_TOPICS);
   const [selectedNewsletterForEdit, setSelectedNewsletterForEdit] =
     useState<CivicNewsletterRecord | null>(null);
   const [isEditorModalOpen, setIsEditorModalOpen] = useState(false);
+  const {
+    searchQuery,
+    setSearchQuery,
+    effectiveQuery,
+    activeTopic,
+    setActiveTopic,
+    allTopics,
+    results: filteredNewsletters,
+    clearFilters,
+  } = useNewsletterArchive(newslettersList);
 
   useEffect(() => {
     // The page already renders the cached server list. Re-fetching it on every
@@ -64,33 +66,6 @@ export function InteractiveNewslettersList({
       cancelled = true;
     };
   }, [initialNewsletters]);
-
-  const allTopics = useMemo(
-    () => [ALL_NEWSLETTER_TOPICS, ...collectNewsletterTopics(newslettersList)],
-    [newslettersList]
-  );
-
-  // A topic chip can disappear when its last bulletin is deleted or renamed.
-  // Leaving the stale filter selected would show an empty grid with no visible
-  // chip explaining why, so return to the complete archive instead.
-  useEffect(() => {
-    if (activeTopic !== ALL_NEWSLETTER_TOPICS && !allTopics.includes(activeTopic)) {
-      setActiveTopic(ALL_NEWSLETTER_TOPICS);
-    }
-  }, [activeTopic, allTopics]);
-
-  const filteredNewsletters = useMemo(
-    () =>
-      rankNewsletters(
-        filterNewsletters(newslettersList, {
-          query: searchQuery,
-          topic: activeTopic,
-          allTopicsLabel: ALL_NEWSLETTER_TOPICS,
-        }),
-        searchQuery
-      ),
-    [activeTopic, newslettersList, searchQuery]
-  );
 
   const handleOpenCreateModal = () => {
     setSelectedNewsletterForEdit(null);
@@ -148,11 +123,6 @@ export function InteractiveNewslettersList({
     toast.success(`Bulletin "${savedRecord.title}" saved successfully`);
   };
 
-  const clearFilters = () => {
-    setSearchQuery('');
-    setActiveTopic(ALL_NEWSLETTER_TOPICS);
-  };
-
   return (
     <div className="space-y-8">
       <div className="space-y-3">
@@ -165,16 +135,17 @@ export function InteractiveNewslettersList({
           onTopicChange={setActiveTopic}
           isAdmin={isAdmin}
           onAdd={handleOpenCreateModal}
+          resultsId="newsletter-results"
         />
         <NewsletterResultsSummary
           shown={filteredNewsletters.length}
           total={newslettersList.length}
-          query={searchQuery}
+          query={effectiveQuery}
           activeTopic={activeTopic}
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+      <div id="newsletter-results" className="grid grid-cols-1 gap-6 md:grid-cols-2">
         {newslettersList.length === 0 ? (
           <NewsletterEmptyState variant="archive" dataPoints={dataPoints} />
         ) : filteredNewsletters.length === 0 ? (
@@ -192,7 +163,7 @@ export function InteractiveNewslettersList({
               isAdmin={isAdmin}
               onEdit={handleOpenEditModal}
               onDelete={(slug, title) => void handleDeleteNewsletter(slug, title)}
-              searchQuery={searchQuery}
+              searchQuery={effectiveQuery || undefined}
             />
           ))
         )}

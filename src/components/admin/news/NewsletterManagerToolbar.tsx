@@ -11,6 +11,7 @@ type NewsletterManagerToolbarProps = {
   onRefresh: () => void;
   onAddNewsletter: () => void;
   newsLinkTarget: '_self' | '_blank';
+  resultsId?: string;
 };
 
 export function NewsletterManagerToolbar({
@@ -20,6 +21,7 @@ export function NewsletterManagerToolbar({
   onRefresh,
   onAddNewsletter,
   newsLinkTarget,
+  resultsId,
 }: NewsletterManagerToolbarProps) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-surface-muted/60 p-4">
@@ -29,11 +31,12 @@ export function NewsletterManagerToolbar({
           className="flex-1"
           value={searchQuery}
           onChange={onSearchChange}
-          placeholder="Search newsletters by title or topic..."
+          placeholder="Search bulletins by title, summary, or topic..."
           ariaLabel="Search newsletters by title, summary, or topic"
           testId="admin-newsletter-search"
           iconSize={15}
           clearLabel="Clear newsletter search"
+          resultsId={resultsId}
         />
 
         <button
@@ -42,7 +45,7 @@ export function NewsletterManagerToolbar({
           disabled={loading}
           title="Refresh newsletters list"
           aria-label="Refresh newsletters list"
-          className="rounded-lg border border-border bg-background p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+          className="rounded-lg border border-border bg-background p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50"
         >
           <RefreshCw size={14} className={loading ? 'animate-spin' : ''} aria-hidden="true" />
         </button>

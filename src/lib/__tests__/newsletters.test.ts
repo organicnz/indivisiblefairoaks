@@ -20,6 +20,8 @@ describe('newsletter contract', () => {
     expect(slugifyNewsletter('Summer Action Bulletin & Town Hall!')).toBe(
       'summer-action-bulletin-town-hall'
     );
+    expect(slugifyNewsletter('Café Night')).toBe('cafe-night');
+    expect(slugifyNewsletter('Søren & Straße')).toBe('soren-strasse');
     expect(slugifyNewsletter('  --  ')).toBe('');
   });
 
@@ -28,11 +30,15 @@ describe('newsletter contract', () => {
       normalizeNewsletterTopics([
         ' Election Defense ',
         'election defense',
+        'Election   Defense',
         '',
         'Choir Actions',
+        'Café',
+        'CAFÉ',
         '  ',
       ])
-    ).toEqual(['Election Defense', 'Choir Actions']);
+    ).toEqual(['Election Defense', 'Choir Actions', 'Café']);
+    expect(normalizeNewsletterTopics(['Søren', 'Soren'])).toEqual(['Søren']);
   });
 
   it('defaults topics and trims written fields', () => {

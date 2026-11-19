@@ -142,6 +142,24 @@ describe('InteractivePostsList', () => {
     expect(container.textContent).toContain('Mobilizing Carmichael');
   });
 
+  it('treats a whitespace-only query as no filter instead of cropping excerpts', async () => {
+    await act(async () => {
+      root.render(<InteractivePostsList initialPosts={SAMPLE_POSTS} />);
+    });
+
+    const search = container.querySelector<HTMLInputElement>('[data-testid="news-search"]');
+    if (!search) throw new Error('news search did not render');
+
+    await act(async () => {
+      setInputValue(search, '   ');
+    });
+
+    expect(container.textContent).toContain('Why Fair Oaks Needs Strong Public Schools');
+    expect(container.textContent).toContain('Mobilizing Carmichael');
+    expect(container.textContent).not.toContain('matching');
+    expect(container.textContent).toContain('A deep look at local school board policies');
+  });
+
   it('renders empty state when no posts are provided', async () => {
     await act(async () => {
       root.render(<InteractivePostsList initialPosts={[]} />);

@@ -16,15 +16,65 @@ export const NEWSLETTER_LIMITS = {
   slug: 120,
   topic: 60,
   topics: 12,
+  /** A pasted list is deliberately larger than one topic chip. */
+  topicInput: 800,
 } as const;
 
+const SPECIAL_LETTER_FOLDS: Record<string, string> = {
+  ß: 'ss',
+  æ: 'ae',
+  œ: 'oe',
+  ø: 'o',
+  ł: 'l',
+  đ: 'd',
+  ð: 'd',
+  þ: 'th',
+  ı: 'i',
+  ħ: 'h',
+  ŋ: 'n',
+  ŧ: 't',
+};
+
+function foldSpecialLetters(value: string): string {
+  return value.replace(/[ßæœøłđðþıħŋŧ]/g, (letter) => SPECIAL_LETTER_FOLDS[letter] ?? letter);
+}
+
 export function slugifyNewsletter(text: string): string {
-  return text
-    .toLowerCase()
-    .trim()
+  return foldSpecialLetters(
+    text
+      .normalize('NFKD')
+      // Strip combining marks so "Café" becomes "cafe", not "caf".
+      .replace(/[\u0300-\u036F]/g, '')
+      .toLowerCase()
+      .trim()
+  )
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 80);
+}
+
+const TOPIC_INVISIBLE = /[\u00AD\u200B-\u200D\u2060\uFEFF]/g;
+const TOPIC_SPACES = /[\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]/g;
+
+/** Public because the read-side topic collector uses the same label rules. */
+export function cleanNewsletterTopicLabel(value: string): string {
+  return value
+    .replace(TOPIC_INVISIBLE, '')
+    .replace(TOPIC_SPACES, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function topicKey(value: string): string {
+  return foldSpecialLetters(
+    cleanNewsletterTopicLabel(value)
+      .normalize('NFKD')
+      .replace(/[\u0300-\u036F]/g, '')
+      .toLowerCase()
+      .replace(/&/g, ' and ')
+      .replace(/\s+/g, ' ')
+      .trim()
+  );
 }
 
 /**
@@ -38,9 +88,9 @@ export function normalizeNewsletterTopics(topics: readonly string[]): string[] {
   const seen = new Set<string>();
   const normalized: string[] = [];
   for (const topic of topics) {
-    const value = topic.trim();
+    const value = cleanNewsletterTopicLabel(topic);
     if (!value) continue;
-    const key = value.toLowerCase();
+    const key = topicKey(value);
     if (seen.has(key)) continue;
     seen.add(key);
     normalized.push(value);

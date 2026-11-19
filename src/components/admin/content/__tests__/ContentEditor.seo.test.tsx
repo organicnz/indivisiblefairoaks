@@ -78,7 +78,8 @@ describe('ContentEditor SEO meta fields', () => {
 
   const metaTitleInput = () =>
     container.querySelector('input[placeholder="Meeting notes"]') as HTMLInputElement;
-  const metaDescTextArea = () => container.querySelector('textarea') as HTMLTextAreaElement;
+  const metaDescTextArea = () =>
+    container.querySelector('#content-meta-description') as HTMLTextAreaElement;
 
   const setInputValue = (el: HTMLInputElement | HTMLTextAreaElement, value: string) => {
     const proto =
@@ -130,5 +131,43 @@ describe('ContentEditor SEO meta fields', () => {
         metadata: { meta_title: 'SEO Title', meta_description: 'SEO description' },
       })
     );
+  });
+
+  it('edits the card summary separately from the SEO description and saves it', async () => {
+    render();
+
+    const excerpt = container.querySelector<HTMLTextAreaElement>('#content-excerpt');
+    expect(excerpt).not.toBeNull();
+    act(() => {
+      setInputValue(excerpt as HTMLTextAreaElement, '  A custom card summary.  ');
+    });
+
+    expect(container.textContent).toContain('4 words');
+    await act(async () => {
+      const saveBtn = [...container.querySelectorAll('button')].find(
+        (button) => button.textContent === 'Save'
+      ) as HTMLButtonElement;
+      saveBtn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+      await Promise.resolve();
+    });
+
+    expect(saveContent).toHaveBeenCalledWith(
+      expect.objectContaining({ excerpt: 'A custom card summary.' })
+    );
+  });
+
+  it('can fill the card summary from the generated body excerpt', async () => {
+    render();
+    const useGenerated = [...container.querySelectorAll<HTMLButtonElement>('button')].find(
+      (button) => button.textContent?.includes('Use generated')
+    );
+    expect(useGenerated).not.toBeUndefined();
+
+    await act(async () => {
+      useGenerated?.click();
+    });
+
+    const excerpt = container.querySelector<HTMLTextAreaElement>('#content-excerpt');
+    expect(excerpt?.value).toBe('March agenda');
   });
 });

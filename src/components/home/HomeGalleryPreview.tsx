@@ -63,11 +63,11 @@ export function HomeGalleryPreview({
   const displayedPhotos = previewPhotos.slice(0, 6);
 
   return (
-    <section className="border-t border-border bg-surface-muted py-16 text-foreground md:py-24">
+    <section className="civic-section bg-surface-muted text-foreground">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
-        <div className="mb-9 flex flex-col justify-between gap-6 md:flex-row md:items-end">
-          <div>
+        <div className="civic-section-head">
+          <div className="min-w-0">
             <div className="civic-kicker">
               <Camera size={13} aria-hidden="true" />
               <DataPoint name="home.gallery.eyebrow" initialData={dataPoints}>
@@ -78,7 +78,7 @@ export function HomeGalleryPreview({
               name="home.gallery.headline"
               as="h2"
               initialData={dataPoints}
-              className="mt-5 max-w-3xl font-display text-4xl font-semibold leading-[0.98] tracking-[-0.04em] text-foreground sm:text-5xl"
+              className="mt-4 max-w-[18ch] font-display text-4xl font-semibold leading-[0.98] tracking-[-0.04em] text-foreground sm:text-5xl"
             >
               Moments of Peaceful Resistance
             </DataPoint>
@@ -86,18 +86,41 @@ export function HomeGalleryPreview({
 
           <Link
             href="/gallery"
-            className="group inline-flex shrink-0 items-center gap-2 border-b border-foreground/30 pb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-foreground transition-colors hover:border-accent hover:text-accent"
+            className="civic-link-arrow group justify-self-start md:justify-self-end"
           >
             <DataPoint name="home.gallery.btn_view_all" as="span" initialData={dataPoints}>
               Explore Full Gallery
             </DataPoint>
-            <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
+            <ArrowRight
+              size={14}
+              aria-hidden="true"
+              className="transition-transform group-hover:translate-x-1 motion-reduce:transform-none"
+            />
           </Link>
         </div>
 
         {/* One horizontal, snap-scrolling strip on phones; a two-up grid from sm,
             with a featured lead frame from lg. */}
-        <div className="-mx-4 flex snap-x snap-mandatory scroll-pl-4 gap-4 overflow-x-auto px-4 pb-4 sm:mx-0 sm:grid sm:grid-cols-2 sm:px-0 lg:auto-rows-[20rem] lg:grid-cols-3">
+        {displayedPhotos.length === 0 ? (
+          <div className="civic-panel flex min-h-60 flex-col items-center justify-center gap-4 p-8 text-center">
+            <span className="flex size-12 items-center justify-center border border-border bg-surface-muted text-muted-foreground">
+              <Camera size={20} aria-hidden="true" />
+            </span>
+            <p className="max-w-sm text-sm leading-relaxed text-muted-foreground">
+              The chapter photo archive is being prepared. Check back soon, or visit the gallery
+              for the latest uploads.
+            </p>
+            <Link href="/gallery" className="civic-link-arrow group">
+              Visit the gallery
+              <ArrowRight
+                size={14}
+                aria-hidden="true"
+                className="transition-transform group-hover:translate-x-1 motion-reduce:transform-none"
+              />
+            </Link>
+          </div>
+        ) : (
+          <div className="-mx-4 flex snap-x snap-mandatory scroll-pl-4 gap-4 overflow-x-auto px-4 pb-4 sm:mx-0 sm:grid sm:grid-cols-2 sm:px-0 lg:auto-rows-[20rem] lg:grid-cols-3">
           {displayedPhotos.map((photo, index) => {
             // A full set of six makes a complete magazine grid: the lead frame
             // spans two rows while the other five fill the remaining cells.
@@ -106,7 +129,7 @@ export function HomeGalleryPreview({
               <Link
                 key={photo.id}
                 href="/gallery"
-                className={`group relative block h-80 w-[82vw] max-w-[340px] shrink-0 snap-start overflow-hidden rounded-sm border border-foreground/20 bg-surface-card text-left transition-colors hover:border-primary/40 sm:h-88 sm:w-auto sm:max-w-none lg:h-full ${
+                className={`group relative block h-80 w-[82vw] max-w-[340px] shrink-0 snap-start overflow-hidden rounded-sm border border-foreground/20 bg-surface-card text-left transition-colors hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:h-88 sm:w-auto sm:max-w-none lg:h-full ${
                   isFeature ? 'lg:col-span-2 lg:row-span-2' : ''
                 }`}
               >
@@ -118,7 +141,7 @@ export function HomeGalleryPreview({
                       ? '(min-width: 1024px) 66vw, (min-width: 640px) 50vw, 82vw'
                       : '(max-width: 768px) 82vw, (max-width: 1024px) 50vw, 33vw'
                   }
-                  className="object-cover group-hover:scale-105 transition-transform duration-300 brightness-95 group-hover:brightness-100"
+                  className="object-cover brightness-95 transition-[transform,filter] duration-500 group-hover:scale-[1.03] group-hover:brightness-100 motion-reduce:transform-none motion-reduce:transition-none"
                 />
 
                 {/* Gradient Scrim */}
@@ -153,7 +176,8 @@ export function HomeGalleryPreview({
               </Link>
             );
           })}
-        </div>
+          </div>
+        )}
       </div>
     </section>
   );

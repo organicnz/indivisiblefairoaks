@@ -21,18 +21,18 @@ export function HomeGathering({
             </div>
             <h2
               id="next-gathering-title"
-              className="mt-2 max-w-[24ch] font-display text-2xl font-semibold leading-tight tracking-[-0.03em] text-foreground sm:text-3xl"
+              className="mt-2 max-w-[24ch] text-pretty font-display text-2xl font-semibold leading-tight tracking-[-0.03em] text-foreground sm:text-3xl"
             >
               {card.title}
             </h2>
             <div className="mt-3 space-y-2 text-sm leading-snug text-muted-foreground">
               <div className="flex items-start gap-1.5">
                 <CalendarDays size={14} className="mt-0.5 shrink-0 text-accent" aria-hidden="true" />
-                <span>{card.dateLine}</span>
+                <span className="min-w-0 break-words">{card.dateLine}</span>
               </div>
               <div className="flex items-start gap-1.5">
                 <MapPin size={14} className="mt-0.5 shrink-0 text-accent" aria-hidden="true" />
-                <span>{card.locationLine}</span>
+                <span className="min-w-0 break-words">{card.locationLine}</span>
               </div>
             </div>
             {card.isScheduled ? (
@@ -57,7 +57,7 @@ export function HomeGathering({
                   No future chapter meeting is scheduled yet.{' '}
                   <a
                     href="mailto:contact@indivisiblefairoaks.org?subject=Next%20chapter%20meeting"
-                    className="font-semibold text-primary-ink underline decoration-primary/40 underline-offset-4 hover:decoration-primary dark:text-primary-on-dark"
+                    className="font-semibold text-primary-ink underline decoration-primary/40 underline-offset-4 hover:decoration-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:text-primary-on-dark"
                   >
                     Ask the chapter
                   </a>{' '}
@@ -73,7 +73,7 @@ export function HomeGathering({
                 href={card.calendarUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex min-h-11 w-full items-center justify-center border border-foreground/30 px-4 py-3 text-center text-[10px] font-bold uppercase tracking-[0.12em] text-foreground transition-colors duration-300 hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                className="inline-flex min-h-11 w-full items-center justify-center border border-foreground/30 px-4 py-3 text-center text-[10px] font-bold uppercase tracking-[0.12em] text-foreground transition-colors duration-300 hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               >
                 <DataPoint as="span" name="home.gathering.btn_cal" initialData={dataPoints}>
                   + Add to Calendar
@@ -84,7 +84,7 @@ export function HomeGathering({
               href={card.rsvpUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex min-h-11 w-full items-center justify-center bg-accent-gold px-5 py-3 text-center text-[10px] font-bold uppercase tracking-[0.12em] text-ink-strong transition-all duration-300 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+              className="inline-flex min-h-11 w-full items-center justify-center bg-accent-gold px-5 py-3 text-center text-[10px] font-bold uppercase tracking-[0.12em] text-ink-strong transition-all duration-300 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             >
               <DataPoint as="span" name="home.gathering.btn_rsvp" initialData={dataPoints}>
                 {card.isScheduled ? 'RSVP via Mobilize' : 'Ask about the next meeting'}

@@ -47,7 +47,7 @@ const PILLARS: Pillar[] = [
 
 export function HomePillars({ dataPoints }: { dataPoints: Record<string, string> }) {
   return (
-    <section className="border-t border-border bg-surface-muted py-16 text-foreground md:py-24">
+    <section className="civic-section bg-surface-muted text-foreground">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div>
           <div className="grid gap-12 lg:grid-cols-12 lg:gap-10">
@@ -85,15 +85,15 @@ export function HomePillars({ dataPoints }: { dataPoints: Record<string, string>
             </div>
 
             <div className="grid gap-x-10 sm:grid-cols-2 lg:col-span-8">
-              {PILLARS.map((pillar) => {
+              {PILLARS.map((pillar, index) => {
                 const Icon = pillar.icon;
                 return (
                   <article
                     key={pillar.titleName}
-                    className="group border-t border-foreground/25 py-6 sm:py-7"
+                    className="group min-w-0 border-t border-foreground/25 py-6 transition-colors duration-300 hover:border-primary/50 sm:py-7"
                   >
-                    <div className="flex items-center gap-3">
-                      <span className="flex size-9 items-center justify-center border border-foreground/20 bg-background">
+                    <div className="flex items-center justify-between gap-4">
+                      <span className="flex size-9 shrink-0 items-center justify-center border border-foreground/20 bg-background transition-colors duration-300 group-hover:border-primary/40 group-hover:bg-surface-card">
                         <Icon
                           size={18}
                           strokeWidth={1.4}
@@ -101,12 +101,18 @@ export function HomePillars({ dataPoints }: { dataPoints: Record<string, string>
                           aria-hidden="true"
                         />
                       </span>
+                      <span
+                        aria-hidden="true"
+                        className="font-mono text-[10px] font-bold tracking-[0.14em] text-muted-foreground"
+                      >
+                        0{index + 1}
+                      </span>
                     </div>
                     <DataPoint
                       name={pillar.titleName}
                       as="h3"
                       initialData={dataPoints}
-                      className="mt-6 font-display text-2xl font-semibold tracking-[-0.03em] text-foreground"
+                      className="mt-5 font-display text-2xl font-semibold tracking-[-0.03em] text-foreground"
                     >
                       {pillar.title}
                     </DataPoint>
@@ -114,7 +120,7 @@ export function HomePillars({ dataPoints }: { dataPoints: Record<string, string>
                       name={pillar.descriptionName}
                       as="p"
                       initialData={dataPoints}
-                      className="mt-3 max-w-sm text-sm leading-relaxed text-muted-foreground"
+                      className="mt-2 max-w-sm text-sm leading-relaxed text-muted-foreground"
                     >
                       {pillar.description}
                     </DataPoint>

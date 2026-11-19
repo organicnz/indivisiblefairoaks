@@ -3,7 +3,11 @@
 import { Plus } from 'lucide-react';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { NewsSearchField } from '@/components/ui/NewsSearchField';
-import { ALL_NEWSLETTER_TOPICS } from '@/lib/news-text';
+import {
+  ALL_NEWSLETTER_TOPICS,
+  hasNewsletterTopic,
+  isAllNewsletterTopics,
+} from '@/lib/news-text';
 
 type NewsletterFilterBarProps = {
   dataPoints: Record<string, string>;
@@ -14,6 +18,8 @@ type NewsletterFilterBarProps = {
   onTopicChange: (topic: string) => void;
   isAdmin: boolean;
   onAdd: () => void;
+  /** The id of the archive grid this bar filters. */
+  resultsId?: string;
 };
 
 /**
@@ -32,9 +38,15 @@ export function NewsletterFilterBar({
   onTopicChange,
   isAdmin,
   onAdd,
+  resultsId,
 }: NewsletterFilterBarProps) {
+  const activeIsAll = isAllNewsletterTopics(activeTopic);
   const visibleTopics = topics.slice(0, 6);
-  if (activeTopic !== ALL_NEWSLETTER_TOPICS && !visibleTopics.includes(activeTopic)) {
+  if (
+    activeTopic.trim() &&
+    !activeIsAll &&
+    !hasNewsletterTopic(visibleTopics, activeTopic)
+  ) {
     visibleTopics.push(activeTopic);
   }
 
@@ -52,17 +64,29 @@ export function NewsletterFilterBar({
         testId="newsletter-search"
         iconSize={16}
         clearLabel="Clear bulletin search"
+        resultsId={resultsId}
       />
 
-      <div className="flex flex-wrap items-center gap-1.5">
+      <div
+        role="group"
+        aria-label="Filter bulletins by topic"
+        className="flex flex-wrap items-center gap-1.5"
+      >
         {visibleTopics.map((topic) => (
           <button
             key={topic}
             type="button"
-            aria-pressed={activeTopic === topic}
+            aria-pressed={
+              isAllNewsletterTopics(topic)
+                ? activeIsAll
+                : hasNewsletterTopic([topic], activeTopic)
+            }
+            aria-controls={resultsId}
             onClick={() => onTopicChange(topic)}
-            className={`min-h-10 border px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.1em] transition-colors ${
-              activeTopic === topic
+            className={`min-h-10 border px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.1em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+              (isAllNewsletterTopics(topic)
+                ? activeIsAll
+                : hasNewsletterTopic([topic], activeTopic))
                 ? 'border-primary bg-primary text-white'
                 : 'border-border bg-surface-muted/60 text-muted-foreground hover:bg-surface-card hover:text-foreground dark:text-ink-muted-on-dark dark:hover:bg-white/5 dark:hover:text-ink-on-dark'
             }`}
@@ -78,7 +102,7 @@ export function NewsletterFilterBar({
         <button
           type="button"
           onClick={onAdd}
-          className="inline-flex min-h-11 shrink-0 cursor-pointer items-center gap-1.5 border border-primary bg-primary px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.12em] text-white transition-colors hover:bg-primary-dark"
+          className="inline-flex min-h-11 shrink-0 cursor-pointer items-center gap-1.5 border border-primary bg-primary px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.12em] text-white transition-colors hover:bg-primary-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
           <Plus size={15} aria-hidden="true" />
           <DataPoint name="news.admin.add_bulletin" as="span" initialData={dataPoints}>

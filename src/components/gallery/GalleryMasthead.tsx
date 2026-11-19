@@ -20,7 +20,11 @@ export function GalleryMasthead({ dataPoints, photo }: GalleryMastheadProps) {
       icon={Camera}
       visual={
         photo ? (
-          <figure className="w-52 xl:w-60">
+          <figure className="relative w-52 xl:w-60">
+            <div
+              aria-hidden="true"
+              className="absolute inset-0 translate-x-2.5 translate-y-2.5 border border-foreground/20 bg-surface-deep/60"
+            />
             <div className="relative aspect-[4/5] overflow-hidden border border-foreground/25 bg-surface-muted">
               <GalleryImage
                 src={photo.url}

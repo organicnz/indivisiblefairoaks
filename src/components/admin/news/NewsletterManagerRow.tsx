@@ -2,11 +2,14 @@
 
 import { Clock3, Newspaper, Pencil, Tag, Trash2 } from 'lucide-react';
 import { ConfirmAction } from '@/components/admin/ConfirmAction';
+import { HighlightedText } from '@/components/ui/HighlightedText';
+import { NewsSearchExcerpt } from '@/components/ui/NewsSearchExcerpt';
 import { newsletterPublicationLabel } from '@/lib/newsletters';
 import type { CivicNewsletterRecord } from '@/lib/actions/civic';
 
 type NewsletterManagerRowProps = {
   newsletter: CivicNewsletterRecord;
+  searchQuery?: string;
   onEdit: (newsletter: CivicNewsletterRecord) => void;
   onDelete: (slug: string) => void;
 };
@@ -30,6 +33,7 @@ function NewsletterStatusBadge({ publishedAt }: { publishedAt: string | null }) 
 
 export function NewsletterManagerRow({
   newsletter,
+  searchQuery,
   onEdit,
   onDelete,
 }: NewsletterManagerRowProps) {
@@ -44,16 +48,22 @@ export function NewsletterManagerRow({
         <div>
           <div className="mb-1 flex flex-wrap items-center gap-2">
             <span className="rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-primary-ink dark:text-primary-on-dark">
-              {newsletter.date_label}
+              <HighlightedText text={newsletter.date_label} query={searchQuery} />
             </span>
             <NewsletterStatusBadge publishedAt={newsletter.published_at} />
           </div>
           <h4 className="text-sm font-bold text-foreground transition-colors group-hover:text-primary">
-            {newsletter.title}
+            <HighlightedText text={newsletter.title} query={searchQuery} />
           </h4>
-          <p className="mt-1 line-clamp-2 max-w-xl text-xs leading-relaxed text-muted-foreground">
-            {newsletter.description}
-          </p>
+          {newsletter.description ? (
+            <p className="mt-1 line-clamp-2 max-w-xl text-xs leading-relaxed text-muted-foreground">
+              <NewsSearchExcerpt
+                text={newsletter.description}
+                query={searchQuery}
+                maxLength={220}
+              />
+            </p>
+          ) : null}
           {topics.length > 0 ? (
             <div className="mt-2 flex flex-wrap gap-1">
               {topics.map((topic) => (
@@ -62,7 +72,9 @@ export function NewsletterManagerRow({
                   className="inline-flex items-center gap-1 rounded-md bg-muted/60 px-2 py-0.5 text-[10px] font-bold text-muted-foreground"
                 >
                   <Tag size={9} aria-hidden="true" />
-                  <span>{topic}</span>
+                  <span>
+                    <HighlightedText text={topic} query={searchQuery} />
+                  </span>
                 </span>
               ))}
             </div>
@@ -75,7 +87,7 @@ export function NewsletterManagerRow({
           type="button"
           onClick={() => onEdit(newsletter)}
           title="Edit newsletter"
-          className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs font-bold text-foreground transition-colors hover:bg-muted"
+          className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs font-bold text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >
           <Pencil size={12} aria-hidden="true" />
           <span>Edit</span>
@@ -86,7 +98,7 @@ export function NewsletterManagerRow({
           danger
           confirmLabel="Delete"
           onConfirm={() => onDelete(newsletter.slug)}
-          idleClassName="p-1.5 rounded-lg border border-rose-500/30 text-rose-500 hover:bg-rose-500/10 transition-colors"
+          idleClassName="p-1.5 rounded-lg border border-rose-500/30 text-rose-500 hover:bg-rose-500/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
         >
           <Trash2 size={14} aria-hidden="true" />
         </ConfirmAction>

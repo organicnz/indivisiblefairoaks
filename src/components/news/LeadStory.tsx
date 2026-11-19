@@ -1,8 +1,8 @@
 import { ArrowRight } from 'lucide-react';
-import Image from 'next/image';
 import Link from 'next/link';
+import { GalleryImage } from '@/components/gallery/GalleryImage';
 import { HighlightedText } from '@/components/ui/HighlightedText';
-import { buildNewsSearchSnippet } from '@/lib/news-text';
+import { NewsSearchExcerpt } from '@/components/ui/NewsSearchExcerpt';
 import type { PublishedPostSummary } from '@/lib/queries/content';
 import { AdminEditLink, PostDate } from './NewsPostMeta';
 
@@ -13,29 +13,23 @@ type LeadStoryProps = {
 };
 
 export function LeadStory({ post, isAdmin, searchQuery }: LeadStoryProps) {
-  const excerpt = post.excerpt
-    ? searchQuery
-      ? buildNewsSearchSnippet(post.excerpt, searchQuery, 260)
-      : post.excerpt
-    : null;
-
   return (
-    <article className="civic-panel group overflow-hidden">
-      <div className="grid lg:grid-cols-12">
+    <article className="civic-panel group min-w-0 overflow-hidden">
+      <div className="grid min-w-0 lg:grid-cols-12">
         {post.featured_image ? (
-          <div className="relative aspect-[16/10] overflow-hidden border-b border-border lg:col-span-5 lg:aspect-auto lg:min-h-[24rem] lg:border-b-0 lg:border-r">
-            <Image
+          <div className="relative aspect-[16/10] min-w-0 overflow-hidden border-b border-border lg:col-span-5 lg:aspect-auto lg:min-h-[24rem] lg:border-b-0 lg:border-r">
+            <GalleryImage
               src={post.featured_image}
               alt=""
-              fill
               sizes="(min-width: 1024px) 42vw, 100vw"
-              className="object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+              fallbackLabel="Story image unavailable"
+              className="object-cover transition-transform duration-500 group-hover:scale-[1.02] motion-reduce:transform-none motion-reduce:transition-none"
             />
           </div>
         ) : null}
 
         <div
-          className={`flex flex-col justify-between p-6 sm:p-8 ${
+          className={`flex min-w-0 flex-col justify-between p-6 sm:p-8 ${
             post.featured_image ? 'lg:col-span-7' : 'lg:col-span-12'
           }`}
         >
@@ -51,14 +45,17 @@ export function LeadStory({ post, isAdmin, searchQuery }: LeadStoryProps) {
             </div>
 
             <h3 className="mt-5 text-balance font-display text-3xl font-semibold leading-[1.04] tracking-[-0.035em] text-foreground transition-colors group-hover:text-primary-ink dark:group-hover:text-primary-on-dark sm:text-4xl">
-              <Link href={`/${post.slug}`} className="focus:outline-hidden">
+              <Link
+                href={`/${post.slug}`}
+                className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface-card"
+              >
                 <HighlightedText text={post.title} query={searchQuery} />
               </Link>
             </h3>
 
-            {excerpt ? (
+            {post.excerpt ? (
               <p className="mt-4 max-w-2xl text-pretty text-sm leading-relaxed text-muted-foreground dark:text-ink-on-dark sm:text-base">
-                <HighlightedText text={excerpt} query={searchQuery} />
+                <NewsSearchExcerpt text={post.excerpt} query={searchQuery} maxLength={260} />
               </p>
             ) : null}
           </div>
@@ -66,7 +63,7 @@ export function LeadStory({ post, isAdmin, searchQuery }: LeadStoryProps) {
           <div className="mt-7 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4 dark:border-white/10">
             <Link
               href={`/${post.slug}`}
-              className="inline-flex min-h-11 items-center gap-2 text-xs font-bold text-primary-ink transition-all group-hover:gap-3 focus:outline-hidden dark:text-primary-on-dark"
+              className="inline-flex min-h-11 items-center gap-2 rounded-sm text-xs font-bold text-primary-ink transition-all group-hover:gap-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface-card dark:text-primary-on-dark"
             >
               <span>Read the full story</span>
               <ArrowRight size={15} aria-hidden="true" />
