@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
+import { CRM_CONTACT_DEFAULTS } from '@/lib/crm-contact-options';
 import { parseCRMImportCsv, parseCsv, toCsvRow } from '@/lib/crm-import';
 
 describe('parseCsv', () => {
@@ -74,9 +75,14 @@ describe('parseCRMImportCsv', () => {
     expect(res.rows[0]).toMatchObject({ email: 'jane@example.com', first_name: 'Jane' });
   });
 
-  it('defaults district and status when missing', () => {
+  it('defaults district, status, and consent when missing', () => {
     const res = parseCRMImportCsv('email\nbob@example.com');
-    expect(res.rows[0]).toMatchObject({ district: 'CA-06', status: 'supporter', tags: [] });
+    expect(res.rows[0]).toMatchObject({
+      district: CRM_CONTACT_DEFAULTS.district,
+      status: CRM_CONTACT_DEFAULTS.status,
+      do_not_email: CRM_CONTACT_DEFAULTS.doNotEmail,
+      tags: [],
+    });
   });
 
   it('rejects invalid emails and duplicates', () => {
@@ -87,10 +93,11 @@ describe('parseCRMImportCsv', () => {
     expect(res.errors.some((e) => e.message.includes('Duplicate'))).toBe(true);
   });
 
-  it('defaults unknown status to supporter with a warning', () => {
+  it('defaults an unknown status to the shared default with a warning', () => {
     const res = parseCRMImportCsv('email,status\nx@example.com,superstar');
-    expect(res.rows[0].status).toBe('supporter');
-    expect(res.errors[0].message).toMatch(/Unknown status/);
+    expect(res.rows[0].status).toBe(CRM_CONTACT_DEFAULTS.status);
+    expect(res.errors[0].message).toContain('Unknown status');
+    expect(res.errors[0].message).toContain(CRM_CONTACT_DEFAULTS.status);
   });
 
   it('normalizes status whitespace to underscores', () => {

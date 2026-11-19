@@ -56,6 +56,7 @@ import {
   setCRMTaskStatus,
 } from '@/lib/actions/crm';
 
+import { CRM_CONTACT_DEFAULTS } from '@/lib/crm-contact-options';
 import { CRM_EXPORT_LIMIT } from '@/lib/crm-limits';
 import { env } from '@/lib/env';
 import { installFetchMock } from './fetch-mock';
@@ -169,6 +170,20 @@ describe('Civic CRM Server Actions', () => {
         type: 'note',
         title: 'Constituent Created',
         created_by: 'admin-user-uuid-1234',
+      });
+    });
+
+    it('applies the shared contact defaults when creation omits status and district', async () => {
+      tables.crm_contacts = { rows: [], insert: { id: 'new-default-contact' } };
+      tables.crm_activities = { rows: [] };
+
+      const res = await saveCRMContact({ email: 'defaults@example.com' });
+
+      expect(res.success).toBe(true);
+      expect(tables.crm_contacts.rows?.[0]).toMatchObject({
+        status: CRM_CONTACT_DEFAULTS.status,
+        district: CRM_CONTACT_DEFAULTS.district,
+        do_not_email: CRM_CONTACT_DEFAULTS.doNotEmail,
       });
     });
 
