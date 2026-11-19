@@ -1,13 +1,20 @@
-import { normalizeNewsletterTopics } from '@/lib/newsletters';
-import { ALL_NEWSLETTER_TOPICS, newsletterTopicKey, uniqueNewsletterTopics } from './topics';
 import type { NewsletterTextFields } from './search';
+import {
+  ALL_NEWSLETTER_TOPICS,
+  newsletterTopicKey,
+  normalizeNewsletterTopics,
+  uniqueNewsletterTopics,
+} from './topics';
 
 const TOPIC_LIST_MARKER = /^(?:[-*•]+|\d+[.)])\s*/;
 const TOPIC_SEPARATOR = /[,;|\t\r\n]+|\s*[•·]\s*/;
 
 /** Remove the decoration people leave on a pasted tag list, not the words. */
 function cleanPastedTopic(value: string): string {
-  return value.replace(TOPIC_LIST_MARKER, '').replace(/^#+\s*/, '').trim();
+  return value
+    .replace(TOPIC_LIST_MARKER, '')
+    .replace(/^#+\s*/, '')
+    .trim();
 }
 
 /**
@@ -20,9 +27,7 @@ function cleanPastedTopic(value: string): string {
  * "Election  Defense" and "election defense" are the same chip.
  */
 export function parseNewsletterTopicInput(value: string): string[] {
-  return normalizeNewsletterTopics(
-    value.split(TOPIC_SEPARATOR).map(cleanPastedTopic)
-  );
+  return normalizeNewsletterTopics(value.split(TOPIC_SEPARATOR).map(cleanPastedTopic));
 }
 
 export type NewsletterTopicCounts = {

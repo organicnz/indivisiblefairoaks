@@ -32,7 +32,7 @@ describe('rateLimit()', () => {
   });
 
   it('bounds the bucket map even when every tracked key is still active', () => {
-    let now = 4_000_000;
+    const now = 4_000_000;
     const clock = () => now;
 
     // More than MAX_TRACKED_KEYS (5,000) live identities in one window.

@@ -47,6 +47,7 @@ import {
   deleteCRMSegment,
   deleteCRMTask,
   getBroadcastEmailEvents,
+  getBroadcastFollowUps,
   getBroadcastProgress,
   getBroadcastRecipientCount,
   getCRMBroadcastDrafts,
@@ -235,6 +236,60 @@ describe('CRM reads and bookkeeping', () => {
 
       expect(history.broadcasts).toHaveLength(BROADCAST_HISTORY_PAGE_SIZE);
       expect(history.totalCount).toBe(72);
+    });
+
+    it('reads campaign metrics from the SQL aggregate, one call for the page', async () => {
+      tables.crm_broadcasts = {
+        rows: [
+          { id: 'b1', status: 'sent', created_at: '2026-09-02T00:00:00.000Z' },
+          { id: 'b2', status: 'sent', created_at: '2026-09-01T00:00:00.000Z' },
+        ],
+      };
+      mockAdminClient.rpc.mockResolvedValue({
+        data: [
+          {
+            broadcast_id: 'b1',
+            recipient_count: 100,
+            accepted_count: 90,
+            failed_count: 4,
+            suppressed_count: 2,
+            pending_count: 0,
+            recorded_count: 96,
+            unresolved_count: 4,
+          },
+        ],
+        error: null,
+      });
+
+      const history = await getCRMBroadcastHistoryPage();
+
+      expect(mockAdminClient.rpc).toHaveBeenCalledWith('crm_broadcast_metrics', {
+        p_broadcast_ids: ['b1', 'b2'],
+      });
+      expect(history.metrics.b1).toMatchObject({
+        acceptedCount: 90,
+        failedCount: 4,
+        suppressedCount: 2,
+        unresolvedCount: 4,
+      });
+      // No row for b2 means no ledger, not a zeroed metric: the table falls back
+      // to that campaign's stored counters rather than claiming nothing was sent.
+      expect(history.metrics.b2).toBeUndefined();
+    });
+
+    it('keeps history readable when the metrics aggregate is unavailable', async () => {
+      tables.crm_broadcasts = {
+        rows: [{ id: 'b1', status: 'sent', created_at: '2026-09-01T00:00:00.000Z' }],
+      };
+      mockAdminClient.rpc.mockResolvedValue({
+        data: null,
+        error: { message: 'function crm_broadcast_metrics does not exist' },
+      });
+
+      await expect(getCRMBroadcastHistoryPage()).resolves.toMatchObject({
+        metrics: {},
+        broadcasts: [{ id: 'b1' }],
+      });
     });
 
     it('fails instead of reporting zero when the history count is unavailable', async () => {
@@ -456,6 +511,84 @@ describe('CRM reads and bookkeeping', () => {
 
       await expect(getBroadcastProgress('b1')).rejects.toThrow('Failed to read broadcast progress');
     });
+
+    it('overlays the SQL aggregate so suppression is not counted as accepted', async () => {
+      tables.crm_broadcasts = {
+        rows: [
+          {
+            id: 'b1',
+            subject: 'Rally tomorrow',
+            status: 'sending',
+            recipient_count: 10,
+            sent_count: 10,
+            failed_count: 0,
+            sent_at: null,
+            created_at: '2026-09-01T00:00:00.000Z',
+          },
+        ],
+      };
+      mockAdminClient.rpc.mockResolvedValue({
+        data: [
+          {
+            broadcast_id: 'b1',
+            recipient_count: 10,
+            accepted_count: 7,
+            failed_count: 1,
+            suppressed_count: 2,
+            pending_count: 0,
+            recorded_count: 10,
+            unresolved_count: 0,
+          },
+        ],
+        error: null,
+      });
+
+      const progress = await getBroadcastProgress('b1');
+
+      expect(progress).toMatchObject({
+        recipientCount: 10,
+        sentCount: 7,
+        failedCount: 1,
+        suppressedCount: 2,
+      });
+    });
+
+    it('falls back to the row counters for a campaign with no ledger rows', async () => {
+      tables.crm_broadcasts = {
+        rows: [
+          {
+            id: 'b1',
+            subject: 'Legacy campaign',
+            status: 'sent',
+            recipient_count: 50,
+            sent_count: 48,
+            failed_count: 2,
+            sent_at: '2026-09-01T00:00:00.000Z',
+            created_at: '2026-09-01T00:00:00.000Z',
+          },
+        ],
+      };
+      mockAdminClient.rpc.mockResolvedValue({
+        data: [
+          {
+            broadcast_id: 'b1',
+            recipient_count: 50,
+            accepted_count: 0,
+            failed_count: 0,
+            suppressed_count: 0,
+            pending_count: 0,
+            recorded_count: 0,
+            unresolved_count: 50,
+          },
+        ],
+        error: null,
+      });
+
+      await expect(getBroadcastProgress('b1')).resolves.toMatchObject({
+        sentCount: 48,
+        failedCount: 2,
+      });
+    });
   });
 
   describe('getBroadcastEmailEvents', () => {
@@ -578,6 +711,76 @@ describe('CRM reads and bookkeeping', () => {
       tables.crm_contacts = { rows: [], error: { message: 'timeout' } };
 
       await expect(getBroadcastEmailEvents('b1')).rejects.toThrow('Failed to read delivery events');
+    });
+  });
+
+  describe('getBroadcastFollowUps', () => {
+    it('asks SQL for the bounded list and its full total', async () => {
+      mockAdminClient.rpc.mockResolvedValue({
+        data: [
+          {
+            contact_id: 'c1',
+            email: 'failed@example.com',
+            recipient_name: 'Robin Failed',
+            status: 'failed',
+            reason: 'Resend responded 422',
+            provider_id: null,
+            failed_at: '2026-10-02T12:00:00.000Z',
+            suppressed_at: null,
+            updated_at: '2026-10-02T12:00:00.000Z',
+            total_count: 240,
+          },
+          {
+            contact_id: 'c2',
+            email: 'bounced@example.com',
+            recipient_name: null,
+            status: 'suppressed',
+            reason: 'Permanent bounce',
+            provider_id: 'res_1',
+            failed_at: null,
+            suppressed_at: '2026-10-02T12:01:00.000Z',
+            updated_at: '2026-10-02T12:01:00.000Z',
+            total_count: 240,
+          },
+        ],
+        error: null,
+      });
+
+      const res = await getBroadcastFollowUps('b1', { limit: 9999, offset: -4 });
+
+      expect(mockAdminClient.rpc).toHaveBeenCalledWith('crm_broadcast_followups', {
+        p_broadcast_id: 'b1',
+        p_limit: 500,
+        p_offset: 0,
+      });
+      expect(res.totalCount).toBe(240);
+      expect(res.truncated).toBe(true);
+      expect(res.followUps[0]).toMatchObject({ status: 'failed', email: 'failed@example.com' });
+      expect(res.followUps[1]).toMatchObject({ status: 'suppressed', reason: 'Permanent bounce' });
+    });
+
+    it('returns an empty list before the ledger migration is applied', async () => {
+      mockAdminClient.rpc.mockResolvedValue({
+        data: null,
+        error: { code: 'PGRST202', message: 'Could not find the function' },
+      });
+
+      await expect(getBroadcastFollowUps('b1')).resolves.toEqual({
+        followUps: [],
+        totalCount: 0,
+        truncated: false,
+      });
+    });
+
+    it('reports a real follow-up read failure instead of an empty list', async () => {
+      mockAdminClient.rpc.mockResolvedValue({
+        data: null,
+        error: { code: '08006', message: 'connection reset' },
+      });
+
+      await expect(getBroadcastFollowUps('b1')).rejects.toThrow(
+        /Failed to read broadcast follow-ups.*connection reset/
+      );
     });
   });
 
@@ -1250,6 +1453,67 @@ describe('CRM reads and bookkeeping', () => {
       expect(res.taskCount).toBe(1);
       expect(res.tasksTruncated).toBe(false);
       expect(res.openTaskCount).toBe(1);
+      expect(res.activityPage).toBe(1);
+      expect(res.activityPageSize).toBe(50);
+      expect(res.activityCount).toBe(2);
+    });
+
+    it('pages the timeline with a stable newest-first order', async () => {
+      // 120 activities against a 50-row page. Page 2 has to be rows 51–100,
+      // not the first fifty again and not an arbitrary subset: the query orders
+      // by a total order before it ranges, which is what the mock evaluates.
+      const contact = { id: 'c1', first_name: 'Robin', email: 'robin@example.org' };
+      const activityRows = Array.from({ length: 120 }, (_, i) => ({
+        id: `a${String(i).padStart(3, '0')}`,
+        contact_id: 'c1',
+        type: 'note',
+        created_at: new Date(Date.UTC(2026, 0, 1) - i * 60_000).toISOString(),
+      }));
+      tables.crm_contacts = { rows: [contact] };
+      tables.crm_activities = { rows: activityRows };
+      tables.crm_tasks = { rows: [] };
+
+      const res = await getCRMContactDetail('c1', 2);
+
+      expect(res.activityPage).toBe(2);
+      expect(res.activityPageSize).toBe(50);
+      expect(res.activityCount).toBe(120);
+      expect(res.activities.map((a) => a.id)).toEqual(activityRows.slice(50, 100).map((a) => a.id));
+    });
+
+    it('clamps a nonsense timeline page instead of asking for a negative range', async () => {
+      const contact = { id: 'c1', first_name: 'Robin', email: 'robin@example.org' };
+      tables.crm_contacts = { rows: [contact] };
+      tables.crm_activities = {
+        rows: [{ id: 'a1', contact_id: 'c1', type: 'note', created_at: '2026-09-01' }],
+      };
+      tables.crm_tasks = { rows: [] };
+
+      for (const page of [0, -4, Number.NaN, Number.POSITIVE_INFINITY]) {
+        const res = await getCRMContactDetail('c1', page);
+        expect(res.activityPage, `page=${page} should clamp to 1`).toBe(1);
+        expect(res.activities.map((a) => a.id)).toEqual(['a1']);
+      }
+    });
+
+    it('reports an empty page past the end without lying about the total', async () => {
+      const contact = { id: 'c1', first_name: 'Robin', email: 'robin@example.org' };
+      tables.crm_contacts = { rows: [contact] };
+      tables.crm_activities = {
+        rows: Array.from({ length: 3 }, (_, i) => ({
+          id: `a${i}`,
+          contact_id: 'c1',
+          type: 'note',
+          created_at: `2026-09-0${i + 1}`,
+        })),
+      };
+      tables.crm_tasks = { rows: [] };
+
+      const res = await getCRMContactDetail('c1', 9);
+
+      expect(res.activityPage).toBe(9);
+      expect(res.activities).toEqual([]);
+      expect(res.activityCount).toBe(3);
     });
 
     it('reports the true task totals when the list is capped', async () => {
@@ -1656,14 +1920,19 @@ describe('CRM defensive defaults', () => {
     const member = {
       id: 'c1',
       do_not_email: false,
-      status: 'donor',
+      // A tag-only donor. The old `.in('status', ['donor'])` would exclude this
+      // row, so the count below is a canonical-predicate assertion, not just a
+      // repeat of the status column.
+      status: 'supporter',
+      is_donor: true,
       district: 'CA-06',
-      tags: ['choir'],
+      tags: ['choir', 'donor'],
     };
     const wrongTag = {
       id: 'c2',
       do_not_email: false,
       status: 'donor',
+      is_donor: true,
       district: 'CA-06',
       tags: ['volunteer'],
     };
@@ -1678,6 +1947,7 @@ describe('CRM defensive defaults', () => {
       id: 'c4',
       do_not_email: false,
       status: 'donor',
+      is_donor: true,
       district: 'CA-03',
       tags: ['choir'],
     };
@@ -1685,6 +1955,7 @@ describe('CRM defensive defaults', () => {
       id: 'c5',
       do_not_email: true,
       status: 'donor',
+      is_donor: true,
       district: 'CA-06',
       tags: ['choir'],
     };
@@ -1898,7 +2169,13 @@ describe('CRM defensive defaults', () => {
     // Each row below is excluded by exactly one of the three list filters, and
     // each of them would be *included* if the matching single-value field were
     // used instead. So the answer says which path ran.
-    const hit = { id: 'm1', status: 'donor', district: 'CA-03', tags: ['choir', 'canvasser'] };
+    const hit = {
+      id: 'm1',
+      status: 'donor',
+      is_donor: true,
+      district: 'CA-03',
+      tags: ['choir', 'canvasser'],
+    };
     const singleStatus = {
       id: 'm2',
       status: 'supporter',
@@ -1911,13 +2188,20 @@ describe('CRM defensive defaults', () => {
       district: 'CA-06',
       tags: ['choir', 'canvasser'],
     };
-    const singleTag = { id: 'm4', status: 'donor', district: 'CA-07', tags: ['volunteer'] };
+    const singleTag = {
+      id: 'm4',
+      status: 'donor',
+      is_donor: true,
+      district: 'CA-07',
+      tags: ['volunteer'],
+    };
     tables.crm_contacts = {
       rows: [hit, singleStatus, singleDistrict, singleTag],
-      // The rows the tag filter selects: anything carrying either tag. The two
-      // rows it leaves out are the ones the tag *lists* have to exclude, and
-      // `m4` is what a dropped `.contains()` would add back.
-      filterRows: [hit, singleStatus, singleDistrict],
+      // The status filter now contains an `.or(is_donor = true, status = …)`,
+      // which the row mock does not parse; `filterRows` states its result. The
+      // supporter is deliberately absent from that result — the canonical
+      // donor clause is what selects `m1`, not the old `status = 'donor'`.
+      filterRows: [hit, singleDistrict],
     };
 
     const res = await getCRMContacts({
@@ -1940,6 +2224,43 @@ describe('CRM defensive defaults', () => {
     expect(filterCalls.filter((c) => c.method === 'contains')).toEqual([
       { method: 'contains', args: ['tags', ['choir', 'canvasser']] },
     ]);
+  });
+
+  it('selects donors through the canonical predicate, not the status column alone', async () => {
+    const tagDonor = {
+      id: 'd1',
+      email: 'tag-donor@example.org',
+      status: 'supporter',
+      is_donor: true,
+      tags: ['donor'],
+    };
+    const nonDonor = {
+      id: 'd2',
+      email: 'not-a-donor@example.org',
+      status: 'supporter',
+      is_donor: false,
+      tags: [],
+    };
+    tables.crm_contacts = { rows: [tagDonor, nonDonor] };
+
+    const res = await getCRMContacts({ status: 'donor' });
+
+    expect(res.contacts.map((contact) => contact.id)).toEqual(['d1']);
+    expect(res.totalCount).toBe(1);
+  });
+
+  it('ORs donor with other statuses so a donor is not dropped from a segment', async () => {
+    tables.crm_contacts = { rows: [], filterRows: [] };
+    const recorder = createMockAdminClient(tables, { recordFilters: true });
+    mockAdminClient.from.mockImplementation(recorder.from);
+
+    await getCRMContacts({ statusList: ['donor', 'organizer', 'choir'] });
+
+    const statusOr = String(recorder.filterCalls.find((c) => c.method === 'or')?.args[0] ?? '');
+    expect(statusOr).toContain('is_donor.eq.true');
+    expect(statusOr).toContain('status.eq.organizer');
+    expect(statusOr).toContain('status.eq.choir');
+    expect(statusOr).not.toContain('status.eq.donor');
   });
 
   it('survives a contact with no tags at all', async () => {

@@ -252,6 +252,12 @@ jobs:
       # all. `--bun` forces Bun's runtime and makes the two identical. See
       # AGENTS.md, "The runtime is Bun".
 
+      - name: Biome lint
+        run: bun --bun biome lint ./src
+
+      - name: Oxlint
+        run: bun --bun oxlint ./src
+
       # There is no type-check cache here any more, and there is nothing to
       # restore one from.
       #

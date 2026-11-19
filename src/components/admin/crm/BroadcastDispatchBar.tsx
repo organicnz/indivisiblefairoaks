@@ -43,8 +43,8 @@ export function BroadcastDispatchBar({
       {/* Dispatch Action Bar */}
       <div className="pt-4 border-t border-border flex flex-wrap items-center justify-between gap-3">
         <div className="text-xs text-muted-foreground">
-          Will be delivered to{' '}
-          <strong className="text-foreground">{recipientCount ?? 0}</strong> constituents.
+          Will be delivered to <strong className="text-foreground">{recipientCount ?? 0}</strong>{' '}
+          constituents.
           <span className="block text-[11px] text-muted-foreground mt-0.5">
             {excludedCount > 0 ? (
               <>
@@ -56,8 +56,8 @@ export function BroadcastDispatchBar({
               </>
             ) : (
               <>
-                Opted-out contacts are excluded automatically. Every email includes a
-                one-click unsubscribe link.
+                Opted-out contacts are excluded automatically. Every email includes a one-click
+                unsubscribe link.
               </>
             )}
           </span>
@@ -69,14 +69,14 @@ export function BroadcastDispatchBar({
           )}
           {overCeiling && (
             <span role="alert" className="mt-1 block font-bold text-accent-red">
-              This is over the {BROADCAST_RECIPIENT_CEILING.toLocaleString()}-recipient limit
-              for a single broadcast. Narrow the audience before sending.
+              This is over the {BROADCAST_RECIPIENT_CEILING.toLocaleString()}-recipient limit for a
+              single broadcast. Narrow the audience before sending.
             </span>
           )}
           {segmentConsentMismatch && (
             <span role="alert" className="mt-1 block font-bold text-accent-red">
-              {segmentConsentMismatch} Change any audience filter above to confirm you have
-              reviewed it — Send stays withheld until then.
+              {segmentConsentMismatch} Change any audience filter above to confirm you have reviewed
+              it — Send stays withheld until then.
             </span>
           )}
         </div>
@@ -101,11 +101,7 @@ export function BroadcastDispatchBar({
               disabled={savingDraft || !subject.trim() || !body.trim()}
               className="inline-flex items-center gap-1.5 px-4 py-2.5 border border-border text-foreground hover:border-border disabled:opacity-50 text-xs font-black uppercase tracking-wider rounded-xl transition-colors"
             >
-              {savingDraft ? (
-                <Loader2 size={14} className="animate-spin" />
-              ) : (
-                <Save size={14} />
-              )}
+              {savingDraft ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
               Save draft
             </button>
           )}
@@ -157,8 +153,8 @@ export function BroadcastDispatchBar({
           >
             {progress.stillWatching ? (
               <>
-                Sending “{progress.subject}” — {progress.sentCount} of{' '}
-                {progress.recipientCount} accepted
+                Sending “{progress.subject}” — {progress.sentCount} of {progress.recipientCount}{' '}
+                accepted
               </>
             ) : (
               <>Still sending, but this view has stopped updating</>
@@ -167,9 +163,9 @@ export function BroadcastDispatchBar({
           {!progress.stillWatching && (
             <>
               <p className="mt-1 text-xs text-muted-foreground">
-                {progress.sentCount} of {progress.recipientCount} accepted as of the last
-                check. The send continues in the background — it is not stuck. Resume
-                updates here, or refresh the page, to pick it up again.
+                {progress.sentCount} of {progress.recipientCount} accepted as of the last check. The
+                send continues in the background — it is not stuck. Resume updates here, or refresh
+                the page, to pick it up again.
               </p>
               <button
                 type="button"
@@ -196,6 +192,11 @@ export function BroadcastDispatchBar({
           {progress.failedCount > 0 && (
             <p className="mt-2 text-xs text-blue-800">
               {progress.failedCount} rejected by the provider.
+            </p>
+          )}
+          {(progress.suppressedCount ?? 0) > 0 && (
+            <p className="mt-2 text-xs text-amber-800">
+              {progress.suppressedCount} suppressed by the provider and not counted as accepted.
             </p>
           )}
         </div>

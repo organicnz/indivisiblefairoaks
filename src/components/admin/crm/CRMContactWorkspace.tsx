@@ -1,34 +1,15 @@
 'use client';
 
-import {
-  CalendarCheck,
-  Check,
-  CheckCircle2,
-  Edit2,
-  FileText,
-  FolderOpen,
-  GitMerge,
-  Image as ImageIcon,
-  Loader2,
-  Mail,
-  MessageSquare,
-  Plus,
-  Send,
-  ShoppingBag,
-  Trash2,
-  UploadCloud,
-  User,
-} from 'lucide-react';
-import Link from 'next/link';
+import { CalendarCheck, FileText, Image as ImageIcon, Mail, MessageSquare } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { CRMMediaLibraryModal } from '@/components/admin/crm/composer/CRMMediaLibraryModal';
 import { CRMContactEmailTab } from '@/components/admin/crm/CRMContactEmailTab';
 import { CRMContactMediaTab } from '@/components/admin/crm/CRMContactMediaTab';
 import { CRMContactNoteTab } from '@/components/admin/crm/CRMContactNoteTab';
 import { CRMContactTasksTab } from '@/components/admin/crm/CRMContactTasksTab';
 import { CRMContactTimelineTab } from '@/components/admin/crm/CRMContactTimelineTab';
+import { CRMMediaLibraryModal } from '@/components/admin/crm/composer/CRMMediaLibraryModal';
 import {
   addCRMNote,
   addCRMTask,
@@ -47,9 +28,10 @@ interface CRMContactWorkspaceProps {
   contact: CRMContact;
   activities: CRMActivity[];
   tasks: CRMTask[];
-  /** True when the server cut `activities` short of the full history. */
-  activitiesTruncated: boolean;
-  /** Every activity on record, which is more than `activities.length`. */
+  /** The timeline page represented by `activities`. */
+  activityPage: number;
+  activityPageSize: number;
+  /** Every activity on record; later pages hold fewer than this. */
   activityCount: number;
   /** True when the server cut `tasks` at its cap. */
   tasksTruncated: boolean;
@@ -63,7 +45,8 @@ export function CRMContactWorkspace({
   contact,
   activities,
   tasks,
-  activitiesTruncated,
+  activityPage,
+  activityPageSize,
   activityCount,
   tasksTruncated,
   taskCount,
@@ -376,7 +359,8 @@ export function CRMContactWorkspace({
       {activeTab === 'timeline' && (
         <CRMContactTimelineTab
           activities={activities}
-          activitiesTruncated={activitiesTruncated}
+          activityPage={activityPage}
+          activityPageSize={activityPageSize}
           activityCount={activityCount}
           editingNoteId={editingNoteId}
           setEditingNoteId={setEditingNoteId}
@@ -450,9 +434,7 @@ export function CRMContactWorkspace({
       )}
 
       {/* Tab: Storage Media Assets */}
-      {activeTab === 'media' && (
-        <CRMContactMediaTab setIsMediaModalOpen={setIsMediaModalOpen} />
-      )}
+      {activeTab === 'media' && <CRMContactMediaTab setIsMediaModalOpen={setIsMediaModalOpen} />}
 
       {/* Supabase Media Library Modal */}
       <CRMMediaLibraryModal

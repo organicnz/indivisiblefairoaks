@@ -1,11 +1,12 @@
 'use client';
 
-import { AlertCircle, CalendarClock, Check, Loader2 } from 'lucide-react';
+import { AlertCircle, CalendarClock, Check, Loader2, Send } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { NewsletterBasicsFields } from '@/components/admin/news/NewsletterBasicsFields';
 import { NewsletterPreviewCard } from '@/components/admin/news/NewsletterPreviewCard';
 import { NewsletterPublicationField } from '@/components/admin/news/NewsletterPublicationField';
+import { NewsletterReaderFields } from '@/components/admin/news/NewsletterReaderFields';
 import { NewsletterSortingField } from '@/components/admin/news/NewsletterSortingField';
 import { NewsletterTopicsField } from '@/components/admin/news/NewsletterTopicsField';
 import { NewsSummaryField } from '@/components/admin/news/NewsSummaryField';
@@ -17,6 +18,7 @@ import {
   DialogTitle,
 } from '@/components/ui/Dialog';
 import { type CivicNewsletterRecord, saveCivicNewsletter } from '@/lib/actions/civic';
+import { sendCivicNewsletterTest } from '@/lib/actions/civic-newsletter-broadcast';
 import { instantToPacificInput, pacificWallToInstant } from '@/lib/calendar-time';
 import { NEWSLETTER_CARD_EXCERPT_LENGTH, parseNewsletterTopicInput } from '@/lib/news-text';
 import {
@@ -39,6 +41,9 @@ interface NewsletterDraft {
   slug: string;
   dateLabel: string;
   description: string;
+  body: string;
+  pdfUrl: string;
+  archiveUrl: string;
   topics: string[];
   sortOrder: number;
   publishedAt: string;
@@ -50,6 +55,9 @@ function emptyDraft(): NewsletterDraft {
     slug: '',
     dateLabel: '',
     description: '',
+    body: '',
+    pdfUrl: '',
+    archiveUrl: '',
     topics: [],
     sortOrder: 10,
     publishedAt: '',
@@ -62,6 +70,9 @@ function draftFrom(newsletter: CivicNewsletterRecord): NewsletterDraft {
     slug: newsletter.slug || '',
     dateLabel: newsletter.date_label || '',
     description: newsletter.description || '',
+    body: newsletter.body || '',
+    pdfUrl: newsletter.pdf_url || '',
+    archiveUrl: newsletter.archive_url || '',
     topics: Array.isArray(newsletter.topics) ? newsletter.topics : [],
     sortOrder: newsletter.sort_order ?? 10,
     publishedAt: instantToPacificInput(newsletter.published_at),
@@ -95,6 +106,7 @@ export function CivicNewsletterEditorModal({
   const [topicInput, setTopicInput] = useState('');
   const [slugTouched, setSlugTouched] = useState(Boolean(newsletter));
   const [saving, setSaving] = useState(false);
+  const [sendingTest, setSendingTest] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmingClose, setConfirmingClose] = useState(false);
 
@@ -117,6 +129,7 @@ export function CivicNewsletterEditorModal({
     setTopicInput('');
     setSlugTouched(Boolean(newsletter));
     setSaving(false);
+    setSendingTest(false);
     setError(null);
     setConfirmingClose(false);
     justSavedRef.current = false;
@@ -126,10 +139,7 @@ export function CivicNewsletterEditorModal({
     if (confirmingClose) keepEditingRef.current?.focus();
   }, [confirmingClose]);
 
-  const dirty = useMemo(
-    () => draftSnapshot(draft) !== draftSnapshot(baseline),
-    [draft, baseline]
-  );
+  const dirty = useMemo(() => draftSnapshot(draft) !== draftSnapshot(baseline), [draft, baseline]);
 
   useEffect(() => {
     if (!isOpen || !dirty) return;
@@ -158,14 +168,14 @@ export function CivicNewsletterEditorModal({
     previewTopics.length <= NEWSLETTER_LIMITS.topics;
 
   const requestClose = useCallback(() => {
-    if (saving) return;
+    if (saving || sendingTest) return;
     if (justSavedRef.current || !dirty) {
       setConfirmingClose(false);
       onClose();
       return;
     }
     setConfirmingClose(true);
-  }, [dirty, onClose, saving]);
+  }, [dirty, onClose, saving, sendingTest]);
 
   const updateDraft = (patch: Partial<NewsletterDraft>) => {
     setDraft((previous) => ({ ...previous, ...patch }));
@@ -206,13 +216,13 @@ export function CivicNewsletterEditorModal({
     }));
   };
 
-  const useCurrentTime = () => {
+  const applyCurrentTime = () => {
     updateDraft({ publishedAt: instantToPacificInput(new Date().toISOString()) });
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (saving) return;
+    if (saving || sendingTest) return;
 
     const title = draft.title.trim();
     const dateLabel = draft.dateLabel.trim();
@@ -257,6 +267,9 @@ export function CivicNewsletterEditorModal({
         title,
         date_label: dateLabel,
         description,
+        body: draft.body.trim(),
+        pdf_url: draft.pdfUrl.trim() || null,
+        archive_url: draft.archiveUrl.trim() || null,
         topics,
         sort_order: draft.sortOrder,
         published_at: publishedAt,
@@ -273,7 +286,16 @@ export function CivicNewsletterEditorModal({
       }
 
       justSavedRef.current = true;
-      setBaseline({ ...draft, title, dateLabel, description, topics });
+      setBaseline({
+        ...draft,
+        title,
+        dateLabel,
+        description,
+        body: draft.body.trim(),
+        pdfUrl: draft.pdfUrl.trim(),
+        archiveUrl: draft.archiveUrl.trim(),
+        topics,
+      });
       toast.success(newsletter ? 'Bulletin updated' : 'Bulletin added');
       onSaved(result.data, newsletter?.slug ?? null);
       onClose();
@@ -286,6 +308,51 @@ export function CivicNewsletterEditorModal({
       setSaving(false);
     }
   };
+
+  const handleSendTest = async () => {
+    if (saving || sendingTest) return;
+
+    const title = draft.title.trim();
+    const dateLabel = draft.dateLabel.trim();
+    const description = draft.description.trim();
+    if (!title || !dateLabel || !description) {
+      setError('Add a title, issue label, and summary before sending a test.');
+      return;
+    }
+
+    setSendingTest(true);
+    setError(null);
+    try {
+      const result = await sendCivicNewsletterTest({
+        title,
+        dateLabel,
+        description,
+        body: draft.body.trim(),
+        pdfUrl: draft.pdfUrl.trim() || null,
+        archiveUrl: draft.archiveUrl.trim() || null,
+        slug: draft.slug.trim() || undefined,
+      });
+      if (!result.success) {
+        setError(result.error ?? 'The test email could not be sent.');
+        toast.error(result.error ?? 'The test email could not be sent.');
+        return;
+      }
+      toast.success(
+        `Test sent to ${result.testRecipient ?? 'your admin address'}. The draft was not saved.`
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'The test email could not be sent.';
+      setError(message);
+      toast.error(message);
+    } finally {
+      setSendingTest(false);
+    }
+  };
+
+  const canSendTest =
+    Boolean(draft.title.trim()) &&
+    Boolean(draft.dateLabel.trim()) &&
+    Boolean(draft.description.trim());
 
   return (
     <Dialog
@@ -301,7 +368,7 @@ export function CivicNewsletterEditorModal({
           titleRef.current?.focus();
         }}
         onEscapeKeyDown={(event) => {
-          if (saving) {
+          if (saving || sendingTest) {
             event.preventDefault();
             return;
           }
@@ -311,7 +378,7 @@ export function CivicNewsletterEditorModal({
           }
         }}
         onInteractOutside={(event) => {
-          if (saving) {
+          if (saving || sendingTest) {
             event.preventDefault();
             return;
           }
@@ -424,10 +491,19 @@ export function CivicNewsletterEditorModal({
                 placeholder="Summarize the priorities, actions, and decisions a reader should know about."
                 help={
                   <>
-                    Plain text. Keep it to a short archive summary; the full issue remains in the
-                    chapter&rsquo;s email or PDF archive.
+                    Plain text. This is the short summary shown on the archive card. Add the full
+                    issue below so readers can open it here.
                   </>
                 }
+              />
+
+              <NewsletterReaderFields
+                body={draft.body}
+                pdfUrl={draft.pdfUrl}
+                archiveUrl={draft.archiveUrl}
+                onBodyChange={(value) => updateDraft({ body: value })}
+                onPdfUrlChange={(value) => updateDraft({ pdfUrl: value })}
+                onArchiveUrlChange={(value) => updateDraft({ archiveUrl: value })}
               />
 
               <NewsletterTopicsField
@@ -443,28 +519,38 @@ export function CivicNewsletterEditorModal({
                 publishedAt={draft.publishedAt}
                 scheduled={scheduled}
                 onPublishedAtChange={(value) => updateDraft({ publishedAt: value })}
-                onUseCurrentTime={useCurrentTime}
+                onUseCurrentTime={applyCurrentTime}
               />
 
               <NewsletterSortingField
                 sortOrder={draft.sortOrder}
                 onChange={(value) => updateDraft({ sortOrder: value })}
               />
-
             </div>
 
             <NewsletterPreviewCard
               dateLabel={draft.dateLabel}
               title={draft.title}
               description={draft.description}
+              body={draft.body}
+              pdfUrl={draft.pdfUrl}
+              archiveUrl={draft.archiveUrl}
               topics={previewTopics}
               scheduled={scheduled}
             />
           </div>
 
           <div className="flex shrink-0 flex-col gap-3 border-t border-border bg-surface-card px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-            <div className="flex items-center gap-2 text-[11px] text-muted-foreground" aria-live="polite">
-              {saving ? (
+            <div
+              className="flex items-center gap-2 text-[11px] text-muted-foreground"
+              aria-live="polite"
+            >
+              {sendingTest ? (
+                <>
+                  <Loader2 size={13} className="animate-spin" aria-hidden="true" />
+                  Sending test…
+                </>
+              ) : saving ? (
                 <>
                   <Loader2 size={13} className="animate-spin" aria-hidden="true" />
                   Saving bulletin…
@@ -487,14 +573,28 @@ export function CivicNewsletterEditorModal({
               <button
                 type="button"
                 onClick={requestClose}
-                disabled={saving}
+                disabled={saving || sendingTest}
                 className="min-h-10 rounded-sm border border-border px-4 py-2 text-xs font-bold text-foreground transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
+                type="button"
+                onClick={() => void handleSendTest()}
+                disabled={saving || sendingTest || !canSendTest}
+                title="Send this draft only to your signed-in admin address"
+                className="inline-flex min-h-10 items-center gap-1.5 rounded-sm border border-border px-4 py-2 text-xs font-bold text-foreground transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {sendingTest ? (
+                  <Loader2 size={13} className="animate-spin" aria-hidden="true" />
+                ) : (
+                  <Send size={13} aria-hidden="true" />
+                )}
+                <span>Send test</span>
+              </button>
+              <button
                 type="submit"
-                disabled={saving || !canSave}
+                disabled={saving || sendingTest || !canSave}
                 className="inline-flex min-h-10 items-center gap-1.5 rounded-sm bg-primary px-4 py-2 text-xs font-black uppercase tracking-wider text-white shadow-sm transition-colors hover:bg-primary-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {saving ? <Loader2 size={14} className="animate-spin" aria-hidden="true" /> : null}

@@ -1,4 +1,4 @@
-import { findNewsWords, matchesNewsWord, parseNewsQuery } from './normalize';
+import { findNewsPhrase, findNewsWords, matchesNewsWord, parseNewsQuery } from './normalize';
 
 export type NewsTextSegment = {
   text: string;
@@ -24,18 +24,17 @@ export function splitNewsTextHighlights(text: string, query: string): NewsTextSe
   if (tokens.length === 0) return [{ text, matched: false }];
 
   const words = findNewsWords(text);
+  const normalizedWords = words.map((word) => word.word);
   const ranges: TextRange[] = [];
 
   for (const phrase of phrases) {
-    if (phrase.length === 0 || phrase.length > words.length) continue;
-    for (let start = 0; start <= words.length - phrase.length; start += 1) {
-      if (phrase.every((word, index) => words[start + index]?.word === word)) {
-        ranges.push({
-          start: words[start].start,
-          end: words[start + phrase.length - 1].end,
-        });
-        start += phrase.length - 1;
-      }
+    let start = findNewsPhrase(normalizedWords, phrase);
+    while (start >= 0) {
+      ranges.push({
+        start: words[start].start,
+        end: words[start + phrase.length - 1].end,
+      });
+      start = findNewsPhrase(normalizedWords, phrase, start + phrase.length);
     }
   }
 

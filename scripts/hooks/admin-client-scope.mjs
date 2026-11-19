@@ -25,6 +25,13 @@
  *                              per-contact UUID, update is idempotent and
  *                              rate-limited (20/10min/IP). Read + opt-out
  *                              write only — cannot escalate or exfiltrate.
+ *   src/app/api/newsletter/confirm/ — public double opt-in landing zone: no
+ *                              user session exists; token is an unguessable
+ *                              per-contact UUID, GET is read-only and POST
+ *                              requires both that token and an explicit human
+ *                              confirmation. Rate-limited (20/10min/IP); the
+ *                              write is scoped to that contact and can only
+ *                              set newsletter consent fields.
  *   src/app/news/actions.ts   — public Action Alerts subscriber landing zone:
  *                              no user session exists for anonymous visitors.
  *                              Strict honeypot defense, input sanitization,
@@ -66,7 +73,7 @@
  */
 
 const ALLOWLIST =
-  'src/app/admin/|src/app/api/webhooks/|src/app/api/crm/unsubscribe/|src/app/news/actions.ts|src/app/account/page.tsx|src/lib/supabase-server.ts|src/lib/admin-auth.ts|src/lib/admin-api-auth.ts|src/lib/crm-tag-scan.ts|src/lib/actions/mfa-recovery.ts';
+  'src/app/admin/|src/app/api/webhooks/|src/app/api/crm/unsubscribe/|src/app/api/newsletter/confirm/|src/app/news/actions.ts|src/app/account/page.tsx|src/lib/supabase-server.ts|src/lib/admin-auth.ts|src/lib/admin-api-auth.ts|src/lib/crm-tag-scan.ts|src/lib/actions/mfa-recovery.ts';
 
 const files = process.argv.slice(2);
 const violations = [];

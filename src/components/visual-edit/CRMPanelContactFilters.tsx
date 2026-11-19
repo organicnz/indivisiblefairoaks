@@ -2,23 +2,8 @@
 
 import { MapPin, RotateCcw, Search, Tag, X } from 'lucide-react';
 import type { RefObject } from 'react';
-import type { ConsentFilter } from '@/lib/crm-filters';
-import type { CRMContact } from '@/types/unified';
-
-const STATUS_FILTER_LABELS: Record<string, string> = {
-  active_volunteer: 'Active volunteer',
-  supporter: 'Supporter',
-  donor: 'Donor',
-  choir: 'Choir',
-  organizer: 'Organizer',
-  inactive: 'Inactive',
-};
-
-const CONSENT_FILTER_LABELS: Record<string, string> = {
-  opted_in: 'Opted in',
-  opted_out: 'Opted out',
-  unasked: 'Never asked',
-};
+import { CRM_CONTACT_CONSENT_OPTIONS, CRM_CONTACT_STATUS_OPTIONS } from '@/lib/crm-contact-options';
+import type { ConsentFilter, CRMContact } from '@/types/unified';
 
 interface CRMPanelContactFiltersProps {
   searchInputRef: RefObject<HTMLInputElement | null>;
@@ -98,9 +83,11 @@ export function CRMPanelContactFilters({
           className="w-full px-2.5 py-1.5 rounded-lg border border-border bg-background text-xs focus:ring-2 focus:ring-primary truncate disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <option value="all">All consent</option>
-          <option value="opted_in">Opted in</option>
-          <option value="opted_out">Opted out</option>
-          <option value="unasked">Never asked</option>
+          {CRM_CONTACT_CONSENT_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
         </select>
         <select
           value={statusFilter}
@@ -111,12 +98,11 @@ export function CRMPanelContactFilters({
           className="w-full px-2.5 py-1.5 rounded-lg border border-border bg-background text-xs focus:ring-2 focus:ring-primary truncate disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <option value="all">All statuses</option>
-          <option value="active_volunteer">Active volunteer</option>
-          <option value="supporter">Supporter</option>
-          <option value="donor">Donor</option>
-          <option value="choir">Choir</option>
-          <option value="organizer">Organizer</option>
-          <option value="inactive">Inactive</option>
+          {CRM_CONTACT_STATUS_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.compactLabel}
+            </option>
+          ))}
         </select>
       </div>
       <div className="flex items-center gap-1.5">
@@ -217,7 +203,9 @@ export function CRMPanelContactFilters({
           {statusFilter !== 'all' && (
             <div className="flex items-center justify-between gap-1 px-2 py-0.5 rounded-md bg-primary/10 border border-primary/20 text-primary text-xs">
               <span className="font-semibold truncate">
-                Status: {STATUS_FILTER_LABELS[statusFilter] ?? statusFilter}
+                Status:{' '}
+                {CRM_CONTACT_STATUS_OPTIONS.find((option) => option.value === statusFilter)
+                  ?.compactLabel ?? statusFilter}
               </span>
               <button
                 type="button"
@@ -232,7 +220,9 @@ export function CRMPanelContactFilters({
           {consentFilter !== 'all' && (
             <div className="flex items-center justify-between gap-1 px-2 py-0.5 rounded-md bg-primary/10 border border-primary/20 text-primary text-xs">
               <span className="font-semibold truncate">
-                Consent: {CONSENT_FILTER_LABELS[consentFilter] ?? consentFilter}
+                Consent:{' '}
+                {CRM_CONTACT_CONSENT_OPTIONS.find((option) => option.value === consentFilter)
+                  ?.label ?? consentFilter}
               </span>
               <button
                 type="button"

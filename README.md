@@ -81,7 +81,7 @@ bun run start        # production server — runs on Bun
 bun run lint         # Biome + oxlint (auto-fix)
 bun run lint:check   # lint without writing
 bun run format       # Biome format (auto-fix)
-bun run check:ci     # full Biome CI check (no writes)
+bun run check:ci     # Biome + oxlint (no writes)
 bun run typecheck        # type check (`tsrs` — TypeScript 7 in Rust, no Node)
 bun run typecheck:watch  # live watch mode (`tsrs --watch`)
 bun run typecheck:stats  # Rust compiler telemetry & diagnostics (`tsrs --extendedDiagnostics`)
@@ -89,7 +89,8 @@ bun run test         # Vitest unit suite (single run)
 bun run test:watch   # Vitest in watch mode
 bun run test:e2e     # Playwright suite
 bun run test:coverage
-bun run types:generate  # regenerate Supabase types
+bun run types:generate  # regenerate Supabase types (needs SUPABASE_ACCESS_TOKEN)
+bun run types:check     # verify generated types; skips locally without a token
 ```
 
 > **The runtime is Bun.** There is no Node.js in this project — not for the
@@ -119,9 +120,9 @@ service-worker behavior are outside the current boundary.
 ## CI/CD
 
 - **Runner**: self-hosted **X64** Linux, requested as `[self-hosted, linux, X64, frontend-runner|backend-runner]`. `X64` is correct and should not be changed. This repository **is** served by the `ghrunner` fleet manager (Podman + Quadlet, one x86_64 VPS behind Tailscale), and jobs are dispatched, check out, and start. They do not finish: the host is an **887 MiB / 2 vCPU** VPS and `bunx tsc --noEmit` exhausts it. See [`docs/ci-runners.md`](./docs/ci-runners.md).
-- **On push to `main`**: `ci.yml` runs lint → types → unit + coverage → build → Playwright e2e → live `/api/health` probe. `supabase.yml` runs in parallel on any `supabase/**` change and pushes migrations. There is **no Vercel deploy job** — it was removed on purpose (spare previews, doubled upload consumption, the free tier's `api-upload-free` rate limit). Production ships from the push plus the health probe. Do not re-add it.
+- **On push to `main`**: `ci.yml` runs lint → types → unit + coverage → build → Playwright e2e → live `/api/health` probe. `supabase.yml` runs in parallel on any `supabase/**` or generated-type change, applies migrations, and then verifies `src/types/supabase.ts` against the live schema. There is **no job that deploys to Vercel** — the `vercel-deploy` job only observes and verifies the deployment Vercel builds from the push. Do not re-add a CLI deploy job: it produced spare previews and hit the free tier's upload limit.
 - **Scheduled**: `runner-health.yml` every 30 min, `walle-refresh.yml` at 04:17 UTC, `secret-audit.yml` at 04:37 UTC. Deliberately staggered off `:00`, when every scheduled workflow competes for the shared runner fleet. There is no nightly compatibility workflow; `scripts/ai-review.mjs` is unreferenced.
-- **Pre-commit**: 30 lefthook guards — secrets, migration/RLS/`SECURITY DEFINER` checks, Biome, oxlint, typecheck, four env-contract checkers, lockfile pairing, and `playwright test --list` (spec parse only, no browsers). Guard bodies live in `scripts/hooks/*.mjs`. A committed migration regenerates `src/types/supabase.ts`.
+- **Pre-commit**: 35 lefthook guards — secrets, migration/RLS/`SECURITY DEFINER` checks, Biome, oxlint, typecheck, four env-contract checkers, lockfile pairing, and `playwright test --list` (spec parse only, no browsers). Guard bodies live in `scripts/hooks/*.mjs`. With `SUPABASE_ACCESS_TOKEN` configured, a committed migration regenerates `src/types/supabase.ts`; without it, the hook skips cleanly. After applying migrations, `supabase.yml` verifies the generated file is current.
 - **Pre-push**: lint → unit → typecheck → coverage → production build → peer-deps, then the **Playwright e2e delivery gate** when the push range touches runtime surfaces (`src/`, `e2e/`, `public/`, `supabase/`, configs, lockfile). Docs-only pushes skip e2e. Bypass: `LEFTHOOK_EXCLUDE=e2e git push`.
 
 ---

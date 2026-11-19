@@ -1,6 +1,15 @@
 'use client';
 
-import { ChevronLeft, ChevronRight, Copy, Keyboard, Loader2, PenLine, SlidersHorizontal, Sparkles, X } from 'lucide-react';
+import {
+  ChevronLeft,
+  ChevronRight,
+  Keyboard,
+  Loader2,
+  PenLine,
+  SlidersHorizontal,
+  Sparkles,
+  X,
+} from 'lucide-react';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import type { Block } from '@/lib/blocks';
@@ -9,21 +18,19 @@ import type { History as EditorHistory } from '@/lib/editor-history';
 import type { EffectiveTheme, ThemeMode } from '@/lib/theme';
 import type { VisualSection } from '@/lib/visual-sections';
 import type { BackendStatus, BackendSummary, MediaTarget, VisualContentRow } from '@/types/unified';
-import {
-  DocumentReadBanner,
-  type DocumentLoadState,
-} from './DocumentReadBanner';
-import { type BlockTemplate } from './BlockLibraryModal';
+import type { BlockTemplate } from './BlockLibraryModal';
 import { BlockLibraryPanel } from './BlockLibraryPanel';
 import { DefaultContextZone } from './DefaultContextZone';
+import { type DocumentLoadState, DocumentReadBanner } from './DocumentReadBanner';
 import { ImageContextZone } from './ImageContextZone';
 import { InlineContextZone } from './InlineContextZone';
+import type { ViewportMode } from './useVisualEditViewport';
 import {
   VisualComposerInspector,
   type VisualComposerInspectorProps,
 } from './VisualComposerInspector';
 import type { ModifiedBlockItem, ModifiedDataPointItem } from './VisualDiffModal';
-import type { ImageEditSession, InlineEditSession, ViewportMode } from './VisualEditOverlay';
+import type { ImageEditSession, InlineEditSession } from './VisualEditOverlay';
 
 const SIDEBAR_TAB_ORDER = ['composer', 'blocks', 'library'] as const;
 type SidebarTab = (typeof SIDEBAR_TAB_ORDER)[number];
@@ -215,7 +222,7 @@ export function VisualEditorSidebar(props: VisualEditorSidebarProps) {
         : props.dirty
           ? 'Unsaved changes'
           : props.unsaveableReason
-              ? 'Page-level copy is not savable — edit inline text or a copy region'
+            ? 'Page-level copy is not savable — edit inline text or a copy region'
             : !props.contentRow
               ? 'Not connected to Supabase'
               : 'Saved';
@@ -232,6 +239,21 @@ export function VisualEditorSidebar(props: VisualEditorSidebarProps) {
   const sidebarStyle: React.CSSProperties = {
     right: '0',
   };
+
+  // Hooks must run before the collapsed early return. The collapsed and
+  // expanded views are the same mounted component, so a `collapsed` toggle
+  // that skipped these would change the hook order mid-life and tear down
+  // React state (the sidebar tabs and composer sync).
+  const { inlineSession, imageSession } = props;
+  const [uncontrolledTab, setUncontrolledTab] = useState<SidebarTab>(
+    isComposerActive ? 'composer' : 'blocks'
+  );
+
+  useEffect(() => {
+    if (isComposerActive && !props.activeSidebarTab) {
+      setUncontrolledTab('composer');
+    }
+  }, [isComposerActive, props.activeSidebarTab]);
 
   // ── Collapsed: a narrow icon strip ──────────────────────────────────────
   if (collapsed && !isComposerActive && !props.inlineSession && !props.imageSession) {
@@ -266,15 +288,13 @@ export function VisualEditorSidebar(props: VisualEditorSidebarProps) {
           <button
             type="button"
             onClick={props.onSave}
-            disabled={
-              props.savingBackend || Boolean(props.unsaveableReason) || !documentReady
-            }
+            disabled={props.savingBackend || Boolean(props.unsaveableReason) || !documentReady}
             title={
               !documentReady
                 ? documentUnavailable
                   ? 'Reload the saved document before saving'
                   : 'Wait for the saved document to open before saving'
-                : props.unsaveableReason ?? 'Save changes to Supabase (⌘S)'
+                : (props.unsaveableReason ?? 'Save changes to Supabase (⌘S)')
             }
             aria-label="Save changes to Supabase"
             className="inline-flex items-center justify-center rounded-md bg-accent p-1.5 text-ink-strong hover:bg-accent-gold cursor-pointer disabled:opacity-50"
@@ -303,10 +323,6 @@ export function VisualEditorSidebar(props: VisualEditorSidebarProps) {
   }
 
   // ── Expanded: full sidebar with context zone ────────────────────────────
-  const { inlineSession, imageSession } = props;
-  const [uncontrolledTab, setUncontrolledTab] = useState<SidebarTab>(
-    isComposerActive ? 'composer' : 'blocks'
-  );
   const sidebarTab = props.activeSidebarTab ?? uncontrolledTab;
   const handleSetTab = (tab: SidebarTab) => {
     setUncontrolledTab(tab);
@@ -340,12 +356,6 @@ export function VisualEditorSidebar(props: VisualEditorSidebarProps) {
     // render lands, but programmatic focus does not need tabIndex 0.
     document.getElementById(`sidebar-tab-button-${tab}`)?.focus();
   };
-
-  useEffect(() => {
-    if (isComposerActive && !props.activeSidebarTab) {
-      setUncontrolledTab('composer');
-    }
-  }, [isComposerActive, props.activeSidebarTab]);
 
   const isWide = isComposerActive || sidebarTab === 'composer' || sidebarTab === 'library';
 
@@ -474,11 +484,10 @@ export function VisualEditorSidebar(props: VisualEditorSidebarProps) {
               <SlidersHorizontal size={22} />
             </div>
             <div className="space-y-1">
-              <h3 className="text-sm font-bold text-white tracking-wide">
-                Visual Composer Studio
-              </h3>
+              <h3 className="text-sm font-bold text-white tracking-wide">Visual Composer Studio</h3>
               <p className="text-xs text-slate-300 max-w-xs leading-relaxed">
-                Select any block on the page or tree to edit its styles, box model, colors, and animations.
+                Select any block on the page or tree to edit its styles, box model, colors, and
+                animations.
               </p>
             </div>
             <div className="flex flex-col gap-2 w-full max-w-xs pt-2">
@@ -513,11 +522,7 @@ export function VisualEditorSidebar(props: VisualEditorSidebarProps) {
         {inlineSession ? (
           <InlineContextZone {...props} inlineSession={inlineSession} />
         ) : imageSession ? (
-          <ImageContextZone
-            key={imageSession.historyKey}
-            {...props}
-            imageSession={imageSession}
-          />
+          <ImageContextZone key={imageSession.historyKey} {...props} imageSession={imageSession} />
         ) : (
           <DefaultContextZone
             {...props}

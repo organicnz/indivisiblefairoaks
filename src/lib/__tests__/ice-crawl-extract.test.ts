@@ -1,6 +1,16 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
+import type { CityPoint } from '@/components/ice-alerts/types';
 import {
+  chunkPageText,
+  isPrivateAddress,
+  parseAiJson,
+  resolveCrawlUrls,
+  splitAiChunk,
+} from '@/lib/ice-crawl';
+import {
+  classifyReportKind,
+  type ExtractedReport,
   extractCityState,
   extractFeedItems,
   extractHtmlReport,
@@ -16,16 +26,7 @@ import {
   mergeExtractedReports,
   readableText,
   verbatimExcerpt,
-  type ExtractedReport,
 } from '@/lib/ice-crawl-extract';
-import {
-  chunkPageText,
-  isPrivateAddress,
-  parseAiJson,
-  resolveCrawlUrls,
-  splitAiChunk,
-} from '@/lib/ice-crawl';
-import type { CityPoint } from '@/components/ice-alerts/types';
 
 const CITIES: CityPoint[] = [
   { city: 'San Diego', state: 'California', stateCode: 'CA', lat: 32.7, lng: -117.1, count: 1 },
@@ -101,6 +102,14 @@ describe('ice source extraction', () => {
   it('classifies report text and city/state conservatively', () => {
     expect(isIceReportText('ICE agents were reported near the library.')).toBe(true);
     expect(isIceReportText('The library is open late.')).toBe(false);
+    expect(
+      isIceReportText(
+        'Topics\nImmigration and Customs Enforcement\nLaw Enforcement\nPress Enter to Search'
+      )
+    ).toBe(false);
+    expect(classifyReportKind('Immigration and Customs Enforcement\nLaw Enforcement')).toBe(
+      'other'
+    );
     expect(extractCityState('Activity in Sacramento, CA this morning')).toEqual({
       city: 'Sacramento',
       stateCode: 'CA',
@@ -136,7 +145,14 @@ describe('ice source extraction', () => {
   it('never borrows a same-named city from another state', () => {
     const cities: CityPoint[] = [
       ...CITIES,
-      { city: 'Costa Mesa', state: 'California', stateCode: 'CA', lat: 33.6, lng: -117.9, count: 1 },
+      {
+        city: 'Costa Mesa',
+        state: 'California',
+        stateCode: 'CA',
+        lat: 33.6,
+        lng: -117.9,
+        count: 1,
+      },
       { city: 'Gardena', state: 'California', stateCode: 'CA', lat: 33.8, lng: -118.3, count: 1 },
       { city: 'McAllen', state: 'Texas', stateCode: 'TX', lat: 26.2, lng: -98.2, count: 1 },
       { city: 'Houston', state: 'Texas', stateCode: 'TX', lat: 29.7, lng: -95.3, count: 1 },
@@ -207,7 +223,9 @@ describe('ice source extraction', () => {
       'ICE checkpoint in Sacramento',
     ]);
     expect(reports.every((report) => report.sourceTitle === 'ICE reports — Example')).toBe(true);
-    expect(reports.every((report) => report.sourceUrl === 'https://example.org/reports')).toBe(true);
+    expect(reports.every((report) => report.sourceUrl === 'https://example.org/reports')).toBe(
+      true
+    );
   });
 
   it('extracts multiple JSON-LD article bodies', () => {
@@ -260,10 +278,7 @@ describe('ice source extraction', () => {
       '<urlset><url><loc>https://example.org/reports/one</loc></url><url><loc><![CDATA[https://example.org/reports/two]]></loc></url><url><loc>https://other.example/two</loc></url></urlset>',
       'https://example.org/sitemap.xml'
     );
-    expect(links).toEqual([
-      'https://example.org/reports/one',
-      'https://example.org/reports/two',
-    ]);
+    expect(links).toEqual(['https://example.org/reports/one', 'https://example.org/reports/two']);
   });
 
   it('deduplicates overlapping chunk extracts without dropping distinct reports', () => {
@@ -338,7 +353,9 @@ describe('ice source extraction', () => {
       parseAiJson('```json\n[{"title":"A","text":"ICE agents were reported."}]\n```')
     ).toHaveLength(1);
     expect(
-      parseAiJson('Here is the result: {"reports":[{"title":"B","text":"ICE checkpoint reported."}]}')
+      parseAiJson(
+        'Here is the result: {"reports":[{"title":"B","text":"ICE checkpoint reported."}]}'
+      )
     ).toHaveLength(1);
     expect(
       parseAiJson(
@@ -353,9 +370,7 @@ describe('ice source extraction', () => {
       )
     ).toHaveLength(1);
     expect(
-      parseAiJson(
-        '{"data":{"reports":[{"title":"F","text":"ICE agents reported."}]}}'
-      )
+      parseAiJson('{"data":{"reports":[{"title":"F","text":"ICE agents reported."}]}}')
     ).toHaveLength(1);
   });
 });
@@ -376,7 +391,9 @@ describe('crawler SSRF boundary', () => {
   });
 
   it('resolves the StopICE home source to its monthly exports', () => {
-    expect(resolveCrawlUrls('https://stopice.net/?data=1', new Date('2026-11-16T12:00:00Z'))).toEqual([
+    expect(
+      resolveCrawlUrls('https://stopice.net/?data=1', new Date('2026-11-16T12:00:00Z'))
+    ).toEqual([
       'https://stopice.net/login/data/stats/stopicenet_nov_2026_complete.xml',
       'https://stopice.net/login/data/stats/stopicenet_oct_2026_complete.xml',
       'https://stopice.net/login/data/stats/stopicenet_sep_2026_complete.xml',

@@ -1,15 +1,15 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { cacheLife, cacheTag } from 'next/cache';
 import type { CivicEvent } from '@/components/ui/InteractiveEventsCalendar';
-import {
-  filterUpcomingEvents,
-  getFallbackMeeting,
-  selectUpcomingMeetingEvent,
-  type CardEvent,
-} from '@/lib/civic-events';
 // Issue #149: stamps must be Pacific wall time (interpreted downstream by
 // `ctz=` / `TZID=`), never floating values the viewer's clock reinterprets.
 import { instantToPacificBasic } from '@/lib/calendar-time';
+import {
+  type CardEvent,
+  filterUpcomingEvents,
+  getFallbackMeeting,
+  selectUpcomingMeetingEvent,
+} from '@/lib/civic-events';
 import { createPublicClient } from '@/lib/supabase-server';
 
 // New civic tables predate the next `types:generate` run, so reads go through
@@ -58,6 +58,12 @@ export interface NewsletterRow {
   title: string;
   date_label: string;
   description: string;
+  /** Plain-text full issue. Optional because cached/API rows predate it. */
+  body?: string;
+  /** Durable PDF copy, when the chapter has one. */
+  pdf_url?: string | null;
+  /** Durable external archive copy, when the chapter has one. */
+  archive_url?: string | null;
   topics: string[];
   sort_order: number;
   published_at: string | null;
@@ -70,6 +76,18 @@ export interface NewsletterRow {
  */
 export function buildNewsletterVisibilityFilter(nowISO: string): string {
   return `published_at.is.null,published_at.lte.${nowISO}`;
+}
+
+/** Fill fields that may be absent while a deployment predates its migration. */
+function normalizeNewsletterRow(row: NewsletterRow): NewsletterRow {
+  return {
+    ...row,
+    body: typeof row.body === 'string' ? row.body : '',
+    pdf_url: typeof row.pdf_url === 'string' && row.pdf_url.trim() ? row.pdf_url : null,
+    archive_url:
+      typeof row.archive_url === 'string' && row.archive_url.trim() ? row.archive_url : null,
+    topics: Array.isArray(row.topics) ? row.topics : [],
+  };
 }
 
 export interface FAQRow {
@@ -175,7 +193,6 @@ export async function getPartners(): Promise<PartnerRow[]> {
   }
 }
 
-
 export async function getCoalitionLinks(): Promise<CoalitionLinkRow[]> {
   'use cache';
   // Same freshness rule as partners: a migration or direct DB correction
@@ -202,18 +219,39 @@ export async function getNewsletters(): Promise<NewsletterRow[]> {
     const supabase = publicClient();
     const { data } = await supabase
       .from('newsletters')
-      .select('slug, title, date_label, description, topics, sort_order, published_at')
+      // `select('*')` keeps the public archive readable during the window where
+      // the code is deployed before the reader-destination migration runs.
+      .select('*')
       // The admin manager reads the full table; this public archive must hide
       // a bulletin whose publication timestamp is still in the future.
       .or(buildNewsletterVisibilityFilter(new Date().toISOString()))
       .order('sort_order', { ascending: true });
     const rows = (data ?? []) as NewsletterRow[];
-    return rows.map((row) => ({
-      ...row,
-      topics: Array.isArray(row.topics) ? row.topics : [],
-    }));
+    return rows.map(normalizeNewsletterRow);
   } catch {
     return [];
+  }
+}
+
+/**
+ * One public bulletin by slug. Future-dated rows are intentionally absent, so
+ * the detail route can call `notFound()` without exposing a scheduled issue.
+ */
+export async function getNewsletterBySlug(slug: string): Promise<NewsletterRow | null> {
+  'use cache';
+  cacheLife('hours');
+  cacheTag('newsletters');
+  try {
+    const supabase = publicClient();
+    const { data } = await supabase
+      .from('newsletters')
+      .select('*')
+      .eq('slug', slug)
+      .or(buildNewsletterVisibilityFilter(new Date().toISOString()))
+      .maybeSingle();
+    return data ? normalizeNewsletterRow(data as NewsletterRow) : null;
+  } catch {
+    return null;
   }
 }
 

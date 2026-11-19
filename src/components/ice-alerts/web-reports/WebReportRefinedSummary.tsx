@@ -1,7 +1,7 @@
 'use client';
 
+import { LoaderCircle, Sparkles } from 'lucide-react';
 import { useState } from 'react';
-import { ArrowUpRight, LoaderCircle, Sparkles } from 'lucide-react';
 
 type DigestState =
   | { status: 'idle' }
@@ -27,9 +27,11 @@ async function readDigest(reportId: string): Promise<string> {
     body: JSON.stringify({ id: reportId }),
     cache: 'no-store',
   });
-  const payload = (await response.json().catch(() => null)) as
-    | { ok?: unknown; text?: unknown; message?: unknown }
-    | null;
+  const payload = (await response.json().catch(() => null)) as {
+    ok?: unknown;
+    text?: unknown;
+    message?: unknown;
+  } | null;
 
   if (!response.ok || payload?.ok !== true || typeof payload.text !== 'string') {
     throw new Error(
@@ -67,9 +69,7 @@ export function WebReportRefinedSummary({
       setState({
         status: 'error',
         message:
-          error instanceof Error
-            ? error.message
-            : 'The AI summary is temporarily unavailable.',
+          error instanceof Error ? error.message : 'The AI summary is temporarily unavailable.',
       });
     }
   }
@@ -101,9 +101,7 @@ export function WebReportRefinedSummary({
           </p>
         ) : null}
 
-        {state.status === 'ready' ? (
-          <div className="whitespace-pre-line">{state.text}</div>
-        ) : null}
+        {state.status === 'ready' ? <div className="whitespace-pre-line">{state.text}</div> : null}
 
         {state.status === 'error' ? (
           <p role="status" className="text-muted-foreground">
@@ -122,8 +120,8 @@ export function WebReportRefinedSummary({
 
         {state.status === 'ready' ? (
           <p className="mt-3 border-t border-border pt-2 text-[10px] leading-relaxed text-muted-foreground">
-            AI-generated digest grounded in the linked source. It paraphrases the source and is
-            not independently verified; open the original for exact wording.
+            AI-generated digest grounded in the linked source. It paraphrases the source and is not
+            independently verified; open the original for exact wording.
           </p>
         ) : null}
       </div>

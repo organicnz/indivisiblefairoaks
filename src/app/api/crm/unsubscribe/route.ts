@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
-import { readFormDataWithLimit } from '@/lib/request-body';
 import { renderUnsubscribeGreeting } from '@/lib/crm-unsubscribe';
+import { withoutNewsletterConfirmationTag } from '@/lib/newsletter-subscription';
 import { clientKey, rateLimit } from '@/lib/rate-limit';
+import { readFormDataWithLimit } from '@/lib/request-body';
 import { createAdminClient } from '@/lib/supabase-server';
+import type { CRMContactUpdate, NewsletterContactUpdate } from '@/types/crm';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -52,7 +54,22 @@ const PAGE = (body: string) =>
 const NO_INDEX = { 'X-Robots-Tag': 'noindex, nofollow' };
 
 /** Shared gate and token check. Returns the contact row, or a ready response. */
-type Contact = { id: string; email: string; first_name: string | null };
+type Contact = {
+  id: string;
+  email: string;
+  first_name: string | null;
+  tags: string[] | null;
+  newsletter_confirmed_at: string | null;
+  newsletter_confirm_token: string | null;
+};
+
+type CurrentContact = {
+  do_not_email: boolean | null;
+  unsubscribed_at: string | null;
+  tags: string[] | null;
+  newsletter_confirmed_at: string | null;
+  newsletter_confirm_token: string | null;
+};
 
 async function resolve(
   req: Request,
@@ -75,7 +92,9 @@ async function resolve(
   const adminClient = await createAdminClient();
   const { data: contact } = await adminClient
     .from('crm_contacts')
-    .select('id, email, first_name, do_not_email')
+    .select(
+      'id, email, first_name, tags, newsletter_confirmed_at, newsletter_confirm_token, do_not_email'
+    )
     .eq('unsubscribe_token', token)
     .single();
 
@@ -84,7 +103,7 @@ async function resolve(
       response: new NextResponse('This unsubscribe link is no longer valid.', { status: 404 }),
     };
   }
-  return { contact: contact as Contact };
+  return { contact: contact as unknown as Contact };
 }
 
 const html = (body: string) =>
@@ -140,9 +159,12 @@ export async function POST(req: Request) {
   if (contentType.includes('application/x-www-form-urlencoded')) {
     const body = await readFormDataWithLimit(req, MAX_FORM_BODY_BYTES);
     if (!body.ok) {
-      return new NextResponse(body.code === 'too-large' ? 'Request body too large.' : 'Invalid form.', {
-        status: body.code === 'too-large' ? 413 : 400,
-      });
+      return new NextResponse(
+        body.code === 'too-large' ? 'Request body too large.' : 'Invalid form.',
+        {
+          status: body.code === 'too-large' ? 413 : 400,
+        }
+      );
     }
     const form = body.value;
     const fromBody = form.get('token');
@@ -160,25 +182,51 @@ export async function POST(req: Request) {
     // Idempotent, and deliberately so: the RFC 8058 auto-confirm and a person
     // clicking twice must both land here with no second activity row.
     const adminClient = await createAdminClient();
-    const { data: current } = await adminClient
+    const { data: currentRow } = await adminClient
       .from('crm_contacts')
-      .select('do_not_email')
+      .select(
+        'do_not_email, unsubscribed_at, tags, newsletter_confirmed_at, newsletter_confirm_token'
+      )
       .eq('id', contact.id)
       .single();
+    // Generated types do not include the unapplied newsletter columns.
+    const current = currentRow as unknown as CurrentContact | null;
 
-    if (!current?.do_not_email) {
+    const alreadyOut = current?.do_not_email === true;
+    // A contact can be chapter-wide opted out while a newsletter confirmation is
+    // still recorded (for example an admin changed consent by hand). Clear that
+    // state on this click; only a first opt-out writes a second activity row.
+    const hasNewsletterState = Boolean(
+      current?.newsletter_confirmed_at || current?.newsletter_confirm_token
+    );
+
+    if (!alreadyOut || hasNewsletterState) {
       const now = new Date().toISOString();
+      const tags = withoutNewsletterConfirmationTag(
+        Array.isArray(current?.tags) ? current.tags : (contact.tags ?? [])
+      );
+      const updatePayload: NewsletterContactUpdate = {
+        do_not_email: true,
+        unsubscribed_at: current?.unsubscribed_at ?? now,
+        newsletter_confirmed_at: null,
+        newsletter_confirm_token: null,
+        newsletter_confirm_expires_at: null,
+        tags,
+        updated_at: now,
+      };
       await adminClient
         .from('crm_contacts')
-        .update({ do_not_email: true, unsubscribed_at: now, updated_at: now })
+        .update(updatePayload as unknown as CRMContactUpdate)
         .eq('id', contact.id);
 
-      await adminClient.from('crm_activities').insert({
-        contact_id: contact.id,
-        type: 'note',
-        title: 'Unsubscribed via Link',
-        description: 'Unsubscribed from email broadcasts via the confirmation link.',
-      });
+      if (!alreadyOut) {
+        await adminClient.from('crm_activities').insert({
+          contact_id: contact.id,
+          type: 'note',
+          title: 'Unsubscribed via Link',
+          description: 'Unsubscribed from email broadcasts via the confirmation link.',
+        });
+      }
     }
 
     // RFC 8058: a `List-Unsubscribe-Post` auto-confirm wants 204 and no body.

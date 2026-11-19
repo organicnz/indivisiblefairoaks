@@ -9,6 +9,7 @@ type NewsletterManagerResultsProps = {
   filtering: boolean;
   clearLabel: string;
   onEdit: (newsletter: CivicNewsletterRecord) => void;
+  onEmail: (newsletter: CivicNewsletterRecord) => void;
   onDelete: (slug: string) => void;
   onClearFilters: () => void;
 };
@@ -21,6 +22,7 @@ export function NewsletterManagerResults({
   filtering,
   clearLabel,
   onEdit,
+  onEmail,
   onDelete,
   onClearFilters,
 }: NewsletterManagerResultsProps) {
@@ -45,6 +47,7 @@ export function NewsletterManagerResults({
             newsletter={newsletter}
             searchQuery={query || undefined}
             onEdit={onEdit}
+            onEmail={onEmail}
             onDelete={onDelete}
           />
         ))

@@ -7,11 +7,14 @@ import { IceCrawlHeader } from '@/components/admin/ice/IceCrawlHeader';
 import { requireAdminPage } from '@/lib/admin-auth';
 import {
   getIceCrawlStore,
+  type IceCrawlStore,
   listIceCrawlDiscoveries,
   listIceCrawlSources,
-  type IceCrawlStore,
 } from '@/lib/ice-crawl-store';
-import type { IceCrawlDiscovery as IceCrawlDiscoveryRow, IceCrawlSource } from '@/lib/ice-crawl-types';
+import type {
+  IceCrawlDiscovery as IceCrawlDiscoveryRow,
+  IceCrawlSource,
+} from '@/lib/ice-crawl-types';
 
 export const instant = false;
 
@@ -73,11 +76,12 @@ export default async function AdminIceCrawlPage() {
 
       <AdminNotice>
         <strong className="text-foreground">Rights and completeness:</strong> only add a source when
-        the chapter has the right to republish its text. The crawler follows public same-origin links
-        up to the source page limit. If it hits the limit or a robots.txt block, the source is marked{' '}
-        <strong className="text-foreground">partial</strong> with the unvisited count, rather than
-        silently claiming a complete run. AI extraction only uses verbatim excerpts and falls back to
-        deterministic extraction when Z.AI is not configured or cannot produce a grounded result.
+        the chapter has the right to republish its text. The crawler follows public same-origin
+        links up to the source page limit. If it hits the limit or a robots.txt block, the source is
+        marked <strong className="text-foreground">partial</strong> with the unvisited count, rather
+        than silently claiming a complete run. AI extraction only uses verbatim excerpts; the
+        source-refinement endpoint removes navigation and page chrome without rewriting report
+        wording, and deterministic extraction remains the fallback when AI is unavailable.
       </AdminNotice>
 
       <IceCrawlDiscovery discoveries={discoveries} loadError={discoveryLoadError} />

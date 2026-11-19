@@ -5,13 +5,15 @@ import { describe, expect, it } from 'vitest';
 /**
  * Source-level guards on `merge_crm_contacts`.
  *
- * The merge is plpgsql inside the database (migration 20261005030000), and it
- * became one statement precisely because four PostgREST statements could not be
- * atomic. That makes its behaviour invisible to every test in this repo: the
- * action suite mocks the client, and a row-based mock cannot execute SQL. The
- * combination rules — union the tags, sum the donations, OR the opt-out — are
- * exactly the ones a chapter would notice being wrong, and they are exactly the
- * ones nothing here can observe.
+ * The merge is plpgsql inside the database (migration 20261005030000, whose
+ * current body is re-declared by 20261119150000 with the canonical donor
+ * predicate), and it became one statement precisely because four PostgREST
+ * statements could not be atomic. That makes its behaviour invisible to every
+ * test in this repo: the action suite mocks the client, and a row-based mock
+ * cannot execute SQL. The combination rules — union the tags, sum the
+ * donations, OR the opt-out, preserve a donor status — are exactly the ones a
+ * chapter would notice being wrong, and they are exactly the ones nothing here
+ * can observe.
  *
  * So this reads the migration and asserts the properties that make it correct.
  * It is weaker than executing it, and deliberately so: a text assertion cannot
@@ -26,7 +28,7 @@ import { describe, expect, it } from 'vitest';
  */
 const MIGRATION = resolve(
   process.cwd(),
-  'supabase/migrations/20261005030000_merge_crm_contacts.sql'
+  'supabase/migrations/20261119150000_crm_canonical_donor.sql'
 );
 const SQL = await Bun.file(MIGRATION).text();
 
@@ -40,6 +42,23 @@ function bodyOf(name: string): string {
 }
 
 const FN = bodyOf('merge_crm_contacts');
+
+describe('canonical donor predicate', () => {
+  it('defines one generated predicate over status, tags and lifetime giving', () => {
+    expect(SQL).toMatch(
+      /ADD COLUMN IF NOT EXISTS is_donor boolean GENERATED ALWAYS AS \(\s*coalesce\(\s*status = 'donor'\s*OR 'donor' = ANY\(tags\)\s*OR total_donated_cents > 0,\s*false\s*\)\s*\) STORED/
+    );
+  });
+
+  it('counts donors with the predicate rather than the legacy total-only rule', () => {
+    expect(SQL).toMatch(
+      /total_donors',\s*\(SELECT count\(\*\) FROM public\.crm_contacts WHERE is_donor\)/
+    );
+    expect(SQL).not.toMatch(
+      /total_donors',\s*\(SELECT count\(\*\) FROM public\.crm_contacts WHERE total_donated_cents > 0\)/
+    );
+  });
+});
 
 describe('merge_crm_contacts: privilege boundary', () => {
   it('is SECURITY DEFINER with an empty search_path', () => {
@@ -199,15 +218,21 @@ describe('merge_crm_contacts: combination rules', () => {
 
   it('carries the duplicate scalar fields forward when the survivor is blank', () => {
     // The old UPDATE set five columns and dropped the rest: a second phone,
-    // address, city, zip, district or a `donor` status on the duplicate all
-    // disappeared silently. `status` is the sharp one — `crm_stats()` counts
-    // donors by `total_donated_cents > 0`, so the merged contact still
-    // *counted* as a donor while no `status`-filtered audience could select
-    // them again. COALESCE survivor-first, duplicate brought forward.
-    for (const field of ['phone', 'address', 'city', 'zip_code', 'district', 'status']) {
+    // address, city, zip or district on the duplicate disappeared silently.
+    // COALESCE survivor-first, duplicate brought forward.
+    for (const field of ['phone', 'address', 'city', 'zip_code', 'district']) {
       expect(FN).toMatch(new RegExp(`${field} = coalesce\\(`));
     }
-    expect(FN).toMatch(/status = coalesce\(v_keep\.status, v_remove\.status\)/);
+  });
+
+  it('never drops a donor status behind a non-null survivor status', () => {
+    // A real Postgres reproduction: survivor `supporter`, duplicate `donor`,
+    // both zero donations and no donor tag, used to merge to `supporter`.
+    // Donor is a canonical classification, so it wins over the survivor's
+    // non-donor status rather than being hidden by COALESCE.
+    expect(FN).toMatch(
+      /status = CASE\s+WHEN v_keep\.status = 'donor' OR v_remove\.status = 'donor' THEN 'donor'\s+ELSE coalesce\(v_keep\.status, v_remove\.status\)\s+END/
+    );
   });
 
   it("never copies the duplicate's unsubscribe token", () => {

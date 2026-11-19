@@ -1,21 +1,19 @@
 import { ArrowUpRight, ShieldQuestion, Sparkles } from 'lucide-react';
 import { connection } from 'next/server';
+import { CopyRegion } from '@/components/cms/CopyRegion';
+import { WebReportRefinedSummary } from '@/components/ice-alerts/web-reports/WebReportRefinedSummary';
 import {
   getIceCrawlStore,
   getPublishedSourceReportCount,
   getPublishedSourceReports,
 } from '@/lib/ice-crawl-store';
-import {
-  iceSourceKindLabel,
-  type IceSourceReport,
-} from '@/lib/ice-crawl-types';
+import { type IceSourceReport, iceSourceKindLabel } from '@/lib/ice-crawl-types';
+import { isSafeSourceDigest } from '@/lib/ice-source-refine';
 import {
   iceSourceReportDisplayTitle,
   iceSourceReportPlaceLabel,
   iceSourceReportTitleGeneralized,
 } from '@/lib/ice-source-report-search';
-import { CopyRegion } from '@/components/cms/CopyRegion';
-import { WebReportRefinedSummary } from '@/components/ice-alerts/web-reports/WebReportRefinedSummary';
 
 async function readWebReports() {
   const store = getIceCrawlStore();
@@ -60,8 +58,8 @@ export async function WebReportsSection() {
                 </h2>
                 <p className="mt-4 max-w-2xl text-sm leading-relaxed text-muted-foreground">
                   These are AI-refined digests of reports published by approved public sources. The
-                  reading panel does not embed the source article; it asks a Supabase AI endpoint for
-                  a grounded paraphrase, checks it for copied passages and invented figures, and
+                  reading panel does not embed the source article; it asks a Supabase AI endpoint
+                  for a grounded paraphrase, checks it for copied passages and invented figures, and
                   caches the result. Every entry keeps its original URL, source label, publication
                   time, and retrieval time. Visible headlines are generalized to the city when the
                   original contains a street-level location. Digests are not independently verified
@@ -125,6 +123,13 @@ export function WebReportCard({ report }: { report: IceSourceReport }) {
     ? iceSourceReportDisplayTitle({ ...report, title: rawSourceTitle })
     : '';
   const showSourceTitle = Boolean(safeSourceTitle) && safeSourceTitle !== displayTitle;
+  // The archive may still hold a digest generated before the copy checks were
+  // tightened. Do not render it as a cached answer; opening the panel asks the
+  // route to validate and, when necessary, regenerate it through the endpoint.
+  const initialDigest =
+    report.refined_text && isSafeSourceDigest(report.text_content, report.refined_text)
+      ? report.refined_text
+      : null;
 
   return (
     <article className="border border-border bg-surface-card p-5">
@@ -177,7 +182,7 @@ export function WebReportCard({ report }: { report: IceSourceReport }) {
 
       <WebReportRefinedSummary
         reportId={report.id}
-        initialText={report.refined_text}
+        initialText={initialDigest}
         sourceUrl={report.source_url}
       />
 

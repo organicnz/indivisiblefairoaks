@@ -5,19 +5,20 @@ import { z } from 'zod';
 import { requireAdmin } from '@/lib/admin-auth';
 import {
   getIceReportById,
+  type IceReportStore,
   iceReportPublicCitySchema,
   iceReportPublicStateSchema,
   iceReportPublicSummarySchema,
   publishIceReport,
   updateIceReport,
-  type IceReportStore,
 } from '@/lib/ice-report-intake';
-import { createCityMatcher } from '@/lib/rapid-city-match';
 import { getIceHeatmapSnapshot } from '@/lib/queries/ice-heatmap';
+import { createCityMatcher } from '@/lib/rapid-city-match';
 
-export type IceReportActionResult =
-  | { success: true }
-  | { success: false; error: string };
+export type IceReportActionResult = { success: true } | { success: false; error: string };
+
+type ExistingIceReport = Awaited<ReturnType<typeof getIceReportById>>;
+type IceHeatmapSnapshot = Awaited<ReturnType<typeof getIceHeatmapSnapshot>>;
 
 function fail(error: string): IceReportActionResult {
   return { success: false, error };
@@ -53,7 +54,7 @@ export async function recommendIceReport(input: unknown): Promise<IceReportActio
   }
 
   const store = storeFrom(session);
-  let existing;
+  let existing: ExistingIceReport;
   try {
     existing = await getIceReportById(store, parsed.data.id);
   } catch {
@@ -90,7 +91,7 @@ export async function publishIceReportAction(input: unknown): Promise<IceReportA
   if (!parsed.success) return fail('Check the report.');
 
   const store = storeFrom(session);
-  let existing;
+  let existing: ExistingIceReport;
   try {
     existing = await getIceReportById(store, parsed.data.id);
   } catch {
@@ -113,7 +114,7 @@ export async function publishIceReportAction(input: unknown): Promise<IceReportA
     return fail('The sanitized draft is incomplete.');
   }
 
-  let snapshot;
+  let snapshot: IceHeatmapSnapshot;
   try {
     snapshot = await getIceHeatmapSnapshot();
   } catch {
@@ -125,17 +126,13 @@ export async function publishIceReportAction(input: unknown): Promise<IceReportA
     existing.public_state_code
   );
   if (!match) {
-    return fail('That city is not in the map snapshot. Reject or revise the draft to a known city.');
+    return fail(
+      'That city is not in the map snapshot. Reject or revise the draft to a known city.'
+    );
   }
 
   try {
-    await publishIceReport(
-      store,
-      existing.id,
-      session.adminUserId,
-      match.lat,
-      match.lng
-    );
+    await publishIceReport(store, existing.id, session.adminUserId, match.lat, match.lng);
   } catch (error) {
     const message = error instanceof Error ? error.message : '';
     if (/different reviewer/i.test(message)) {
@@ -163,7 +160,7 @@ export async function rejectIceReport(input: unknown): Promise<IceReportActionRe
   }
 
   const store = storeFrom(session);
-  let existing;
+  let existing: ExistingIceReport;
   try {
     existing = await getIceReportById(store, parsed.data.id);
   } catch {

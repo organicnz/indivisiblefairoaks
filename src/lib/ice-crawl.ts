@@ -5,6 +5,7 @@ import { env } from '@/lib/env';
 import {
   classifyReportKind,
   cleanTitle,
+  type ExtractedReport,
   extractCityState,
   extractFeedItems,
   extractFeedLinks,
@@ -23,25 +24,26 @@ import {
   normalizeText,
   readableText,
   verbatimExcerpt,
-  type ExtractedReport,
 } from '@/lib/ice-crawl-extract';
-import { US_STATE_CODES } from '@/lib/rapid-city-match';
 import {
   getIceCrawlSource,
   getIceCrawlStore,
+  type IceCrawlStore,
   insertIceSourceReports,
   listIceCityPoints,
   listIceCrawlSources,
   updateIceCrawlPageReportCount,
   updateIceCrawlSource,
   upsertIceCrawlPage,
-  type IceCrawlStore,
 } from '@/lib/ice-crawl-store';
-import type {
-  IceCrawlSource,
-  IceCrawlSummary,
-  IceSourceReportKind,
-} from '@/lib/ice-crawl-types';
+import type { IceCrawlSource, IceCrawlSummary, IceSourceReportKind } from '@/lib/ice-crawl-types';
+import {
+  cleanSourceTextFallback,
+  isLikelySourceReport,
+  refineSourceTextWithAi,
+  shouldRefineSourceText,
+} from '@/lib/ice-source-refine';
+import { US_STATE_CODES } from '@/lib/rapid-city-match';
 
 const USER_AGENT =
   'IndivisibleFairOaks-ReportCrawler/1.0 (+https://indivisiblefairoaks.org; source-attributed report archive)';
@@ -86,12 +88,32 @@ type AiReport = {
 type RobotsRules = { disallow: string[]; sitemaps: string[] };
 const robotsCache = new Map<string, RobotsRules>();
 const STOPICE_MONTHS = [
-  'jan', 'feb', 'mar', 'apr', 'may', 'jun',
-  'jul', 'aug', 'sep', 'oct', 'nov', 'dec',
+  'jan',
+  'feb',
+  'mar',
+  'apr',
+  'may',
+  'jun',
+  'jul',
+  'aug',
+  'sep',
+  'oct',
+  'nov',
+  'dec',
 ] as const;
 const MONTH_NAMES = [
-  'january', 'february', 'march', 'april', 'may', 'june',
-  'july', 'august', 'september', 'october', 'november', 'december',
+  'january',
+  'february',
+  'march',
+  'april',
+  'may',
+  'june',
+  'july',
+  'august',
+  'september',
+  'october',
+  'november',
+  'december',
 ] as const;
 
 /**
@@ -107,8 +129,7 @@ export function resolveCrawlUrls(rawUrl: string, now = new Date()): string[] {
   } catch {
     return [rawUrl];
   }
-  const isStopIce =
-    parsed.hostname === 'stopice.net' || parsed.hostname === 'www.stopice.net';
+  const isStopIce = parsed.hostname === 'stopice.net' || parsed.hostname === 'www.stopice.net';
   if (!isStopIce || (parsed.pathname !== '/' && !parsed.searchParams.has('data'))) {
     return [rawUrl];
   }
@@ -121,7 +142,10 @@ export function resolveCrawlUrls(rawUrl: string, now = new Date()): string[] {
 
 function isPrivateIpv4(value: string) {
   const parts = value.split('.').map(Number);
-  if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) {
+  if (
+    parts.length !== 4 ||
+    parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)
+  ) {
     return true;
   }
   if (parts[0] === 0 || parts[0] === 10 || parts[0] === 127) return true;
@@ -204,14 +228,16 @@ async function fetchPublicPage(rawUrl: string, maxBytes = MAX_BYTES): Promise<Fe
         redirect: 'manual',
         signal: controller.signal,
         headers: {
-          Accept: 'text/html, application/xhtml+xml, application/rss+xml, application/xml, application/json;q=0.9, */*;q=0.5',
+          Accept:
+            'text/html, application/xhtml+xml, application/rss+xml, application/xml, application/json;q=0.9, */*;q=0.5',
           'User-Agent': USER_AGENT,
         },
       });
 
       if (response.status >= 300 && response.status < 400) {
         const location = response.headers.get('location');
-        if (!location) throw new Error(`Source redirected without a location (${response.status}).`);
+        if (!location)
+          throw new Error(`Source redirected without a location (${response.status}).`);
         current = await assertPublicUrl(new URL(location, current).toString());
         continue;
       }
@@ -325,7 +351,12 @@ function safeSourceUrl(value: string, fallback: string) {
 }
 
 function parseKind(value: unknown, text: string): IceSourceReportKind {
-  if (value === 'enforcement' || value === 'detention' || value === 'checkpoint' || value === 'other') {
+  if (
+    value === 'enforcement' ||
+    value === 'detention' ||
+    value === 'checkpoint' ||
+    value === 'other'
+  ) {
     return value;
   }
   return classifyReportKind(text);
@@ -342,7 +373,11 @@ function groundedPublishedAt(
   const rawDate = /^\d{4}-\d{2}-\d{2}/.test(value) ? value.slice(0, 10) : '';
   const [year, month, day] = rawDate
     ? rawDate.split('-')
-    : [String(parsed.getUTCFullYear()), String(parsed.getUTCMonth() + 1), String(parsed.getUTCDate())];
+    : [
+        String(parsed.getUTCFullYear()),
+        String(parsed.getUTCMonth() + 1),
+        String(parsed.getUTCDate()),
+      ];
   const monthIndex = Number(month) - 1;
   const monthName = MONTH_NAMES[monthIndex];
   if (!monthName) return fallback;
@@ -402,9 +437,7 @@ function aiReportToExtracted(
     (normalizedPage.includes(normalizeForMatch(cleanRawCity)) ||
       normalizeForMatch(inferred.city ?? '') === normalizeForMatch(cleanRawCity));
   const rawStateIsGrounded =
-    /^[A-Z]{2}$/.test(rawState) &&
-    US_STATE_CODES.has(rawState) &&
-    inferred.stateCode === rawState;
+    /^[A-Z]{2}$/.test(rawState) && US_STATE_CODES.has(rawState) && inferred.stateCode === rawState;
 
   return {
     title: cleanTitle(title, 'Source report'),
@@ -721,7 +754,36 @@ async function publishReports(
   const rows: Parameters<typeof insertIceSourceReports>[1] = [];
 
   for (const report of reports) {
-    const text = normalizeText(report.text).slice(0, MAX_STORED_SOURCE_CHARS);
+    let text = normalizeText(report.text).slice(0, MAX_STORED_SOURCE_CHARS);
+    if (text.length < 20) continue;
+    let rowMethod = method;
+
+    // HTML and whole-page fallback records can contain navigation and the
+    // publisher's feedback survey. The refinement endpoint names the source
+    // lines that belong to the report; the deterministic cleaner is used when
+    // the endpoint or its provider is unavailable.
+    if (method === 'html' || method === 'fallback') {
+      const rawText = text;
+      text = cleanSourceTextFallback(text);
+      if (shouldRefineSourceText(method, rawText)) {
+        const refined = await refineSourceTextWithAi({
+          text,
+          sourceUrl: report.sourceUrl,
+          sourceTitle: report.sourceTitle ?? report.title,
+        });
+        if (refined) {
+          if (!refined.isReport) continue;
+          text = normalizeText(refined.text).slice(0, MAX_STORED_SOURCE_CHARS);
+          rowMethod = 'ai';
+        } else if (!isLikelySourceReport(`${report.title}\n${text}`)) {
+          // The endpoint is unavailable and this is not a report. Do not
+          // republish navigation or a generic agency page just because it
+          // mentions ICE somewhere.
+          continue;
+        }
+      }
+    }
+
     if (text.length < 20) continue;
     const sourceUrl = safeSourceUrl(report.sourceUrl, pageUrl);
     const dedupeKey = await sha256(`${source.id}|${sourceUrl}|${text}`);
@@ -733,9 +795,7 @@ async function publishReports(
       page_id: pageId,
       source_name: source.label,
       source_url: sourceUrl,
-      source_title: report.sourceTitle
-        ? cleanTitle(report.sourceTitle, 'Source report')
-        : null,
+      source_title: report.sourceTitle ? cleanTitle(report.sourceTitle, 'Source report') : null,
       source_published_at: report.publishedAt,
       source_retrieved_at: retrievedAt,
       title: cleanTitle(report.title, 'Source report'),
@@ -743,7 +803,7 @@ async function publishReports(
       city: report.city,
       state_code: report.stateCode,
       kind: report.kind,
-      extraction_method: method,
+      extraction_method: rowMethod,
       dedupe_key: dedupeKey,
       published_at: report.publishedAt ?? retrievedAt,
     });
@@ -761,8 +821,7 @@ function isFeedResponse(page: FetchedPage) {
 
 function isJsonFeed(page: FetchedPage) {
   return (
-    /feed\+json/i.test(page.contentType) ||
-    /^\s*\{\s*"version"/i.test(page.text.slice(0, 200))
+    /feed\+json/i.test(page.contentType) || /^\s*\{\s*"version"/i.test(page.text.slice(0, 200))
   );
 }
 
@@ -773,7 +832,11 @@ function isSitemapPage(page: FetchedPage) {
 /** Put pagination, archives and report pages ahead of generic navigation. */
 function crawlPriority(value: string) {
   const lower = value.toLowerCase();
-  if (/[?&](?:page|paged|offset)=\d|\/page\/\d|\/pages?\/|older|archive|reports?|incidents?|news/.test(lower)) {
+  if (
+    /[?&](?:page|paged|offset)=\d|\/page\/\d|\/pages?\/|older|archive|reports?|incidents?|news/.test(
+      lower
+    )
+  ) {
     return 3;
   }
   if (/\.(?:xml|json)(?:[?#]|$)/.test(lower)) return 2;
@@ -911,11 +974,12 @@ export async function crawlIceSource(
       const stopIceItems = /<report_data>/i.test(page.text)
         ? extractStopIceReports(page.text, page.finalUrl, cities)
         : [];
-      const items = stopIceItems.length > 0
-        ? stopIceItems
-        : jsonFeed
-          ? extractJsonFeedItems(page.text, page.finalUrl, cities)
-          : extractFeedItems(page.text, page.finalUrl, cities);
+      const items =
+        stopIceItems.length > 0
+          ? stopIceItems
+          : jsonFeed
+            ? extractJsonFeedItems(page.text, page.finalUrl, cities)
+            : extractFeedItems(page.text, page.finalUrl, cities);
       reports = items.map((item) => ({
         title: item.title,
         text: item.text,
@@ -953,9 +1017,7 @@ export async function crawlIceSource(
             /(?:\bnext\b|page=|paged=|\/page\/|older)/i.test(link)
           ),
         ].slice(0, 10);
-        const jsonNext = jsonFeed
-          ? extractJsonFeedNextUrl(page.text, page.finalUrl)
-          : null;
+        const jsonNext = jsonFeed ? extractJsonFeedNextUrl(page.text, page.finalUrl) : null;
         if (jsonNext) paginationLinks.push(jsonNext);
         for (const link of paginationLinks) {
           if (queued.has(link)) continue;
@@ -968,13 +1030,7 @@ export async function crawlIceSource(
       pageTitle = extractTitle(page.text);
       const text = pageTextForStorage(page.text);
       const publishedAt = extractPublishedAt(page.text);
-      const aiReports = await extractWithAi(
-        text,
-        page.finalUrl,
-        pageTitle,
-        publishedAt,
-        cities
-      );
+      const aiReports = await extractWithAi(text, page.finalUrl, pageTitle, publishedAt, cities);
       // Do not fall back to the entire <body> when the model already found
       // reports; a full page is not a report. Article/main extraction still
       // runs so complete article text can replace a shorter AI excerpt.
@@ -1091,11 +1147,7 @@ export async function crawlIceSource(
   }
 
   const status: IceCrawlSummary['status'] =
-    pagesFetched === 0 && errors.length > 0
-      ? 'error'
-      : skipped > 0
-        ? 'partial'
-        : 'ok';
+    pagesFetched === 0 && errors.length > 0 ? 'error' : skipped > 0 ? 'partial' : 'ok';
   const note =
     status === 'ok'
       ? `Fetched ${pagesFetched} page(s) and stored ${reportsFound} source report(s).`

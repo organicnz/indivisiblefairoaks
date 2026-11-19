@@ -17,7 +17,7 @@ import {
   discoverIceCrawlCandidatesAction,
   rejectIceCrawlDiscoveryAction,
 } from '@/lib/actions/ice-crawl';
-import type { IceCrawlDiscovery } from '@/lib/ice-crawl-types';
+import type { IceCrawlDiscovery as IceCrawlDiscoveryRow } from '@/lib/ice-crawl-types';
 
 function hostname(value: string) {
   try {
@@ -35,7 +35,7 @@ export function IceCrawlDiscovery({
   discoveries,
   loadError = false,
 }: {
-  discoveries: IceCrawlDiscovery[];
+  discoveries: IceCrawlDiscoveryRow[];
   loadError?: boolean;
 }) {
   const router = useRouter();
@@ -84,10 +84,10 @@ export function IceCrawlDiscovery({
               </span>
             </div>
             <p className="mt-1 max-w-3xl text-xs leading-relaxed text-muted-foreground">
-              Searches GDELT, Bing News, major-outlet RSS and public Mastodon timelines for new
-              ICE enforcement, detention and checkpoint coverage across the country. Discovery
-              only stores a headline and link; a candidate is fetched and run through AI extraction
-              only after an admin confirms republication rights.
+              Searches GDELT, Bing News, major-outlet RSS and public Mastodon timelines for new ICE
+              enforcement, detention and checkpoint coverage across the country. Discovery only
+              stores a headline and link; a candidate is fetched and run through AI extraction only
+              after an admin confirms republication rights.
             </p>
           </div>
         </div>
@@ -112,7 +112,8 @@ export function IceCrawlDiscovery({
           className="mx-5 mb-5 flex items-start gap-2 border border-accent/40 bg-accent/10 p-3 text-xs leading-relaxed"
         >
           <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-accent" aria-hidden="true" />
-          The discovery table could not be loaded. Apply the latest database migration and try again.
+          The discovery table could not be loaded. Apply the latest database migration and try
+          again.
         </p>
       ) : null}
       {error ? (
@@ -125,7 +126,10 @@ export function IceCrawlDiscovery({
         </p>
       ) : null}
       {message ? (
-        <p role="status" className="mx-5 mb-5 border border-primary/30 bg-surface-card p-3 text-xs leading-relaxed">
+        <p
+          role="status"
+          className="mx-5 mb-5 border border-primary/30 bg-surface-card p-3 text-xs leading-relaxed"
+        >
           <Check className="mr-1 inline size-3.5" aria-hidden="true" />
           {message}
         </p>
@@ -139,8 +143,8 @@ export function IceCrawlDiscovery({
 
       {!loadError && discoveries.length === 0 ? (
         <p className="mx-5 mb-5 border border-border bg-surface-card p-4 text-sm text-muted-foreground">
-          No pending nationwide candidates. Run a scan, or add an approved source below for
-          deeper coverage of a publisher you already trust.
+          No pending nationwide candidates. Run a scan, or add an approved source below for deeper
+          coverage of a publisher you already trust.
         </p>
       ) : null}
 

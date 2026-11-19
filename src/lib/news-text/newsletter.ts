@@ -9,12 +9,14 @@ export const NEWSLETTER_CARD_EXCERPT_LENGTH = 220;
  * change to one does not put the others at risk.
  */
 
+const NEWSLETTER_TITLE_COLLATOR = new Intl.Collator(undefined, { sensitivity: 'base' });
+
 /** Stable archive order: explicit sort order first, then title. */
 export function sortNewsletters<T extends NewsletterTextFields>(items: readonly T[]): T[] {
   return [...items].sort(
     (a, b) =>
       (a.sort_order ?? 0) - (b.sort_order ?? 0) ||
-      a.title.localeCompare(b.title, undefined, { sensitivity: 'base' })
+      NEWSLETTER_TITLE_COLLATOR.compare(a.title, b.title)
   );
 }
 
@@ -30,8 +32,6 @@ export function mergeNewsletterRows<T extends NewsletterTextFields & { slug: str
   saved: T,
   previousSlug: string | null
 ): T[] {
-  const withoutOld = items.filter(
-    (item) => item.slug !== saved.slug && (!previousSlug || item.slug !== previousSlug)
-  );
+  const withoutOld = items.filter((item) => item.slug !== saved.slug && item.slug !== previousSlug);
   return sortNewsletters([...withoutOld, saved]);
 }

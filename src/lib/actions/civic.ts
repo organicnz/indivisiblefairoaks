@@ -47,6 +47,9 @@ export interface CivicNewsletterRecord {
   title: string;
   date_label: string;
   description: string;
+  body?: string;
+  pdf_url?: string | null;
+  archive_url?: string | null;
   topics: string[];
   sort_order: number;
   published_at: string | null;
@@ -180,15 +183,16 @@ export async function saveCivicEvent(
     };
 
     const write = isRename
-      ? eventsClient.from('events').update(upsertRow).eq('slug', originalSlug ?? finalSlug)
+      ? eventsClient
+          .from('events')
+          .update(upsertRow)
+          .eq('slug', originalSlug ?? finalSlug)
       : eventsClient.from('events').upsert(upsertRow, { onConflict: 'slug' });
     const { data, error } = await write.select('*').single();
 
     if (error) {
       const message =
-        error.code === '23505'
-          ? `"${finalSlug}" is already used by another event.`
-          : error.message;
+        error.code === '23505' ? `"${finalSlug}" is already used by another event.` : error.message;
       await recordAdminAudit(adminClient, {
         actorUserId: adminUserId,
         actorEmail: adminEmail,
@@ -391,6 +395,9 @@ export async function saveCivicNewsletter(
       title: payload.title,
       date_label: payload.date_label,
       description: payload.description,
+      body: payload.body,
+      pdf_url: payload.pdf_url,
+      archive_url: payload.archive_url,
       topics: payload.topics,
       sort_order: payload.sort_order,
       published_at: publishedAt,
@@ -444,6 +451,9 @@ export async function saveCivicNewsletter(
     await audit('success', saved as unknown as Record<string, unknown>);
     revalidateTag('newsletters', 'hours');
     revalidatePath('/newsletters');
+    // A renamed or newly published bulletin must not leave a stale cached
+    // detail page behind at the old or new slug.
+    revalidatePath('/newsletters/[slug]', 'page');
     revalidatePath('/news');
     revalidatePath('/api/civic/newsletters');
 
@@ -502,6 +512,7 @@ export async function deleteCivicNewsletter(slug: string): Promise<CivicActionRe
     await audit('success');
     revalidateTag('newsletters', 'hours');
     revalidatePath('/newsletters');
+    revalidatePath('/newsletters/[slug]', 'page');
     revalidatePath('/news');
     revalidatePath('/api/civic/newsletters');
 
@@ -583,7 +594,10 @@ export async function saveCoalitionLink(
     };
 
     const write = isRename
-      ? adminClient.from('coalition_links').update(upsertRow).eq('slug', originalSlug ?? finalSlug)
+      ? adminClient
+          .from('coalition_links')
+          .update(upsertRow)
+          .eq('slug', originalSlug ?? finalSlug)
       : adminClient.from('coalition_links').upsert(upsertRow, { onConflict: 'slug' });
     const { data, error } = await write.select('*').single();
 

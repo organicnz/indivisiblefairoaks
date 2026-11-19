@@ -13,6 +13,12 @@ vi.mock('@/lib/actions/civic', () => ({
   saveCivicNewsletter: vi.fn(),
 }));
 
+vi.mock('@/lib/actions/civic-newsletter-broadcast', () => ({
+  getCivicNewsletterAudience: vi.fn().mockResolvedValue({ count: 0, excludedCount: 0 }),
+  sendCivicNewsletterBroadcast: vi.fn(),
+  sendCivicNewsletterTest: vi.fn(),
+}));
+
 vi.mock('sonner', () => ({
   toast: {
     success: vi.fn(),

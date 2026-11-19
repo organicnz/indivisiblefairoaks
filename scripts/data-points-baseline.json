@@ -1,6 +1,6 @@
 {
   "$comment": "Accepted data-points findings. Each entry records that a human reviewed the mismatch and chose a disposition: \"pending wiring\" (a seeded key whose screen wire-up is still to come), \"no matching UI\" (the string the seed names no longer exists) or \"superseded\" (a later key carries the copy). `acceptedUnread` and `acceptedUnseededReads` are keyed by data-point key; `acceptedMismatches` is keyed by `<key> @ <file> (<shape>)` with shape inline, jsx or map. The gate fails when a finding is not listed here AND when a listed entry is no longer a finding, so a fix must delete its own excuse. Regenerate with: bun scripts/check-data-points.mjs --update-baseline",
-  "updated": "2026-11-16",
+  "updated": "2026-11-19",
   "acceptedUnread": {
     "account.admin.customer": "no matching UI — the account page no longer has orders or admin order panels",
     "account.admin.empty_hint": "no matching UI — the account page no longer has orders or admin order panels",
@@ -280,6 +280,7 @@
   },
   "acceptedUnseededReads": {},
   "acceptedMismatches": {
-    "links.hero.intro @ src/components/links/LinksMasthead.tsx (jsx)": "superseded: updated to highlight Link Tree and quick-access tools (issue #164)"
+    "links.hero.intro @ src/components/links/LinksMasthead.tsx (jsx)": "superseded: updated to highlight Link Tree and quick-access tools (issue #164)",
+    "news.read_bulletin @ src/components/newsletters/NewsletterCard.tsx (jsx)": "superseded by 20261119190000 — the live data point is updated to Read Full Issue and the fallback matches that shipped button"
   }
 }

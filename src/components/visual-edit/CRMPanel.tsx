@@ -7,6 +7,14 @@ import { CivicEventManager } from '@/components/admin/civic/CivicEventManager';
 import { CivicLinkManager } from '@/components/admin/civic/CivicLinkManager';
 import { CivicNewsletterManager } from '@/components/admin/civic/CivicNewsletterManager';
 import { CRMContactEditorModal } from '@/components/admin/crm/CRMContactEditorModal';
+import { CRMTaskForm } from '@/components/admin/crm/CRMTaskForm';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/Dialog';
 import { CRMPanelContactHeader } from '@/components/visual-edit/CRMPanelContactHeader';
 import {
   CRM_CONTACT_PAGE_SIZE,
@@ -16,15 +24,7 @@ import { CRMPanelContactOverview } from '@/components/visual-edit/CRMPanelContac
 import { CRMPanelContactTasks } from '@/components/visual-edit/CRMPanelContactTasks';
 import { CRMPanelContactTimeline } from '@/components/visual-edit/CRMPanelContactTimeline';
 import { CRMPanelHeader } from '@/components/visual-edit/CRMPanelHeader';
-import { CONSENT_OPTIONS } from '@/components/visual-edit/crm-panel-styles';
-import { CRMTaskForm } from '@/components/admin/crm/CRMTaskForm';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/Dialog';
+import { useClearSelectionOnKeyChange } from '@/hooks/useClearSelectionOnKeyChange';
 import {
   addCRMNote,
   bulkDeleteCRMContacts,
@@ -40,8 +40,10 @@ import {
   setCRMEmailConsent,
   updateCRMNote,
 } from '@/lib/actions/crm';
+import { CRM_CONTACT_CONSENT_OPTIONS, crmContactDoNotEmail } from '@/lib/crm-contact-options';
 import { filtersFromSegment, splitActiveValues } from '@/lib/crm-filters';
 import type {
+  ConsentDecision,
   ConsentFilter,
   CRMActivity,
   CRMContact,
@@ -72,7 +74,6 @@ function segmentSummary(segment: CRMSegment): string {
   ];
   return parts.length > 0 ? parts.join(' · ') : 'all constituents';
 }
-
 
 export const CRMPanel: React.FC<CRMPanelProps> = ({
   isOpen,
@@ -184,6 +185,10 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({
     }),
     [searchQuery, consentFilter, appliedSegment, statusFilter, selectedTag, districtFilter]
   );
+
+  // The read args identify the visible set; page is added only by loadContacts.
+  const contactFilterKey = JSON.stringify(contactQueryArgs());
+  useClearSelectionOnKeyChange(contactFilterKey, setSelectedContactIds);
 
   const loadContacts = useCallback(async () => {
     setLoading(true);
@@ -363,15 +368,14 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({
     }
   };
 
-  const handleSetConsent = async (id: string, consent: 'opted_in' | 'opted_out' | 'unasked') => {
+  const handleSetConsent = async (id: string, consent: ConsentDecision) => {
     try {
       const res = await setCRMEmailConsent({ contactId: id, doNotEmail: consent });
       if (res.success) {
         toast.success('Consent updated');
         if (res.warning) toast.warning(res.warning);
         if (selectedContact && selectedContact.id === id) {
-          const nextDoNotEmail =
-            consent === 'opted_out' ? true : consent === 'opted_in' ? false : null;
+          const nextDoNotEmail = crmContactDoNotEmail(consent);
           setSelectedContact((prev) => (prev ? { ...prev, do_not_email: nextDoNotEmail } : null));
           loadActivities(id);
         }
@@ -537,7 +541,6 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({
     setSelectedTag('');
     setDistrictFilter('');
     setSelectedContact(null);
-    setSelectedContactIds(new Set());
     setAppliedSegment({ id: segment.id, name: segment.name, statuses, districts, tags });
     setPage(1);
     setShowSegments(false);
@@ -584,7 +587,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({
     }
   };
 
-  const handleBulkConsent = async (consent: 'opted_in' | 'opted_out' | 'unasked') => {
+  const handleBulkConsent = async (consent: ConsentDecision) => {
     if (selectedContactIds.size === 0) return;
     setIsBulkUpdating(true);
     try {
@@ -956,7 +959,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({
                       setDistrictFilter={setDistrictFilter}
                       setSelectedTag={setSelectedTag}
                       setPage={setPage}
-                      consentOptions={CONSENT_OPTIONS}
+                      consentOptions={CRM_CONTACT_CONSENT_OPTIONS}
                       handleSetConsent={(id, consent) => void handleSetConsent(id, consent)}
                       loading={loading}
                       isAddingTag={isAddingTag}
@@ -1002,7 +1005,6 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({
                         newNoteInputRef={newNoteInputRef}
                         loadActivities={loadActivities}
                       />
-
                     </CRMPanelContactOverview>
                   </>
                 ) : (

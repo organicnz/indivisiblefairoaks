@@ -1,24 +1,28 @@
 import { revalidatePath, revalidateTag } from 'next/cache';
 import { type NextRequest, NextResponse } from 'next/server';
-import { recordAdminAudit } from '@/lib/admin-audit';
 import { requireAdminApi } from '@/lib/admin-api-auth';
-import { readJsonBodyWithLimit } from '@/lib/request-body';
+import { recordAdminAudit } from '@/lib/admin-audit';
 import {
   newsletterInputSchema,
   normalizeNewsletterTopics,
   slugifyNewsletter,
 } from '@/lib/newsletters';
 import { buildNewsletterVisibilityFilter } from '@/lib/queries/civic';
+import { readJsonBodyWithLimit } from '@/lib/request-body';
 import { createPublicClient } from '@/lib/supabase-server';
 
-/** Bounded JSON bodies: these routes are reachable by admins, not the open internet. */
-const MAX_JSON_BODY_BYTES = 64_000;
+/**
+ * Bounded JSON bodies: these routes are reachable by admins, not the open
+ * internet. The limit covers a full-issue `body` plus its JSON envelope.
+ */
+const MAX_JSON_BODY_BYTES = 512_000;
 
 const NO_STORE = { 'Cache-Control': 'no-store' } as const;
 
 function revalidateNewsletters(): void {
   revalidateTag('newsletters', 'hours');
   revalidatePath('/newsletters');
+  revalidatePath('/newsletters/[slug]', 'page');
   revalidatePath('/news');
   revalidatePath('/api/civic/newsletters');
 }
@@ -33,18 +37,32 @@ export async function GET() {
     const supabase = createPublicClient();
     const { data, error } = await supabase
       .from('newsletters')
-      .select('slug, title, date_label, description, topics, sort_order, published_at, created_at')
+      // `*` keeps this endpoint working if it is deployed before the migration
+      // that adds the reader fields. The normalizer below fills their defaults.
+      .select('*')
       .or(buildNewsletterVisibilityFilter(new Date().toISOString()))
       .order('sort_order', { ascending: true })
       .order('published_at', { ascending: false });
 
     if (error) {
       console.error('Civic newsletters query failed:', error);
-      return NextResponse.json({ error: 'Failed to fetch newsletters from database' }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Failed to fetch newsletters from database' },
+        { status: 500 }
+      );
     }
 
+    const newsletters = (data ?? []).map((row: Record<string, unknown>) => ({
+      ...row,
+      body: typeof row.body === 'string' ? row.body : '',
+      pdf_url: typeof row.pdf_url === 'string' && row.pdf_url.trim() ? row.pdf_url : null,
+      archive_url:
+        typeof row.archive_url === 'string' && row.archive_url.trim() ? row.archive_url : null,
+      topics: Array.isArray(row.topics) ? row.topics : [],
+    }));
+
     return NextResponse.json(
-      { success: true, newsletters: data ?? [] },
+      { success: true, newsletters },
       {
         status: 200,
         // Short enough that an admin save is visible without a deploy, long
@@ -56,7 +74,10 @@ export async function GET() {
     );
   } catch (err) {
     console.error('Civic newsletters route failed:', err);
-    return NextResponse.json({ error: 'Failed to fetch newsletters from database' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Failed to fetch newsletters from database' },
+      { status: 500 }
+    );
   }
 }
 
@@ -144,6 +165,9 @@ export async function POST(req: NextRequest) {
       title: payload.title,
       date_label: payload.date_label,
       description: payload.description,
+      body: payload.body,
+      pdf_url: payload.pdf_url,
+      archive_url: payload.archive_url,
       topics: payload.topics,
       sort_order: payload.sort_order,
       published_at: payload.published_at ?? new Date().toISOString(),
@@ -175,8 +199,7 @@ export async function POST(req: NextRequest) {
     const { data, error } = await write.select('*').single();
 
     if (error) {
-      const status =
-        error.code === '23505' ? 409 : error.code === 'PGRST116' ? 404 : 500;
+      const status = error.code === '23505' ? 409 : error.code === 'PGRST116' ? 404 : 500;
       const message =
         error.code === '23505'
           ? `"${finalSlug}" is already used by another bulletin. Pick another slug.`

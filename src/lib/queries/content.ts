@@ -144,32 +144,64 @@ export interface PublishedPostSummary {
 const UNREACHABLE_CONTENT_SLUGS = unreachableContentSlugs();
 const UNREACHABLE_SLUG_FILTER = `(${UNREACHABLE_CONTENT_SLUGS.map((slug) => `"${slug}"`).join(',')})`;
 
-export async function getPublishedPosts(limit = 10): Promise<PublishedPostSummary[]> {
+/** PostgREST caps a single response, so the full archive is read in pages. */
+const PUBLISHED_POSTS_PAGE_SIZE = 500;
+
+/**
+ * Published news posts, newest first.
+ *
+ * Passing `limit` keeps the old bounded call available. Omitting it reads the
+ * whole published archive so `/news` can search every story rather than only
+ * the first screen of cards.
+ */
+export async function getPublishedPosts(limit?: number): Promise<PublishedPostSummary[]> {
   'use cache';
   cacheLife('hours');
   cacheTag('content', 'posts');
   try {
     const supabase = createPublicClient();
-    let query = supabase
-      .from('content')
-      .select('id, title, slug, excerpt, featured_image, published_at, created_at')
-      .eq('status', 'publish')
-      .eq('type', 'post')
-      .or(buildVisibilityFilter(new Date().toISOString()));
+    // One instant for every page, so an embargo lifting mid-loop cannot shift
+    // rows between offset windows.
+    const nowISO = new Date().toISOString();
+    const selectPosts = () => {
+      let query = supabase
+        .from('content')
+        .select('id, title, slug, excerpt, featured_image, published_at, created_at')
+        .eq('status', 'publish')
+        .eq('type', 'post')
+        .or(buildVisibilityFilter(nowISO));
 
-    // A `content` row whose slug is owned by a coded route is not a published
-    // article. The legacy `newsletters` row is the one that made this visible:
-    // it was type `post`, so it led `/news` with a link back to the archive.
-    if (UNREACHABLE_CONTENT_SLUGS.length > 0) {
-      query = query.not('slug', 'in', UNREACHABLE_SLUG_FILTER);
+      // A `content` row whose slug is owned by a coded route is not a published
+      // article. The legacy `newsletters` row is the one that made this visible:
+      // it was type `post`, so it led `/news` with a link back to the archive.
+      if (UNREACHABLE_CONTENT_SLUGS.length > 0) {
+        query = query.not('slug', 'in', UNREACHABLE_SLUG_FILTER);
+      }
+      return query.not('slug', 'like', 'copy-%');
+    };
+
+    const ordered = () =>
+      selectPosts()
+        .order('published_at', { ascending: false, nullsFirst: false })
+        .order('created_at', { ascending: false })
+        // Offset pages need one unique tiebreaker, or rows with the same timestamps
+        // can be duplicated or skipped between requests.
+        .order('id', { ascending: false });
+
+    if (limit !== undefined) {
+      const { data } = await ordered().limit(limit);
+      return (data as PublishedPostSummary[]) ?? [];
     }
-    query = query.not('slug', 'like', 'copy-%');
 
-    const { data } = await query
-      .order('published_at', { ascending: false, nullsFirst: false })
-      .order('created_at', { ascending: false })
-      .limit(limit);
-    return (data as PublishedPostSummary[]) ?? [];
+    const posts: PublishedPostSummary[] = [];
+    for (let from = 0; ; from += PUBLISHED_POSTS_PAGE_SIZE) {
+      const { data, error } = await ordered().range(from, from + PUBLISHED_POSTS_PAGE_SIZE - 1);
+      if (error) break;
+      const page = (data as PublishedPostSummary[]) ?? [];
+      posts.push(...page);
+      if (page.length < PUBLISHED_POSTS_PAGE_SIZE) break;
+    }
+    return posts;
   } catch {
     return [];
   }

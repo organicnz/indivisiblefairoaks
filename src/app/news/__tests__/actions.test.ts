@@ -7,16 +7,20 @@ const {
   mockMaybeSingle,
   mockUpdate,
   mockInsert,
+  mockActivityInsert,
   mockRateLimit,
   mockIsE2EMode,
-  mockRevalidatePath,
+  mockCreateConfirmation,
+  mockSendConfirmation,
 } = vi.hoisted(() => {
   const mockMaybeSingle = vi.fn();
   const mockUpdate = vi.fn();
   const mockInsert = vi.fn();
+  const mockActivityInsert = vi.fn();
   const mockRateLimit = vi.fn();
   const mockIsE2EMode = vi.fn();
-  const mockRevalidatePath = vi.fn();
+  const mockCreateConfirmation = vi.fn();
+  const mockSendConfirmation = vi.fn();
 
   const mockAdminClient = {
     from: vi.fn((table: string) => {
@@ -39,7 +43,7 @@ const {
       }
       if (table === 'crm_activities') {
         return {
-          insert: vi.fn(() => Promise.resolve({ error: null })),
+          insert: mockActivityInsert,
         };
       }
       return {};
@@ -51,18 +55,16 @@ const {
     mockMaybeSingle,
     mockUpdate,
     mockInsert,
+    mockActivityInsert,
     mockRateLimit,
     mockIsE2EMode,
-    mockRevalidatePath,
+    mockCreateConfirmation,
+    mockSendConfirmation,
   };
 });
 
 vi.mock('next/headers', () => ({
   headers: async () => new Headers({ 'x-forwarded-for': '127.0.0.1' }),
-}));
-
-vi.mock('next/cache', () => ({
-  revalidatePath: (path: string) => mockRevalidatePath(path),
 }));
 
 vi.mock('@/lib/e2e-mode', () => ({
@@ -78,6 +80,15 @@ vi.mock('@/lib/supabase-server', () => ({
   createAdminClient: async () => mockAdminClient,
 }));
 
+vi.mock('@/lib/newsletter-subscription', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/newsletter-subscription')>();
+  return {
+    ...actual,
+    createNewsletterConfirmation: () => mockCreateConfirmation(),
+    sendNewsletterConfirmation: (input: unknown) => mockSendConfirmation(input),
+  };
+});
+
 function makeFormData(fields: Record<string, string>): FormData {
   const fd = new FormData();
   for (const [k, v] of Object.entries(fields)) {
@@ -85,6 +96,12 @@ function makeFormData(fields: Record<string, string>): FormData {
   }
   return fd;
 }
+
+const confirmation = {
+  token: '11111111-2222-4333-8444-555555555555',
+  expiresAt: '2026-11-21T12:00:00.000Z',
+  confirmationSentAt: '2026-11-19T12:00:00.000Z',
+};
 
 describe('subscribeActionAlerts', () => {
   beforeEach(() => {
@@ -94,6 +111,9 @@ describe('subscribeActionAlerts', () => {
     mockMaybeSingle.mockResolvedValue({ data: null, error: null });
     mockInsert.mockResolvedValue({ data: { id: 'contact-uuid-1' }, error: null });
     mockUpdate.mockResolvedValue({ error: null });
+    mockActivityInsert.mockResolvedValue({ error: null });
+    mockCreateConfirmation.mockReturnValue(confirmation);
+    mockSendConfirmation.mockResolvedValue({ ok: true, id: 'email-1' });
   });
 
   it('silently accepts submissions when honeypot is populated', async () => {
@@ -105,9 +125,11 @@ describe('subscribeActionAlerts', () => {
     const result = await subscribeActionAlerts(fd);
     expect(result).toEqual({
       success: true,
-      message: "You're on the list! Thank you for standing with Indivisible Fair Oaks-Carmichael.",
+      message: 'Check your inbox and click the confirmation link to finish subscribing.',
+      pendingConfirmation: true,
     });
     expect(mockAdminClient.from).not.toHaveBeenCalled();
+    expect(mockSendConfirmation).not.toHaveBeenCalled();
   });
 
   it('rejects empty or whitespace-only email', async () => {
@@ -147,21 +169,21 @@ describe('subscribeActionAlerts', () => {
     });
   });
 
-  it('short-circuits in E2E mode without contacting database', async () => {
+  it('short-circuits in E2E mode without contacting the database or sending mail', async () => {
     mockIsE2EMode.mockReturnValue(true);
     const fd = makeFormData({ email: 'e2e@example.com' });
 
     const result = await subscribeActionAlerts(fd);
     expect(result).toEqual({
       success: true,
-      message: "You're on the list! Thank you for standing with Indivisible Fair Oaks-Carmichael.",
-      alreadySubscribed: false,
+      message: 'Check your inbox and click the confirmation link to finish subscribing.',
+      pendingConfirmation: true,
     });
     expect(mockAdminClient.from).not.toHaveBeenCalled();
+    expect(mockSendConfirmation).not.toHaveBeenCalled();
   });
 
-  it('inserts new contact and logs activity when email is not found', async () => {
-    mockMaybeSingle.mockResolvedValueOnce({ data: null, error: null });
+  it('creates a never-asked contact and sends a confirmation without granting consent', async () => {
     const fd = makeFormData({
       email: 'new.activist@example.com',
       name: 'Taylor Reed',
@@ -170,62 +192,29 @@ describe('subscribeActionAlerts', () => {
     const result = await subscribeActionAlerts(fd);
     expect(result).toEqual({
       success: true,
-      message: "You're on the list! Thank you for standing with Indivisible Fair Oaks-Carmichael.",
-      alreadySubscribed: false,
+      message: 'Check your inbox and click the confirmation link to finish subscribing.',
+      pendingConfirmation: true,
     });
 
     expect(mockInsert).toHaveBeenCalledTimes(1);
     const insertPayload = mockInsert.mock.calls[0][0];
     expect(insertPayload.email).toBe('new.activist@example.com');
     expect(insertPayload.first_name).toBe('Taylor Reed');
-    expect(insertPayload.do_not_email).toBe(false);
+    expect(insertPayload.do_not_email).toBeNull();
+    expect(insertPayload.newsletter_confirm_token).toBe(confirmation.token);
+    expect(insertPayload.newsletter_confirm_expires_at).toBe(confirmation.expiresAt);
+    expect(insertPayload.newsletter_confirmation_sent_at).toBe(confirmation.confirmationSentAt);
+    expect(insertPayload.newsletter_confirmed_at).toBeUndefined();
     expect(insertPayload.tags).toEqual(['action-alerts', 'newsletter']);
-    expect(mockRevalidatePath).toHaveBeenCalledWith('/news');
+    expect(mockSendConfirmation).toHaveBeenCalledWith({
+      email: 'new.activist@example.com',
+      firstName: 'Taylor Reed',
+      token: confirmation.token,
+    });
+    expect(mockActivityInsert).toHaveBeenCalledTimes(1);
   });
 
-  it('does not clear an existing opt-out from an unauthenticated submission', async () => {
-    mockMaybeSingle.mockResolvedValueOnce({
-      data: {
-        id: 'contact-uuid-99',
-        email: 'prior.volunteer@example.com',
-        first_name: null,
-        tags: ['town-hall-2025'],
-        do_not_email: true,
-        unsubscribed_at: '2026-10-01T00:00:00Z',
-      },
-      error: null,
-    });
-
-    const fd = makeFormData({
-      email: 'prior.volunteer@example.com',
-      name: 'Morgan',
-    });
-
-    const result = await subscribeActionAlerts(fd);
-    expect(result).toMatchObject({ error: expect.stringContaining('previously unsubscribed') });
-    expect(mockUpdate).not.toHaveBeenCalled();
-    expect(mockRevalidatePath).not.toHaveBeenCalled();
-  });
-
-  it('treats an unsubscribed_at marker as an opt-out even without do_not_email', async () => {
-    mockMaybeSingle.mockResolvedValueOnce({
-      data: {
-        id: 'contact-uuid-100',
-        email: 'former.member@example.com',
-        first_name: null,
-        tags: [],
-        do_not_email: false,
-        unsubscribed_at: '2026-09-01T00:00:00Z',
-      },
-      error: null,
-    });
-
-    const result = await subscribeActionAlerts(makeFormData({ email: 'former.member@example.com' }));
-    expect(result).toMatchObject({ error: expect.stringContaining('previously unsubscribed') });
-    expect(mockUpdate).not.toHaveBeenCalled();
-  });
-
-  it('updates an active contact and merges tags without changing consent', async () => {
+  it('mints a new token for an existing unconfirmed contact without changing consent', async () => {
     mockMaybeSingle.mockResolvedValueOnce({
       data: {
         id: 'contact-uuid-101',
@@ -234,6 +223,9 @@ describe('subscribeActionAlerts', () => {
         tags: ['town-hall-2025'],
         do_not_email: false,
         unsubscribed_at: null,
+        newsletter_confirmed_at: null,
+        newsletter_confirm_token: null,
+        newsletter_confirm_expires_at: null,
       },
       error: null,
     });
@@ -243,30 +235,149 @@ describe('subscribeActionAlerts', () => {
     );
     expect(result).toEqual({
       success: true,
-      message: "You're on the list! Thank you for standing with Indivisible Fair Oaks-Carmichael.",
-      alreadySubscribed: true,
+      message: 'Check your inbox and click the confirmation link to finish subscribing.',
+      pendingConfirmation: true,
     });
 
     expect(mockUpdate).toHaveBeenCalledTimes(1);
     const updatePayload = mockUpdate.mock.calls[0][0];
     expect(updatePayload).not.toHaveProperty('do_not_email');
     expect(updatePayload).not.toHaveProperty('unsubscribed_at');
+    expect(updatePayload.newsletter_confirm_token).toBe(confirmation.token);
+    expect(updatePayload.newsletter_confirm_expires_at).toBe(confirmation.expiresAt);
     expect(updatePayload.first_name).toBe('Morgan');
-    expect(updatePayload.tags).toEqual(['town-hall-2025', 'action-alerts', 'newsletter']);
-    expect(mockRevalidatePath).toHaveBeenCalledWith('/news');
+    expect(updatePayload.tags).toEqual(['action-alerts', 'newsletter', 'town-hall-2025']);
+    expect(mockSendConfirmation).toHaveBeenCalledWith({
+      email: 'active.member@example.com',
+      firstName: 'Morgan',
+      token: confirmation.token,
+    });
   });
 
-  it('returns graceful error message when database insertion fails', async () => {
-    mockMaybeSingle.mockResolvedValueOnce({ data: null, error: null });
+  it('lets a previously unsubscribed address start a fresh confirmation without clearing the opt-out', async () => {
+    mockMaybeSingle.mockResolvedValueOnce({
+      data: {
+        id: 'contact-uuid-100',
+        email: 'former.member@example.com',
+        first_name: 'Sam',
+        tags: [],
+        do_not_email: true,
+        unsubscribed_at: '2026-09-01T00:00:00Z',
+        newsletter_confirmed_at: null,
+        newsletter_confirm_token: null,
+        newsletter_confirm_expires_at: null,
+      },
+      error: null,
+    });
+
+    const result = await subscribeActionAlerts(
+      makeFormData({ email: 'former.member@example.com' })
+    );
+    expect(result).toMatchObject({ success: true, pendingConfirmation: true });
+    expect(mockUpdate).toHaveBeenCalledTimes(1);
+    const updatePayload = mockUpdate.mock.calls[0][0];
+    expect(updatePayload).not.toHaveProperty('do_not_email');
+    expect(updatePayload).not.toHaveProperty('unsubscribed_at');
+    expect(mockSendConfirmation).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not send another message to a contact who has already confirmed', async () => {
+    mockMaybeSingle.mockResolvedValueOnce({
+      data: {
+        id: 'contact-uuid-102',
+        email: 'confirmed.member@example.com',
+        first_name: 'Robin',
+        tags: ['action-alerts', 'newsletter', 'newsletter-confirmed'],
+        do_not_email: false,
+        unsubscribed_at: null,
+        newsletter_confirmed_at: '2026-11-01T00:00:00Z',
+        newsletter_confirm_token: null,
+        newsletter_confirm_expires_at: null,
+      },
+      error: null,
+    });
+
+    const result = await subscribeActionAlerts(
+      makeFormData({ email: 'confirmed.member@example.com' })
+    );
+    expect(result).toEqual({
+      success: true,
+      message: 'This address is already subscribed to Action Alerts.',
+      alreadySubscribed: true,
+    });
+    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(mockSendConfirmation).not.toHaveBeenCalled();
+  });
+
+  it('surfaces a lookup failure without attempting an insert or send', async () => {
+    mockMaybeSingle.mockResolvedValueOnce({
+      data: null,
+      error: { message: 'connection reset' },
+    });
+
+    const result = await subscribeActionAlerts(
+      makeFormData({ email: 'lookup.failure@example.com' })
+    );
+    expect(result).toEqual({
+      error:
+        'Unable to process your subscription right now. Please try again or email us directly.',
+    });
+    expect(mockInsert).not.toHaveBeenCalled();
+    expect(mockSendConfirmation).not.toHaveBeenCalled();
+  });
+
+  it('reports a failed contact insert without sending a confirmation', async () => {
     mockInsert.mockResolvedValueOnce({
       data: null,
       error: { message: 'Database connection terminated' },
     });
 
-    const fd = makeFormData({ email: 'error.test@example.com' });
-    const result = await subscribeActionAlerts(fd);
+    const result = await subscribeActionAlerts(makeFormData({ email: 'error.test@example.com' }));
     expect(result).toEqual({
-      error: 'Failed to save subscription. Please email us directly.',
+      error: 'Failed to save the subscription request. Please email us directly.',
     });
+    expect(mockSendConfirmation).not.toHaveBeenCalled();
+  });
+
+  it('reports an existing-contact update failure without sending a confirmation', async () => {
+    mockMaybeSingle.mockResolvedValueOnce({
+      data: {
+        id: 'contact-uuid-103',
+        email: 'update.failure@example.com',
+        first_name: null,
+        tags: [],
+        do_not_email: null,
+        unsubscribed_at: null,
+        newsletter_confirmed_at: null,
+        newsletter_confirm_token: null,
+        newsletter_confirm_expires_at: null,
+      },
+      error: null,
+    });
+    mockUpdate.mockResolvedValueOnce({ error: { message: 'write failed' } });
+
+    const result = await subscribeActionAlerts(
+      makeFormData({ email: 'update.failure@example.com' })
+    );
+    expect(result).toEqual({
+      error: 'Failed to save the subscription request. Please email us directly.',
+    });
+    expect(mockSendConfirmation).not.toHaveBeenCalled();
+  });
+
+  it('keeps the pending token and reports when the confirmation email fails', async () => {
+    mockSendConfirmation.mockResolvedValueOnce({
+      ok: false,
+      status: 503,
+      error: 'provider down',
+    });
+
+    const result = await subscribeActionAlerts(makeFormData({ email: 'mail.failure@example.com' }));
+    expect(result).toEqual({
+      error:
+        'We could not send the confirmation email right now. Please try again, or email contact@indivisiblefairoaks.org.',
+    });
+    expect(mockInsert).toHaveBeenCalledTimes(1);
+    expect(mockActivityInsert).not.toHaveBeenCalled();
   });
 });

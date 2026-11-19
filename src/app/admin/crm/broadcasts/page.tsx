@@ -55,6 +55,7 @@ export default async function AdminCRMBroadcastsPage({
   return (
     <CRMBroadcastComposer
       initialBroadcasts={history.broadcasts}
+      broadcastMetrics={history.metrics}
       totalBroadcastCount={history.totalCount}
       historyPage={history.page}
       initialDrafts={drafts}

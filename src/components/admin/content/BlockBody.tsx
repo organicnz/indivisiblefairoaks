@@ -7,13 +7,12 @@ import {
   type Block,
   CALLOUT_TONES,
   type CalloutTone,
-  type ContentBlock,
   type HeadingLevel,
   INSERTABLE_HEADING_LEVELS,
   stripTags,
 } from '@/lib/blocks';
-import type { BlockKind } from './block-definitions';
 import { BlockTypeMenu } from './BlockTypeMenu';
+import type { BlockKind } from './block-definitions';
 import { ContentImageInput } from './ContentImageInput';
 import { InlineToolbar } from './InlineToolbar';
 import { isSafeHref } from './is-safe-href';

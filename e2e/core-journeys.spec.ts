@@ -53,9 +53,17 @@ test.describe('home shell', () => {
     await page.setViewportSize({ width: 1600, height: 900 });
     await page.goto('/');
     const banner = page.getByRole('banner');
-    await expect(banner.locator('a[href="/"]').first()).toBeVisible();
+    // The emblem is decorative inside a link that already carries the chapter
+    // name in text. A descriptive alt duplicates the announcement.
+    await expect(
+      banner.getByRole('link', { name: 'Indivisible Fair Oaks & Carmichael', exact: true }).first()
+    ).toBeVisible();
     await expect(banner.getByRole('link', { name: 'Events', exact: true })).toBeVisible();
-    await expect(page.getByRole('contentinfo')).toBeVisible();
+    const footer = page.getByRole('contentinfo');
+    await expect(footer).toBeVisible();
+    await expect(
+      footer.getByRole('link', { name: 'Indivisible Fair Oaks & Carmichael', exact: true }).first()
+    ).toBeVisible();
   });
 
   test('drawer carries the full nav labels on narrow viewports', async ({ page }) => {
@@ -74,7 +82,6 @@ test.describe('home shell', () => {
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 10_000 });
   });
 });
-
 
 test.describe('events search control', () => {
   // The collapsed trigger carries `size-9`, but the input wrapper beside it

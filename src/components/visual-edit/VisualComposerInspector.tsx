@@ -14,14 +14,7 @@ import {
   useState,
 } from 'react';
 import { toast } from 'sonner';
-import {
-  type Block,
-  isStructuralBlockClass,
-  readBlockShell,
-  serializeBlocks,
-  structuralClassesForBlock,
-  THEME_CLASS_TOKENS,
-} from '@/lib/blocks';
+import { type Block, serializeBlocks, structuralClassesForBlock } from '@/lib/blocks';
 import type { ThemeMode } from '@/lib/theme';
 import { sectionLabelForBlock } from '@/lib/visual-sections';
 
@@ -37,7 +30,6 @@ import {
   BoxModelStudio,
   CIVIC_CLASS_PRESETS,
   CodeStudio,
-  compileBadgeHtml,
   compileClassNames,
   DEFAULT_VC_STYLES,
   DevicePreviewFrame,
@@ -59,17 +51,17 @@ import {
 } from './composer';
 import {
   blockInnerHtml,
-  cloneStyles,
-  composeDraftBlock,
-  compileEffectiveCustomStyle,
   type ComposerSnapshot,
   type ComposerStyleMemory,
+  cloneStyles,
+  compileEffectiveCustomStyle,
+  composeDraftBlock,
   readComposerStylesFromBlock,
   revertKeys,
 } from './composer-style-model';
-import type { ComposerDraftPreview } from './useComposerPagePreview';
 import { getFocusableElements } from './focusable';
 import { useBeforeUnloadWarning } from './useBeforeUnloadWarning';
+import type { ComposerDraftPreview } from './useComposerPagePreview';
 
 export type {
   VisualComposerBackground,
@@ -908,10 +900,7 @@ export function VisualComposerInspector({
     [dirty, onClose]
   );
 
-  const requestClose = useCallback(
-    () => requestCloseWithReason('user'),
-    [requestCloseWithReason]
-  );
+  const requestClose = useCallback(() => requestCloseWithReason('user'), [requestCloseWithReason]);
 
   const requestPageClose = useCallback(
     () => requestCloseWithReason('page'),
@@ -1180,8 +1169,7 @@ export function VisualComposerInspector({
     if (!currentBlock || applyDisabled) return;
     const finalBlock = composeDraftBlock(currentBlock, styles);
 
-    const effectiveCustomStyle =
-      compileEffectiveCustomStyle(styles, inspectorMode) || undefined;
+    const effectiveCustomStyle = compileEffectiveCustomStyle(styles, inspectorMode) || undefined;
 
     const accepted =
       isBatchMode && onSaveBlocks && selectedBlockIndexes.length > 1

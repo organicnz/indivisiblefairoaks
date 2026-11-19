@@ -40,29 +40,32 @@ export function NewsArchiveResults({
           onClear={onClearSearch}
         />
         {posts.length === 0 ? (
-          <div className="civic-panel p-8 text-center text-muted-foreground dark:text-ink-muted-on-dark">
-            <Search className="mx-auto mb-3 opacity-40" size={32} aria-hidden="true" />
-            <p className="text-sm">
+          <div className="civic-panel flex flex-col items-center p-8 text-center text-muted-foreground dark:text-ink-muted-on-dark">
+            <span
+              className="flex size-12 items-center justify-center border border-border bg-surface-muted text-muted-foreground"
+              aria-hidden="true"
+            >
+              <Search size={20} />
+            </span>
+            <p className="mt-4 font-display text-xl font-semibold tracking-[-0.02em] text-foreground">
+              No matching stories
+            </p>
+            <p className="mt-2 max-w-md text-sm">
               No published stories match “{query}”. Try a broader word or clear the search.
             </p>
             <button
               type="button"
               onClick={onClearSearch}
-              className="mt-4 inline-flex min-h-11 items-center gap-1.5 border border-border bg-surface-card px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.12em] text-foreground transition-colors hover:border-primary hover:text-primary-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              className="mt-5 inline-flex min-h-11 items-center gap-1.5 border border-border bg-surface-card px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.12em] text-foreground transition-colors hover:border-primary hover:text-primary-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               <X size={13} aria-hidden="true" />
               Clear search
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
             {posts.map((post) => (
-              <PostCard
-                key={post.id}
-                post={post}
-                isAdmin={isAdmin}
-                searchQuery={searchQuery}
-              />
+              <PostCard key={post.id} post={post} isAdmin={isAdmin} searchQuery={searchQuery} />
             ))}
           </div>
         )}
@@ -74,17 +77,24 @@ export function NewsArchiveResults({
     return (
       <div
         id="news-results"
-        className="civic-panel p-8 text-center text-muted-foreground dark:text-ink-muted-on-dark"
+        className="civic-panel flex flex-col items-center p-8 text-center text-muted-foreground dark:text-ink-muted-on-dark"
       >
-        <FileText className="mx-auto mb-3 opacity-40" size={32} aria-hidden="true" />
-        <p className="text-sm">
-          No published articles yet. Check back soon for deep-dive campaign reports and
-          commentary!
+        <span
+          className="flex size-12 items-center justify-center border border-border bg-surface-muted text-muted-foreground"
+          aria-hidden="true"
+        >
+          <FileText size={20} />
+        </span>
+        <p className="mt-4 font-display text-xl font-semibold tracking-[-0.02em] text-foreground">
+          No stories yet
+        </p>
+        <p className="mt-2 max-w-md text-sm">
+          No published articles yet. Check back soon for deep-dive campaign reports and commentary!
         </p>
         {isAdmin ? (
           <Link
             href="/admin/content/new?type=post"
-            className="mt-4 inline-flex min-h-11 items-center gap-1.5 border border-primary bg-primary px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.12em] text-white transition-colors hover:bg-primary-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            className="mt-5 inline-flex min-h-11 items-center gap-1.5 border border-primary bg-primary px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.12em] text-white transition-colors hover:bg-primary-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             <Plus size={14} aria-hidden="true" />
             <span>Add the First News Post</span>
@@ -95,11 +105,11 @@ export function NewsArchiveResults({
   }
 
   return (
-    <div id="news-results" className="space-y-8">
+    <div id="news-results" className="space-y-6">
       <LeadStory post={leadPost} isAdmin={isAdmin} searchQuery={searchQuery} />
 
       {supportingPosts.length > 0 ? (
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
           {supportingPosts.map((post) => (
             <PostCard key={post.id} post={post} isAdmin={isAdmin} searchQuery={searchQuery} />
           ))}

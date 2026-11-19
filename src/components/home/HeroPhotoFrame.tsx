@@ -4,9 +4,9 @@ import { Pause, Play } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { FALLBACK_GALLERY_PHOTOS } from '@/config/gallery-fallback';
 import { GalleryImage } from '@/components/gallery/GalleryImage';
 import { DataPoint } from '@/components/ui/DataPoint';
+import { FALLBACK_GALLERY_PHOTOS } from '@/config/gallery-fallback';
 import { useDataPoints } from '@/hooks/useDataPoints';
 
 import { getGalleryPhotos } from '@/lib/queries/content-client';
@@ -17,10 +17,6 @@ interface Photo {
   src: string;
   alt: string;
   label: string;
-  sort_order?: number;
-  is_hero?: boolean;
-  category?: string;
-  url?: string;
 }
 
 const toFallbackPhoto = (photo: (typeof FALLBACK_GALLERY_PHOTOS)[number]): Photo => ({
@@ -151,28 +147,25 @@ export function HeroPhotoFrame({
   };
 
   const dur = reduced !== false ? 0 : undefined;
+  const currentHero = heroPhotos[heroIndex];
+  const hasHeroes = heroPhotos.length > 0;
+  const hasMultipleHeroes = heroPhotos.length > 1;
 
   return (
-    <div className="mx-auto flex w-full max-w-full select-none flex-col gap-5 md:max-w-2xl lg:max-w-3xl">
-      <div className="flex flex-col gap-5">
-        {/* ── Row 1: crossfading large photo ── */}
-        <figure>
-          <div className="relative">
-            <div
-              aria-hidden="true"
-              className="absolute inset-0 translate-x-2 translate-y-2 border border-foreground/25 bg-surface-deep"
-            />
-            <div
-            role="group"
-            aria-roledescription="carousel"
-            aria-label="Community photo highlights"
-            className="relative aspect-[4/3] overflow-hidden rounded-sm border border-foreground/25 bg-surface-deep"
-          >
-            <span aria-hidden="true" className="absolute left-2 top-2 z-10 size-1.5 bg-accent" />
-          {heroPhotos.length > 0 && (
-            <AnimatePresence mode="sync" initial={false}>
+    <div className="mx-auto flex w-full select-none flex-col gap-5 md:max-w-2xl lg:max-w-3xl">
+      {/* ── Row 1: crossfading large photo ── */}
+      <figure>
+        <div
+          role="group"
+          aria-roledescription="carousel"
+          aria-label="Community photo highlights"
+          className="relative aspect-[4/3] overflow-hidden rounded-sm border border-foreground/25 bg-surface-deep"
+        >
+          <span aria-hidden="true" className="absolute left-2 top-2 z-10 size-1.5 bg-accent" />
+          {hasHeroes && (
+            <AnimatePresence initial={false}>
               <motion.div
-                key={heroPhotos[heroIndex]?.id}
+                key={currentHero?.id}
                 className="absolute inset-0"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -180,8 +173,8 @@ export function HeroPhotoFrame({
                 transition={{ duration: dur ?? 1.1, ease: EASE_STD }}
               >
                 <GalleryImage
-                  src={heroPhotos[heroIndex]?.src ?? ''}
-                  alt={heroPhotos[heroIndex]?.alt ?? ''}
+                  src={currentHero?.src ?? ''}
+                  alt={currentHero?.alt ?? ''}
                   className="object-cover"
                   sizes="(min-width: 1024px) 44vw, 100vw"
                   priority
@@ -189,7 +182,7 @@ export function HeroPhotoFrame({
               </motion.div>
             </AnimatePresence>
           )}
-          {heroPhotos.length === 0 && (
+          {!hasHeroes && (
             <div className="absolute inset-0 flex items-center justify-center bg-surface-muted px-6 text-center">
               <span className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground dark:text-ink-muted-on-dark">
                 <DataPoint as="span" name="home.hero.community_moments" initialData={dataPoints}>
@@ -199,7 +192,7 @@ export function HeroPhotoFrame({
             </div>
           )}
 
-          {heroPhotos.length > 0 && (
+          {hasMultipleHeroes && (
             <div className="absolute right-3 top-3 z-10 flex items-center gap-2">
               <div
                 role="group"
@@ -213,7 +206,7 @@ export function HeroPhotoFrame({
                     onClick={() => selectHero(i)}
                     aria-label={`Show photo ${i + 1} of ${heroPhotos.length}: ${p.label}`}
                     aria-pressed={i === heroIndex}
-                    className="inline-flex size-7 items-center justify-center rounded-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold focus-visible:ring-offset-2 focus-visible:ring-offset-secondary"
+                    className="inline-flex size-9 items-center justify-center rounded-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold focus-visible:ring-offset-2 focus-visible:ring-offset-secondary"
                   >
                     <span
                       className={`block h-1.5 rounded-full transition-all duration-300 ${
@@ -223,87 +216,68 @@ export function HeroPhotoFrame({
                   </button>
                 ))}
               </div>
-              {heroPhotos.length > 1 ? (
-                <button
-                  type="button"
-                  onClick={() => setIsPaused((paused) => !paused)}
-                  aria-label={isPaused ? 'Resume photo rotation' : 'Pause photo rotation'}
-                  aria-pressed={isPaused}
-                  className="inline-flex size-7 items-center justify-center rounded-sm border border-white/15 bg-secondary/55 text-white backdrop-blur-sm transition-colors hover:bg-secondary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold motion-reduce:hidden"
-                >
-                  {isPaused ? (
-                    <Play size={12} aria-hidden="true" />
-                  ) : (
-                    <Pause size={12} aria-hidden="true" />
-                  )}
-                </button>
-              ) : null}
+              <button
+                type="button"
+                onClick={() => setIsPaused((paused) => !paused)}
+                aria-label={isPaused ? 'Resume photo rotation' : 'Pause photo rotation'}
+                aria-pressed={isPaused}
+                className="inline-flex size-9 items-center justify-center rounded-sm border border-white/15 bg-secondary/55 text-white backdrop-blur-sm transition-colors hover:bg-secondary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold motion-reduce:hidden"
+              >
+                {isPaused ? (
+                  <Play size={14} aria-hidden="true" />
+                ) : (
+                  <Pause size={14} aria-hidden="true" />
+                )}
+              </button>
             </div>
           )}
-            </div>
-          </div>
-
-          {heroPhotos.length > 0 ? (
-            <figcaption className="mt-3 flex items-start justify-between gap-4 border-t border-foreground/25 pt-3">
-              <div className="min-w-0">
-                <span className="civic-meta">
-                  <DataPoint as="span" name="home.hero.community_moments" initialData={dataPoints}>
-                    Community moments
-                  </DataPoint>
-                </span>
-                <AnimatePresence mode="wait" initial={false}>
-                  <motion.span
-                    key={heroPhotos[heroIndex]?.id}
-                    initial={{ opacity: 0, y: 4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -4 }}
-                    transition={{ duration: dur ?? 0.3 }}
-                    className="mt-1 block font-display text-sm font-semibold leading-snug text-foreground"
-                  >
-                    {heroPhotos[heroIndex]?.label}
-                  </motion.span>
-                </AnimatePresence>
-              </div>
-              <span className="shrink-0 pt-0.5 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                {String(heroIndex + 1).padStart(2, '0')} /{' '}
-                {String(heroPhotos.length).padStart(2, '0')}
-              </span>
-            </figcaption>
-          ) : (
-            <figcaption className="mt-3 border-t border-foreground/25 pt-3">
-              <span className="civic-meta">
-                <DataPoint as="span" name="home.hero.community_moments" initialData={dataPoints}>
-                  Community moments
-                </DataPoint>
-              </span>
-            </figcaption>
-          )}
-        </figure>
-
-        {/* ── Row 2: fixed pair ── */}
-        <div className="grid grid-cols-2 gap-4">
-          {pairPhotos.map((photo) => (
-            <figure key={photo.id} className="min-w-0">
-              <div className="relative aspect-square overflow-hidden rounded-sm border border-foreground/20 bg-surface-deep">
-                <GalleryImage
-                  src={photo.src}
-                  alt={photo.alt}
-                  className="object-cover"
-                  sizes="(min-width: 1024px) 22vw, 50vw"
-                />
-                <div
-                  aria-hidden="true"
-                  className="pointer-events-none absolute inset-0 bg-gradient-to-t from-secondary/20 to-transparent"
-                />
-              </div>
-              <figcaption className="mt-2 min-h-8 border-t border-foreground/20 pt-2">
-                <span className="line-clamp-2 text-[10px] font-semibold leading-snug text-muted-foreground">
-                  {photo.label}
-                </span>
-              </figcaption>
-            </figure>
-          ))}
         </div>
+
+        <figcaption className="mt-3 flex flex-col gap-2 border-t border-foreground/25 pt-3 lg:flex-row lg:items-start lg:justify-between lg:gap-4">
+          <div className="min-w-0">
+            <span className="civic-meta">
+              <DataPoint as="span" name="home.hero.community_moments" initialData={dataPoints}>
+                Community moments
+              </DataPoint>
+            </span>
+            {hasHeroes && (
+              <span className="mt-1 line-clamp-2 block min-h-[2lh] font-display text-sm font-semibold leading-snug text-foreground">
+                {currentHero?.label}
+              </span>
+            )}
+          </div>
+          {hasHeroes && (
+            <span className="shrink-0 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground lg:pt-0.5">
+              {String(heroIndex + 1).padStart(2, '0')} /{' '}
+              {String(heroPhotos.length).padStart(2, '0')}
+            </span>
+          )}
+        </figcaption>
+      </figure>
+
+      {/* ── Row 2: fixed pair ── */}
+      <div className="grid grid-cols-2 gap-4">
+        {pairPhotos.map((photo) => (
+          <figure key={photo.id} className="min-w-0">
+            <div className="relative aspect-square overflow-hidden rounded-sm border border-foreground/20 bg-surface-deep">
+              <GalleryImage
+                src={photo.src}
+                alt={photo.alt}
+                className="object-cover"
+                sizes="(min-width: 1024px) 22vw, 50vw"
+              />
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 bg-gradient-to-t from-secondary/20 to-transparent"
+              />
+            </div>
+            <figcaption className="mt-2 min-h-8 border-t border-foreground/20 pt-2">
+              <span className="line-clamp-2 text-[10px] font-semibold leading-snug text-muted-foreground">
+                {photo.label}
+              </span>
+            </figcaption>
+          </figure>
+        ))}
       </div>
 
       {/* Archive link — outside aria-hidden so it is keyboard-reachable */}

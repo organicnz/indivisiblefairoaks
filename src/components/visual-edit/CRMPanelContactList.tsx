@@ -4,14 +4,15 @@ import { Check, Loader2, Trash2 } from 'lucide-react';
 import type { Dispatch, RefObject, SetStateAction } from 'react';
 import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import { CRMPanelContactFilters } from '@/components/visual-edit/CRMPanelContactFilters';
+import { CONSENT_COLORS, STATUS_COLORS } from '@/components/visual-edit/crm-panel-styles';
 import {
-  CONSENT_COLORS,
-  CONSENT_OPTIONS,
-  STATUS_COLORS,
-} from '@/components/visual-edit/crm-panel-styles';
-import { consentLabel } from '@/lib/crm-filters';
-import type { ConsentFilter } from '@/lib/crm-filters';
-import type { CRMContact, CRMContactStatus } from '@/types/unified';
+  CRM_CONTACT_BULK_CONSENT_OPTIONS,
+  CRM_CONTACT_BULK_STATUS_OPTIONS,
+  CRM_CONTACT_CONSENT_OPTIONS,
+  CRM_CONTACT_STATUS_OPTIONS,
+  crmContactConsentValue,
+} from '@/lib/crm-contact-options';
+import type { ConsentDecision, ConsentFilter, CRMContact, CRMContactStatus } from '@/types/unified';
 
 /** The directory read and the pagination controls must agree on this size. */
 export const CRM_CONTACT_PAGE_SIZE = 25;
@@ -49,7 +50,7 @@ type CRMPanelContactListProps = {
   bulkDistrictInput: string;
   onBulkDistrictInputChange: (value: string) => void;
   onBulkStatus: (status: CRMContactStatus) => void;
-  onBulkConsent: (consent: 'opted_in' | 'opted_out' | 'unasked') => void;
+  onBulkConsent: (consent: ConsentDecision) => void;
   onBulkAddTag: () => void;
   onBulkDistrict: () => void;
   onBulkDelete: () => void;
@@ -70,6 +71,11 @@ function CRMPanelContactRow({
   onSelect,
   onToggleSelection,
 }: CRMPanelContactRowProps) {
+  const currentConsent = crmContactConsentValue(contact.do_not_email);
+  const statusLabel =
+    CRM_CONTACT_STATUS_OPTIONS.find((option) => option.value === contact.status)?.compactLabel ??
+    contact.status.replace('_', ' ');
+
   return (
     <li
       className={`flex items-start gap-2.5 px-3 py-2 transition-colors ${
@@ -104,7 +110,7 @@ function CRMPanelContactRow({
                 STATUS_COLORS[contact.status] || 'bg-muted text-muted-foreground'
               }`}
             >
-              {contact.status.replace('_', ' ')}
+              {statusLabel}
             </span>
           </div>
         </div>
@@ -114,21 +120,20 @@ function CRMPanelContactRow({
               {contact.district}
             </span>
           )}
-          {CONSENT_OPTIONS.map((opt) => {
-            const currentConsent = consentLabel(contact.do_not_email);
-            return (
-              <span
-                key={opt.value}
-                className={`px-1.5 py-0.5 rounded text-[9px] font-medium ${
-                  currentConsent === opt.value
-                    ? CONSENT_COLORS[opt.value]
-                    : 'bg-muted/50 text-muted-foreground'
-                }`}
-              >
-                {opt.value === 'opted_in' ? '✓' : opt.value === 'opted_out' ? '✗' : '?'}
-              </span>
-            );
-          })}
+          {CRM_CONTACT_CONSENT_OPTIONS.map((opt) => (
+            <span
+              key={opt.value}
+              title={opt.label}
+              className={`px-1.5 py-0.5 rounded text-[9px] font-medium ${
+                currentConsent === opt.value
+                  ? CONSENT_COLORS[opt.value]
+                  : 'bg-muted/50 text-muted-foreground'
+              }`}
+            >
+              {opt.icon}
+              <span className="sr-only"> {opt.label}</span>
+            </span>
+          ))}
         </div>
       </button>
     </li>
@@ -282,17 +287,16 @@ export function CRMPanelContactList({
               <option value="" disabled>
                 Change status…
               </option>
-              <option value="active_volunteer">Active volunteer</option>
-              <option value="supporter">Supporter</option>
-              <option value="donor">Donor</option>
-              <option value="choir">Choir</option>
-              <option value="organizer">Organizer</option>
-              <option value="inactive">Inactive</option>
+              {CRM_CONTACT_BULK_STATUS_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.compactLabel}
+                </option>
+              ))}
             </select>
             <select
               onChange={(event) => {
                 if (event.target.value) {
-                  onBulkConsent(event.target.value as 'opted_in' | 'opted_out' | 'unasked');
+                  onBulkConsent(event.target.value as ConsentDecision);
                   event.target.value = '';
                 }
               }}
@@ -304,9 +308,11 @@ export function CRMPanelContactList({
               <option value="" disabled>
                 Change consent…
               </option>
-              <option value="opted_in">Opt in</option>
-              <option value="opted_out">Opt out</option>
-              <option value="unasked">Never asked</option>
+              {CRM_CONTACT_BULK_CONSENT_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.bulkLabel}
+                </option>
+              ))}
             </select>
           </div>
           <div className="flex items-center gap-1.5">

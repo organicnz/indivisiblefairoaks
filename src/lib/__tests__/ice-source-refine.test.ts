@@ -51,6 +51,41 @@ const ICE_NAV_PAGE = [
   'Was this page helpful?',
 ].join('\n');
 
+const LONG_ICE_PAGE = [
+  'ICE Boston operation takes 8 dangerous alien gang members off the streets | ICE',
+  'Skip to main content',
+  'Topics',
+  'Immigration and Customs Enforcement',
+  'News',
+  'Release Date',
+  'ICE agents arrested eight people in Boston, MA during a multi-agency operation.',
+  'The agency said the arrests followed a months-long investigation into a network that allegedly moved people across state lines.',
+  'Officials said the operation involved several federal and local partners and that no one was injured.',
+  'The source did not identify the people taken into custody or describe the charges they may face.',
+  'Was this page helpful?',
+].join('\n');
+
+const GOOD_DIGEST = [
+  'Federal immigration authorities took eight people into custody in Boston, Massachusetts, during a coordinated operation, officials said.',
+  'The action followed a months-long inquiry, according to the agency, which said several federal and local partners took part. No injuries were reported, and the source did not identify those detained or describe possible charges.',
+].join('\n\n');
+
+const FACTUAL_SOURCE =
+  'Over the weekend, U.S. Customs and Border Protection Air and Marine Operations agents, U.S. Border Patrol agents, U.S. Coast Guard crews and military partners intercepted four separate maritime smuggling vessels off the Southern California coast, apprehending 81 people.';
+const FACTUAL_DIGEST = [
+  'Federal agents stopped four boats carrying 81 people off Southern California, the agency said.',
+  'The account described how military partners intercepted four separate maritime smuggling vessels off the Southern California coast. It said the incidents occurred over one weekend and involved several agencies.',
+  'No injuries were reported. The source did not identify the people taken into custody or describe the charges they may face.',
+].join('\n\n');
+
+const CBP_SOURCE = [
+  'Over the weekend, U.S. Customs and Border Protection Air and Marine Operations agents, U.S. Border Patrol agents, U.S. Coast Guard crews and military partners intercepted four separate maritime smuggling vessels off the Southern California coast, apprehending 81 people.',
+  'The enforcement actions began at 12:45 p.m. on Saturday, Nov. 7, when Air and Marine Operations crews and partners simultaneously interdicted two vessels off the coast of Catalina Island.',
+].join(' ');
+const CBP_DIGEST = CBP_SOURCE.replace('Over the weekend,', 'During the weekend,');
+const LIGHTLY_EDITED_CBP_DIGEST =
+  'U.S. Customs and Border Protection (CBP) and partner agencies intercepted four maritime smuggling vessels off Southern California over the weekend, apprehending a total of 81 people. The operations began at 12:45 p.m. on Saturday, Nov. 7, when Air and Marine Operations crews and naval partners simultaneously interdicted two vessels near Catalina Island.';
+
 describe('source text refinement', () => {
   afterEach(() => {
     vi.unstubAllEnvs();
@@ -114,15 +149,16 @@ describe('source text refinement', () => {
     vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://project.supabase.co');
     vi.stubEnv('SUPABASE_SECRET_KEY', 'service-key');
     vi.resetModules();
-    const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
-      new Response(
-        JSON.stringify({
-          isReport: true,
-          text: 'ICE agents arrested eight people in Boston, MA during a multi-agency operation.\nThe agency said the arrests followed a months-long investigation.',
-          generatedBy: 'ai',
-        }),
-        { status: 200, headers: { 'content-type': 'application/json' } }
-      )
+    const fetchMock = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) =>
+        new Response(
+          JSON.stringify({
+            isReport: true,
+            text: 'ICE agents arrested eight people in Boston, MA during a multi-agency operation.\nThe agency said the arrests followed a months-long investigation.',
+            generatedBy: 'ai',
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        )
     );
     installFetchMock(fetchMock);
 
@@ -148,14 +184,15 @@ describe('source text refinement', () => {
     vi.stubEnv('SUPABASE_SECRET_KEY', 'service-key');
     vi.resetModules();
     installFetchMock(
-      vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
-        new Response(
-          JSON.stringify({
-            isReport: true,
-            text: 'ICE agents arrested three people in a location that is not in the source.',
-          }),
-          { status: 200, headers: { 'content-type': 'application/json' } }
-        )
+      vi.fn(
+        async (_input: RequestInfo | URL, _init?: RequestInit) =>
+          new Response(
+            JSON.stringify({
+              isReport: true,
+              text: 'ICE agents arrested three people in a location that is not in the source.',
+            }),
+            { status: 200, headers: { 'content-type': 'application/json' } }
+          )
       )
     );
 
@@ -167,26 +204,23 @@ describe('source text refinement', () => {
     vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://project.supabase.co');
     vi.stubEnv('SUPABASE_SECRET_KEY', 'service-key');
     vi.resetModules();
-    const digest = [
-      'Federal immigration agents detained eight people in Boston, MA during a multi-agency operation, officials said.',
-      'Investigators said the arrests followed a months-long inquiry. The source did not identify the people taken into custody.',
-    ].join('\n\n');
-    const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
-      new Response(
-        JSON.stringify({ isReport: true, text: digest, generatedBy: 'ai', mode: 'refine' }),
-        { status: 200, headers: { 'content-type': 'application/json' } }
-      )
+    const fetchMock = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) =>
+        new Response(
+          JSON.stringify({ isReport: true, text: GOOD_DIGEST, generatedBy: 'ai', mode: 'refine' }),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        )
     );
     installFetchMock(fetchMock);
 
     const { refineSourceReportWithAi } = await import('@/lib/ice-source-refine');
     const result = await refineSourceReportWithAi({
-      text: ICE_PAGE,
+      text: LONG_ICE_PAGE,
       sourceUrl: 'https://www.ice.gov/news/releases/example',
       sourceTitle: 'ICE Boston operation',
     });
 
-    expect(result).toEqual({ isReport: true, text: digest });
+    expect(result).toEqual({ isReport: true, text: GOOD_DIGEST });
     const [url, init] = fetchMock.mock.calls[0] ?? [];
     expect(String(url)).toBe('https://project.supabase.co/functions/v1/ice-source-refine');
     const body = JSON.parse(String((init as RequestInit | undefined)?.body ?? '{}'));
@@ -194,23 +228,59 @@ describe('source text refinement', () => {
     expect(body.text).toContain('ICE agents arrested');
   });
 
+  it('sends the complete source text instead of stopping at the old 24k cap', async () => {
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://project.supabase.co');
+    vi.stubEnv('SUPABASE_SECRET_KEY', 'service-key');
+    vi.resetModules();
+    const fetchMock = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) =>
+        new Response(
+          JSON.stringify({ isReport: true, text: GOOD_DIGEST, generatedBy: 'ai', mode: 'refine' }),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        )
+    );
+    installFetchMock(fetchMock);
+
+    const filler = Array.from(
+      { length: 500 },
+      (_, index) => `Supporting source line ${index} with background that follows the report.`
+    ).join('\n');
+    const longSource = `${LONG_ICE_PAGE.replace('\nWas this page helpful?', '')}\n${filler}\nEND-OF-SOURCE-MARKER`;
+    expect(longSource.length).toBeGreaterThan(24_000);
+
+    const { refineSourceReportWithAi } = await import('@/lib/ice-source-refine');
+    const result = await refineSourceReportWithAi({
+      text: longSource,
+      sourceUrl: 'https://www.ice.gov/news/releases/example',
+      sourceTitle: 'ICE Boston operation',
+    });
+
+    expect(result).toEqual({ isReport: true, text: GOOD_DIGEST });
+    const [, init] = fetchMock.mock.calls[0] ?? [];
+    const body = JSON.parse(String((init as RequestInit | undefined)?.body ?? '{}'));
+    expect(body.text).toContain('END-OF-SOURCE-MARKER');
+    expect(body.text.length).toBeGreaterThan(24_000);
+  });
+
   it('rejects a digest that copies the source or invents a number', async () => {
     const { isSafeSourceDigest } = await import('@/lib/ice-source-refine');
-    const source = ICE_PAGE;
-    const copied = `${source.split('\n')[6]}\n${source.split('\n')[7]}\nThe agency said the operation followed a months-long investigation, according to officials.`;
-    expect(isSafeSourceDigest(source, copied)).toBe(false);
+    const copied = LONG_ICE_PAGE.split('\n').slice(6, 10).join(' ');
+    expect(isSafeSourceDigest(LONG_ICE_PAGE, copied)).toBe(false);
     expect(
       isSafeSourceDigest(
-        source,
+        LONG_ICE_PAGE,
         'Federal immigration agents detained 17 people in Boston, MA during a multi-agency operation, the agency said.\n\nThe agency said the arrests followed a months-long investigation.'
       )
     ).toBe(false);
 
-    const digestWithOneFactualRun = [
-      'Federal immigration agents detained eight people in Boston, MA during a multi-agency operation, officials said.',
-      'The account described how ICE agents arrested eight people in Boston, MA during a multi-agency operation. It said the arrests followed a months-long investigation.',
-      'No injuries were reported. The source did not identify the people taken into custody.',
-    ].join('\n\n');
-    expect(isSafeSourceDigest(source, digestWithOneFactualRun)).toBe(true);
+    expect(
+      isSafeSourceDigest(
+        LONG_ICE_PAGE,
+        'Federal immigration authorities took eight people into custody in Boston, Massachusetts, during a coordinated operation, officials said.\n\nThe action followed a months-long inquiry, according to the agency, which said several federal and local partners took part. No injuries were reported.'
+      )
+    ).toBe(true);
+    expect(isSafeSourceDigest(FACTUAL_SOURCE, FACTUAL_DIGEST)).toBe(true);
+    expect(isSafeSourceDigest(CBP_SOURCE, CBP_DIGEST)).toBe(false);
+    expect(isSafeSourceDigest(CBP_SOURCE, LIGHTLY_EDITED_CBP_DIGEST)).toBe(false);
   });
 });

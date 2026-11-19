@@ -55,6 +55,7 @@ describe('InteractiveNewslettersList', () => {
 
   beforeEach(() => {
     mockEditContext.isAdmin = false;
+    window.history.replaceState({}, '', '/newsletters');
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
@@ -118,12 +119,12 @@ describe('InteractiveNewslettersList', () => {
     expect(container.textContent).not.toContain('Fall Bulletin');
     expect(container.textContent).toContain('Showing 1 of 2 bulletins');
     expect(
-      [...container.querySelectorAll('mark')].some((mark) =>
-        /choir/i.test(mark.textContent ?? '')
-      )
+      [...container.querySelectorAll('mark')].some((mark) => /choir/i.test(mark.textContent ?? ''))
     ).toBe(true);
 
-    const clear = container.querySelector<HTMLButtonElement>('button[aria-label="Clear bulletin search"]');
+    const clear = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Clear bulletin search"]'
+    );
     expect(clear).not.toBeNull();
     await act(async () => {
       clear?.click();
@@ -131,6 +132,136 @@ describe('InteractiveNewslettersList', () => {
 
     expect(container.textContent).toContain('Fall Bulletin');
     expect(container.textContent).toContain('Choir Night');
+    expect(new URLSearchParams(window.location.search).get('q')).toBeNull();
+  });
+
+  it('restores shared search and topic filters and follows back/forward changes', async () => {
+    const newsletters = [
+      {
+        slug: 'fall-bulletin',
+        title: 'Fall Bulletin',
+        date_label: 'October 2026',
+        description: 'Election defense across Sacramento County.',
+        topics: ['Elections'],
+        sort_order: 10,
+        published_at: null,
+      },
+      {
+        slug: 'choir-night',
+        title: 'Choir Night',
+        date_label: 'September 2026',
+        description: 'Music and organizing in the park.',
+        topics: ['Choir Actions'],
+        sort_order: 20,
+        published_at: null,
+      },
+    ];
+
+    window.history.replaceState(
+      {},
+      '',
+      `/newsletters?${new URLSearchParams({ q: 'choir', topic: 'Choir Actions' }).toString()}`
+    );
+
+    await act(async () => {
+      root.render(<InteractiveNewslettersList initialNewsletters={newsletters} />);
+    });
+
+    const search = container.querySelector<HTMLInputElement>('[data-testid="newsletter-search"]');
+    if (!search) throw new Error('newsletter search did not render');
+    expect(search.value).toBe('choir');
+    expect(
+      [...container.querySelectorAll<HTMLButtonElement>('button')].some(
+        (button) =>
+          button.getAttribute('aria-pressed') === 'true' &&
+          button.textContent?.trim().startsWith('Choir Actions')
+      )
+    ).toBe(true);
+    expect(container.textContent).toContain('Choir Night');
+    expect(container.textContent).not.toContain('Fall Bulletin');
+
+    await act(async () => {
+      setInputValue(search, 'fall');
+    });
+    expect(new URLSearchParams(window.location.search).get('q')).toBe('fall');
+
+    const elections = [...container.querySelectorAll<HTMLButtonElement>('button')].find((button) =>
+      button.textContent?.trim().startsWith('Elections')
+    );
+    expect(elections).not.toBeUndefined();
+    await act(async () => {
+      elections?.click();
+    });
+
+    const params = new URLSearchParams(window.location.search);
+    expect(params.get('q')).toBe('fall');
+    expect(params.get('topic')).toBe('Elections');
+
+    await act(async () => {
+      window.history.pushState(
+        {},
+        '',
+        `/newsletters?${new URLSearchParams({ q: 'choir', topic: 'Choir Actions' }).toString()}`
+      );
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
+
+    expect(search.value).toBe('choir');
+    expect(container.textContent).toContain('Choir Night');
+    expect(container.textContent).not.toContain('Fall Bulletin');
+
+    const clear = [...container.querySelectorAll<HTMLButtonElement>('button')].find((button) =>
+      /clear search and topic/i.test(button.textContent ?? '')
+    );
+    expect(clear).not.toBeUndefined();
+    await act(async () => {
+      clear?.click();
+    });
+
+    const cleared = new URLSearchParams(window.location.search);
+    expect(cleared.get('q')).toBeNull();
+    expect(cleared.get('topic')).toBeNull();
+    expect(container.textContent).toContain('Fall Bulletin');
+    expect(container.textContent).toContain('Choir Night');
+  });
+
+  it('opens the bulletin detail page and exposes durable PDF/archive links instead of email', async () => {
+    await act(async () => {
+      root.render(
+        <InteractiveNewslettersList
+          initialNewsletters={[
+            {
+              slug: 'fall-bulletin',
+              title: 'Fall Bulletin',
+              date_label: 'October 2026',
+              description: 'Election defense across Sacramento County.',
+              body: 'The full fall issue.',
+              pdf_url: 'https://example.org/fall.pdf',
+              archive_url: 'https://example.org/archive/fall',
+              topics: ['Elections'],
+              sort_order: 10,
+              published_at: '2026-10-01T00:00:00Z',
+            },
+          ]}
+        />
+      );
+    });
+
+    const detailLinks = [
+      ...container.querySelectorAll<HTMLAnchorElement>('a[href="/newsletters/fall-bulletin"]'),
+    ];
+    expect(detailLinks.length).toBeGreaterThanOrEqual(2);
+    expect(container.textContent).toContain('Read Full Issue');
+    expect(container.querySelector('a[href^="mailto:"]')).toBeNull();
+
+    const pdf = container.querySelector<HTMLAnchorElement>(
+      'a[href="https://example.org/fall.pdf"]'
+    );
+    expect(pdf?.target).toBe('_blank');
+    expect(pdf?.rel).toContain('noopener');
+    expect(
+      container.querySelector<HTMLAnchorElement>('a[href="https://example.org/archive/fall"]')
+    ).not.toBeNull();
   });
 
   it('filters by a case-insensitive topic chip', async () => {

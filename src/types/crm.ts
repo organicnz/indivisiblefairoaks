@@ -36,6 +36,67 @@ export type CRMBroadcast = Database['public']['Tables']['crm_broadcasts']['Row']
 export type CRMBroadcastInsert = Database['public']['Tables']['crm_broadcasts']['Insert'];
 export type CRMBroadcastUpdate = Database['public']['Tables']['crm_broadcasts']['Update'];
 
+/**
+ * Newsletter columns from `20261119200000_crm_newsletter_broadcast.sql`.
+ *
+ * The migration is intentionally not reflected in `src/types/supabase.ts`: that
+ * file is generated from the live project, and hand-editing it would leave a
+ * phantom diff the next time `bun run types:generate` runs. Read sites cast the
+ * selected subset to these intersections; write sites build a payload variable
+ * with the intersection type, which remains structurally assignable to the
+ * generated `Update` / `Insert` shapes while the migration is pending.
+ */
+export type NewsletterContactFields = {
+  newsletter_confirmed_at: string | null;
+  newsletter_confirm_token: string | null;
+  newsletter_confirm_expires_at: string | null;
+  newsletter_confirmation_sent_at: string | null;
+};
+
+export type NewsletterContact = CRMContact & NewsletterContactFields;
+export type NewsletterContactInsert = CRMContactInsert & Partial<NewsletterContactFields>;
+export type NewsletterContactUpdate = CRMContactUpdate & Partial<NewsletterContactFields>;
+
+/** `source_newsletter_slug` comes from the same unapplied migration. */
+export type NewsletterBroadcastInsert = CRMBroadcastInsert & {
+  source_newsletter_slug?: string | null;
+};
+
+/** One durable recipient row for a campaign. */
+export type CRMBroadcastRecipient = Database['public']['Tables']['crm_broadcast_recipients']['Row'];
+
+/**
+ * Counts for one campaign, computed by `crm_broadcast_metrics()` in SQL.
+ *
+ * `accepted + failed + suppressed + pending = recorded`, and
+ * `recorded + unresolved = recipientCount` for a sender-created ledger. Legacy
+ * campaigns have no rows, so `recordedCount` is 0 and their stored counters
+ * remain the only available metric.
+ */
+export interface BroadcastMetrics {
+  broadcastId: string;
+  recipientCount: number;
+  acceptedCount: number;
+  failedCount: number;
+  suppressedCount: number;
+  pendingCount: number;
+  recordedCount: number;
+  unresolvedCount: number;
+}
+
+/** One failed or suppressed recipient in a campaign's follow-up list. */
+export interface BroadcastFollowUp {
+  contactId: string | null;
+  email: string;
+  recipientName: string | null;
+  status: 'failed' | 'suppressed';
+  reason: string | null;
+  providerId: string | null;
+  failedAt: string | null;
+  suppressedAt: string | null;
+  updatedAt: string;
+}
+
 export type CRMTask = Database['public']['Tables']['crm_tasks']['Row'];
 export type CRMTaskInsert = Database['public']['Tables']['crm_tasks']['Insert'];
 export type CRMTaskUpdate = Database['public']['Tables']['crm_tasks']['Update'];
@@ -112,6 +173,8 @@ export interface BroadcastProgress {
   recipientCount: number;
   sentCount: number;
   failedCount: number;
+  suppressedCount?: number;
+  pendingCount?: number;
   sentAt: string | null;
   createdAt: string;
   /**

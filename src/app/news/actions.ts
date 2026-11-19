@@ -1,20 +1,51 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
 import { headers } from 'next/headers';
 import { isE2EMode } from '@/lib/e2e-mode';
+import {
+  createNewsletterConfirmation,
+  sendNewsletterConfirmation,
+  withNewsletterRequestTags,
+} from '@/lib/newsletter-subscription';
 import { clientKey, rateLimit } from '@/lib/rate-limit';
 import { createAdminClient } from '@/lib/supabase-server';
-import type { Database } from '@/types/supabase';
+import type {
+  CRMContactInsert,
+  CRMContactUpdate,
+  NewsletterContact,
+  NewsletterContactInsert,
+  NewsletterContactUpdate,
+} from '@/types/crm';
 
-type ContactUpdate = Database['public']['Tables']['crm_contacts']['Update'];
+type ExistingContact = Pick<
+  NewsletterContact,
+  | 'id'
+  | 'email'
+  | 'first_name'
+  | 'tags'
+  | 'do_not_email'
+  | 'unsubscribed_at'
+  | 'newsletter_confirmed_at'
+  | 'newsletter_confirm_token'
+  | 'newsletter_confirm_expires_at'
+>;
 
 export type SubscribeResult =
   | { error: string }
-  | { success: true; message: string; alreadySubscribed?: boolean };
+  | {
+      success: true;
+      message: string;
+      alreadySubscribed?: boolean;
+      pendingConfirmation?: boolean;
+    };
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const CONTROL_CHARS = /[\x00-\x1f\x7f]/;
+
+const PENDING_MESSAGE = 'Check your inbox and click the confirmation link to finish subscribing.';
+const ALREADY_MESSAGE = 'This address is already subscribed to Action Alerts.';
+const SEND_FAILED_MESSAGE =
+  'We could not send the confirmation email right now. Please try again, or email contact@indivisiblefairoaks.org.';
 
 export async function subscribeActionAlerts(formData: FormData): Promise<SubscribeResult> {
   // 1. Anti-bot honeypot check
@@ -23,12 +54,15 @@ export async function subscribeActionAlerts(formData: FormData): Promise<Subscri
     console.warn('[subscribeActionAlerts] honeypot triggered by bot');
     return {
       success: true,
-      message: "You're on the list! Thank you for standing with Indivisible Fair Oaks-Carmichael.",
+      message: PENDING_MESSAGE,
+      pendingConfirmation: true,
     };
   }
 
   // 2. Extract and sanitize inputs
-  const rawEmail = String(formData.get('email') ?? '').trim().toLowerCase();
+  const rawEmail = String(formData.get('email') ?? '')
+    .trim()
+    .toLowerCase();
   const rawName = String(formData.get('name') ?? '').trim();
 
   if (!rawEmail) {
@@ -55,8 +89,8 @@ export async function subscribeActionAlerts(formData: FormData): Promise<Subscri
   if (isE2EMode()) {
     return {
       success: true,
-      message: "You're on the list! Thank you for standing with Indivisible Fair Oaks-Carmichael.",
-      alreadySubscribed: false,
+      message: PENDING_MESSAGE,
+      pendingConfirmation: true,
     };
   }
 
@@ -64,43 +98,56 @@ export async function subscribeActionAlerts(formData: FormData): Promise<Subscri
     const adminClient = await createAdminClient();
 
     // Check if contact already exists
-    const { data: existing, error: selectError } = await adminClient
+    const { data: existingRow, error: selectError } = await adminClient
       .from('crm_contacts')
-      .select('id, email, first_name, tags, do_not_email, unsubscribed_at')
+      .select(
+        'id, email, first_name, tags, do_not_email, unsubscribed_at, newsletter_confirmed_at, newsletter_confirm_token, newsletter_confirm_expires_at'
+      )
       .eq('email', rawEmail)
       .maybeSingle();
 
     if (selectError) {
       console.error('[subscribeActionAlerts] lookup failed:', selectError);
       return {
-        error: 'Unable to process your subscription right now. Please try again or email us directly.',
+        error:
+          'Unable to process your subscription right now. Please try again or email us directly.',
       };
     }
 
+    // The generated row type does not know the unapplied migration's columns;
+    // the selected subset is exactly `ExistingContact`.
+    const existing = existingRow as unknown as ExistingContact | null;
+
     const now = new Date().toISOString();
-    const requiredTags = ['action-alerts', 'newsletter'];
 
     if (existing) {
       /*
-       * A public form submission is not proof that the person who owns this
-       * address is the one typing. Anyone could enter a neighbour's email and
-       * silently reverse their unsubscribe. So an existing opt-out is never
-       * cleared here: the row is left untouched and the visitor is told to
-       * contact an organiser, who can verify the request out of band. A new
-       * address has no prior consent to override, so it can subscribe normally.
+       * A public form submission is intent, not proof that the owner of the
+       * address typed it. The confirmation email is the proof. An existing
+       * opt-out is therefore left exactly as it is until that link is followed;
+       * this request can only create a pending token, never clear consent. A
+       * contact who has already completed the gate is already subscribed and
+       * does not need another message.
        */
-      if (existing.do_not_email === true || existing.unsubscribed_at) {
+      if (
+        existing.do_not_email === false &&
+        !existing.unsubscribed_at &&
+        existing.newsletter_confirmed_at
+      ) {
         return {
-          error:
-            'This email address previously unsubscribed, so we have not changed it. Email contact@indivisiblefairoaks.org and an organiser can opt you back in.',
+          success: true,
+          message: ALREADY_MESSAGE,
+          alreadySubscribed: true,
         };
       }
 
-      const existingTags = Array.isArray(existing.tags) ? existing.tags : [];
-      const mergedTags = Array.from(new Set([...existingTags, ...requiredTags]));
+      const confirmation = createNewsletterConfirmation();
 
-      const updatePayload: ContactUpdate = {
-        tags: mergedTags,
+      const updatePayload: NewsletterContactUpdate = {
+        tags: withNewsletterRequestTags(Array.isArray(existing.tags) ? existing.tags : []),
+        newsletter_confirm_token: confirmation.token,
+        newsletter_confirm_expires_at: confirmation.expiresAt,
+        newsletter_confirmation_sent_at: confirmation.confirmationSentAt,
         updated_at: now,
       };
 
@@ -110,80 +157,107 @@ export async function subscribeActionAlerts(formData: FormData): Promise<Subscri
 
       const { error: updateError } = await adminClient
         .from('crm_contacts')
-        .update(updatePayload)
+        // The generated write type rejects the migration-only columns; the
+        // payload is the same object at runtime.
+        .update(updatePayload as unknown as CRMContactUpdate)
         .eq('id', existing.id);
 
       if (updateError) {
         console.error('[subscribeActionAlerts] update failed:', updateError);
         return {
-          error: 'Failed to update subscription. Please email us directly.',
+          error: 'Failed to save the subscription request. Please email us directly.',
         };
       }
 
-      // Log note activity in crm_activities
+      const sent = await sendNewsletterConfirmation({
+        email: rawEmail,
+        firstName: existing.first_name || rawName || null,
+        token: confirmation.token,
+      });
+      if (!sent.ok) {
+        console.error('[subscribeActionAlerts] confirmation email failed:', sent.error);
+        return { error: SEND_FAILED_MESSAGE };
+      }
+
       await adminClient.from('crm_activities').insert({
         contact_id: existing.id,
         type: 'note',
-        title: 'Subscribed to Action Alerts',
-        description: 'Contact renewed/confirmed Action Alerts subscription.',
+        title: 'Newsletter confirmation sent',
+        description: 'Action Alerts confirmation email sent from the website.',
         metadata: {
           channel: 'news_page_subscription',
           source: 'action_alerts',
-          subscribed_at: now,
+          requested_at: now,
+          expires_at: confirmation.expiresAt,
         },
       });
 
-      revalidatePath('/news');
       return {
         success: true,
-        message: "You're on the list! Thank you for standing with Indivisible Fair Oaks-Carmichael.",
-        alreadySubscribed: true,
+        message: PENDING_MESSAGE,
+        pendingConfirmation: true,
       };
     }
 
-    // New subscriber insertion
+    // New contact. `do_not_email: null` is "never asked": the row is not in any
+    // broadcast audience until the confirmation link is followed.
+    const confirmation = createNewsletterConfirmation();
+    const insertPayload: NewsletterContactInsert = {
+      email: rawEmail,
+      first_name: rawName || null,
+      status: 'supporter',
+      source: 'manual',
+      tags: withNewsletterRequestTags([]),
+      do_not_email: null,
+      newsletter_confirm_token: confirmation.token,
+      newsletter_confirm_expires_at: confirmation.expiresAt,
+      newsletter_confirmation_sent_at: confirmation.confirmationSentAt,
+      notes: 'Requested Action Alerts newsletter confirmation via website',
+      created_at: now,
+      updated_at: now,
+    };
     const { data: inserted, error: insertError } = await adminClient
       .from('crm_contacts')
-      .insert({
-        email: rawEmail,
-        first_name: rawName || null,
-        status: 'supporter',
-        source: 'manual',
-        tags: requiredTags,
-        do_not_email: false,
-        notes: 'Subscribed to Action Alerts via website newsletter card',
-        created_at: now,
-        updated_at: now,
-      })
+      .insert(insertPayload as unknown as CRMContactInsert)
       .select('id')
       .single();
 
     if (insertError) {
       console.error('[subscribeActionAlerts] insertion failed:', insertError);
       return {
-        error: 'Failed to save subscription. Please email us directly.',
+        error: 'Failed to save the subscription request. Please email us directly.',
       };
+    }
+
+    const sent = await sendNewsletterConfirmation({
+      email: rawEmail,
+      firstName: rawName || null,
+      token: confirmation.token,
+    });
+    if (!sent.ok) {
+      console.error('[subscribeActionAlerts] confirmation email failed:', sent.error);
+      return { error: SEND_FAILED_MESSAGE };
     }
 
     if (inserted) {
       await adminClient.from('crm_activities').insert({
         contact_id: inserted.id,
         type: 'note',
-        title: 'Subscribed to Action Alerts',
-        description: 'New contact subscribed to Action Alerts from the website.',
+        title: 'Newsletter confirmation sent',
+        description: 'New contact requested Action Alerts from the website.',
         metadata: {
           channel: 'news_page_subscription',
           source: 'action_alerts',
-          subscribed_at: now,
+          requested_at: now,
+          expires_at: confirmation.expiresAt,
         },
       });
     }
 
-    revalidatePath('/news');
     return {
       success: true,
-      message: "You're on the list! Thank you for standing with Indivisible Fair Oaks-Carmichael.",
-      alreadySubscribed: false,
+      message: PENDING_MESSAGE,
+      pendingConfirmation: true,
     };
   } catch (err) {
     console.error('[subscribeActionAlerts] unexpected error:', err);

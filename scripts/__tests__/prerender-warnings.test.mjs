@@ -15,6 +15,13 @@ describe('findPrerenderWarnings', () => {
     ]);
   });
 
+  it('detects URL data read by a client component outside Suspense', () => {
+    const warning =
+      'Error: Route "/[slug]": Next.js encountered URL data `usePathname()` in a Client Component outside of `<Suspense>`.';
+
+    expect(findPrerenderWarnings(warning)).toEqual([warning]);
+  });
+
   it('deduplicates repeated warnings and ignores ordinary build output', () => {
     const warning =
       'Error: Route "/admin": Next.js encountered the unstable value Date.now() while prerendering.';

@@ -2,12 +2,12 @@
 
 import { ArrowLeft, Check, Copy, Mail, MessageSquare, PenLine } from 'lucide-react';
 import { ConfirmAction } from '@/components/admin/ConfirmAction';
+import { CONSENT_COLORS, STATUS_COLORS } from '@/components/visual-edit/crm-panel-styles';
 import {
-  CONSENT_COLORS,
-  CONSENT_OPTIONS,
-  STATUS_COLORS,
-} from '@/components/visual-edit/crm-panel-styles';
-import { consentLabel } from '@/lib/crm-filters';
+  CRM_CONTACT_CONSENT_OPTIONS,
+  CRM_CONTACT_STATUS_OPTIONS,
+  crmContactConsentValue,
+} from '@/lib/crm-contact-options';
 import type { CRMContact, CRMContactStatus } from '@/types/unified';
 
 interface CRMPanelContactHeaderProps {
@@ -29,6 +29,13 @@ export function CRMPanelContactHeader({
   onEdit,
   onDelete,
 }: CRMPanelContactHeaderProps) {
+  const currentConsent = crmContactConsentValue(selectedContact.do_not_email);
+  const canEmail = currentConsent === 'opted_in';
+  const consentRequiredMessage =
+    currentConsent === 'opted_out'
+      ? 'This constituent opted out of email. Record consent before sending.'
+      : 'Email consent has not been recorded. Record consent before sending.';
+
   return (
     <div className="p-4 border-b border-border">
       <div className="md:hidden mb-2">
@@ -64,24 +71,52 @@ export function CRMPanelContactHeader({
                 <Copy size={13} />
               )}
             </button>
-            <a
-              href={`mailto:${selectedContact.email}`}
-              title="Send email via default client"
-              aria-label="Send email"
-              className="p-1 rounded text-muted-foreground hover:text-primary transition-colors"
-            >
-              <Mail size={13} />
-            </a>
-            <a
-              href={`/admin/crm/broadcasts?recipient=${encodeURIComponent(selectedContact.email)}`}
-              target="_blank"
-              rel="noreferrer"
-              title="Compose broadcast in CRM Studio"
-              aria-label="Compose broadcast"
-              className="p-1 rounded text-muted-foreground hover:text-primary transition-colors"
-            >
-              <MessageSquare size={13} />
-            </a>
+            {canEmail ? (
+              <>
+                <a
+                  href={`mailto:${selectedContact.email}`}
+                  title="Send email via default client"
+                  aria-label="Send email"
+                  className="p-1 rounded text-muted-foreground hover:text-primary transition-colors"
+                >
+                  <Mail size={13} />
+                </a>
+                <a
+                  href={`/admin/crm/broadcasts?recipient=${encodeURIComponent(selectedContact.email)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  title="Compose broadcast in CRM Studio"
+                  aria-label="Compose broadcast"
+                  className="p-1 rounded text-muted-foreground hover:text-primary transition-colors"
+                >
+                  <MessageSquare size={13} />
+                </a>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  disabled
+                  title={consentRequiredMessage}
+                  aria-label="Send email disabled: record email consent first"
+                  className="p-1 rounded text-muted-foreground opacity-40 cursor-not-allowed"
+                >
+                  <Mail size={13} />
+                </button>
+                <button
+                  type="button"
+                  disabled
+                  title={consentRequiredMessage}
+                  aria-label="Compose broadcast disabled: record email consent first"
+                  className="p-1 rounded text-muted-foreground opacity-40 cursor-not-allowed"
+                >
+                  <MessageSquare size={13} />
+                </button>
+                <span className="text-[10px] font-bold uppercase tracking-wide text-amber-700 dark:text-amber-300">
+                  Consent required before sending
+                </span>
+              </>
+            )}
           </div>
           <div className="flex items-center gap-2 mt-2 flex-wrap">
             <select
@@ -92,32 +127,24 @@ export function CRMPanelContactHeader({
                 STATUS_COLORS[selectedContact.status] || 'bg-muted text-muted-foreground'
               }`}
             >
-              <option value="active_volunteer">Active Volunteer</option>
-              <option value="supporter">Supporter</option>
-              <option value="donor">Donor</option>
-              <option value="choir">Choir</option>
-              <option value="organizer">Organizer</option>
-              <option value="inactive">Inactive</option>
+              {CRM_CONTACT_STATUS_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.compactLabel}
+                </option>
+              ))}
             </select>
-            {CONSENT_OPTIONS.map((opt) => {
-              const currentConsent = consentLabel(selectedContact.do_not_email);
-              return (
-                <span
-                  key={opt.value}
-                  className={`px-2 py-0.5 rounded text-xs font-medium ${
-                    currentConsent === opt.value
-                      ? CONSENT_COLORS[opt.value]
-                      : 'bg-muted/50 text-muted-foreground'
-                  }`}
-                >
-                  {opt.value === 'opted_in'
-                    ? '✓ Opted in'
-                    : opt.value === 'opted_out'
-                      ? '✗ Opted out'
-                      : '? Never asked'}
-                </span>
-              );
-            })}
+            {CRM_CONTACT_CONSENT_OPTIONS.map((opt) => (
+              <span
+                key={opt.value}
+                className={`px-2 py-0.5 rounded text-xs font-medium ${
+                  currentConsent === opt.value
+                    ? CONSENT_COLORS[opt.value]
+                    : 'bg-muted/50 text-muted-foreground'
+                }`}
+              >
+                {`${opt.icon} ${opt.label}`}
+              </span>
+            ))}
           </div>
         </div>
         <div className="flex gap-2 shrink-0">

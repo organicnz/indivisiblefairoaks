@@ -10,9 +10,10 @@ interface Props {
   contact: CRMContact;
   activities: CRMActivity[];
   tasks: CRMTask[];
-  /** True when the server cut `activities` short of the full history. */
-  activitiesTruncated: boolean;
-  /** Every activity on record, which is more than `activities.length`. */
+  /** The timeline page represented by `activities`. */
+  activityPage: number;
+  activityPageSize: number;
+  /** Every activity on record; later pages hold fewer than this. */
   activityCount: number;
   /** True when the server cut `tasks` at its cap. */
   tasksTruncated: boolean;
@@ -26,7 +27,8 @@ export function CRMDetailClient({
   contact,
   activities,
   tasks,
-  activitiesTruncated,
+  activityPage,
+  activityPageSize,
   activityCount,
   tasksTruncated,
   taskCount,
@@ -54,7 +56,8 @@ export function CRMDetailClient({
             contact={contact}
             activities={activities}
             tasks={tasks}
-            activitiesTruncated={activitiesTruncated}
+            activityPage={activityPage}
+            activityPageSize={activityPageSize}
             activityCount={activityCount}
             tasksTruncated={tasksTruncated}
             taskCount={taskCount}

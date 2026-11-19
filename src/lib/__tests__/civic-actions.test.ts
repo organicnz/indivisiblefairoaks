@@ -393,6 +393,9 @@ describe('Civic Server Actions', () => {
         title: 'Summer Bulletin',
         date_label: 'July 2026',
         description: 'Summer organizing',
+        body: 'The full summer issue.',
+        pdf_url: 'https://example.org/summer.pdf',
+        archive_url: null,
         topics: ['Election Defense', 'election defense'],
         sort_order: 1,
         published_at: '2026-07-01T00:00:00Z',
@@ -415,6 +418,8 @@ describe('Civic Server Actions', () => {
       expect(res.success).toBe(true);
       expect(rows).toHaveLength(1);
       expect(rows[0]?.topics).toEqual(['Election Defense']);
+      expect(rows[0]?.body).toBe('The full summer issue.');
+      expect(rows[0]?.pdf_url).toBe('https://example.org/summer.pdf');
       expect(audits).toHaveLength(1);
       expect(audits[0]).toMatchObject({
         action: 'newsletter.create',

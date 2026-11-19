@@ -1,14 +1,6 @@
-import {
-  matchesPreparedNewsText,
-  prepareNewsFields,
-  scorePreparedNewsText,
-} from './match';
+import { matchesPreparedNewsText, prepareNewsField, scorePreparedNewsText } from './match';
 import { parseNewsQuery } from './normalize';
-import {
-  ALL_NEWSLETTER_TOPICS,
-  newsletterTopicKey,
-  uniqueNewsletterTopics,
-} from './topics';
+import { ALL_NEWSLETTER_TOPICS, newsletterTopicKey, uniqueNewsletterTopics } from './topics';
 
 export type NewsletterTextFields = {
   title: string;
@@ -27,15 +19,11 @@ export type NewsPostTextFields = {
 /** Title hits lead, summaries support them, and slugs catch URL-shaped queries. */
 const NEWS_POST_FIELD_WEIGHTS = [8, 4, 2] as const;
 
-function newsletterTopics(
-  item: Pick<NewsletterTextFields, 'topics'>
-): readonly string[] {
-  return Array.isArray(item.topics) ? item.topics : [];
+function newsletterTopics(item: Pick<NewsletterTextFields, 'topics'>): readonly string[] {
+  return item.topics ?? [];
 }
 
-function newsPostSearchFields(
-  post: NewsPostTextFields
-): readonly (string | null | undefined)[] {
+function newsPostSearchFields(post: NewsPostTextFields): readonly (string | null | undefined)[] {
   return [post.title, post.excerpt, post.slug];
 }
 
@@ -80,16 +68,13 @@ type SearchCollectionOptions<T> = {
  * normalized once. The same prepared fields decide both survival and score, so
  * a result can never be filtered by one interpretation and ranked by another.
  */
-function searchNewsCollection<T>(
-  items: readonly T[],
-  options: SearchCollectionOptions<T>
-): T[] {
+function searchNewsCollection<T>(items: readonly T[], options: SearchCollectionOptions<T>): T[] {
   const parsed = parseNewsQuery(options.query);
   if (parsed.tokens.length === 0) return [...items];
 
   return items
     .map((item, index) => {
-      const fields = prepareNewsFields(options.fields(item));
+      const fields = options.fields(item).map(prepareNewsField);
       if (!matchesPreparedNewsText(fields, parsed)) return null;
       return {
         item,
@@ -97,9 +82,7 @@ function searchNewsCollection<T>(
         score: scorePreparedNewsText(fields, parsed, options.weights(item)),
       };
     })
-    .filter(
-      (entry): entry is { item: T; index: number; score: number } => entry !== null
-    )
+    .filter((entry): entry is { item: T; index: number; score: number } => entry !== null)
     .sort((a, b) => b.score - a.score || a.index - b.index)
     .map(({ item }) => item);
 }

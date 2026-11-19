@@ -1,9 +1,9 @@
 'use client';
 
 import { Plus } from 'lucide-react';
+import { NewsletterTopicFilter } from '@/components/newsletters/NewsletterTopicFilter';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { NEWS_SEARCH_HINT, NewsSearchField } from '@/components/ui/NewsSearchField';
-import { NewsletterTopicFilter } from '@/components/newsletters/NewsletterTopicFilter';
 import { ALL_NEWSLETTER_TOPICS, type NewsletterTopicCounts } from '@/lib/news-text';
 
 type NewsletterFilterBarProps = {
@@ -35,7 +35,10 @@ export function NewsletterFilterBar({
   const sentinelLabel = dataPoints['news.topic.all'] || ALL_NEWSLETTER_TOPICS;
 
   return (
-    <div className="civic-panel flex flex-col items-stretch gap-4 p-4 md:flex-row md:items-start">
+    <div
+      data-testid="newsletter-filter-panel"
+      className="civic-panel flex flex-col items-stretch gap-4 p-4 md:flex-row md:items-center"
+    >
       <NewsSearchField
         variant="newsletter"
         className="w-full md:min-w-[21rem] md:flex-1"
@@ -52,7 +55,14 @@ export function NewsletterFilterBar({
         hint={NEWS_SEARCH_HINT}
       />
 
-      <div className="min-w-0 md:flex-[2]">
+      {/*
+        The topic column sizes to its chips on desktop. `flex-[2]` reserved
+        two-thirds of the row even when only "All Topics" was present, which
+        pinned the search to its 21rem floor and left the rest of the panel
+        blank. `flex-initial` lets the search take the spare width; the column
+        can still shrink and wrap when there are many chips.
+      */}
+      <div className="min-w-0 md:flex-initial">
         <NewsletterTopicFilter
           topics={topics}
           activeTopic={activeTopic}

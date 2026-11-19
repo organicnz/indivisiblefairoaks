@@ -5,11 +5,12 @@
  * that reads `Date.now()` or another request-time value during prerendering
  * can still produce a successful build, with the bad read baked into the
  * output or left as a runtime failure. The guard is deliberately exact: it
- * only matches Next's two prerendering diagnostics, not arbitrary output.
+ * only matches Next's prerendering diagnostics, not arbitrary output.
  */
 
 const ANSI_ESCAPE = /\u001B\[[0-?]*[ -/]*[@-~]/g;
-const PRERENDER_WARNING = /Next\.js encountered .*?(?:while|during) prerendering/i;
+const PRERENDER_WARNING =
+  /Next\.js encountered .*?(?:while|during) prerendering|Next\.js encountered URL data .* outside of .*<Suspense>/i;
 
 export function stripAnsi(text) {
   return text.replace(ANSI_ESCAPE, '');

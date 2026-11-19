@@ -42,7 +42,7 @@ export function InteractiveNewslettersList({
     topicCounts,
     results: filteredNewsletters,
     clearFilters,
-  } = useNewsletterArchive(newslettersList, { allTopicsLabel });
+  } = useNewsletterArchive(newslettersList, { allTopicsLabel, syncUrl: true });
 
   useEffect(() => {
     // The page already renders the cached server list. Re-fetching it on every
@@ -71,18 +71,23 @@ export function InteractiveNewslettersList({
   }, [initialNewsletters]);
 
   const handleOpenCreateModal = () => {
-    openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    openerRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setSelectedNewsletterForEdit(null);
     setIsEditorModalOpen(true);
   };
 
   const handleOpenEditModal = (item: NewsletterRow) => {
-    openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    openerRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setSelectedNewsletterForEdit({
       slug: item.slug,
       title: item.title,
       date_label: item.date_label,
       description: item.description,
+      body: item.body ?? '',
+      pdf_url: item.pdf_url ?? null,
+      archive_url: item.archive_url ?? null,
       topics: item.topics,
       sort_order: item.sort_order ?? 10,
       // Preserve the real timestamp: this record feeds the edit form, and a
@@ -129,6 +134,9 @@ export function InteractiveNewslettersList({
       title: savedRecord.title,
       date_label: savedRecord.date_label,
       description: savedRecord.description,
+      body: savedRecord.body ?? '',
+      pdf_url: savedRecord.pdf_url ?? null,
+      archive_url: savedRecord.archive_url ?? null,
       topics: savedRecord.topics,
       sort_order: savedRecord.sort_order,
       published_at: savedRecord.published_at ?? null,
@@ -139,7 +147,7 @@ export function InteractiveNewslettersList({
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-5">
       <div className="space-y-3">
         <NewsletterFilterBar
           dataPoints={dataPoints}
@@ -162,7 +170,7 @@ export function InteractiveNewslettersList({
         />
       </div>
 
-      <div id="newsletter-results" className="grid grid-cols-1 gap-6 md:grid-cols-2">
+      <div id="newsletter-results" className="grid grid-cols-1 gap-5 md:grid-cols-2">
         {newslettersList.length === 0 ? (
           <NewsletterEmptyState variant="archive" dataPoints={dataPoints} />
         ) : filteredNewsletters.length === 0 ? (

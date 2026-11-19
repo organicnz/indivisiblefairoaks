@@ -38,6 +38,7 @@ import {
   addCRMTask,
   deleteCRMTask,
   exportCRMContacts,
+  findCRMContactByEmail,
   getBroadcastRecipientCount,
   getCRMBroadcastDrafts,
   getCRMContacts,
@@ -161,6 +162,7 @@ describe('Civic CRM Server Actions', () => {
         last_name: 'Organizer',
         status: 'active_volunteer',
         source: 'manual',
+        do_not_email: null,
       });
       expect(tables.crm_activities.rows?.[0]).toMatchObject({
         contact_id: 'new-contact-123',
@@ -178,6 +180,36 @@ describe('Civic CRM Server Actions', () => {
 
       expect(res.success).toBe(false);
       expect(res.error).toBeDefined();
+    });
+
+    it('ignores a consent field on a generic profile edit', async () => {
+      const validUuid = 'a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d';
+      tables.crm_contacts = {
+        rows: [
+          {
+            id: validUuid,
+            email: 'jane@example.com',
+            status: 'supporter',
+            tags: [],
+            notes: null,
+            do_not_email: false,
+          },
+        ],
+      };
+      tables.crm_activities = { rows: [] };
+
+      // A generic edit must not be able to smuggle consent past the dedicated
+      // action and its timeline entry. The schema strips the unknown field.
+      const payload = {
+        id: validUuid,
+        email: 'jane@example.com',
+        first_name: 'Jane',
+        do_not_email: true,
+      };
+      const res = await saveCRMContact(payload);
+
+      expect(res.success).toBe(true);
+      expect(tables.crm_contacts.rows?.[0]?.do_not_email).toBe(false);
     });
 
     it('updates an existing contact when valid uuid is provided', async () => {
@@ -239,6 +271,39 @@ describe('Civic CRM Server Actions', () => {
 
       expect(res.success).toBe(false);
       expect(res.error).toContain('no longer exists');
+    });
+  });
+
+  describe('findCRMContactByEmail', () => {
+    it('normalizes the address before looking it up', async () => {
+      tables.crm_contacts = {
+        rows: [{ id: 'c-existing', email: 'jane@example.com', first_name: 'Jane' }],
+      };
+
+      const res = await findCRMContactByEmail({ email: '  JANE@Example.COM  ' });
+
+      expect(res.contact).toMatchObject({ id: 'c-existing', email: 'jane@example.com' });
+    });
+
+    it('does not report the contact being edited as its own duplicate', async () => {
+      tables.crm_contacts = {
+        rows: [{ id: 'c-current', email: 'jane@example.com', first_name: 'Jane' }],
+      };
+
+      const res = await findCRMContactByEmail({
+        email: 'jane@example.com',
+        excludeContactId: 'c-current',
+      });
+
+      expect(res.contact).toBeNull();
+    });
+
+    it('returns a lookup error instead of presenting it as no duplicate', async () => {
+      tables.crm_contacts = { rows: [], error: { message: 'connection reset' } };
+
+      const res = await findCRMContactByEmail({ email: 'jane@example.com' });
+
+      expect(res).toEqual({ contact: null, error: 'connection reset' });
     });
   });
 
@@ -381,9 +446,7 @@ describe('Civic CRM Server Actions', () => {
       tables.crm_contacts = { rows: [], error: { message: 'connection reset' } };
       tables.crm_tasks = { rows: [], error: { message: 'connection reset' } };
 
-      await expect(getCRMStats()).rejects.toThrow(
-        /Failed to load CRM stats.*connection reset/i
-      );
+      await expect(getCRMStats()).rejects.toThrow(/Failed to load CRM stats.*connection reset/i);
     });
   });
 
@@ -1365,10 +1428,11 @@ describe('Civic CRM Server Actions', () => {
         type: 'email_sent',
         metadata: { resend_id: 'resend_msg_123' },
       });
-      // And the contact's last-contacted stamp moved, which is what the
-      // directory sorts on and what "who has been reached" is read from. The
-      // old suite never looked at the row.
+      // And the contact's outbound stamp moved. `last_contacted_at` is kept
+      // current for legacy readers; the split history column is what the
+      // directory and profile now show.
       expect(tables.crm_contacts.rows?.[0]?.last_contacted_at).toBeTruthy();
+      expect(tables.crm_contacts.rows?.[0]?.last_outbound_at).toBeTruthy();
     });
 
     it('warns when the contact disappears before the last-contacted update', async () => {
@@ -1520,6 +1584,167 @@ describe('Civic CRM Server Actions', () => {
       });
 
       expect(count.count).toBe(1);
+    });
+
+    it('counts only contacts who completed the newsletter confirmation', async () => {
+      const rows = [
+        {
+          id: 'n1',
+          email: 'confirmed@example.com',
+          do_not_email: false,
+          newsletter_confirmed_at: '2026-11-01T00:00:00Z',
+        },
+        {
+          id: 'n2',
+          email: 'pending@example.com',
+          do_not_email: false,
+          newsletter_confirmed_at: null,
+        },
+        {
+          id: 'n3',
+          email: 'confirmed-but-out@example.com',
+          do_not_email: true,
+          newsletter_confirmed_at: '2026-11-01T00:00:00Z',
+        },
+        {
+          id: 'n4',
+          email: 'confirmed-but-never-asked@example.com',
+          do_not_email: null,
+          newsletter_confirmed_at: '2026-11-01T00:00:00Z',
+        },
+      ];
+      tables.crm_contacts = { rows };
+
+      const count = await getBroadcastRecipientCount({ newsletterConfirmedOnly: true });
+
+      expect(count).toEqual({ count: 1, excludedCount: 2 });
+    });
+
+    it('resolves a donor audience through the canonical predicate, not status alone', async () => {
+      const rows = [
+        {
+          id: 'd1',
+          email: 'tag-donor@example.com',
+          do_not_email: false,
+          status: 'supporter',
+          is_donor: true,
+          tags: ['donor'],
+          unsubscribe_token: 't1',
+        },
+        {
+          id: 'd2',
+          email: 'not-a-donor@example.com',
+          do_not_email: false,
+          status: 'supporter',
+          is_donor: false,
+          tags: [],
+          unsubscribe_token: 't2',
+        },
+      ];
+      tables.crm_contacts = { rows };
+      tables.crm_broadcasts = { rows: [], insert: { id: 'b-donor' } };
+      tables.crm_activities = { rows: [] };
+      tables.admin_audit_log = { rows: [] };
+      const mockFetch = installFetchMock(vi.fn().mockResolvedValue({ ok: true, status: 200 }));
+      mockEnv.CRM_BROADCAST_FUNCTION_URL =
+        'https://project.supabase.co/functions/v1/crm-broadcast-send';
+      mockEnv.SUPABASE_SECRET_KEY = 'service-key';
+
+      const res = await sendCRMBroadcast({
+        subject: 'Donor update',
+        body: 'Thank you for your support.',
+        targetStatus: ['donor'],
+      });
+
+      expect(res.success).toBe(true);
+      expect(res.recipientCount).toBe(1);
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+
+    it('sends a bulletin only to newsletter-confirmed contacts and records its source', async () => {
+      const savedId = session.adminUserId;
+      session.adminUserId = 'admin-user-newsletter-send-uuid';
+      tables.crm_contacts = {
+        rows: [
+          {
+            id: 'n1',
+            email: 'confirmed@example.com',
+            first_name: 'Robin',
+            last_name: 'Confirmed',
+            unsubscribe_token: 't1',
+            do_not_email: false,
+            newsletter_confirmed_at: '2026-11-01T00:00:00Z',
+            status: 'supporter',
+          },
+          {
+            id: 'n2',
+            email: 'pending@example.com',
+            first_name: 'Sam',
+            last_name: 'Pending',
+            unsubscribe_token: 't2',
+            do_not_email: false,
+            newsletter_confirmed_at: null,
+            status: 'supporter',
+          },
+        ],
+      };
+      tables.crm_broadcasts = { rows: [], insert: { id: 'b-newsletter' } };
+      tables.crm_activities = { rows: [] };
+      tables.admin_audit_log = { rows: [] };
+      const mockFetch = installFetchMock(vi.fn().mockResolvedValue({ ok: true, status: 200 }));
+      mockEnv.CRM_BROADCAST_FUNCTION_URL =
+        'https://project.supabase.co/functions/v1/crm-broadcast-send';
+      mockEnv.SUPABASE_SECRET_KEY = 'service-key';
+
+      const res = await sendCRMBroadcast({
+        subject: 'Chapter Bulletin: November',
+        body: 'The November issue is ready.',
+        newsletterConfirmedOnly: true,
+        sourceNewsletterSlug: 'november-bulletin',
+      });
+
+      expect(res.success).toBe(true);
+      expect(res.recipientCount).toBe(1);
+      expect(tables.crm_broadcasts.rows?.[0]).toMatchObject({
+        source_newsletter_slug: 'november-bulletin',
+        recipient_count: 1,
+      });
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      session.adminUserId = savedId;
+    });
+
+    it('refuses a concurrent or repeat bulletin campaign through the unique source', async () => {
+      const savedId = session.adminUserId;
+      session.adminUserId = 'admin-user-newsletter-duplicate-uuid';
+      tables.crm_contacts = {
+        rows: [
+          {
+            id: 'n1',
+            email: 'confirmed@example.com',
+            unsubscribe_token: 't1',
+            do_not_email: false,
+            newsletter_confirmed_at: '2026-11-01T00:00:00Z',
+            status: 'supporter',
+          },
+        ],
+      };
+      tables.crm_broadcasts = {
+        rows: [],
+        error: { code: '23505', message: 'duplicate key value violates unique constraint' },
+      };
+      const mockFetch = installFetchMock(vi.fn());
+
+      const res = await sendCRMBroadcast({
+        subject: 'Chapter Bulletin: November',
+        body: 'The November issue is ready.',
+        newsletterConfirmedOnly: true,
+        sourceNewsletterSlug: 'november-bulletin',
+      });
+
+      expect(res.success).toBe(false);
+      expect(res.error).toMatch(/active or completed email campaign/i);
+      expect(mockFetch).not.toHaveBeenCalled();
+      session.adminUserId = savedId;
     });
 
     /**

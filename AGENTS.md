@@ -65,16 +65,15 @@ workflows, pre-commit hooks, and npm scripts exclusively run `tsrs`
 compiler divergence, provides sub-second diagnostics with 70% lower memory,
 and runs identically in local development and CI runners.
 
-**`tsrs` is pinned exactly, and it is the newest release.** `0.24.0` was
-verified three ways — the npm `latest` dist-tag, the publish-time-sorted
+**`tsrs` is pinned exactly, and it is the newest release.** `7.1.0-beta.tsrs3`
+was verified three ways — the npm `latest` dist-tag, the publish-time-sorted
 version list, and the GitHub release list — because there is **no canary or
 beta dist-tag for `tsrs`**, only `latest` and a 2024 `snapshot`. The channel
 is not available to pin here, so the version is. The exact pin (rather than
 the `^` most dependencies use) is deliberate: `tsrs` gates the type check, and
-it moves fast — 0.12.0 to 0.24.0 in a few weeks — so a caret range would let a
-release change a gate's output under a routine `bun install`. Its version also
-encodes the TypeScript commit it ports (`ts7.1.0-beta`), which is what makes
-the pin legible.
+it moves fast, so a caret range would let a release change a gate's output
+under a routine `bun install`. Its version also encodes the TypeScript commit
+it ports (`7.1.0-beta`), which is what makes the pin legible.
 
 **One difference, and it is only a difference of vocabulary.** For a
 missing-property assignment failure, `tsc` reports `TS2741` ("Property 'x' is
@@ -1135,8 +1134,8 @@ patterns and public-page primitives live in `src/app/editorial.css`.
 - Wrap every public page root in `civic-page`. It is the guardrail that keeps
   legacy soft cards, drop shadows, and all-caps black headings from returning.
 - Use `.civic-section`, `.civic-section-head`, `.civic-section-index`,
-  `.civic-section-title`, `.civic-lede`, `.civic-panel`, `.civic-data-row`,
-  `.civic-meta`, `.civic-link-arrow`, and `.civic-prose` before inventing
+  `.civic-section-title`, `.civic-lede`, `.civic-panel`, `.civic-meta`,
+  `.civic-link-arrow`, and `.civic-prose` before inventing
   another one-off recipe.
 - `PageMasthead` is the shared opening for every public route. Do not add a
   second hero grammar or a per-page atmospheric shader.
@@ -1450,16 +1449,16 @@ pre-commit gate, so drift fails at commit time rather than at 3am.
   The host is still the ceiling: the container runs with `Memory=1073741824`
   (1024 MiB) and `MemorySwap=4294967296` (4096 MiB, backed by 6 GB host swap),
   so jobs end `cancelled` rather than `failed` once the cgroup is exhausted.
-  With the expanded 6 GB host swap, `build-e2e` configures `NODE_OPTIONS: --max-old-space-size=3584`
-  to give V8 sufficient room to compile and prerender without thrashing garbage collection
-  or failing on "Ineffective mark-compacts". The full record is in [`docs/ci-runners.md`](./docs/ci-runners.md).
+  `NODE_OPTIONS` is not a memory control on Bun; the build stays inside the
+  cgroup with `experimental.cpus: 1` (serial prerendering) and Playwright's
+  `--workers=1`. The full record is in [`docs/ci-runners.md`](./docs/ci-runners.md).
 - **NEVER switch CI jobs to GitHub-hosted runners (`ubuntu-latest`).** The runner
   fleet is strictly self-hosted rootless Podman containers on our own server (`ghrunner`).
   Never attempt to "fix" slow or failing builds by changing `runs-on` to `ubuntu-latest`.
   Instead, observe the memory and concurrency contract:
-  1. **Memory (`NODE_OPTIONS`)**: With the host's expanded 6 GB swap (`MEMORY_SWAP=4096M`
-     on `ghrunner`), `build-e2e` sets `NODE_OPTIONS: --max-old-space-size=3584` to give V8
-     room to compile and prerender without thrashing garbage collection cycles.
+  1. **Memory**: `NODE_OPTIONS` is **not** a Bun memory control — Bun ignores
+     `--max-old-space-size` (measured on 1.4.4). Keep prerendering serial with
+     `experimental.cpus: 1` rather than adding a V8 heap cap that does nothing.
   2. **Next.js static page generation**: In `next.config.ts`, `isE2EBuild` must configure
      `experimental.cpus: 1` and `staticPageGenerationTimeout: 180` (or higher).
      The default 60s timeout triggers retry spirals (3 retries × dozens of pages)
@@ -1469,8 +1468,8 @@ pre-commit gate, so drift fails at commit time rather than at 3am.
      `workers: 1` in CI) to prevent multiple concurrent Chromium instances from fighting
      against Next.js (`next start`) and the mock server for memory.
 - **The local lefthook gates are therefore the real gates**, and they do run on
-  every push: 33 pre-commit guards, then lint → unit → coverage → types → build →
-  peer-deps → 133 Playwright specs (133 + no running tests). Migrations and Edge Functions are **not**
+  every push: 35 pre-commit guards, then lint → unit → coverage → types → build →
+  peer-deps → 135 Playwright specs (135 + no running tests). Migrations and Edge Functions are **not**
   deployed by hand: `supabase.yml` is the only delivery path and a push touching
   `supabase/**` is its trigger, so the fix and the deploy are one action. It pushed
   migrations to the hosted project at 20:56 on 2026-10-04 while its sibling
@@ -1618,7 +1617,7 @@ deployed green and broke silently.
 ## Delivery Gates (lefthook)
 
 - **pre-commit**: secrets, migration guards, RLS/SECURITY DEFINER, Biome, oxlint, typecheck, env contracts (local `.env`, the GitHub Actions inventory, and the secrets registry in `--offline` mode — no network, because a hook that needs a token is a hook that gets bypassed), lockfile pairing, data-points seed↔reader↔fallback consistency (`scripts/check-data-points.mjs` — a seed nobody reads, a read nobody seeds, and a wired fallback that disagrees with its seed all fail, with accepted findings annotated in `scripts/data-points-baseline.json`, and that ratchet only shrinks), documentation numeric claims (`scripts/check-doc-claims.mjs` re-derives guard counts, the suppression baseline, `lefthook.yml`'s length, spec totals and the two coverage floors from their sources of truth), the no-Node-runtime guard (`scripts/hooks/no-node-runtime.mjs` — a Node shebang, a second package manager or a `setup-node` step works on a laptop with Node installed and breaks on every runner this project has; and a local binary invoked as `bun <bin>` rather than `bun --bun <bin>`, which hands the program to Node.js wherever Node.js is installed and to Bun only where it is not — the same divergence, wearing a different hat. The rule reads the local bin set out of `node_modules/.bin`, so a dependency that arrives tomorrow is covered without the guard being edited. CI runs it over the **whole tree** with `--all`, not just the staged subset, so a violation that arrived by a merge is caught too), the test-environment guard (`scripts/hooks/vitest-environment.mjs` — **every** test file must declare its Vitest environment on its first line, because Vitest constructs an environment per file and jsdom's construction was 63% of the unit suite's time; the guard also requires the `node` environment on any test that reaches for `Bun.*`, directly or through an imported script, because Vitest's `jsdom` environment replaces the worker's global with the jsdom window's and the `Bun` global does not survive that swap on every platform), and `playwright test --list` when `e2e/**` changes (spec parse only — no browser launch).
-- **`lefthook.yml` is 633 lines of wiring; the logic is in `scripts/hooks/*.mjs`.** Every
+- **`lefthook.yml` is 644 lines of wiring; the logic is in `scripts/hooks/*.mjs`.** Every
   guard that was a `run: |` bash block is now a `bun scripts/hooks/<name>.mjs` call, and
   its rationale comment moved into that file's header — where it sits beside the code it
   explains rather than four hundred lines above it. `lefthook.yml` keeps what only it can

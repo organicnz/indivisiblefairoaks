@@ -1,4 +1,5 @@
 import { AdminNav } from '@/components/admin/AdminNav';
+import { ClientOnly } from '@/components/ui/ClientOnly';
 import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
 import { requireAdminPage } from '@/lib/admin-auth';
 import { isE2EMode } from '@/lib/e2e-mode';
@@ -21,7 +22,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             Playwright-only configuration, not a production failure.
           </div>
         )}
-        <AdminNav />
+        <ClientOnly fallback={<div className="mb-12 h-10" aria-hidden="true" />}>
+          <AdminNav />
+        </ClientOnly>
         {children}
       </div>
     </div>

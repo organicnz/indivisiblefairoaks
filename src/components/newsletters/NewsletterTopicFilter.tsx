@@ -6,8 +6,8 @@ import {
   ALL_NEWSLETTER_TOPICS,
   hasNewsletterTopic,
   isAllNewsletterTopics,
-  newsletterTopicKey,
   type NewsletterTopicCounts,
+  newsletterTopicKey,
 } from '@/lib/news-text';
 import { cn } from '@/lib/utils';
 
@@ -42,23 +42,16 @@ export function NewsletterTopicFilter({
 }: NewsletterTopicFilterProps) {
   const [expanded, setExpanded] = useState(false);
   const visibleLimit = Math.max(1, maxVisible);
-  const activeIsAll =
-    isAllNewsletterTopics(activeTopic) || isAllNewsletterTopics(activeTopic, allTopicsLabel);
+  const activeIsAll = isAllNewsletterTopics(activeTopic, allTopicsLabel);
   const visibleTopics = expanded ? [...topics] : topics.slice(0, visibleLimit);
 
-  if (
-    activeTopic.trim() &&
-    !activeIsAll &&
-    !hasNewsletterTopic(visibleTopics, activeTopic)
-  ) {
+  if (activeTopic.trim() && !activeIsAll && !hasNewsletterTopic(visibleTopics, activeTopic)) {
     visibleTopics.push(activeTopic);
   }
 
   // Count only topics the reader cannot currently see. The selected topic is
   // appended to the collapsed row, so it should not inflate the "more" count.
-  const hiddenCount = topics.filter(
-    (topic) => !hasNewsletterTopic(visibleTopics, topic)
-  ).length;
+  const hiddenCount = topics.filter((topic) => !hasNewsletterTopic(visibleTopics, topic)).length;
   const canCollapse = expanded && topics.length > visibleLimit;
   const showToggle = hiddenCount > 0 || canCollapse;
 
@@ -74,15 +67,21 @@ export function NewsletterTopicFilter({
       className={cn('flex flex-wrap items-center gap-1.5', variant === 'admin' && 'gap-1')}
     >
       {visibleTopics.map((topic) => {
-        const selected = isAllNewsletterTopics(topic)
+        const selected = isAllNewsletterTopics(topic, allTopicsLabel)
           ? activeIsAll
           : hasNewsletterTopic([topic], activeTopic);
         const count = counts
-          ? isAllNewsletterTopics(topic)
+          ? isAllNewsletterTopics(topic, allTopicsLabel)
             ? counts.all
             : (counts.byTopic[newsletterTopicKey(topic)] ?? 0)
           : null;
         const label = topic === ALL_NEWSLETTER_TOPICS ? allTopicsLabel : topic;
+        // The visible label and count are part of the button's text content.
+        // Keep them at the start of the accessible name with the same spacing:
+        // a comma or missing space makes the name fail WCAG 2.5.3
+        // (label-content-name-mismatch).
+        const accessibleLabel =
+          count === null ? null : `${label} ${count} ${count === 1 ? 'bulletin' : 'bulletins'}`;
 
         return (
           <button
@@ -90,7 +89,8 @@ export function NewsletterTopicFilter({
             type="button"
             aria-pressed={selected}
             aria-controls={resultsId}
-            title={label}
+            aria-label={accessibleLabel ?? undefined}
+            title={accessibleLabel ?? label}
             onClick={() => onTopicChange(topic)}
             className={cn(
               'inline-flex max-w-full min-w-0 items-center border font-bold uppercase tracking-[0.1em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
@@ -100,14 +100,9 @@ export function NewsletterTopicFilter({
                 : 'border-border bg-surface-muted/60 text-muted-foreground hover:bg-surface-card hover:text-foreground dark:text-ink-muted-on-dark dark:hover:bg-white/5 dark:hover:text-ink-on-dark'
             )}
           >
-            <span className="min-w-0 truncate">{label}</span>
+            <span className="min-w-0 truncate">{label}</span>{' '}
             {count !== null ? (
-              <span
-                className="ml-1 shrink-0 font-mono text-[9px]"
-                aria-hidden="true"
-              >
-                {count}
-              </span>
+              <span className="ml-1 shrink-0 font-mono text-[9px]">{count}</span>
             ) : null}
           </button>
         );
@@ -118,7 +113,7 @@ export function NewsletterTopicFilter({
           type="button"
           onClick={() => setExpanded((value) => !value)}
           aria-expanded={expanded}
-          aria-label={expanded ? 'Show fewer topics' : `Show ${hiddenCount} more topics`}
+          title={expanded ? 'Show fewer topics' : `Show ${hiddenCount} more topics`}
           className={cn(
             'inline-flex items-center gap-1 border border-dashed border-border bg-transparent font-bold uppercase tracking-[0.1em] text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
             chipSize

@@ -119,11 +119,23 @@ export default defineConfig({
         'src/lib/visual-sections.ts',
         'src/lib/crm-broadcast.ts',
         'src/lib/crm-import.ts',
+        // Newsletter double opt-in and the bulletin-to-broadcast composer.
+        // Confirmation state decides who receives a real email, so it is not a
+        // helper to leave outside the gate.
+        'src/lib/newsletter-subscription.ts',
         'src/lib/content.ts',
         'src/lib/image-size.ts',
         'src/lib/trusted-links.ts',
         'src/lib/own-media.ts',
         'src/lib/utils.ts',
+        // Shared news and newsletter text processing. Ranking is split across
+        // `match.ts` (prepared-field scoring) and `search.ts` (filter + rank)
+        // after the `ranking.ts` consolidation, so both are measured here.
+        'src/lib/news-text/newsletter-stats.ts',
+        'src/lib/news-text/newsletter-topics.ts',
+        'src/lib/news-text/match.ts',
+        'src/lib/news-text/search.ts',
+        'src/lib/news-text/highlight.ts',
         'src/lib/validations.ts',
         'src/lib/metadata.ts',
         'src/lib/mfa.ts',
@@ -160,7 +172,11 @@ export default defineConfig({
         'src/lib/actions/settings.ts',
         'src/lib/actions/content.ts',
         'src/lib/actions/content-media.ts',
+        'src/lib/actions/civic-newsletter-broadcast.ts',
         'src/lib/actions/crm.ts',
+        // The CRM implementation modules. The action barrel stays measured too;
+        // this keeps the split from moving the logic outside the gate.
+        'src/lib/actions/crm/**/*.ts',
         'src/lib/error-report.ts',
         'src/lib/crm-unsubscribe.ts',
         'src/config/commerce.ts',
@@ -204,7 +220,7 @@ export default defineConfig({
         // other file's floor. The exclusion has to be expressed once.
         // Post-cleanup of legacy commerce modules (orders/commerce.ts), measured
         // branches sit at 88.82% while statements, functions, and lines are ~97-99%.
-        '!src/lib/actions/{crm,content}.ts': {
+        '!src/lib/actions/{crm.ts,crm/**/*.ts,content.ts}': {
           statements: 90,
           branches: 88,
           functions: 90,
@@ -237,6 +253,18 @@ export default defineConfig({
          * `payload.warning` ternary branches in the dispatch json-parse path.
          */
         'src/lib/actions/crm.ts': {
+          statements: 89,
+          branches: 85,
+          functions: 100,
+          lines: 93,
+        },
+
+        /**
+         * The CRM implementation lives in `crm/**` now. The monolith was the
+         * one network-bound action file with a lower branch floor than the
+         * rest of the measured set, and the same floor follows the code.
+         */
+        'src/lib/actions/crm/**/*.ts': {
           statements: 89,
           branches: 85,
           functions: 100,

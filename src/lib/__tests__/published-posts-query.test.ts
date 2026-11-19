@@ -18,7 +18,7 @@ describe('getPublishedPosts', () => {
     const calls: unknown[][] = [];
     const builder = {} as Record<string, unknown>;
 
-    for (const method of ['select', 'eq', 'or', 'order', 'limit']) {
+    for (const method of ['select', 'eq', 'or', 'order', 'limit', 'range']) {
       builder[method] = vi.fn((...args: unknown[]) => {
         calls.push([method, ...args]);
         return builder;
@@ -34,13 +34,34 @@ describe('getPublishedPosts', () => {
 
     await getPublishedPosts(11);
 
-    expect(calls).toContainEqual([
-      'not',
-      'slug',
-      'in',
-      expect.stringContaining('"newsletters"'),
-    ]);
+    expect(calls).toContainEqual(['not', 'slug', 'in', expect.stringContaining('"newsletters"')]);
     expect(calls).toContainEqual(['not', 'slug', 'like', 'copy-%']);
     expect(calls).toContainEqual(['limit', 11]);
+  });
+
+  it('reads the full published archive when no limit is supplied', async () => {
+    const calls: unknown[][] = [];
+    const builder = {} as Record<string, unknown>;
+
+    for (const method of ['select', 'eq', 'or', 'order', 'limit', 'range']) {
+      builder[method] = vi.fn((...args: unknown[]) => {
+        calls.push([method, ...args]);
+        return builder;
+      });
+    }
+    builder.not = vi.fn((...args: unknown[]) => {
+      calls.push(['not', ...args]);
+      return builder;
+    });
+    builder.then = (resolve: (value: { data: never[] }) => unknown) =>
+      Promise.resolve({ data: [] }).then(resolve);
+    createPublicClient.mockReturnValue({ from: vi.fn(() => builder) });
+
+    await getPublishedPosts();
+
+    // 500 is the page size, not a publication limit. The loop stops as soon as
+    // Supabase returns a short page, so the archive is read in full.
+    expect(calls).toContainEqual(['range', 0, 499]);
+    expect(calls.some(([method]) => method === 'limit')).toBe(false);
   });
 });

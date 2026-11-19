@@ -50,8 +50,31 @@ describe('newsletter contract', () => {
 
     expect(parsed.title).toBe('Summer Action Bulletin');
     expect(parsed.description).toBe('A short summary.');
+    expect(parsed.body).toBe('');
+    expect(parsed.pdf_url).toBeNull();
+    expect(parsed.archive_url).toBeNull();
     expect(parsed.topics).toEqual([]);
     expect(parsed.sort_order).toBe(0);
+  });
+
+  it('keeps full-issue text and accepts only durable HTTP links', () => {
+    const parsed = newsletterInputSchema.parse({
+      ...base,
+      body: '  First paragraph.\n\nSecond paragraph.  ',
+      pdf_url: ' https://cdn.example.org/bulletin.pdf ',
+      archive_url: '',
+    });
+
+    expect(parsed.body).toBe('First paragraph.\n\nSecond paragraph.');
+    expect(parsed.pdf_url).toBe('https://cdn.example.org/bulletin.pdf');
+    expect(parsed.archive_url).toBeNull();
+
+    expect(
+      newsletterInputSchema.safeParse({ ...base, pdf_url: 'javascript:alert(1)' }).success
+    ).toBe(false);
+    expect(
+      newsletterInputSchema.safeParse({ ...base, archive_url: '/archive/issue' }).success
+    ).toBe(false);
   });
 
   it('requires a readable summary and a real publication instant', () => {

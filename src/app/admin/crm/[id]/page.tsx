@@ -25,27 +25,36 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   }
 }
 
-export default async function AdminCRMDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function AdminCRMDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ page?: string }>;
+}) {
   await requireAdminPage();
-  const { id } = await params;
+  const [{ id }, query] = await Promise.all([params, searchParams]);
+  const activityPage = Math.max(1, parseInt(query.page || '1', 10) || 1);
 
   try {
     const {
       contact,
       activities,
       tasks,
-      activitiesTruncated,
+      activityPage: currentActivityPage,
+      activityPageSize,
       activityCount,
       tasksTruncated,
       taskCount,
       openTaskCount,
-    } = await getCRMContactDetail(id);
+    } = await getCRMContactDetail(id, activityPage);
     return (
       <CRMDetailClient
         contact={contact}
         activities={activities}
         tasks={tasks}
-        activitiesTruncated={activitiesTruncated}
+        activityPage={currentActivityPage}
+        activityPageSize={activityPageSize}
         activityCount={activityCount}
         tasksTruncated={tasksTruncated}
         taskCount={taskCount}

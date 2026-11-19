@@ -1,10 +1,13 @@
-import { CalendarClock, Check, Eye } from 'lucide-react';
+import { Archive, CalendarClock, Check, Eye, FileText } from 'lucide-react';
 import { NewsletterTopicPills } from '@/components/newsletters/NewsletterTopicPills';
 
 type NewsletterPreviewCardProps = {
   dateLabel: string;
   title: string;
   description: string;
+  body: string;
+  pdfUrl: string;
+  archiveUrl: string;
   topics: string[];
   scheduled: boolean;
 };
@@ -13,9 +16,20 @@ export function NewsletterPreviewCard({
   dateLabel,
   title,
   description,
+  body,
+  pdfUrl,
+  archiveUrl,
   topics,
   scheduled,
 }: NewsletterPreviewCardProps) {
+  const hasExternalCopy = Boolean(pdfUrl.trim() || archiveUrl.trim());
+  const hasFullIssue = Boolean(hasExternalCopy || body.trim());
+  const destinationLabel = hasExternalCopy
+    ? 'PDF / archive link'
+    : body.trim()
+      ? 'Full text on site'
+      : 'On-site issue';
+
   return (
     <aside
       aria-label="Public archive preview"
@@ -42,8 +56,12 @@ export function NewsletterPreviewCard({
         </p>
         <NewsletterTopicPills topics={topics} variant="preview" />
         <div className="mt-5 flex items-center justify-between gap-3 border-t border-border pt-3 text-[10px] font-bold text-muted-foreground">
-          <span>Request full issue</span>
-          <span>PDF &amp; email archive</span>
+          <span>{hasFullIssue ? 'Read full issue' : 'Read summary'}</span>
+          <span className="inline-flex items-center gap-1.5">
+            {archiveUrl.trim() ? <Archive size={11} aria-hidden="true" /> : null}
+            {pdfUrl.trim() ? <FileText size={11} aria-hidden="true" /> : null}
+            {destinationLabel}
+          </span>
         </div>
       </div>
 
@@ -64,7 +82,8 @@ export function NewsletterPreviewCard({
         <p>
           This is the card readers see at{' '}
           <span className="font-mono text-[10px]">/newsletters</span>. It uses the same fields the
-          public archive renders.
+          public archive renders. The full issue opens at{' '}
+          <span className="font-mono text-[10px]">/newsletters/[slug]</span>.
         </p>
       </div>
     </aside>

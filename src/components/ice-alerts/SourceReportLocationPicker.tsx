@@ -1,36 +1,29 @@
 'use client';
 
-import {
-  Compass,
-  Globe2,
-  LoaderCircle,
-  LocateFixed,
-  MapPin,
-  Search,
-} from 'lucide-react';
+import { Compass, Globe2, LoaderCircle, LocateFixed, MapPin, Search } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
+import type { FormEvent } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import { isUsPoint } from '@/lib/geo/us-boundary';
+import {
+  cleanIceSourceReportCityName,
+  type IceSourceReportFilters,
+  iceSourceReportFilterParams,
+} from '@/lib/ice-source-report-search';
 import { fetchWithTimeout } from '@/lib/service-fetch';
 import { APPROXIMATE_TIMEOUT_MS, GEO_ENDPOINT, NOMINATIM_SEARCH_URL } from './constants';
-import { useEffect, useRef, useState, useTransition } from 'react';
-import type { FormEvent } from 'react';
 import {
   approximateCoordinates,
   cityFromAddress,
-  requestLocate,
-  readBrowserPosition,
-  stateCodeFromAddress,
-  stateLabel,
-  statusForReason,
   type LocateResponse,
   type NominatimPlace,
   type PickerStatus,
+  readBrowserPosition,
+  requestLocate,
+  stateCodeFromAddress,
+  stateLabel,
+  statusForReason,
 } from './source-report-location';
-import {
-  cleanIceSourceReportCityName,
-  iceSourceReportFilterParams,
-  type IceSourceReportFilters,
-} from '@/lib/ice-source-report-search';
 
 export function SourceReportLocationPicker({
   filters,
@@ -81,16 +74,14 @@ export function SourceReportLocationPicker({
     });
   };
 
-  const useLocatedPlace = (located: LocateResponse) => {
+  const applyLocatedPlace = (located: LocateResponse) => {
     if (!located.available) {
       setStatus({ kind: 'message', tone: 'error', text: statusForReason(located.reason) });
       return false;
     }
 
     const distance =
-      located.distanceMiles === null
-        ? null
-        : `${located.distanceMiles.toLocaleString('en-US')} mi`;
+      located.distanceMiles === null ? null : `${located.distanceMiles.toLocaleString('en-US')} mi`;
     const placeLabel = `${cleanIceSourceReportCityName(located.city)}, ${located.stateCode}`;
     const message = located.exact
       ? `Showing reports in ${placeLabel}.`
@@ -155,7 +146,7 @@ export function SourceReportLocationPicker({
 
       const located = await requestLocate(coordinates.lat, coordinates.lng, {}, signal);
       if (signal.aborted) return;
-      useLocatedPlace(located);
+      applyLocatedPlace(located);
     } catch {
       if (!signal.aborted) {
         setStatus({
@@ -210,17 +201,10 @@ export function SourceReportLocationPicker({
       if (signal.aborted) return;
 
       const first =
-        Array.isArray(payload) && payload.length > 0
-          ? (payload[0] as NominatimPlace)
-          : undefined;
+        Array.isArray(payload) && payload.length > 0 ? (payload[0] as NominatimPlace) : undefined;
       const lat = Number(first?.lat);
       const lng = Number(first?.lon);
-      if (
-        !first ||
-        !Number.isFinite(lat) ||
-        !Number.isFinite(lng) ||
-        !isUsPoint(lat, lng)
-      ) {
+      if (!first || !Number.isFinite(lat) || !Number.isFinite(lng) || !isUsPoint(lat, lng)) {
         setStatus({
           kind: 'message',
           tone: 'error',
@@ -244,14 +228,9 @@ export function SourceReportLocationPicker({
         return;
       }
 
-      const located = await requestLocate(
-        lat,
-        lng,
-        { city: cityHint, stateCode },
-        signal
-      );
+      const located = await requestLocate(lat, lng, { city: cityHint, stateCode }, signal);
       if (signal.aborted) return;
-      useLocatedPlace(located);
+      applyLocatedPlace(located);
     } catch {
       if (!signal.aborted) {
         setStatus({
@@ -317,8 +296,8 @@ export function SourceReportLocationPicker({
             Nationwide or near you.
           </h2>
           <p className="mt-1 max-w-xl text-xs leading-relaxed text-muted-foreground">
-            Start with every source report, or narrow the archive to the nearest city with
-            collected reports. Location stays city-level.
+            Start with every source report, or narrow the archive to the nearest city with collected
+            reports. Location stays city-level.
           </p>
         </div>
         <span className="inline-flex items-center gap-1.5 border border-border bg-background px-2.5 py-1.5 font-mono text-[8px] font-bold uppercase tracking-[0.09em] text-muted-foreground">

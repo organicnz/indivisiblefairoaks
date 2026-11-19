@@ -15,7 +15,10 @@ vi.mock('@/app/news/actions', () => ({
 }));
 
 function changeInput(input: HTMLInputElement, value: string) {
-  const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+  const nativeSetter = Object.getOwnPropertyDescriptor(
+    window.HTMLInputElement.prototype,
+    'value'
+  )?.set;
   nativeSetter?.call(input, value);
   input.dispatchEvent(new Event('input', { bubbles: true }));
   input.dispatchEvent(new Event('change', { bubbles: true }));
@@ -58,10 +61,11 @@ describe('ActionAlertsSubscription', () => {
     );
   });
 
-  it('submits valid email and renders celebratory success state', async () => {
+  it('submits valid email and renders the pending-confirmation state', async () => {
     mockSubscribeActionAlerts.mockResolvedValueOnce({
       success: true,
-      message: "You're on the list! Thank you for standing with Indivisible Fair Oaks-Carmichael.",
+      message: 'Check your inbox and click the confirmation link to finish subscribing.',
+      pendingConfirmation: true,
     });
 
     await act(async () => {
@@ -90,15 +94,43 @@ describe('ActionAlertsSubscription', () => {
     expect(submittedForm.get('email')).toBe('alex@example.org');
     expect(submittedForm.get('name')).toBe('Alex Rivera');
 
-    // Success banner rendered
-    expect(container.textContent).toContain("You're Subscribed to Action Alerts!");
+    // Pending banner rendered. The contact is not subscribed until the link is
+    // followed, so the UI must not claim otherwise.
+    expect(container.textContent).toContain('Check your inbox to confirm');
+    expect(container.textContent).not.toContain("You're subscribed to Action Alerts");
     expect(container.textContent).toContain('Subscribe Another');
+  });
+
+  it('does not claim a new subscription when the address is already confirmed', async () => {
+    mockSubscribeActionAlerts.mockResolvedValueOnce({
+      success: true,
+      message: 'This address is already subscribed to Action Alerts.',
+      alreadySubscribed: true,
+    });
+
+    await act(async () => {
+      root.render(<ActionAlertsSubscription />);
+    });
+
+    const emailInput = container.querySelector<HTMLInputElement>('input[type="email"]');
+    await act(async () => {
+      if (emailInput) changeInput(emailInput, 'already@example.org');
+    });
+
+    const form = container.querySelector('form');
+    await act(async () => {
+      form?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    });
+
+    expect(container.textContent).toContain("You're already subscribed");
+    expect(container.textContent).toContain('This address is already subscribed');
   });
 
   it('allows resetting after a successful submission', async () => {
     mockSubscribeActionAlerts.mockResolvedValueOnce({
       success: true,
-      message: "You're on the list!",
+      message: 'Check your inbox and click the confirmation link to finish subscribing.',
+      pendingConfirmation: true,
     });
 
     await act(async () => {
@@ -115,7 +147,7 @@ describe('ActionAlertsSubscription', () => {
       form?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
     });
 
-    expect(container.textContent).toContain("You're Subscribed to Action Alerts!");
+    expect(container.textContent).toContain('Check your inbox to confirm');
 
     const resetBtn = container.querySelector<HTMLButtonElement>('button[type="button"]');
     expect(resetBtn).not.toBeNull();

@@ -2,15 +2,14 @@ import { connection, NextResponse } from 'next/server';
 import {
   getIceCrawlStore,
   getSourceReportForRefinement,
-  saveSourceReportRefinement,
   type IceSourceReportRefinementRow,
+  saveSourceReportRefinement,
 } from '@/lib/ice-crawl-store';
-import { refineSourceReportWithAi } from '@/lib/ice-source-refine';
+import { isSafeSourceDigest, refineSourceReportWithAi } from '@/lib/ice-source-refine';
 
-export const maxDuration = 45;
+export const maxDuration = 60;
 
-const REPORT_ID =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const REPORT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function json(body: unknown, status = 200) {
   return NextResponse.json(body, {
@@ -79,7 +78,15 @@ export async function POST(request: Request) {
     return json({ ok: false, code: 'not-found', message: 'Source report not found.' }, 404);
   }
 
-  if (report.refined_text) {
+  /*
+   * The cache predates this validator and is writable by earlier code. Do not
+   * serve a stored digest merely because it exists: if the model's old output
+   * copied the publisher, opening the panel must regenerate it. Falling through
+   * is deliberately fail-closed — if the endpoint cannot produce a safer digest,
+   * the caller gets an error and the original-source link, never the copied
+   * cache entry.
+   */
+  if (report.refined_text && isSafeSourceDigest(report.text_content, report.refined_text)) {
     return json({
       ok: true,
       text: report.refined_text,

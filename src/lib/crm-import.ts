@@ -1,6 +1,8 @@
 // Pure CSV parsing + row validation for CRM constituent import.
 // Kept out of the 'use server' actions module so it stays sync and unit-testable.
 
+import { CRM_CONTACT_DEFAULTS, CRM_CONTACT_STATUS_VALUES } from '@/lib/crm-contact-options';
+
 export interface CRMImportRow {
   email: string;
   first_name: string | null;
@@ -34,14 +36,7 @@ export interface CRMImportParseResult {
   errors: CRMImportError[];
 }
 
-const VALID_STATUSES = new Set([
-  'active_volunteer',
-  'supporter',
-  'donor',
-  'choir',
-  'organizer',
-  'inactive',
-]);
+const VALID_STATUSES = new Set<string>(CRM_CONTACT_STATUS_VALUES);
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -237,13 +232,13 @@ export function parseCRMImportCsv(csvText: string): CRMImportParseResult {
     if (status && !VALID_STATUSES.has(status)) {
       errors.push({
         line,
-        message: `Unknown status "${status}" for ${email} — defaulting to supporter`,
+        message: `Unknown status "${status}" for ${email} — defaulting to ${CRM_CONTACT_DEFAULTS.status}`,
       });
-      status = 'supporter';
+      status = CRM_CONTACT_DEFAULTS.status;
     }
-    if (!status) status = 'supporter';
+    if (!status) status = CRM_CONTACT_DEFAULTS.status;
 
-    const district = (districtIdx >= 0 && cell(raw, districtIdx)) || 'CA-06';
+    const district = (districtIdx >= 0 && cell(raw, districtIdx)) || CRM_CONTACT_DEFAULTS.district;
 
     rows.push({
       email,
@@ -270,7 +265,10 @@ export function parseCRMImportCsv(csvText: string): CRMImportParseResult {
       notes: truncateNotes(notesIdx >= 0 ? cell(raw, notesIdx) || null : null, line, errors),
       // Absent column → null ("never asked"), matching a blank cell. This is the
       // line that stops importing a membership list from enrolling it.
-      do_not_email: doNotEmailIdx >= 0 ? parseDoNotEmail(cell(raw, doNotEmailIdx)) : null,
+      do_not_email:
+        doNotEmailIdx >= 0
+          ? parseDoNotEmail(cell(raw, doNotEmailIdx))
+          : CRM_CONTACT_DEFAULTS.doNotEmail,
     });
   }
 

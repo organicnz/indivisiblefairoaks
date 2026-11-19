@@ -1,4 +1,4 @@
-import { Megaphone, Shield, Users, Vote, type LucideIcon } from 'lucide-react';
+import { type LucideIcon, Megaphone, Shield, Users, Vote } from 'lucide-react';
 import { CopyRegion } from '@/components/cms/CopyRegion';
 import { DataPoint } from '@/components/ui/DataPoint';
 
@@ -91,7 +91,7 @@ export function HomePillars({ dataPoints }: { dataPoints: Record<string, string>
                   key={pillar.titleName}
                   className="min-w-0 border-t border-foreground/25 py-6 sm:py-7"
                 >
-                  <span className="flex size-9 shrink-0 items-center justify-center border border-foreground/20 bg-background">
+                  <span className="flex size-9 items-center justify-center border border-foreground/20 bg-background">
                     <Icon size={18} strokeWidth={1.4} className="text-primary" aria-hidden="true" />
                   </span>
                   <DataPoint

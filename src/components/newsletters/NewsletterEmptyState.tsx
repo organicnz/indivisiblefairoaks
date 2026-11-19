@@ -54,17 +54,9 @@ export function NewsletterEmptyState({
         )}
       >
         {filtering ? (
-          <Search
-            size={28}
-            className="mx-auto text-muted-foreground/60"
-            aria-hidden="true"
-          />
+          <Search size={28} className="mx-auto text-muted-foreground/60" aria-hidden="true" />
         ) : (
-          <Newspaper
-            size={28}
-            className="mx-auto text-muted-foreground/60"
-            aria-hidden="true"
-          />
+          <Newspaper size={28} className="mx-auto text-muted-foreground/60" aria-hidden="true" />
         )}
         <p className="text-sm font-bold text-foreground">No newsletters found</p>
         <p className="mx-auto max-w-sm text-xs text-muted-foreground">
@@ -89,21 +81,40 @@ export function NewsletterEmptyState({
   return (
     <div
       className={cn(
-        'civic-panel col-span-full p-12 text-center text-muted-foreground dark:text-ink-muted-on-dark',
+        'civic-panel col-span-full flex flex-col items-center p-8 text-center text-muted-foreground dark:text-ink-muted-on-dark',
         className
       )}
     >
+      <span
+        className="flex size-12 items-center justify-center border border-border bg-surface-muted text-muted-foreground"
+        aria-hidden="true"
+      >
+        {variant === 'archive' ? <Newspaper size={20} /> : <Search size={20} />}
+      </span>
       {variant === 'archive' ? (
         // `news.empty.desc` is seeded with the filter/no-results copy. Using it
         // here would make the seeded CMS value override the honest archive-empty
         // message, so this branch stays local.
-        <p className="text-sm">
-          No chapter bulletins have been published yet. Check back soon for the next archive
-          entry.
-        </p>
+        <>
+          <p className="mt-4 font-display text-xl font-semibold tracking-[-0.02em] text-foreground">
+            No bulletins yet
+          </p>
+          <p className="mt-2 max-w-md text-sm leading-relaxed">
+            No chapter bulletins have been published yet. Check back soon for the next archive
+            entry.
+          </p>
+        </>
       ) : (
         <>
-          <DataPoint as="p" name="news.empty.desc" initialData={dataPoints}>
+          <p className="mt-4 font-display text-xl font-semibold tracking-[-0.02em] text-foreground">
+            No matching bulletins
+          </p>
+          <DataPoint
+            as="p"
+            name="news.empty.desc"
+            initialData={dataPoints}
+            className="mt-2 max-w-md text-sm leading-relaxed"
+          >
             No chapter bulletins match your criteria. Try choosing “All Topics” or searching for
             another civic keyword.
           </DataPoint>
@@ -111,7 +122,7 @@ export function NewsletterEmptyState({
             <button
               type="button"
               onClick={onClearFilters}
-              className="mt-4 inline-flex min-h-10 items-center border border-border bg-surface-card px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-foreground transition-colors hover:border-primary hover:text-primary-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:hover:text-primary-on-dark"
+              className="mt-5 inline-flex min-h-10 items-center border border-border bg-surface-card px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-foreground transition-colors hover:border-primary hover:text-primary-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:hover:text-primary-on-dark"
             >
               Clear search and topics
             </button>

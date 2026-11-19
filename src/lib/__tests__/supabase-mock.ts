@@ -102,6 +102,12 @@ export interface MockTableConfig {
   /** Rows returned by `.insert()`, minus whatever the trigger set. */
   insert?: Record<string, unknown>;
   onInsert?: (row: Record<string, unknown>) => void;
+  /**
+   * Fail only the insert, leaving reads against the same table usable. This is
+   * how a unique-constraint race is modelled: the write is refused by 23505, and
+   * the action's follow-up lookup can still find the row that won.
+   */
+  insertError?: { message: string; code?: string } | null;
   /** Force an error for the terminal operation, to exercise the failure path. */
   error?: { message: string; code?: string } | null;
   /** Fail only the delete, after reads against the same table have succeeded. */
@@ -267,6 +273,10 @@ export class MockQueryBuilder {
   /** An insert takes one object or a chunk of them, as PostgREST does. */
   private payload: Record<string, unknown> | Record<string, unknown>[] | null = null;
   private mode: 'select' | 'update' | 'insert' | 'delete' = 'select';
+  /** Set by `.upsert()`; insert-with-conflict handling instead of a plain insert. */
+  private upsertMode = false;
+  private upsertConflictColumns: string[] | null = null;
+  private upsertIgnoreDuplicates = false;
   /** True once `.or()` / `.contains()` / `.textSearch()` has been called. */
   private unmodelledFilter = false;
 
@@ -449,6 +459,33 @@ export class MockQueryBuilder {
     return this;
   }
 
+  /**
+   * `.upsert()` — insert, or leave/update a row that conflicts on `onConflict`.
+   *
+   * The broadcast dispatch-failure path seeds its recipient ledger with
+   * `onConflict: 'broadcast_id,email', ignoreDuplicates: true`. Without this
+   * method the shared mock threw `upsert is not a function` before the code
+   * under test could report the failure it was written to report.
+   *
+   * A conflict key is compared on the row's existing values; a missing
+   * `onConflict` is a plain insert, as PostgREST treats it. `ignoreDuplicates`
+   * keeps the first row; otherwise the new values are merged into it, matching
+   * the two shapes the codebase uses.
+   */
+  upsert(
+    payload: Record<string, unknown> | Record<string, unknown>[],
+    options?: { onConflict?: string; ignoreDuplicates?: boolean }
+  ) {
+    this.payload = payload;
+    this.mode = 'insert';
+    this.upsertMode = true;
+    this.upsertConflictColumns = options?.onConflict
+      ? options.onConflict.split(',').map((column) => column.trim())
+      : null;
+    this.upsertIgnoreDuplicates = options?.ignoreDuplicates ?? false;
+    return this;
+  }
+
   delete() {
     this.mode = 'delete';
     return this;
@@ -509,6 +546,9 @@ export class MockQueryBuilder {
     }
 
     if (this.mode === 'insert') {
+      if (config.insertError) {
+        return { error: config.insertError, count: null, data: null };
+      }
       // `.insert()` takes an object *or* an array, and PostgREST answers an
       // insert that asked for the rows back with an array either way — a
       // chunked CSV import does `(created || []).map(...)` on the result, so a
@@ -521,6 +561,17 @@ export class MockQueryBuilder {
         : [this.payload ?? ({} as Record<string, unknown>)];
       const inserted: Record<string, unknown>[] = [];
       for (const entry of payloads) {
+        if (this.upsertMode && this.upsertConflictColumns?.length) {
+          const conflictColumns = this.upsertConflictColumns;
+          const existing = config.rows?.find((row) =>
+            conflictColumns.every((column) => row[column] === entry[column])
+          );
+          if (existing) {
+            if (!this.upsertIgnoreDuplicates) Object.assign(existing, entry);
+            inserted.push(existing);
+            continue;
+          }
+        }
         const row = { ...config.insert, ...entry };
         config.onInsert?.(row);
         config.rows?.push(row);

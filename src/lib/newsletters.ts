@@ -1,5 +1,8 @@
 import { z } from 'zod';
-import { collapseNewsWhitespace, normalizeNewsText } from './news-text/normalize';
+import { foldSpecialLetters } from './news-text/normalize';
+import { normalizeNewsletterTopics } from './news-text/topics';
+
+export { normalizeNewsletterTopics } from './news-text/topics';
 
 /**
  * One contract for bulletin writes.
@@ -14,31 +17,14 @@ export const NEWSLETTER_LIMITS = {
   title: 200,
   dateLabel: 100,
   description: 2000,
+  body: 100_000,
+  url: 500,
   slug: 120,
   topic: 60,
   topics: 12,
   /** A pasted list is deliberately larger than one topic chip. */
   topicInput: 800,
 } as const;
-
-const SPECIAL_LETTER_FOLDS: Record<string, string> = {
-  ß: 'ss',
-  æ: 'ae',
-  œ: 'oe',
-  ø: 'o',
-  ł: 'l',
-  đ: 'd',
-  ð: 'd',
-  þ: 'th',
-  ı: 'i',
-  ħ: 'h',
-  ŋ: 'n',
-  ŧ: 't',
-};
-
-function foldSpecialLetters(value: string): string {
-  return value.replace(/[ßæœøłđðþıħŋŧ]/g, (letter) => SPECIAL_LETTER_FOLDS[letter] ?? letter);
-}
 
 export function slugifyNewsletter(text: string): string {
   return foldSpecialLetters(
@@ -54,31 +40,29 @@ export function slugifyNewsletter(text: string): string {
     .slice(0, 80);
 }
 
-/** Topic identity must match the read-side search fold. */
-export function newsletterTopicKey(value: string): string {
-  return normalizeNewsText(collapseNewsWhitespace(value));
-}
-
 /**
- * Trim, drop empties and collapse case-insensitive duplicates.
- *
- * The previous action stored whatever the caller sent, so a repeated tag
- * rendered twice and an empty chip rendered as a blank box. The public archive
- * treats topics as a set; the write path should make that true.
+ * A blank optional URL is stored as NULL, not as an empty string that the public
+ * card has to keep treating as a link. Only absolute HTTP(S) addresses are
+ * accepted so a pasted `javascript:` or relative value cannot become an anchor.
  */
-export function normalizeNewsletterTopics(topics: readonly string[]): string[] {
-  const seen = new Set<string>();
-  const normalized: string[] = [];
-  for (const topic of topics) {
-    const value = collapseNewsWhitespace(topic);
-    if (!value) continue;
-    const key = newsletterTopicKey(value);
-    if (!key || seen.has(key)) continue;
-    seen.add(key);
-    normalized.push(value);
-  }
-  return normalized;
-}
+const optionalNewsletterUrl = z
+  .union([z.string().trim().max(NEWSLETTER_LIMITS.url), z.null(), z.undefined()])
+  // The explicit `undefined` member does not make an object property optional
+  // in Zod 4; `.optional()` is what lets older clients omit the field entirely.
+  .optional()
+  .transform((value) => (typeof value === 'string' && value.trim() ? value.trim() : null))
+  .refine(
+    (value) => {
+      if (value === null) return true;
+      try {
+        const url = new URL(value);
+        return url.protocol === 'http:' || url.protocol === 'https:';
+      } catch {
+        return false;
+      }
+    },
+    { message: 'Use a full http:// or https:// link' }
+  );
 
 export const newsletterInputSchema = z.object({
   /** Optional override; the action derives one from the title when omitted. */
@@ -96,14 +80,14 @@ export const newsletterInputSchema = z.object({
     .trim()
     .min(1, 'A short summary is required')
     .max(NEWSLETTER_LIMITS.description),
+  /** Plain-text full issue. A bulletin can still be summary-only. */
+  body: z.string().trim().max(NEWSLETTER_LIMITS.body).default(''),
+  /** Durable external copies, optional because older rows have neither. */
+  pdf_url: optionalNewsletterUrl,
+  archive_url: optionalNewsletterUrl,
   topics: z
-    .array(
-      z.string().trim().min(1, 'Topics cannot be empty').max(NEWSLETTER_LIMITS.topic)
-    )
-    .max(
-      NEWSLETTER_LIMITS.topics,
-      `Use ${NEWSLETTER_LIMITS.topics} topics or fewer`
-    )
+    .array(z.string().trim().min(1, 'Topics cannot be empty').max(NEWSLETTER_LIMITS.topic))
+    .max(NEWSLETTER_LIMITS.topics, `Use ${NEWSLETTER_LIMITS.topics} topics or fewer`)
     .default([])
     .transform((topics) => normalizeNewsletterTopics(topics)),
   sort_order: z.number().int().min(-100_000).max(100_000).default(0),
@@ -142,7 +126,5 @@ export function newsletterPublicationLabel(
   publishedAt: string | null | undefined,
   now = Date.now()
 ): 'Scheduled' | 'Published' {
-  return newsletterPublicationState(publishedAt, now) === 'scheduled'
-    ? 'Scheduled'
-    : 'Published';
+  return newsletterPublicationState(publishedAt, now) === 'scheduled' ? 'Scheduled' : 'Published';
 }

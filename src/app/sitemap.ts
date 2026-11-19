@@ -1,9 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
 import type { MetadataRoute } from 'next';
 import { cacheLife, cacheTag } from 'next/cache';
-import { COPY_REGION_SLUG_PREFIX } from '@/lib/copy-regions';
 import { unreachableContentSlugs } from '@/lib/content';
+import { COPY_REGION_SLUG_PREFIX } from '@/lib/copy-regions';
 import { env } from '@/lib/env';
+import { getNewsletters } from '@/lib/queries/civic';
 import { buildVisibilityFilter } from '@/lib/queries/content';
 
 // Sitemap is hour-cached (one DB query per crawl wave) rather than truly static
@@ -83,6 +84,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: page.updated_at ?? undefined,
       changeFrequency: 'monthly',
       priority: 0.6,
+    });
+  }
+
+  // Bulletins now have durable reader pages of their own. Only public rows are
+  // returned by `getNewsletters`, so a scheduled issue is not advertised.
+  for (const newsletter of await getNewsletters()) {
+    const path = `/newsletters/${newsletter.slug}`;
+    if (seenPaths.has(path)) continue;
+    seenPaths.add(path);
+    entries.push({
+      url: path,
+      lastModified: newsletter.published_at ?? undefined,
+      changeFrequency: 'yearly',
+      priority: 0.5,
     });
   }
 

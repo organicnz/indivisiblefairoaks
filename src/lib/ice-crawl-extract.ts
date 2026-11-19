@@ -1,14 +1,14 @@
 import sanitizeHtml from 'sanitize-html';
+import type { CityPoint } from '@/components/ice-alerts/types';
+import type { IceSourceReportKind } from '@/lib/ice-crawl-types';
 import {
+  type CityMatcher,
   cleanCityName,
   createCityMatcher,
   extractStateCode,
   isStreetSuffixCityName,
   US_STATE_CODES,
-  type CityMatcher,
 } from '@/lib/rapid-city-match';
-import type { CityPoint } from '@/components/ice-alerts/types';
-import type { IceSourceReportKind } from '@/lib/ice-crawl-types';
 
 export type ExtractedReport = {
   title: string;
@@ -32,8 +32,7 @@ export type FeedExtraction = {
   sourceTitle: string;
 };
 
-const BLOCK_END =
-  /<\/(?:p|div|li|h[1-6]|blockquote|article|section|tr|td|th)>|<br\s*\/?>/gi;
+const BLOCK_END = /<\/(?:p|div|li|h[1-6]|blockquote|article|section|tr|td|th)>|<br\s*\/?>/gi;
 const DROP_ELEMENTS =
   /<(script|style|noscript|template|svg|canvas|iframe|object|embed)[\s\S]*?<\/\1>/gi;
 const MAX_FEED_ITEMS = 10_000;
@@ -61,9 +60,7 @@ export function decodeHtmlEntities(value: string) {
 }
 
 export function readableText(html: string) {
-  const withBreaks = html
-    .replace(DROP_ELEMENTS, ' ')
-    .replace(BLOCK_END, '\n');
+  const withBreaks = html.replace(DROP_ELEMENTS, ' ').replace(BLOCK_END, '\n');
   return normalizeText(decodeHtmlEntities(withBreaks));
 }
 
@@ -78,9 +75,7 @@ export function extractTitle(html: string) {
 }
 
 function attribute(tag: string, name: string) {
-  return (
-    tag.match(new RegExp(`${name}\\s*=\\s*["']([^"']*)["']`, 'i'))?.[1] ?? null
-  );
+  return tag.match(new RegExp(`${name}\\s*=\\s*["']([^"']*)["']`, 'i'))?.[1] ?? null;
 }
 
 export function extractMeta(html: string, key: string) {
@@ -110,9 +105,8 @@ export function extractPublishedAt(html: string) {
 }
 
 export function extractJsonLdArticleBody(html: string) {
-  const scripts = html.match(
-    /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi
-  ) ?? [];
+  const scripts =
+    html.match(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi) ?? [];
   for (const script of scripts) {
     const json = script.replace(/^[\s\S]*?>/, '').replace(/<\/script>$/i, '');
     try {
@@ -146,9 +140,8 @@ export type JsonLdArticle = {
 
 /** Collect every JSON-LD article body, not just the first one on the page. */
 export function extractJsonLdArticles(html: string): JsonLdArticle[] {
-  const scripts = html.match(
-    /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi
-  ) ?? [];
+  const scripts =
+    html.match(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi) ?? [];
   const articles: JsonLdArticle[] = [];
 
   for (const script of scripts) {
@@ -283,13 +276,9 @@ export function extractSitemapLinks(xml: string, baseUrl: string) {
 }
 
 function readTag(block: string, tag: string) {
-  const match = block.match(
-    new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${tag}>`, 'i')
-  );
+  const match = block.match(new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${tag}>`, 'i'));
   if (!match) return '';
-  return decodeHtmlEntities(
-    match[1].replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
-  ).trim();
+  return decodeHtmlEntities(match[1].replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')).trim();
 }
 
 function readLinkTag(block: string, baseUrl: string) {
@@ -323,7 +312,13 @@ export function classifyReportKind(text: string): IceSourceReportKind {
   if (/\b(detention|detain|jail|prison|holding facility|processing center)\b/i.test(text)) {
     return 'detention';
   }
-  if (/\b(ice|immigration|enforcement|raid|arrest|agents?|vehicles?|sighting)\b/i.test(text)) {
+  // "Law Enforcement" and the "Immigration and Customs Enforcement" navigation
+  // label are not report signals. Require an ICE-specific actor or action.
+  if (
+    /\b(?:ice|immigration enforcement|agents?|raid|arrest(?:ed|s|ing)?|detain(?:ed|s|ing)?|sighting|operation|sweep|worksite|deport(?:s|ed|ation|ing)?|detainer|apprehend(?:ed|s|ing)?|seiz(?:e|ed|es|ing)|encounter(?:ed|s)?)\b/i.test(
+      text
+    )
+  ) {
     return 'enforcement';
   }
   return 'other';
@@ -450,20 +445,20 @@ function cityStateFromText(text: string, matcher: CityMatcher | null) {
     : { city: null, stateCode };
 }
 
-export function extractCityState(
-  text: string,
-  cities?: readonly CityPoint[]
-) {
+export function extractCityState(text: string, cities?: readonly CityPoint[]) {
   const matcher = cities?.length ? createCityMatcher(cities) : null;
   return cityStateFromText(text, matcher);
 }
 
 export function isIceReportText(text: string) {
   return (
-    /\b(ice|immigration and customs enforcement|immigration enforcement|ice agents?)\b/i.test(
+    /\b(?:ice|immigration and customs enforcement|immigration enforcement|ice agents?)\b/i.test(
       text
     ) &&
-    /\b(report|reported|sighting|seen|spotted|activity|enforcement|raid|checkpoint|detention|arrest|agents?|vehicles?)\b/i.test(
+    // Do not treat the word "enforcement" alone as a report signal: it appears
+    // in the site-wide "Immigration and Customs Enforcement" and "Law
+    // Enforcement" navigation labels on every DHS page.
+    /\b(?:report(?:ed|s|ing)?|sighting|seen|spotted|activity|raid|checkpoint|arrest(?:ed|s|ing)?|detain(?:ed|s|ing)?|detainer|deport(?:s|ed|ation|ing)?|apprehend(?:ed|s|ing)?|seiz(?:e|ed|es|ing)|encounter(?:ed|s)?|agents?|vehicles?|operation|sweep|worksite)\b/i.test(
       text
     )
   );
@@ -476,14 +471,26 @@ export function cleanTitle(value: string, fallback: string) {
 }
 
 const STOPICE_MONTHS = [
-  'jan', 'feb', 'mar', 'apr', 'may', 'jun',
-  'jul', 'aug', 'sep', 'oct', 'nov', 'dec',
+  'jan',
+  'feb',
+  'mar',
+  'apr',
+  'may',
+  'jun',
+  'jul',
+  'aug',
+  'sep',
+  'oct',
+  'nov',
+  'dec',
 ] as const;
 
 export function parseStopIceTimestamp(value: string): string | null {
   const match = value
     .trim()
-    .match(/^([a-z]{3,9})\s+(\d{1,2}),\s*(\d{4})\s*\((\d{1,2}):(\d{2})(?::(\d{2}))?\)\s*(PST|PDT|UTC|GMT)?$/i);
+    .match(
+      /^([a-z]{3,9})\s+(\d{1,2}),\s*(\d{4})\s*\((\d{1,2}):(\d{2})(?::(\d{2}))?\)\s*(PST|PDT|UTC|GMT)?$/i
+    );
   if (!match) return null;
   const monthIndex = STOPICE_MONTHS.indexOf(
     match[1].slice(0, 3).toLowerCase() as (typeof STOPICE_MONTHS)[number]
@@ -579,7 +586,9 @@ export function extractFeedItems(
       title,
       text,
       sourceUrl,
-      publishedAt: dateIso(readTag(block, 'pubDate') || readTag(block, 'published') || readTag(block, 'updated')),
+      publishedAt: dateIso(
+        readTag(block, 'pubDate') || readTag(block, 'published') || readTag(block, 'updated')
+      ),
       city,
       stateCode,
       kind: classifyReportKind(`${title} ${text}`),
@@ -625,7 +634,8 @@ export function extractJsonFeedItems(
   for (const value of items) {
     if (!value || typeof value !== 'object') continue;
     const item = value as Record<string, unknown>;
-    const rawUrl = typeof item.url === 'string' ? item.url : typeof item.id === 'string' ? item.id : '';
+    const rawUrl =
+      typeof item.url === 'string' ? item.url : typeof item.id === 'string' ? item.id : '';
     let sourceUrl = '';
     try {
       const candidate = new URL(rawUrl, feedUrl);
@@ -707,9 +717,7 @@ export function extractHtmlReports(
 ): ExtractedReport[] {
   const pageTitle = extractTitle(html);
   const pagePublishedAt = extractPublishedAt(html);
-  const blocks = [
-    ...(html.match(/<article\b[^>]*>[\s\S]*?<\/article>/gi) ?? []),
-  ];
+  const blocks = [...(html.match(/<article\b[^>]*>[\s\S]*?<\/article>/gi) ?? [])];
   if (blocks.length === 0) {
     const main = html.match(/<main\b[^>]*>([\s\S]*?)<\/main>/i)?.[1];
     if (main) blocks.push(main);

@@ -22,6 +22,7 @@ const ROOT = process.cwd();
 const BODY_READERS = [
   'crm-broadcast-send',
   'ice-case-brief',
+  'ice-source-refine',
   'notify-contact',
   'search',
   'sync-mobilize-events',
@@ -41,9 +42,7 @@ describe('Edge Function request-body limits', () => {
     const missingReader: string[] = [];
 
     for (const slug of BODY_READERS) {
-      const source = await Bun.file(
-        `${ROOT}/supabase/functions/${slug}/index.ts`
-      ).text();
+      const source = await Bun.file(`${ROOT}/supabase/functions/${slug}/index.ts`).text();
 
       if (UNBOUNDED_READ.test(withoutComments(source))) offenders.push(slug);
       if (!source.includes('_shared/request-body')) missingReader.push(slug);

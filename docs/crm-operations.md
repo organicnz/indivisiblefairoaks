@@ -213,6 +213,39 @@ refused by `crm_broadcasts_test_only_needs_recipient` before any application
 code runs. The old recipe assumed you could stage the dangerous row by hand, and
 you no longer can — which is the point.
 
+## Newsletter double opt-in and bulletin sends
+
+A bulletin is emailed through the same `sendCRMBroadcast` action, the same
+`crm_broadcasts` log and the same `crm-broadcast-send` Edge Function as every other
+chapter broadcast. There is no second email provider and no parallel recipient
+list.
+
+The newsletter gate is narrower than ordinary CRM consent. `do_not_email = false`
+means the contact said yes to chapter email; `newsletter_confirmed_at` means they
+also followed a confirmation link sent to that address. A bulletin campaign
+requires **both**. A public request writes a pending token and sends the
+confirmation email, but leaves `do_not_email` and `unsubscribed_at` untouched.
+Only a POST to `/api/newsletter/confirm` with the form marker `confirm=1` sets
+`do_not_email = false`, stamps `newsletter_confirmed_at`, clears the token and
+removes any prior opt-out. GET renders the confirmation page and writes nothing,
+so mail scanners cannot subscribe or unsubscribe anyone.
+
+Tokens are UUIDs with a 48-hour expiry. Unsubscribing clears the token, the
+expiry, `newsletter_confirmed_at` and the `newsletter-confirmed` tag, so a later
+request starts a fresh double opt-in instead of reusing an old capability.
+
+A real bulletin send writes `crm_broadcasts.source_newsletter_slug`. The partial
+unique index on that column is the idempotency guard: a concurrent or repeat send
+of a queued, sending or sent bulletin fails before the provider is called. A
+`failed` campaign is excluded from the index so a sender that failed before the
+first provider call (for example a missing function or secret) can be retried
+after the fault is fixed; the retry is then the only active row for that slug.
+The Edge Function reads the source slug and independently applies
+`newsletter_confirmed_at IS NOT NULL` to the recipient query, so the gate travels
+with the campaign even if a caller supplies different `target_tags`. Test sends
+do not set a source slug; they use the existing self-test path and never touch the
+list.
+
 ## The audience is paged in a stable order, and the ceiling is exact
 
 Two defects in the same loop, in both `crm.ts` and `crm-broadcast-send/index.ts`.
@@ -734,6 +767,52 @@ row expands, so a long history costs one query per opened row rather than one
 per row on screen. The write half stays in the webhook route; no admin action
 writes to that table.
 
+### The recipient ledger, and what "accepted" means now
+
+`crm_broadcasts.sent_count` is a progress counter, not a record of who received
+anything. `crm_broadcast_recipients` is the durable per-campaign ledger:
+
+| Status | Meaning |
+|---|---|
+| `pending` | Resolved into the audience; no provider result recorded yet. Written before the first send so an interrupted campaign still names its intended recipients. |
+| `accepted` | Resend accepted the message and has not since reported it suppressed. Acceptance is not delivery. |
+| `failed` | This attempt produced no provider acceptance. The reason and time are stored for follow-up. |
+| `suppressed` | Resend reported a permanent bounce, complaint, or suppression. A later delivery event promotes accepted/failed/pending to suppressed, and settlement cannot overwrite that. |
+
+`suppressed` here means a provider-reported suppression, not a contact who was
+opted out before the campaign started. The latter never enters the ledger
+because they were never in the audience; counting them would silently change
+what the campaign's recipient total means.
+
+The Edge sender pre-registers the audience as `pending`, settles each batch
+through `crm_broadcast_settle_recipients()`, and refuses to send anything if the
+ledger cannot be written. A dispatch that never reaches the sender is recorded
+by the Next action after it marks the campaign failed. The Resend webhook needed
+no second write path: an `AFTER INSERT` trigger on `crm_email_events` promotes
+the matching ledger row for permanent bounces, complaints, and `email.suppressed`
+events only.
+
+**Audience semantics did not change.** The ledger records outcomes for the
+people both resolvers already selected with `.eq('do_not_email', false)`; it
+does not add opted-out or never-asked contacts to a send, and it does not
+backfill rows for historical campaigns. Those campaigns keep their stored
+`sent_count`/`failed_count` as the fallback, and the expanded panel says their
+per-recipient follow-ups are unavailable rather than inventing them.
+
+Campaign metrics and follow-up lists are SQL reads, not JavaScript counts over a
+page:
+
+- `crm_broadcast_metrics(uuid[])` returns accepted/failed/suppressed/pending,
+  recorded, and unresolved counts for a page of campaigns in one aggregate.
+- `crm_broadcast_followups(uuid, limit, offset)` returns only failed and
+  suppressed recipients, ordered for follow-up, with `total_count` over the full
+  filtered set so a capped page never reads as the whole list.
+
+The history row uses the aggregate whenever a campaign has ledger rows; the
+expanded panel shows the same counts and the follow-up list. `getBroadcastProgress()`
+overlays the aggregate on the row's counters so a suppression that arrives after
+the send is not still counted as accepted in the live readout.
+
 ## One filter, one URL
 
 `src/lib/crm-filters.ts` owns the mapping from a filter set to a URL, to an action
@@ -818,9 +897,10 @@ tasks already re-pointed at the survivor — a double-counted timeline, the same
 follow-up twice on the board, and an error naming only the step that happened to
 fail.
 
-It is now `merge_crm_contacts()` (migration `20261005030000`): one statement,
-`SECURITY DEFINER`, `search_path = ''`, `service_role` only. `requireAdmin()`
-remains the authorization boundary.
+It is now `merge_crm_contacts()` (migration `20261005030000`, with its current
+body redeclared by `20261119150000`): one statement, `SECURITY DEFINER`,
+`search_path = ''`, `service_role` only. `requireAdmin()` remains the
+authorization boundary.
 
 A transaction alone does not fix the second failure. Two organizers merging the
 same pair concurrently both read, both wrote, and both added
@@ -841,6 +921,33 @@ The combination rules, all in the migration next to the code that implements the
   retargeting.
 - Tags are unioned through `lower(btrim(...))`, so a merge does not add more
   mixed-case rows for the outstanding backfill to remove.
+- A donor `status` on either row survives the merge. Donor wins over a
+  non-donor survivor status; when neither side is a donor, survivor-first
+  `COALESCE` is unchanged. Before `20261119150000`, a duplicate whose only
+  donor marker was `status = 'donor'` was deleted and the survivor stayed
+  `supporter`, so no status-filtered audience could select them again.
+
+## Donor is one predicate
+
+`crm_contacts.is_donor` (migration `20261119150000`) is a stored generated
+column:
+
+```sql
+status = 'donor'
+OR 'donor' = ANY(tags)
+OR total_donated_cents > 0
+```
+
+It is the only donor definition the readers use. `crm_stats()` counts it; the
+directory status filter translates a `donor` member into `is_donor = true`; a
+saved segment applies through that same directory filter; and both the Next
+broadcast resolver and the Edge sender apply it to `target_status` as well.
+
+A status list containing `donor` and other labels is ORed rather than ANDed, so
+a contact tagged `donor` is still selected when the segment also asks for
+`organizer` or `choir`. The non-donor values interpolated into the PostgREST
+`.or()` string are restricted to the fixed status vocabulary; a hand-edited
+segment cannot turn a status into query syntax.
 
 **A text-asserting test is not a test that runs SQL.** The function is plpgsql
 inside the database and no row-based mock can execute it, so

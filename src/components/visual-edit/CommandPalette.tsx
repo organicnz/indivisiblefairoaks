@@ -36,7 +36,7 @@ import {
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { Block } from '@/lib/blocks';
 import type { VisualSection } from '@/lib/visual-sections';
-import type { ViewportMode } from './VisualEditOverlay';
+import type { ViewportMode } from './useVisualEditViewport';
 
 export interface CommandPaletteProps {
   open: boolean;
@@ -746,7 +746,10 @@ export function CommandPalette({
           </DialogPrimitive.Title>
 
           {/* Results List */}
-          <div ref={listRef} className="max-h-[60vh] overflow-y-auto overscroll-contain p-2 space-y-4">
+          <div
+            ref={listRef}
+            className="max-h-[60vh] overflow-y-auto overscroll-contain p-2 space-y-4"
+          >
             {groupedCategories.length === 0 ? (
               <div className="py-12 text-center text-sm text-slate-400">
                 No matching actions, sections, or data points found for &ldquo;{query}&rdquo;

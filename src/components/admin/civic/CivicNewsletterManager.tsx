@@ -2,17 +2,18 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { NewsletterBroadcastDialog } from '@/components/admin/news/NewsletterBroadcastDialog';
+import { NewsletterManagerResults } from '@/components/admin/news/NewsletterManagerResults';
+import { NewsletterManagerToolbar } from '@/components/admin/news/NewsletterManagerToolbar';
+import { NewsletterResultsSummary } from '@/components/newsletters/NewsletterResultsSummary';
 import { NewsletterTopicFilter } from '@/components/newsletters/NewsletterTopicFilter';
+import { useNewsletterArchive } from '@/hooks/useNewsletterArchive';
 import {
   type CivicNewsletterRecord,
   deleteCivicNewsletter,
   getCivicNewslettersAdmin,
 } from '@/lib/actions/civic';
 import { mergeNewsletterRows, sortNewsletters } from '@/lib/news-text';
-import { NewsletterManagerResults } from '@/components/admin/news/NewsletterManagerResults';
-import { NewsletterManagerToolbar } from '@/components/admin/news/NewsletterManagerToolbar';
-import { NewsletterResultsSummary } from '@/components/newsletters/NewsletterResultsSummary';
-import { useNewsletterArchive } from '@/hooks/useNewsletterArchive';
 import { CivicNewsletterEditorModal } from './CivicNewsletterEditorModal';
 
 interface CivicNewsletterManagerProps {
@@ -34,6 +35,7 @@ export function CivicNewsletterManager({
   const [loading, setLoading] = useState(initialNewsletters === undefined);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editingNewsletter, setEditingNewsletter] = useState<CivicNewsletterRecord | null>(null);
+  const [emailingNewsletter, setEmailingNewsletter] = useState<CivicNewsletterRecord | null>(null);
   const openerRef = useRef<HTMLElement | null>(null);
   const {
     searchQuery,
@@ -88,7 +90,8 @@ export function CivicNewsletterManager({
   };
 
   const openCreate = () => {
-    openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    openerRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setEditingNewsletter(null);
     setIsEditorOpen(true);
   };
@@ -144,11 +147,21 @@ export function CivicNewsletterManager({
         clearLabel={effectiveQuery && !topicFiltered ? 'Clear search' : 'Clear filters'}
         onClearFilters={clearFilters}
         onEdit={(item) => {
-          openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+          openerRef.current =
+            document.activeElement instanceof HTMLElement ? document.activeElement : null;
           setEditingNewsletter(item);
           setIsEditorOpen(true);
         }}
+        onEmail={setEmailingNewsletter}
         onDelete={(slug) => void handleDelete(slug)}
+      />
+
+      <NewsletterBroadcastDialog
+        newsletter={emailingNewsletter}
+        open={Boolean(emailingNewsletter)}
+        onOpenChange={(open) => {
+          if (!open) setEmailingNewsletter(null);
+        }}
       />
 
       <CivicNewsletterEditorModal

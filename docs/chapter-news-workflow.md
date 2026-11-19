@@ -7,7 +7,7 @@ This is the chapter-editor workflow for Erin's ongoing news submissions. It cove
 | Format | Use it for | Where it appears | Admin path |
 |---|---|---|---|
 | **Post** | Reports, statements, event recaps, longer articles | `/news` and the post's own URL | **Add News** on `/news` or `/admin/news`, or `/admin/content/new?type=post` |
-| **Bulletin** | Monthly bulletins, short news blasts, legislative round-ups | `/newsletters` chapter bulletin archive | **New Bulletin** on `/admin/news` |
+| **Bulletin** | Monthly bulletins, short news blasts, legislative round-ups | `/newsletters` chapter bulletin archive and `/newsletters/{slug}` issue page | **New Bulletin** on `/admin/news` |
 | **Meeting material** | Agendas, minutes, printable handouts | The meeting-materials section on `/news` | Currently maintained in the site code; ask a maintainer for changes |
 | **Page** | A permanent page such as About or a campaign page | Its own route | `/admin/content/new?type=page` |
 
@@ -28,12 +28,16 @@ The editor autosaves and keeps revisions. The **View** action only appears for a
 ## Publish a bulletin
 
 1. Go to **Admin → News** or open `/admin/news`.
-2. Select **New Bulletin** beside **Add News** in the bulletin manager. The bulletin form is intentionally short; use **Add News** when the update needs a full article.
+2. Select **New Bulletin** beside **Add News** in the bulletin manager. Use **Add News** when the update needs a full article with the block editor.
 3. Add the title, date label, short description, topics, and display order.
-4. Save it, then open `/newsletters` and confirm it appears in the chapter bulletin archive.
-5. Use **Edit** on the bulletin to correct it later. Deletion uses the inline confirmation, not a browser alert.
+4. Add the **Full issue text** so readers can read the complete bulletin on the site. If the issue already lives in a PDF or campaign archive, paste that durable **PDF link** or **Archive link** instead.
+5. Use **Send test** in the editor to see the exact email. It goes only to your signed-in admin address, is marked `[TEST — not sent to the list]`, and does not save the draft.
+6. Save it, then open `/newsletters` and confirm the card opens the bulletin's `/newsletters/{slug}` page. Use **Edit** on the bulletin to correct it later. Deletion uses the inline confirmation, not a browser alert.
+7. When the issue is published, use **Email** on its bulletin row. The dialog shows the confirmed-subscriber count; sending hands the campaign to the existing CRM/Resend sender and cannot be undone from that screen. Every message includes the public issue link, a one-click unsubscribe footer and a `List-Unsubscribe` header.
 
-Bulletins are chapter-owned summaries. They are not the same as a full newsletter PDF or an external chapter's newsletter.
+Only contacts with explicit chapter email consent **and** a completed newsletter double opt-in are included. The public Action Alerts form now sends a 48-hour confirmation email first; a request that was never confirmed is not on the list. The same unsubscribe link clears both the chapter-wide opt-out and the newsletter confirmation, so a later request has to be confirmed again.
+
+Bulletins are chapter-owned issues. The summary is the archive-card excerpt; the full issue is the text or durable PDF/archive link on the bulletin page. They are not the same as an external chapter's newsletter.
 
 ## Ongoing submissions
 
@@ -69,6 +73,8 @@ Do not create a new account or share an admin login to route around access. Ask 
 - **A save fails:** the editor keeps the text on screen and tells you it is not saved. Copy the text before reloading, then retry.
 - **A stale-save conflict:** another editor saved first. Reload onto their version, compare the text, and reapply only what is missing.
 - **Publish is not visible:** confirm the status is Published, then check `/news` for a post or `/newsletters` for a bulletin. A draft has no public URL.
+- **The bulletin email has no audience:** nobody has completed double opt-in yet, or every confirmed subscriber has since opted out. `Send test` still works; check the CRM contact's consent and newsletter confirmation before trying again.
+- **Email says this bulletin already has a campaign:** the source-slug uniqueness guard found an active or completed campaign. Check `/admin/crm/broadcasts` before sending it again. A failed campaign is excluded from the guard, so fixing the cause and retrying is allowed.
 - **The admin controls are missing:** the account is signed in but is not an admin, or the admin page redirected. Verify the profile flag rather than creating a second account.
 
 ## Update the next chapter meeting

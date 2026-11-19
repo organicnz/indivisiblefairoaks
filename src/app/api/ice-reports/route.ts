@@ -1,30 +1,22 @@
 import { NextResponse } from 'next/server';
 import { isE2EMode } from '@/lib/e2e-mode';
 import { verifyIceAlertProof } from '@/lib/ice-alert-proof';
+import { hashIceAlertRateLimitKey } from '@/lib/ice-alert-rate-limit';
+import { consumeIceAlertRateLimits, getIceAlertStore } from '@/lib/ice-alert-store';
+import { autoPublishOrMergeIceReport, autoPublishRiskIssue } from '@/lib/ice-report-auto-publish';
 import {
-  consumeIceAlertRateLimits,
-  getIceAlertStore,
-} from '@/lib/ice-alert-store';
-import {
-  hashIceAlertRateLimitKey,
-} from '@/lib/ice-alert-rate-limit';
-import {
+  getIceReportStore,
   ICE_REPORT_RETENTION_DAYS,
   iceReportInputSchema,
   iceReportProofSchema,
-  getIceReportStore,
   insertIceReport,
   makeIceReportReference,
 } from '@/lib/ice-report-intake';
-import {
-  autoPublishOrMergeIceReport,
-  autoPublishRiskIssue,
-} from '@/lib/ice-report-auto-publish';
 import { getIceHeatmapSnapshot } from '@/lib/queries/ice-heatmap';
 import { createCityMatcher } from '@/lib/rapid-city-match';
-import { isSameOriginRequest } from '@/lib/same-origin';
 import { clientIp, rateLimit } from '@/lib/rate-limit';
 import { readJsonBodyWithLimit } from '@/lib/request-body';
+import { isSameOriginRequest } from '@/lib/same-origin';
 
 export const maxDuration = 30;
 
@@ -56,10 +48,7 @@ const PUBLICATION_MESSAGES: Record<ReportPublicationStatus, string> = {
     'Received privately. A volunteer will review it before any city-level summary can be published. This is not an alert or a guaranteed response.',
 };
 
-function receivedResponse(
-  referenceCode: string,
-  status: ReportPublicationStatus = 'received'
-) {
+function receivedResponse(referenceCode: string, status: ReportPublicationStatus = 'received') {
   return json({
     ok: true,
     status,
@@ -96,9 +85,7 @@ export async function POST(req: Request) {
       : json({ ok: false, code: 'invalid-json' }, 400);
   }
 
-  const parsed = iceReportInputSchema
-    .extend({ proof: iceReportProofSchema })
-    .safeParse(body.value);
+  const parsed = iceReportInputSchema.extend({ proof: iceReportProofSchema }).safeParse(body.value);
   if (!parsed.success) {
     return json(
       {
@@ -151,7 +138,7 @@ export async function POST(req: Request) {
     );
   }
 
-  let rate;
+  let rate: Awaited<ReturnType<typeof consumeIceAlertRateLimits>>;
   try {
     rate = await consumeIceAlertRateLimits(alertStore, {
       ipHash,

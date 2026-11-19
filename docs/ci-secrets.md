@@ -69,7 +69,7 @@ Two things about that worth keeping:
 
 | Name | Scope | Used by |
 |---|---|---|
-| `SUPABASE_ACCESS_TOKEN` | Account PAT | `supabase.yml` — edge function deploys, migration apply |
+| `SUPABASE_ACCESS_TOKEN` | Account PAT | `supabase.yml` — edge function deploys, migration apply, generated-type freshness check |
 | `SUPABASE_DB_PASSWORD` | Database role password | `supabase.yml` — advisory-lock migration path |
 | `SUPABASE_POOLER_URL` | Supavisor connection string | `supabase.yml` — pooled migration path |
 | `SUPABASE_SECRET_KEY` | Service-role key (**bypasses RLS**) | `walle-refresh.yml` |

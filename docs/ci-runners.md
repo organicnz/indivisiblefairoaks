@@ -608,7 +608,7 @@ queue long.
 
 | Gate | Command |
 |---|---|
-| 33 pre-commit guards | lefthook, on `git commit` |
+| 35 pre-commit guards | lefthook, on `git commit` |
 | documentation claims | `bun scripts/check-doc-claims.mjs` — guards, baseline, spec counts |
 | suppression ratchet | pre-push, baseline 31 |
 | lint | `bun run lint:check` |
@@ -616,7 +616,7 @@ queue long.
 | types | `bunx tsc --noEmit` |
 | production build | `NEXT_E2E_BUILD=true bun run build` |
 | peer deps | `bun scripts/check-peer-deps.mjs --all` |
-| e2e | `playwright test --workers=2` — 133 specs (133 + no running tests) |
+| e2e | `playwright test --workers=2` — 135 specs (135 + no running tests) |
 
 A merge is only as trustworthy as the last full local run, so run all of them
 before merging anything that CI would otherwise have gated.

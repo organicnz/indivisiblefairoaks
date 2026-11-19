@@ -4,7 +4,7 @@ import { Monitor, RotateCw, Smartphone, Tablet } from 'lucide-react';
 import { useThemeMode } from '@/components/layout/theme-store';
 import type { ThemeMode } from '@/lib/theme';
 import { ThemePreviewToggle } from './composer/ui/ThemePreviewToggle';
-import type { ViewportMode } from './VisualEditOverlay';
+import type { ViewportMode } from './useVisualEditViewport';
 
 export interface ViewportDeviceBarProps {
   viewportMode: ViewportMode;

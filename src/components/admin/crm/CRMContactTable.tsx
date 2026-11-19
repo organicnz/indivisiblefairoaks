@@ -4,8 +4,14 @@ import { Edit2, ExternalLink, Trash2, Users } from 'lucide-react';
 import Link from 'next/link';
 import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import { CRMPager } from '@/components/admin/crm/CRMPager';
+import {
+  CRM_CONTACT_CONSENT_OPTIONS,
+  CRM_CONTACT_DEFAULTS,
+  CRM_CONTACT_STATUS_OPTIONS,
+  crmContactConsentValue,
+} from '@/lib/crm-contact-options';
 import { type ContactFilters, filterParams, pageRange, totalPages } from '@/lib/crm-filters';
-import type { ConsentDecision, CRMContact } from '@/types/crm';
+import type { ConsentDecision, CRMContact, CRMContactStatus } from '@/types/crm';
 
 const STATUS_COLORS: Record<string, string> = {
   active_volunteer: 'bg-emerald-100 text-emerald-800 border-emerald-300',
@@ -31,7 +37,7 @@ interface CRMContactTableProps {
   updatingConsentId: string | null;
   onConsentChange: (contact: CRMContact, next: ConsentDecision) => void;
   updatingStatusId: string | null;
-  onStatusChange: (contact: CRMContact, nextStatus: string) => void;
+  onStatusChange: (contact: CRMContact, nextStatus: CRMContactStatus) => void;
   addingTagContactId: string | null;
   inlineTagInput: string;
   onInlineTagInputChange: (value: string) => void;
@@ -137,7 +143,7 @@ export function CRMContactTable({
                 Contributions
               </th>
               <th scope="col" className="py-3.5 px-4">
-                Last Active
+                Last Engaged
               </th>
               <th scope="col" className="py-3.5 px-4 text-right">
                 Action
@@ -161,7 +167,9 @@ export function CRMContactTable({
                 const fullName =
                   [contact.first_name, contact.last_name].filter(Boolean).join(' ') ||
                   contact.email.split('@')[0];
-                const statusClass = STATUS_COLORS[contact.status] || STATUS_COLORS.supporter;
+                const statusClass =
+                  STATUS_COLORS[contact.status] || STATUS_COLORS[CRM_CONTACT_DEFAULTS.status];
+                const consent = crmContactConsentValue(contact.do_not_email);
 
                 return (
                   <tr
@@ -195,13 +203,7 @@ export function CRMContactTable({
                       <div className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-1.5">
                         <span className="truncate">{contact.email}</span>
                         <select
-                          value={
-                            contact.do_not_email === true
-                              ? 'opted_out'
-                              : contact.do_not_email === false
-                                ? 'opted_in'
-                                : 'unasked'
-                          }
+                          value={consent}
                           disabled={updatingConsentId === contact.id}
                           onChange={(e) =>
                             onConsentChange(contact, e.target.value as ConsentDecision)
@@ -216,9 +218,11 @@ export function CRMContactTable({
                           title="Quick change email consent"
                           aria-label={`Email consent for ${fullName}`}
                         >
-                          <option value="opted_in">opted-in</option>
-                          <option value="opted_out">opt-out</option>
-                          <option value="unasked">unasked</option>
+                          {CRM_CONTACT_CONSENT_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.tableLabel}
+                            </option>
+                          ))}
                         </select>
                       </div>
                       {contact.phone && (
@@ -231,7 +235,7 @@ export function CRMContactTable({
                     {/* District & City */}
                     <td className="py-3.5 px-4">
                       <span className="inline-block font-mono font-bold text-[11px] px-2 py-0.5 rounded-md bg-surface-muted text-foreground">
-                        {contact.district || 'CA-06'}
+                        {contact.district || CRM_CONTACT_DEFAULTS.district}
                       </span>
                       {contact.city && (
                         <div className="text-[11px] text-muted-foreground mt-0.5">
@@ -246,19 +250,20 @@ export function CRMContactTable({
                         <select
                           value={contact.status}
                           disabled={updatingStatusId === contact.id}
-                          onChange={(e) => onStatusChange(contact, e.target.value)}
+                          onChange={(e) =>
+                            onStatusChange(contact, e.target.value as CRMContactStatus)
+                          }
                           className={`cursor-pointer appearance-none rounded-sm border px-2.5 py-0.5 pr-5 text-[10px] font-black uppercase tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${statusClass} ${
                             updatingStatusId === contact.id ? 'opacity-50' : ''
                           }`}
                           title="Click to quick change status"
                           aria-label={`Status for ${fullName}`}
                         >
-                          <option value="active_volunteer">Active Volunteer</option>
-                          <option value="organizer">Organizer</option>
-                          <option value="choir">Resistance Choir</option>
-                          <option value="donor">Donor</option>
-                          <option value="supporter">Supporter</option>
-                          <option value="inactive">Inactive</option>
+                          {CRM_CONTACT_STATUS_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
                         </select>
                         <span className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-[8px] opacity-60">
                           ▼
@@ -332,18 +337,24 @@ export function CRMContactTable({
                       )}
                     </td>
 
-                    {/* Last Active */}
+                    {/* Last Engaged */}
                     <td className="py-3.5 px-4 text-muted-foreground text-[11px]">
-                      {contact.last_contacted_at
-                        ? new Date(contact.last_contacted_at).toLocaleDateString('en-US', {
+                      {contact.last_engaged_at ? (
+                        <span>
+                          {new Date(contact.last_engaged_at).toLocaleDateString('en-US', {
                             month: 'short',
                             day: 'numeric',
                             year: 'numeric',
-                          })
-                        : new Date(contact.created_at).toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
                           })}
+                        </span>
+                      ) : (
+                        <span
+                          className="text-muted-foreground/70"
+                          title="No inbound or outbound contact has been recorded"
+                        >
+                          Never
+                        </span>
+                      )}
                     </td>
 
                     {/* Action Links */}

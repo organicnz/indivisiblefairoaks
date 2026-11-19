@@ -12,6 +12,10 @@ export const MASTHEAD_TITLE_DOCUMENT =
 export const MASTHEAD_INTRO =
   'max-w-2xl text-pretty text-base leading-relaxed text-muted-foreground sm:text-lg';
 
+/** Section headings below a page masthead, one step below the h1. */
+export const SECTION_TITLE =
+  'text-balance font-display text-3xl font-semibold leading-[1.04] tracking-[-0.035em] text-foreground sm:text-4xl';
+
 type PageMastheadProps = {
   /** Small uppercase label above the title. Pass a DataPoint when editable. */
   eyebrow: ReactNode;
@@ -107,7 +111,7 @@ export function PageMasthead({
                 </div>
               </div>
             )}
-                    </div>
+          </div>
         </div>
         <span
           aria-hidden="true"

@@ -2,7 +2,11 @@
 
 import { Trash2 } from 'lucide-react';
 import { ConfirmAction } from '@/components/admin/ConfirmAction';
-import type { ConsentDecision } from '@/types/crm';
+import {
+  CRM_CONTACT_BULK_CONSENT_OPTIONS,
+  CRM_CONTACT_BULK_STATUS_OPTIONS,
+} from '@/lib/crm-contact-options';
+import type { ConsentDecision, CRMContactStatus } from '@/types/crm';
 
 export function ContactBulkActionsBar({
   count,
@@ -25,7 +29,7 @@ export function ContactBulkActionsBar({
   onClear: () => void;
   onTagInputChange: (value: string) => void;
   onDistrictInputChange: (value: string) => void;
-  onBulkStatus: (status: string) => void;
+  onBulkStatus: (status: CRMContactStatus) => void;
   onBulkAddTag: () => void;
   onBulkDistrict: () => void;
   onBulkConsent: (consent: ConsentDecision) => void;
@@ -56,7 +60,7 @@ export function ContactBulkActionsBar({
           disabled={busy}
           onChange={(e) => {
             if (e.target.value) {
-              onBulkStatus(e.target.value);
+              onBulkStatus(e.target.value as CRMContactStatus);
               e.target.value = '';
             }
           }}
@@ -66,12 +70,11 @@ export function ContactBulkActionsBar({
           <option value="" disabled>
             Change Status…
           </option>
-          <option value="active_volunteer">Active Volunteer</option>
-          <option value="organizer">Organizer</option>
-          <option value="choir">Resistance Choir</option>
-          <option value="donor">Donor</option>
-          <option value="supporter">Supporter</option>
-          <option value="inactive">Inactive</option>
+          {CRM_CONTACT_BULK_STATUS_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
         </select>
       </div>
 
@@ -147,9 +150,11 @@ export function ContactBulkActionsBar({
           <option value="" disabled>
             Consent…
           </option>
-          <option value="opted_in">Opt in</option>
-          <option value="opted_out">Opt out</option>
-          <option value="unasked">Mark unasked</option>
+          {CRM_CONTACT_BULK_CONSENT_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.bulkLabel}
+            </option>
+          ))}
         </select>
       </div>
 

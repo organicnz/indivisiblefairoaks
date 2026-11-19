@@ -1,11 +1,6 @@
 import { isUsPoint } from '@/lib/geo/us-boundary';
 import { fetchWithTimeout } from '@/lib/service-fetch';
-import {
-  APPROXIMATE_TIMEOUT_MS,
-  GEO_ENDPOINT,
-  GEOLOCATION_TIMEOUT_MS,
-  NOMINATIM_SEARCH_URL,
-} from './constants';
+import { GEOLOCATION_TIMEOUT_MS } from './constants';
 import { US_STATE_OPTIONS } from './us-state-options';
 
 const STATE_CODES = new Set(US_STATE_OPTIONS.map((state) => state.code));
@@ -73,8 +68,7 @@ export function isLocateResponse(value: unknown): value is LocateResponse {
       Number.isFinite(candidate.reportCount) &&
       typeof candidate.exact === 'boolean' &&
       (candidate.distanceMiles === null ||
-        (typeof candidate.distanceMiles === 'number' &&
-          Number.isFinite(candidate.distanceMiles)))
+        (typeof candidate.distanceMiles === 'number' && Number.isFinite(candidate.distanceMiles)))
     );
   }
 
@@ -108,10 +102,7 @@ export function stateCodeFromAddress(address?: NominatimAddress) {
 
   const stateName = address?.state?.trim().toLowerCase();
   if (!stateName) return '';
-  return (
-    US_STATE_OPTIONS.find((state) => state.name.toLowerCase() === stateName)?.code ??
-    ''
-  );
+  return US_STATE_OPTIONS.find((state) => state.name.toLowerCase() === stateName)?.code ?? '';
 }
 
 export function cityFromAddress(address?: NominatimAddress) {
@@ -133,9 +124,7 @@ export function cityFromAddress(address?: NominatimAddress) {
 
 export function stateLabel(stateCode: string) {
   if (!stateCode) return '';
-  return (
-    US_STATE_OPTIONS.find((state) => state.code === stateCode)?.name ?? stateCode
-  );
+  return US_STATE_OPTIONS.find((state) => state.code === stateCode)?.name ?? stateCode;
 }
 
 export function readBrowserPosition(signal: AbortSignal): Promise<{ lat: number; lng: number }> {
@@ -204,7 +193,5 @@ export async function requestLocate(
   if (!response.ok) return { available: false, reason: 'unavailable' };
 
   const payload: unknown = await response.json();
-  return isLocateResponse(payload)
-    ? payload
-    : { available: false, reason: 'unavailable' };
+  return isLocateResponse(payload) ? payload : { available: false, reason: 'unavailable' };
 }

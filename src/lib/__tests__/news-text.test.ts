@@ -4,28 +4,33 @@ import {
   analyzeNewsText,
   buildNewsSearchSnippet,
   collectNewsletterTopics,
-  countNewsletterTopics,
   containsNewsPhrase,
+  countNewsletterTopics,
   displayNewsQuery,
-  hasNewsQuery,
   hasNewsletterTopic,
+  hasNewsQuery,
   inspectNewsText,
   isAllNewsletterTopics,
   mergeNewsletterRows,
   NEWSLETTER_CARD_EXCERPT_LENGTH,
   NEWSLETTER_LONG_SENTENCE_WORDS,
-  normalizeNewsText,
   newsletterTopicKey,
-  parseNewsQuery,
+  normalizeNewsText,
   parseNewsletterTopicInput,
+  parseNewsQuery,
   resolveNewsQuery,
-  searchNewsPosts,
   searchNewsletters,
+  searchNewsPosts,
   sortNewsletters,
   splitNewsTextHighlights,
   tidyNewsText,
   uniqueNewsletterTopics,
 } from '@/lib/news-text';
+import {
+  matchesPreparedNewsText,
+  prepareNewsField,
+  scorePreparedNewsText,
+} from '@/lib/news-text/match';
 
 const newsletter = {
   slug: 'summer-bulletin',
@@ -42,10 +47,7 @@ const matchesTitle = (title: string, query: string) =>
 describe('news and newsletter text processing', () => {
   it('normalizes case, accents, punctuation, apostrophes and ampersands', () => {
     expect(normalizeNewsText('  Résumé & Chapter’s — July!  ')).toBe('resume and chapters july');
-    expect(parseNewsQuery('Election, election DEFENSE').tokens).toEqual([
-      'election',
-      'defense',
-    ]);
+    expect(parseNewsQuery('Election, election DEFENSE').tokens).toEqual(['election', 'defense']);
   });
 
   it('keeps non-Latin names and folds invisible paste characters', () => {
@@ -78,20 +80,13 @@ describe('news and newsletter text processing', () => {
     expect(parsed.tokens).toEqual(['public', 'schools', 'funding']);
     expect(parsed.phrases).toEqual([['public', 'schools']]);
     expect(parseNewsQuery('“public schools”').phrases).toEqual([['public', 'schools']]);
-    expect(containsNewsPhrase(['public', 'schools', 'funding'], ['public', 'schools'])).toBe(
-      true
-    );
-    expect(containsNewsPhrase(['public', 'funding', 'schools'], ['public', 'schools'])).toBe(
-      false
-    );
+    expect(containsNewsPhrase(['public', 'schools', 'funding'], ['public', 'schools'])).toBe(true);
+    expect(containsNewsPhrase(['public', 'funding', 'schools'], ['public', 'schools'])).toBe(false);
 
     expect(matchesTitle('Public schools funding', '"public schools"')).toBe(true);
     expect(matchesTitle('Public funding for schools', '"public schools"')).toBe(false);
     expect(
-      searchNewsPosts(
-        [{ title: 'Public', excerpt: 'schools update' }],
-        '"public schools"'
-      )
+      searchNewsPosts([{ title: 'Public', excerpt: 'schools update' }], '"public schools"')
     ).toHaveLength(0);
     expect(matchesTitle('Public funding for schools', 'public schools')).toBe(true);
     expect(matchesTitle('Public schools funding', '"public schools" funding')).toBe(true);
@@ -106,10 +101,7 @@ describe('news and newsletter text processing', () => {
       '"public schools"'
     );
 
-    expect(ranked.map((post) => post.title)).toEqual([
-      'Public schools funding',
-      'Budget notes',
-    ]);
+    expect(ranked.map((post) => post.title)).toEqual(['Public schools funding', 'Budget notes']);
   });
 
   it('searches newsletters by normalized tokens', () => {
@@ -162,9 +154,7 @@ describe('news and newsletter text processing', () => {
         { topics: ['Election defense', '', 'Choir'] },
       ])
     ).toEqual(['Election Defense', 'choir']);
-    expect(collectNewsletterTopics([{ topics: ['All Topics', 'Choir'] }])).toEqual([
-      'Choir',
-    ]);
+    expect(collectNewsletterTopics([{ topics: ['All Topics', 'Choir'] }])).toEqual(['Choir']);
   });
 
   it('counts topics from the rows already matched by the query', () => {
@@ -183,9 +173,7 @@ describe('news and newsletter text processing', () => {
         'choir actions': 2,
       },
     });
-    expect(
-      countNewsletterTopics(searchNewsletters([newsletter, bulletin], 'election'))
-    ).toEqual({
+    expect(countNewsletterTopics(searchNewsletters([newsletter, bulletin], 'election'))).toEqual({
       all: 1,
       byTopic: { 'election defense': 1, 'choir actions': 1 },
     });
@@ -214,9 +202,10 @@ describe('news and newsletter text processing', () => {
         topics: ['Choir Actions'],
       },
     ];
-    expect(
-      searchNewsletters(bulletins, 'choir actions').map((item) => item.title)
-    ).toEqual(['Choir Actions Bulletin', 'September Roundup']);
+    expect(searchNewsletters(bulletins, 'choir actions').map((item) => item.title)).toEqual([
+      'Choir Actions Bulletin',
+      'September Roundup',
+    ]);
   });
 
   it('filters news posts by title, excerpt and slug', () => {
@@ -228,17 +217,51 @@ describe('news and newsletter text processing', () => {
     expect(searchNewsPosts(posts, 'choir-night')).toEqual([posts[1]]);
   });
 
+  it('handles empty prepared fields, phrase boundaries and scoring fallbacks', () => {
+    expect(prepareNewsField(null)).toBeNull();
+    expect(prepareNewsField(undefined)).toBeNull();
+    expect(prepareNewsField('')).toBeNull();
+    expect(prepareNewsField('  !!!  ')).toBeNull();
+    expect(prepareNewsField('  Public   Schools ')).toEqual({ words: ['public', 'schools'] });
+
+    const parsed = parseNewsQuery('public schools');
+    const phrase = parseNewsQuery('"public schools"');
+    expect(matchesPreparedNewsText([], { tokens: [], phrases: [] })).toBe(true);
+    expect(
+      matchesPreparedNewsText([prepareNewsField('public'), prepareNewsField('schools')], parsed)
+    ).toBe(true);
+    expect(matchesPreparedNewsText([null, prepareNewsField('public')], parsed)).toBe(false);
+    expect(
+      matchesPreparedNewsText([prepareNewsField('public'), prepareNewsField('schools')], phrase)
+    ).toBe(false);
+    expect(matchesPreparedNewsText([prepareNewsField('public schools')], phrase)).toBe(true);
+
+    expect(scorePreparedNewsText([], { tokens: [], phrases: [] })).toBe(0);
+    expect(
+      scorePreparedNewsText([null, { words: [] }, prepareNewsField('public schools')], phrase)
+    ).toBeGreaterThan(0);
+    expect(scorePreparedNewsText([prepareNewsField('other')], parsed)).toBe(0);
+    expect(scorePreparedNewsText([prepareNewsField('public')], parsed, [])).toBeGreaterThan(0);
+  });
+
+  it('keeps caller order for equal scores and accepts bulletins without topics', () => {
+    expect(
+      searchNewsPosts([{ title: 'Same one' }, { title: 'Same two' }], 'same').map(
+        (post) => post.title
+      )
+    ).toEqual(['Same one', 'Same two']);
+    expect(collectNewsletterTopics([{ topics: null }])).toEqual([]);
+    expect(collectNewsletterTopics([{}])).toEqual([]);
+    expect(searchNewsletters([{ title: 'No topics', topics: null }], 'no')).toHaveLength(1);
+  });
+
   it('sorts by explicit order and then title without mutating the input', () => {
     const input = [
       { title: 'Zebra', sort_order: 10 },
       { title: 'alpha', sort_order: 10 },
       { title: 'Pinned', sort_order: 1 },
     ];
-    expect(sortNewsletters(input).map((item) => item.title)).toEqual([
-      'Pinned',
-      'alpha',
-      'Zebra',
-    ]);
+    expect(sortNewsletters(input).map((item) => item.title)).toEqual(['Pinned', 'alpha', 'Zebra']);
     expect(input.map((item) => item.title)).toEqual(['Zebra', 'alpha', 'Pinned']);
   });
 
@@ -295,9 +318,10 @@ describe('news and newsletter text processing', () => {
       },
     ];
 
-    expect(
-      searchNewsPosts(posts, 'schools funding').map((post) => post.title)
-    ).toEqual(['Public Schools Funding', 'Community Update']);
+    expect(searchNewsPosts(posts, 'schools funding').map((post) => post.title)).toEqual([
+      'Public Schools Funding',
+      'Community Update',
+    ]);
     expect(searchNewsPosts(posts, '').map((post) => post.title)).toEqual(
       posts.map((post) => post.title)
     );
@@ -317,9 +341,10 @@ describe('news and newsletter text processing', () => {
       },
     ];
 
-    expect(
-      searchNewsletters(items, 'choir actions').map((item) => item.title)
-    ).toEqual(['Choir Actions Bulletin', 'September Roundup']);
+    expect(searchNewsletters(items, 'choir actions').map((item) => item.title)).toEqual([
+      'Choir Actions Bulletin',
+      'September Roundup',
+    ]);
   });
 
   it('ranks whole-word matches ahead of longer-word prefixes', () => {
@@ -360,10 +385,9 @@ describe('news and newsletter text processing', () => {
     const text = 'A long excerpt that should remain readable in full. '.repeat(8).trim();
     expect(buildNewsSearchSnippet(text, 'title-only-match', 80)).toBe(text);
 
-    const scatteredPhrase = `${'A public funding update. '.repeat(8)}Schools remain important.`.trim();
-    expect(buildNewsSearchSnippet(scatteredPhrase, '"public schools"', 80)).toBe(
-      scatteredPhrase
-    );
+    const scatteredPhrase =
+      `${'A public funding update. '.repeat(8)}Schools remain important.`.trim();
+    expect(buildNewsSearchSnippet(scatteredPhrase, '"public schools"', 80)).toBe(scatteredPhrase);
   });
 
   it('does not crop an excerpt when the query has no searchable characters', () => {
@@ -382,14 +406,17 @@ describe('news and newsletter text processing', () => {
   it('splits original text into safe word-level highlight segments', () => {
     const segments = splitNewsTextHighlights('Public Schools, funding!', 'school fund');
 
-    expect(segments.map((segment) => segment.text).join('')).toBe(
-      'Public Schools, funding!'
-    );
-    expect(segments.filter((segment) => segment.matched).map((segment) => segment.text)).toEqual(
-      ['Schools', 'funding']
-    );
+    expect(segments.map((segment) => segment.text).join('')).toBe('Public Schools, funding!');
+    expect(segments.filter((segment) => segment.matched).map((segment) => segment.text)).toEqual([
+      'Schools',
+      'funding',
+    ]);
     expect(splitNewsTextHighlights('Choir Night', '')).toEqual([
       { text: 'Choir Night', matched: false },
+    ]);
+    expect(splitNewsTextHighlights('', 'school')).toEqual([]);
+    expect(splitNewsTextHighlights('Choir', '"public schools"')).toEqual([
+      { text: 'Choir', matched: false },
     ]);
     expect(
       splitNewsTextHighlights('School-funding update', 'school')
@@ -401,17 +428,12 @@ describe('news and newsletter text processing', () => {
   it('keeps a quoted phrase in one continuous highlight run', () => {
     const segments = splitNewsTextHighlights('Our Public schools funding', '"public schools"');
 
-    expect(segments.map((segment) => segment.text).join('')).toBe(
-      'Our Public schools funding'
-    );
-    expect(segments.filter((segment) => segment.matched).map((segment) => segment.text)).toEqual(
-      ['Public schools']
-    );
+    expect(segments.map((segment) => segment.text).join('')).toBe('Our Public schools funding');
+    expect(segments.filter((segment) => segment.matched).map((segment) => segment.text)).toEqual([
+      'Public schools',
+    ]);
 
-    const ampersandPhrase = splitNewsTextHighlights(
-      'Arts & Culture',
-      '"arts and culture"'
-    );
+    const ampersandPhrase = splitNewsTextHighlights('Arts & Culture', '"arts and culture"');
     expect(
       ampersandPhrase.filter((segment) => segment.matched).map((segment) => segment.text)
     ).toEqual(['Arts & Culture']);
@@ -435,6 +457,7 @@ describe('news and newsletter text processing', () => {
     expect(analyzeNewsText('We raised 3.5 million dollars.').sentences).toBe(1);
     expect(analyzeNewsText('U.S. officials met. They agreed.').sentences).toBe(2);
     expect(analyzeNewsText('Heading\n\nA complete sentence.').sentences).toBe(2);
+    expect(analyzeNewsText('One.\n\n \n\nTwo.').sentences).toBe(2);
     expect(analyzeNewsText('One\n\nTwo\n\nThree').paragraphs).toBe(3);
     expect(analyzeNewsText('One\r\n\r\nTwo').paragraphs).toBe(2);
   });
@@ -457,10 +480,9 @@ describe('news and newsletter text processing', () => {
     const short = inspectNewsText('Too short.').suggestions;
     expect(short.map((suggestion) => suggestion.id)).toContain('short');
 
-    const long = inspectNewsText(
-      `${'word '.repeat(NEWSLETTER_LONG_SENTENCE_WORDS + 2).trim()}.`,
-      { cardLength: 80 }
-    ).suggestions;
+    const long = inspectNewsText(`${'word '.repeat(NEWSLETTER_LONG_SENTENCE_WORDS + 2).trim()}.`, {
+      cardLength: 80,
+    }).suggestions;
     const longIds = long.map((suggestion) => suggestion.id);
     expect(longIds).toContain('card-length');
     expect(longIds).toContain('long-sentence');
@@ -469,9 +491,7 @@ describe('news and newsletter text processing', () => {
     const unfinished = inspectNewsText(
       'Organizers gathered downtown to discuss the budget and next steps'
     ).suggestions;
-    expect(unfinished.map((suggestion) => suggestion.id)).toContain(
-      'ending-punctuation'
-    );
+    expect(unfinished.map((suggestion) => suggestion.id)).toContain('ending-punctuation');
     expect(NEWSLETTER_CARD_EXCERPT_LENGTH).toBe(220);
   });
 
@@ -481,9 +501,7 @@ describe('news and newsletter text processing', () => {
     expect(inspection.analysis.words).toBe(2);
     expect(inspection.tidied).toBe('One two');
     expect(inspection.canTidy).toBe(true);
-    expect(inspection.suggestions.map((suggestion) => suggestion.id)).toContain(
-      'card-length'
-    );
+    expect(inspection.suggestions.map((suggestion) => suggestion.id)).toContain('card-length');
 
     const empty = inspectNewsText('   ');
     expect(empty.analysis.words).toBe(0);

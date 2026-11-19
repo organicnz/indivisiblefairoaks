@@ -56,6 +56,8 @@ const PAGE = 500
 const BATCH = 10
 /** How often the row is updated so the composer's poll shows movement. */
 const PROGRESS_EVERY = 25
+/** Ledger rows per write. A 5,000-recipient campaign seeds ten rows at a time. */
+const LEDGER_BATCH = 500
 /**
  * Per-request budget for the Resend API.
  *
@@ -119,6 +121,114 @@ interface Recipient {
   unsubscribe_token: string
 }
 
+type SendOutcome =
+  | { recipient: Recipient; ok: true; providerId: string | null; error: null }
+  | { recipient: Recipient; ok: false; providerId: null; error: string }
+
+function recipientNameFor(recipient: Recipient): string {
+  return [recipient.first_name, recipient.last_name].filter(Boolean).join(' ') || 'Supporter'
+}
+
+/**
+ * Write the intended audience as `pending` before any provider call.
+ *
+ * This is what makes the ledger durable rather than a log of successful calls:
+ * if the sender dies mid-campaign, the people who were intended to receive it
+ * are still named, and their status is honestly `pending` rather than absent.
+ * The insert is idempotent so a retried invocation cannot create duplicates,
+ * though `dispatched_at` normally prevents a second invocation entirely.
+ */
+async function seedRecipientLedger(
+  supabase: SupabaseClient<any>,
+  broadcastId: string,
+  recipients: Recipient[],
+  isSelfTest: boolean,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const rows = recipients.map((recipient) => ({
+    broadcast_id: broadcastId,
+    contact_id: isSelfTest ? null : recipient.id,
+    email: recipient.email.trim().toLowerCase(),
+    recipient_name: recipientNameFor(recipient),
+    status: 'pending',
+  }))
+
+  for (let i = 0; i < rows.length; i += LEDGER_BATCH) {
+    const { error } = await supabase
+      .from('crm_broadcast_recipients')
+      .upsert(rows.slice(i, i + LEDGER_BATCH), {
+        onConflict: 'broadcast_id,email',
+        ignoreDuplicates: true,
+      })
+    if (error) return { ok: false, error: error.message }
+  }
+  return { ok: true }
+}
+
+/**
+ * Settle one provider batch. Only pending rows move, so a suppression event
+ * that arrived while the request was in flight keeps its terminal status.
+ */
+async function settleRecipientLedger(
+  supabase: SupabaseClient<any>,
+  broadcastId: string,
+  results: Array<{
+    email: string
+    status: 'accepted' | 'failed'
+    provider_id: string | null
+    reason: string | null
+  }>,
+): Promise<string | null> {
+  const { error } = await supabase.rpc('crm_broadcast_settle_recipients', {
+    p_broadcast_id: broadcastId,
+    p_results: results,
+  })
+  return error?.message ?? null
+}
+
+/**
+ * Apply a broadcast's status filters through the same canonical donor column
+ * the Next resolver and `crm_stats()` use. `status = 'donor'` alone is not the
+ * donor definition: the generated `is_donor` column also catches the donor tag
+ * and a positive lifetime donation total.
+ *
+ * The non-donor status values are interpolated into a PostgREST `.or()` string,
+ * so only the fixed vocabulary is allowed through. `crm_broadcasts.target_status`
+ * has no CHECK constraint, and a hand-edited or legacy row must not be able to
+ * turn a status into query syntax. Unknown statuses cannot match the contact
+ * status CHECK, so dropping them leaves the donor clause intact.
+ */
+type StatusQuery<T> = {
+  eq: (column: string, value: unknown) => T
+  in: (column: string, values: readonly string[]) => T
+  or: (filter: string) => T
+}
+
+const KNOWN_CONTACT_STATUSES = new Set([
+  'active_volunteer',
+  'supporter',
+  'donor',
+  'choir',
+  'organizer',
+  'inactive',
+])
+
+function applyTargetStatus<T extends StatusQuery<T>>(query: T, statuses: string[]): T {
+  const unique = [...new Set(statuses.map((status) => status.trim()).filter(Boolean))]
+  if (unique.length === 0) return query
+  if (!unique.includes('donor')) {
+    return unique.length === 1 ? query.eq('status', unique[0]) : query.in('status', unique)
+  }
+
+  const otherStatuses = unique.filter(
+    (status) => status !== 'donor' && KNOWN_CONTACT_STATUSES.has(status),
+  )
+  if (otherStatuses.length === 0) return query.eq('is_donor', true)
+
+  return query.or(
+    ['is_donor.eq.true', ...otherStatuses.map((status) => `status.eq.${status}`)].join(','),
+  )
+}
+
 // '*', not '/': Supabase delivers the request with its full path
 // (/functions/v1/crm-broadcast-send), so a '/' route never matches and the
 // handler is silently dead — the auth middleware still answers 401, which
@@ -147,7 +257,9 @@ app.post('*', async (c) => {
 
   const { data: broadcast, error: readError } = await supabase
     .from('crm_broadcasts')
-    .select('id, subject, body, status, recipient_count, sent_count, dispatched_at, target_tags, target_status, target_districts, test_recipient, test_only')
+    .select(
+      'id, subject, body, status, recipient_count, sent_count, dispatched_at, target_tags, target_status, target_districts, test_recipient, test_only, source_newsletter_slug',
+    )
     .eq('id', broadcastId)
     .maybeSingle()
 
@@ -183,6 +295,12 @@ app.post('*', async (c) => {
 
   const body = broadcast.body ?? ''
   const subject = broadcast.subject ?? '(no subject)'
+  // A bulletin campaign is identified by its source slug. That presence is the
+  // sender's own gate: the Edge function runs with the service key, so it must
+  // not trust the caller's target filters alone to enforce double opt-in.
+  const newsletterConfirmedOnly =
+    typeof broadcast.source_newsletter_slug === 'string' &&
+    broadcast.source_newsletter_slug.length > 0
 
   const recipients: Recipient[] = []
 
@@ -256,7 +374,9 @@ app.post('*', async (c) => {
   for (let offset = 0; !isSelfTest && offset <= BROADCAST_RECIPIENT_CEILING; offset += PAGE) {
     let qb = supabase
       .from('crm_contacts')
-      .select('id, email, first_name, last_name, unsubscribe_token, do_not_email')
+      .select(
+        'id, email, first_name, last_name, unsubscribe_token, do_not_email, newsletter_confirmed_at',
+      )
       .eq('do_not_email', false)
       // Ordered, and by the primary key.
       //
@@ -271,10 +391,14 @@ app.post('*', async (c) => {
       // still tie.
       .order('id', { ascending: true })
 
+    if (newsletterConfirmedOnly) {
+      qb = qb.not('newsletter_confirmed_at', 'is', null)
+    }
+
     const tags = broadcast.target_tags ?? []
     const statuses = broadcast.target_status ?? []
     const districts = broadcast.target_districts ?? []
-    if (statuses.length > 0) qb = qb.in('status', statuses)
+    qb = applyTargetStatus(qb, statuses)
     if (districts.length > 0) qb = qb.in('district', districts)
     for (const tag of tags) qb = qb.contains('tags', [tag])
 
@@ -296,8 +420,15 @@ app.post('*', async (c) => {
      * selected for exactly this filter.
      */
     recipients.push(
-      ...(data as (Recipient & { do_not_email: boolean | null })[]).filter((r) =>
-        isInAudience(r.do_not_email)
+      ...(
+        data as (Recipient & {
+          do_not_email: boolean | null
+          newsletter_confirmed_at?: string | null
+        })[]
+      ).filter(
+        (r) =>
+          isInAudience(r.do_not_email) &&
+          (!newsletterConfirmedOnly || Boolean(r.newsletter_confirmed_at)),
       )
     )
     // Past the ceiling is a refusal, not a truncation: stop collecting and leave
@@ -321,18 +452,53 @@ app.post('*', async (c) => {
   }
 
   const logoUrl = `${SUPABASE_URL}/${LOGO_PATH}`
+
+  /*
+   * The ledger is written before the first email is sent, and failure is fatal
+   * to the run. Sending first and recording afterwards is how a campaign ends
+   * up with delivered mail and no follow-up list when the sender is interrupted.
+   * Refusing here leaves the campaign visibly failed and nothing in an inbox.
+   */
+  const seeded = await seedRecipientLedger(supabase, broadcastId, recipients, isSelfTest)
+  if (!seeded.ok) {
+    // A batch can have committed before a later one failed. Those rows are
+    // pending with no send behind them; settle them as failed so the campaign
+    // does not carry a permanent `pending` tail. If the table itself is absent,
+    // this also fails and the campaign still stops before any email is sent.
+    const { error: cleanupError } = await supabase
+      .from('crm_broadcast_recipients')
+      .update({
+        status: 'failed',
+        failed_at: new Date().toISOString(),
+        reason: 'Recipient ledger could not be fully written; nothing was sent',
+      })
+      .eq('broadcast_id', broadcastId)
+      .eq('status', 'pending')
+    if (cleanupError) {
+      console.error(
+        `[crm-broadcast-send] partial ledger cleanup failed for broadcast ${broadcastId}:`,
+        cleanupError.message,
+      )
+    }
+    await finish(supabase, broadcastId, 'failed', recipients.length, 0, recipients.length)
+    return c.json(
+      { error: `recipient ledger could not be written; nothing was sent: ${seeded.error}` },
+      500,
+    )
+  }
+
   let sent = 0
   let failed = 0
   let activityWriteFailures = 0
   let activityRowsLost = 0
+  let ledgerWriteFailures = 0
   const activityRows: Array<Record<string, unknown>> = []
 
   for (let i = 0; i < recipients.length; i += BATCH) {
     const batch = recipients.slice(i, i + BATCH)
     const results = await Promise.all(
-      batch.map(async (recipient) => {
-        const recipientName =
-          [recipient.first_name, recipient.last_name].filter(Boolean).join(' ') || 'Supporter'
+      batch.map(async (recipient): Promise<SendOutcome> => {
+        const recipientName = recipientNameFor(recipient)
         // A preview has no subscription behind it, so it carries no unsubscribe
         // link and no List-Unsubscribe header. A link built from an empty token
         // would be a dead URL in a real inbox, and an unsubscribe header on a
@@ -351,51 +517,101 @@ app.post('*', async (c) => {
           siteUrl: APP_URL.replace(/\/$/, ''),
         })
 
-        const res = await fetch(RESEND_API_URL, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${RESEND_API_KEY}`,
-            'Content-Type': 'application/json',
-            // One key per (campaign, recipient). A retry of this exact request —
-            // e.g. after the 20s timeout fired but Resend had in fact accepted it —
-            // is answered from Resend's 24h cache instead of mailing twice. Unlike
-            // the checkout case in AGENTS.md, the key cannot collide with a
-            // legitimate second send: every campaign is a new broadcast row.
-            'Idempotency-Key': `crm-broadcast/${broadcastId}/${recipient.id}`,
-          },
-          body: JSON.stringify({
-            from: RESEND_FROM_EMAIL,
-            to: [recipient.email],
-            subject,
-            html,
-            text,
-            reply_to: ADMIN_ORDER_EMAIL,
-            headers: isSelfTest
-              ? { 'X-CRM-Test': 'true' }
-              : {
-                'List-Unsubscribe': `<${unsubscribe}>, <mailto:${ADMIN_ORDER_EMAIL}?subject=Unsubscribe>`,
-                'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
-              },
-            tags: [
-              { name: 'type', value: isSelfTest ? 'crm-broadcast-test' : 'crm-broadcast' },
-              { name: 'broadcast_id', value: broadcastId },
-            ],
-          }),
-          // Bounded. Without it a hung provider connection strands the row at
-          // `sending` with `dispatched_at` set — the one state
-          // docs/crm-operations.md says must never be touched, because
-          // clearing it re-sends to everyone already delivered to. A timeout
-          // turns that unrecoverable hang into a counted failure this isolate
-          // can finish() and report.
-          signal: AbortSignal.timeout(RESEND_TIMEOUT_MS),
-        })
-        return { recipient, res }
+        try {
+          const res = await fetch(RESEND_API_URL, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${RESEND_API_KEY}`,
+              'Content-Type': 'application/json',
+              // One key per (campaign, recipient). A retry of this exact request —
+              // e.g. after the 20s timeout fired but Resend had in fact accepted it —
+              // is answered from Resend's 24h cache instead of mailing twice. Unlike
+              // the checkout case in AGENTS.md, the key cannot collide with a
+              // legitimate second send: every campaign is a new broadcast row.
+              'Idempotency-Key': `crm-broadcast/${broadcastId}/${recipient.id}`,
+            },
+            body: JSON.stringify({
+              from: RESEND_FROM_EMAIL,
+              to: [recipient.email],
+              subject,
+              html,
+              text,
+              reply_to: ADMIN_ORDER_EMAIL,
+              headers: isSelfTest
+                ? { 'X-CRM-Test': 'true' }
+                : {
+                  'List-Unsubscribe': `<${unsubscribe}>, <mailto:${ADMIN_ORDER_EMAIL}?subject=Unsubscribe>`,
+                  'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+                },
+              tags: [
+                { name: 'type', value: isSelfTest ? 'crm-broadcast-test' : 'crm-broadcast' },
+                { name: 'broadcast_id', value: broadcastId },
+              ],
+            }),
+            // Bounded. Without it a hung provider connection strands the row at
+            // `sending` with `dispatched_at` set — the one state
+            // docs/crm-operations.md says must never be touched, because
+            // clearing it re-sends to everyone already delivered to. A timeout
+            // turns that unrecoverable hang into a counted failure this isolate
+            // can finish() and report.
+            signal: AbortSignal.timeout(RESEND_TIMEOUT_MS),
+          })
+
+          if (!res.ok) {
+            let reason = `Resend responded ${res.status}`
+            try {
+              const payload = await res.json() as { message?: unknown; error?: unknown }
+              const detail =
+                typeof payload.message === 'string'
+                  ? payload.message
+                  : typeof payload.error === 'string'
+                  ? payload.error
+                  : ''
+              if (detail) reason = `${reason}: ${detail}`
+            } catch {
+              // A non-JSON error body still leaves the status as the reason.
+            }
+            return { recipient, ok: false, providerId: null, error: reason }
+          }
+
+          let providerId: string | null = null
+          try {
+            const payload = await res.json() as { id?: unknown }
+            if (typeof payload.id === 'string') providerId = payload.id
+          } catch {
+            // Acceptance counts even when the provider's body is not JSON.
+          }
+          return { recipient, ok: true, providerId, error: null }
+        } catch (error) {
+          return {
+            recipient,
+            ok: false,
+            providerId: null,
+            error: error instanceof Error ? error.message : 'provider request failed',
+          }
+        }
       }),
     )
 
-    for (const { recipient, res } of results) {
-      if (res.ok) {
+    const deliveredIds: string[] = []
+    const ledgerResults: Array<{
+      email: string
+      status: 'accepted' | 'failed'
+      provider_id: string | null
+      reason: string | null
+    }> = []
+    for (const outcome of results) {
+      const { recipient } = outcome
+      const email = recipient.email.trim().toLowerCase()
+      if (outcome.ok) {
         sent += 1
+        if (!isSelfTest) deliveredIds.push(recipient.id)
+        ledgerResults.push({
+          email,
+          status: 'accepted',
+          provider_id: outcome.providerId,
+          reason: null,
+        })
         // No activity row for a preview. `crm_activities.contact_id` references
         // `crm_contacts(id)`, and a self-test has no contact — the sentinel id
         // would fail the foreign key and abort the write. Logging it against a
@@ -412,6 +628,41 @@ app.post('*', async (c) => {
         }
       } else {
         failed += 1
+        ledgerResults.push({
+          email,
+          status: 'failed',
+          provider_id: null,
+          reason: outcome.error,
+        })
+      }
+    }
+
+    const settleError = await settleRecipientLedger(supabase, broadcastId, ledgerResults)
+    if (settleError) {
+      ledgerWriteFailures += 1
+      console.error(
+        `[crm-broadcast-send] ledger settlement failed for broadcast ${broadcastId}:`,
+        settleError,
+      )
+    }
+
+    /*
+     * Stamp the delivery fact before writing the timeline entries. A campaign
+     * that crosses the `email_sent` flood guard loses later activity rows, but
+     * the mail was delivered and the contact's last-outbound date must still say
+     * so. The SQL function applies `greatest`, so a later direct email cannot be
+     * moved backwards by a slower batch here.
+     */
+    if (deliveredIds.length > 0) {
+      const { error: stampError } = await supabase.rpc('crm_stamp_outbound_contacts', {
+        p_contact_ids: deliveredIds,
+        p_at: new Date().toISOString(),
+      })
+      if (stampError) {
+        console.error(
+          `[crm-broadcast-send] outbound date stamp failed for broadcast ${broadcastId}:`,
+          stampError.message,
+        )
       }
     }
 
@@ -452,11 +703,34 @@ app.post('*', async (c) => {
     }
   }
 
+  /*
+   * A terminal campaign must not leave rows `pending`: a pending row is not a
+   * follow-up and cannot be counted as accepted. Settlement failures above are
+   * the only route here; the rows are marked failed with an honest reason rather
+   * than silently omitted from the ledger.
+   */
+  const { error: pendingError } = await supabase
+    .from('crm_broadcast_recipients')
+    .update({
+      status: 'failed',
+      failed_at: new Date().toISOString(),
+      reason: 'Sender finished without a recorded provider outcome',
+    })
+    .eq('broadcast_id', broadcastId)
+    .eq('status', 'pending')
+  if (pendingError) {
+    ledgerWriteFailures += 1
+    console.error(
+      `[crm-broadcast-send] leftover ledger settlement failed for broadcast ${broadcastId}:`,
+      pendingError.message,
+    )
+  }
+
   const status = sent > 0 ? 'sent' : 'failed'
   await finish(supabase, broadcastId, status, recipients.length, sent, failed)
 
   return c.json({
-    ok: activityWriteFailures === 0,
+    ok: activityWriteFailures === 0 && ledgerWriteFailures === 0,
     recipientCount: recipients.length,
     sent,
     failed,
@@ -464,12 +738,15 @@ app.post('*', async (c) => {
     // statement: the mail went out, the record of it did not. A caller that
     // only reads `ok` learns the truth; one that reads `sent` still gets the
     // delivery number it always did.
-    ...(activityWriteFailures > 0
+    ...(activityWriteFailures > 0 || ledgerWriteFailures > 0
       ? {
         activityWriteFailures,
         activityRowsLost,
+        ledgerWriteFailures,
         warning:
-          'delivery completed but some timeline entries could not be written; the guard in 20260929120000 may still be counting broadcast rows',
+          activityWriteFailures > 0
+            ? 'delivery completed but some timeline entries could not be written; the guard in 20260929120000 may still be counting broadcast rows'
+            : 'delivery completed but some recipient ledger rows could not be settled; the campaign metrics may undercount until they are retried',
       }
       : {}),
   })

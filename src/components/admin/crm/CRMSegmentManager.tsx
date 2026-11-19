@@ -11,7 +11,8 @@ import {
   getCRMExistingTags,
   saveCRMSegment,
 } from '@/lib/actions/crm';
-import type { CRMSegment } from '@/types/crm';
+import { CRM_CONTACT_CONSENT_OPTIONS } from '@/lib/crm-contact-options';
+import type { ConsentDecision, CRMSegment } from '@/types/crm';
 
 /**
  * Saved audience segments — the CRM's missing list view.
@@ -36,7 +37,7 @@ type SegmentForm = {
   statuses: string;
   districts: string;
   tags: string;
-  consent: '' | 'opted_out' | 'opted_in' | 'unasked';
+  consent: '' | ConsentDecision;
 };
 
 const EMPTY_FORM: SegmentForm = {
@@ -347,9 +348,11 @@ export function CRMSegmentManager({
             className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground focus:ring-2 focus:ring-primary"
           >
             <option value="">Any / no filter</option>
-            <option value="opted_in">Opted in</option>
-            <option value="unasked">Never asked</option>
-            <option value="opted_out">Opted out</option>
+            {CRM_CONTACT_CONSENT_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
           </select>
         </label>
 

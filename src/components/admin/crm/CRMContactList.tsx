@@ -5,12 +5,13 @@ import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { toast } from 'sonner';
 import { ConfirmAction } from '@/components/admin/ConfirmAction';
+import { ContactBulkActionsBar } from '@/components/admin/crm/ContactBulkActionsBar';
 import { CRMContactActionBar } from '@/components/admin/crm/CRMContactActionBar';
 import { CRMContactEditorModal } from '@/components/admin/crm/CRMContactEditorModal';
 import { CRMContactFilterForm } from '@/components/admin/crm/CRMContactFilterForm';
-import { CRMImportModal } from '@/components/admin/crm/CRMImportModal';
-import { ContactBulkActionsBar } from '@/components/admin/crm/ContactBulkActionsBar';
 import { CRMContactTable } from '@/components/admin/crm/CRMContactTable';
+import { CRMImportModal } from '@/components/admin/crm/CRMImportModal';
+import { useClearSelectionOnKeyChange } from '@/hooks/useClearSelectionOnKeyChange';
 import {
   bulkDeleteCRMContacts,
   bulkUpdateCRMContacts,
@@ -23,16 +24,33 @@ import {
   triggerHistoricalCRMSync,
 } from '@/lib/actions/crm';
 import {
-  type ConsentFilter,
+  allContactsSelected,
+  CRM_CONTACT_QUICK_FILTERS,
+  initialContactFilters,
+  isQuickFilterActive,
+  neutralContactFilters,
+  quickFilterFilters,
+  renameSegmentInput,
+  saveSegmentInput,
+  toggleContactSelection,
+  togglePageSelection,
+  updateSegmentInput,
+} from '@/lib/crm-contact-list';
+import {
   type ContactFilters,
   filterArgs,
   filterParams,
   filtersFromSegment,
   hasActiveFilters as hasAnyFilters,
-  parseConsentFilter,
   splitActiveValues,
 } from '@/lib/crm-filters';
-import type { ConsentDecision, CRMContact, CRMSegment } from '@/types/crm';
+import type {
+  ConsentDecision,
+  ConsentFilter,
+  CRMContact,
+  CRMContactStatus,
+  CRMSegment,
+} from '@/types/crm';
 
 interface Props {
   initialContacts: CRMContact[];
@@ -73,15 +91,6 @@ function downloadCsv(csv: string, filename: string) {
   URL.revokeObjectURL(url);
 }
 
-/**
- * Split a multi-value filter param into its parts.
- *
- * Named for what it does rather than what it is applied to: it is called on
- * `status` and `district` as well as on `tag`, which is what let a reader of the
- * old call sites believe `status` was being tag-parsed. The behaviour is
- * identical for all three.
- */
-
 export function CRMContactList({
   initialContacts,
   totalCount,
@@ -111,32 +120,44 @@ export function CRMContactList({
   const [renameInput, setRenameInput] = useState('');
   const [renamingBusy, setRenamingBusy] = useState(false);
 
-  const [query, setQuery] = useState(currentQuery);
-  const [status, setStatus] = useState(currentStatus || 'all');
-  const [district, setDistrict] = useState(currentDistrict || 'all');
-  const [tag, setTag] = useState(currentTag || 'all');
-  const [consent, setConsent] = useState<ConsentFilter>(currentConsent || 'all');
+  // Multi-selection state for bulk batch actions.
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  const [draftFilters, setDraftFilters] = useState<ContactFilters>(() =>
+    initialContactFilters({
+      query: currentQuery,
+      status: currentStatus,
+      district: currentDistrict,
+      tag: currentTag,
+      consent: currentConsent,
+    })
+  );
+  const { query, status, district, tag, consent } = draftFilters;
+
+  const updateDraft = (patch: Partial<ContactFilters>) => {
+    setDraftFilters((current) => ({ ...current, ...patch }));
+  };
 
   // Tags to offer in the filter: schema-known tags plus whatever is active now.
   const tagOptions = [...new Set([...existingTags, ...splitActiveValues(currentTag)])].sort(
     (a, b) => a.localeCompare(b)
   );
 
-  // The uncommitted form state — what the user has typed or picked but not yet
-  // applied. Only the submit handler uses this.
-  const draftFilters = (): ContactFilters => ({ query, status, district, tag, consent });
-
   // The pager must continue the result set the user is actually looking at, which
   // is the one the server ran — not the uncommitted form state. Paging off the
   // draft silently jumped to a different set whenever a filter was typed but not
   // yet applied.
-  const appliedFilters = (): ContactFilters => ({
+  const appliedFilters: ContactFilters = {
     query: currentQuery,
     status: currentStatus,
     district: currentDistrict,
     tag: currentTag,
     consent: currentConsent,
-  });
+  };
+  const appliedFilterKey = filterParams(appliedFilters).toString();
+
+  // A filter change invalidates selected rows; paging does not.
+  useClearSelectionOnKeyChange(appliedFilterKey, setSelectedIds);
 
   const applyFilters = (next: ContactFilters) => {
     const params = filterParams(next);
@@ -147,22 +168,12 @@ export function CRMContactList({
 
   const handleFilterSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    applyFilters(draftFilters());
+    applyFilters(draftFilters);
   };
 
   const handleResetFilters = () => {
-    const cleared: ContactFilters = {
-      query: '',
-      status: 'all',
-      district: 'all',
-      tag: 'all',
-      consent: 'all',
-    };
-    setQuery('');
-    setStatus('all');
-    setDistrict('all');
-    setTag('all');
-    setConsent('all');
+    const cleared = neutralContactFilters();
+    setDraftFilters(cleared);
     applyFilters(cleared);
   };
 
@@ -195,7 +206,7 @@ export function CRMContactList({
       // exporting from the "Opted out of email" view used to produce a file of
       // every contact, which is both wrong and the one export a chapter takes
       // off-platform.
-      const res = await exportCRMContacts(filterArgs(appliedFilters()));
+      const res = await exportCRMContacts(filterArgs(appliedFilters));
       if (res.error || !res.csv) {
         toast.error(res.error || 'Export failed');
         return;
@@ -248,15 +259,7 @@ export function CRMContactList({
       // — the button sits beside the filter bar, so the segment reads as "what
       // I am looking at". Consent is included for the same reason it is included
       // in the URL: an opt-out audit is a filter, so it has to be saveable.
-      const filters = appliedFilters();
-      const res = await saveCRMSegment({
-        name,
-        query: filters.query.trim(),
-        statuses: splitActiveValues(filters.status),
-        districts: splitActiveValues(filters.district),
-        tags: splitActiveValues(filters.tag),
-        consent: filters.consent === 'all' ? undefined : filters.consent,
-      });
+      const res = await saveCRMSegment(saveSegmentInput(name, appliedFilters));
 
       if (res.success) {
         toast.success(`Segment "${name}" saved`);
@@ -275,11 +278,7 @@ export function CRMContactList({
 
   const handleApplySegment = (segment: CRMSegment) => {
     const next = filtersFromSegment(segment);
-    setQuery(next.query);
-    setStatus(next.status);
-    setDistrict(next.district);
-    setTag(next.tag);
-    setConsent(next.consent);
+    setDraftFilters(next);
     applyFilters(next);
   };
 
@@ -309,25 +308,11 @@ export function CRMContactList({
       setRenamingSegmentId(null);
       return;
     }
-    // Parsed, not passed through: the column has no CHECK constraint, so a
-    // stored value may not be one of the three literals. `filtersFromSegment`
-    // (the apply path) resolves unknown the same way, so a rename preserves
-    // the segment's *effective* filter instead of failing on — or silently
-    // keeping — a value the schema would refuse.
-    const consent = parseConsentFilter(segment.consent);
     setRenamingBusy(true);
     try {
       // Rename only: the stored filter set rides through untouched, so renaming
       // can never silently rewrite what the segment selects.
-      const res = await saveCRMSegment({
-        id: segment.id,
-        name,
-        query: segment.query ?? '',
-        statuses: segment.statuses ?? [],
-        districts: segment.districts ?? [],
-        tags: segment.tags ?? [],
-        consent: consent === 'all' ? undefined : consent,
-      });
+      const res = await saveCRMSegment(renameSegmentInput(segment, name));
       if (res.success) {
         toast.success(`Segment renamed to "${name}"`);
         setRenamingSegmentId(null);
@@ -342,48 +327,28 @@ export function CRMContactList({
     }
   };
 
-  // Multi-selection state for bulk batch actions
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkTagInput, setBulkTagInput] = useState('');
   const [bulkDistrictInput, setBulkDistrictInput] = useState('');
   const [bulkActionBusy, setBulkActionBusy] = useState(false);
   const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
 
-  const allOnPageSelected =
-    initialContacts.length > 0 && initialContacts.every((c) => selectedIds.has(c.id));
+  const allOnPageSelected = allContactsSelected(initialContacts, selectedIds);
 
   const toggleSelectAll = () => {
-    if (allOnPageSelected) {
-      const next = new Set(selectedIds);
-      for (const c of initialContacts) next.delete(c.id);
-      setSelectedIds(next);
-    } else {
-      const next = new Set(selectedIds);
-      for (const c of initialContacts) next.add(c.id);
-      setSelectedIds(next);
-    }
+    setSelectedIds((current) => togglePageSelection(initialContacts, current));
   };
 
   const toggleSelect = (id: string) => {
-    const next = new Set(selectedIds);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    setSelectedIds(next);
+    setSelectedIds((current) => toggleContactSelection(current, id));
   };
 
-  const handleInlineStatusChange = async (contact: CRMContact, nextStatus: string) => {
+  const handleInlineStatusChange = async (contact: CRMContact, nextStatus: CRMContactStatus) => {
     setUpdatingStatusId(contact.id);
     try {
       const res = await saveCRMContact({
         id: contact.id,
         email: contact.email,
-        status: nextStatus as
-          | 'active_volunteer'
-          | 'supporter'
-          | 'donor'
-          | 'choir'
-          | 'organizer'
-          | 'inactive',
+        status: nextStatus,
         tags: contact.tags,
         // Without the version this row was rendered from, `saveCRMContact`
         // refuses the write against an already-updated contact — which is every
@@ -512,7 +477,7 @@ export function CRMContactList({
     }
   };
 
-  const handleBulkStatus = async (newStatus: string) => {
+  const handleBulkStatus = async (newStatus: CRMContactStatus) => {
     if (selectedIds.size === 0) return;
     setBulkActionBusy(true);
     try {
@@ -630,17 +595,7 @@ export function CRMContactList({
       // In-place filter edit: the stored name rides through, the *current*
       // on-screen filters replace the stored set. Previously this required
       // delete + save-new, which lost the segment id every edit.
-      const filters = appliedFilters();
-      const consent = parseConsentFilter(filters.consent);
-      const res = await saveCRMSegment({
-        id: segment.id,
-        name: segment.name,
-        query: filters.query.trim(),
-        statuses: splitActiveValues(filters.status),
-        districts: splitActiveValues(filters.district),
-        tags: splitActiveValues(filters.tag),
-        consent: consent === 'all' ? undefined : consent,
-      });
+      const res = await saveCRMSegment(updateSegmentInput(segment, appliedFilters));
       if (res.success) {
         toast.success(`Segment "${segment.name}" updated to match current filters`);
         router.refresh();
@@ -678,7 +633,7 @@ export function CRMContactList({
     }
   };
 
-  const hasActiveFilters = hasAnyFilters(draftFilters(), appliedFilters());
+  const hasActiveFilters = hasAnyFilters(draftFilters, appliedFilters);
 
   return (
     <div className="space-y-6">
@@ -693,11 +648,11 @@ export function CRMContactList({
           tagOptions={tagOptions}
           tagsMayBeIncomplete={tagsMayBeIncomplete}
           isPending={isPending}
-          onQueryChange={setQuery}
-          onStatusChange={setStatus}
-          onDistrictChange={setDistrict}
-          onTagChange={setTag}
-          onConsentChange={setConsent}
+          onQueryChange={(value) => updateDraft({ query: value })}
+          onStatusChange={(value) => updateDraft({ status: value })}
+          onDistrictChange={(value) => updateDraft({ district: value })}
+          onTagChange={(value) => updateDraft({ tag: value })}
+          onConsentChange={(value) => updateDraft({ consent: value })}
           onSubmit={handleFilterSubmit}
           onReset={handleResetFilters}
         />
@@ -707,19 +662,8 @@ export function CRMContactList({
           <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground mr-1">
             Quick Segments:
           </span>
-          {[
-            { label: 'All', s: 'all', d: 'all' },
-            { label: 'Volunteers', s: 'active_volunteer', d: 'all' },
-            { label: 'Resistance Choir', s: 'choir', d: 'all' },
-            { label: 'Donors', s: 'donor', d: 'all' },
-            { label: 'Organizers', s: 'organizer', d: 'all' },
-            { label: 'CA-06 Local', s: 'all', d: 'CA-06' },
-            { label: 'CA-03 Local', s: 'all', d: 'CA-03' },
-          ].map((pill) => {
-            const isActive =
-              (pill.s === 'all' || status === pill.s) &&
-              (pill.d === 'all' || district === pill.d) &&
-              (pill.s !== 'all' || pill.d !== 'all' || (status === 'all' && district === 'all'));
+          {CRM_CONTACT_QUICK_FILTERS.map((pill) => {
+            const isActive = isQuickFilterActive(draftFilters, pill);
 
             return (
               <button
@@ -729,22 +673,18 @@ export function CRMContactList({
                   /*
                    * A pill changes the status and district and leaves the rest of
                    * the filter alone — that is what makes it a quick filter
-                   * rather than a reset. It builds on `appliedFilters()`, the
-                   * set the server actually ran, and not on `draftFilters()`:
-                   * the pager, the export and save-as-segment all read the
-                   * applied set, and the pill was the one path that could act
-                   * on unsubmitted form state. Type a name, do not press Apply,
-                   * click a pill — the typed name used to go out with it.
+                   * rather than a reset. It builds on the applied filters, the
+                   * set the server actually ran, and not on the draft: the pager,
+                   * the export and save-as-segment all read the applied set, and
+                   * the pill was the one path that could act on unsubmitted form
+                   * state. Type a name, do not press Apply, click a pill — the
+                   * typed name used to go out with it.
                    *
                    * The visible controls follow the applied set too, so what is
                    * on screen is what was sent.
                    */
-                  const next = { ...appliedFilters(), status: pill.s, district: pill.d };
-                  setQuery(next.query);
-                  setStatus(next.status);
-                  setDistrict(next.district);
-                  setTag(next.tag);
-                  setConsent(next.consent);
+                  const next = quickFilterFilters(appliedFilters, pill);
+                  setDraftFilters(next);
                   applyFilters(next);
                 }}
                 className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
@@ -934,7 +874,7 @@ export function CRMContactList({
         totalCount={totalCount}
         currentPage={currentPage}
         pageSize={pageSize}
-        appliedFilters={appliedFilters()}
+        appliedFilters={appliedFilters}
         selectedIds={selectedIds}
         allOnPageSelected={allOnPageSelected}
         onToggleSelectAll={toggleSelectAll}

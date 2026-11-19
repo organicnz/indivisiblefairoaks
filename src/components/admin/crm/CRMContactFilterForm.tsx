@@ -2,6 +2,11 @@
 
 import { Search } from 'lucide-react';
 import type { FormEvent } from 'react';
+import {
+  CRM_CONTACT_CONSENT_OPTIONS,
+  CRM_CONTACT_DISTRICT_OPTIONS,
+  CRM_CONTACT_STATUS_OPTIONS,
+} from '@/lib/crm-contact-options';
 import type { ConsentFilter } from '@/types/crm';
 
 type CRMContactFilterFormProps = {
@@ -40,10 +45,7 @@ export function CRMContactFilterForm({
   onReset,
 }: CRMContactFilterFormProps) {
   return (
-    <form
-      onSubmit={onSubmit}
-      className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-3"
-    >
+    <form onSubmit={onSubmit} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-3">
       {/* Search Query */}
       <div className="lg:col-span-2 relative">
         <Search
@@ -68,12 +70,11 @@ export function CRMContactFilterForm({
           className="w-full px-3 py-2.5 rounded-xl border border-border text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary bg-surface-muted/50"
         >
           <option value="all">All Engagement Statuses</option>
-          <option value="active_volunteer">Active Volunteers</option>
-          <option value="choir">Resistance Choir</option>
-          <option value="donor">Grassroots Donors</option>
-          <option value="organizer">Organizers</option>
-          <option value="supporter">Supporters</option>
-          <option value="inactive">Inactive</option>
+          {CRM_CONTACT_STATUS_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.filterLabel}
+            </option>
+          ))}
         </select>
       </div>
 
@@ -89,10 +90,11 @@ export function CRMContactFilterForm({
           className="w-full px-3 py-2.5 rounded-xl border border-border text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary bg-surface-muted/50"
         >
           <option value="all">All Districts</option>
-          <option value="CA-06">CA-06 (Sacramento/Carmichael)</option>
-          <option value="CA-03">CA-03 (Fair Oaks/Sierra)</option>
-          <option value="CA-07">CA-07</option>
-          <option value="Other">Other Districts</option>
+          {CRM_CONTACT_DISTRICT_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.filterLabel}
+            </option>
+          ))}
         </select>
       </div>
 
@@ -120,8 +122,8 @@ export function CRMContactFilterForm({
             large directory is an ordinary situation rather than a fault. */}
         {tagsMayBeIncomplete && (
           <p className="mt-1.5 text-[11px] font-medium text-muted-foreground">
-            This directory is large enough that the tag list is partial. If a tag is missing,
-            search by name above — a tag with no entry here does not mean no constituent has it.
+            This directory is large enough that the tag list is partial. If a tag is missing, search
+            by name above — a tag with no entry here does not mean no constituent has it.
           </p>
         )}
       </div>
@@ -135,13 +137,15 @@ export function CRMContactFilterForm({
           className="w-full px-3 py-2.5 rounded-xl border border-border text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary bg-surface-muted/50"
         >
           <option value="all">All Consent States</option>
-          <option value="opted_out">Opted Out of Email</option>
-          <option value="opted_in">Agreed to Email</option>
           {/* The third state is reachable and filterable since the column became
               nullable. It was not before, which meant an organiser asking "who
               have we never actually asked?" had no way to find out — the only
               question the directory could answer was who had said no. */}
-          <option value="unasked">Never Asked</option>
+          {CRM_CONTACT_CONSENT_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.filterLabel}
+            </option>
+          ))}
         </select>
       </div>
 

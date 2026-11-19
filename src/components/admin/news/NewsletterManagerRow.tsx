@@ -1,18 +1,19 @@
 'use client';
 
-import { Clock3, Newspaper, Pencil, Trash2 } from 'lucide-react';
+import { Clock3, Mail, Newspaper, Pencil, Trash2 } from 'lucide-react';
 import { ConfirmAction } from '@/components/admin/ConfirmAction';
+import { NewsletterTopicPills } from '@/components/newsletters/NewsletterTopicPills';
 import { HighlightedText } from '@/components/ui/HighlightedText';
 import { NewsSearchExcerpt } from '@/components/ui/NewsSearchExcerpt';
-import { NewsletterTopicPills } from '@/components/newsletters/NewsletterTopicPills';
+import type { CivicNewsletterRecord } from '@/lib/actions/civic';
 import { NEWSLETTER_CARD_EXCERPT_LENGTH } from '@/lib/news-text';
 import { newsletterPublicationLabel } from '@/lib/newsletters';
-import type { CivicNewsletterRecord } from '@/lib/actions/civic';
 
 type NewsletterManagerRowProps = {
   newsletter: CivicNewsletterRecord;
   searchQuery?: string;
   onEdit: (newsletter: CivicNewsletterRecord) => void;
+  onEmail: (newsletter: CivicNewsletterRecord) => void;
   onDelete: (slug: string) => void;
 };
 
@@ -37,6 +38,7 @@ export function NewsletterManagerRow({
   newsletter,
   searchQuery,
   onEdit,
+  onEmail,
   onDelete,
 }: NewsletterManagerRowProps) {
   return (
@@ -64,15 +66,20 @@ export function NewsletterManagerRow({
               />
             </p>
           ) : null}
-          <NewsletterTopicPills
-            topics={newsletter.topics}
-            query={searchQuery}
-            variant="admin"
-          />
+          <NewsletterTopicPills topics={newsletter.topics} query={searchQuery} variant="admin" />
         </div>
       </div>
 
-      <div className="flex shrink-0 items-center gap-1.5 self-end sm:self-center">
+      <div className="flex shrink-0 flex-wrap items-center gap-1.5 self-end sm:self-center">
+        <button
+          type="button"
+          onClick={() => onEmail(newsletter)}
+          title={`Email ${newsletter.title} to confirmed subscribers`}
+          className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs font-bold text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        >
+          <Mail size={12} aria-hidden="true" />
+          <span>Email</span>
+        </button>
         <button
           type="button"
           onClick={() => onEdit(newsletter)}

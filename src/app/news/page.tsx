@@ -18,7 +18,7 @@ export const metadata: Metadata = pageMetadata({
 
 export default async function NewsPage() {
   const [postsRows, dataPoints] = await Promise.all([
-    getPublishedPosts(11).catch(() => []),
+    getPublishedPosts().catch(() => []),
     getDataPoints('news'),
   ]);
 
@@ -26,7 +26,7 @@ export default async function NewsPage() {
     <div className="civic-page w-full min-h-screen bg-background pb-20 text-foreground pt-(--header-clearance)">
       <NewsMasthead />
 
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-16">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-12">
         {/* News leads the page. Everything below is supporting chapter material. */}
         <InteractivePostsList initialPosts={postsRows} />
 

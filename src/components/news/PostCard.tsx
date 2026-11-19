@@ -28,7 +28,7 @@ export function PostCard({ post, isAdmin, searchQuery }: PostCardProps) {
         </div>
       ) : null}
 
-      <div className="flex min-w-0 flex-1 flex-col justify-between p-6">
+      <div className="flex min-w-0 flex-1 flex-col justify-between p-5">
         <div className="min-w-0 space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <PostDate post={post} />
@@ -55,7 +55,7 @@ export function PostCard({ post, isAdmin, searchQuery }: PostCardProps) {
           ) : null}
         </div>
 
-        <div className="mt-6 flex items-center justify-between border-t border-border pt-4 dark:border-white/10">
+        <div className="mt-5 flex items-center justify-between border-t border-border pt-4 dark:border-white/10">
           <Link
             href={`/${post.slug}`}
             className="inline-flex min-h-11 items-center gap-1.5 rounded-sm text-xs font-bold text-primary-ink transition-all group-hover:gap-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface-card dark:text-primary-on-dark"

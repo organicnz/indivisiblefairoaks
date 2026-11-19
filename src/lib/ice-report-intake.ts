@@ -1,13 +1,12 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { env } from '@/lib/env';
-import { US_STATE_CODES } from '@/lib/rapid-city-match';
 import type {
   IceReportIntakeRow,
   IceReportKind,
   IceReportPublicRow,
-  IceReportStatus,
 } from '@/lib/ice-report-shared';
+import { US_STATE_CODES } from '@/lib/rapid-city-match';
 
 export type {
   IceReportIntakeRow,
@@ -166,7 +165,7 @@ const citySchema = z
   .min(2, 'Add a city.')
   .max(80, 'Keep the city under 80 characters.')
   .refine(
-    (value) => /^[\p{L}][\p{L} .'’\-]*$/u.test(value),
+    (value) => /^[\p{L}][\p{L} .'’-]*$/u.test(value),
     'Use a city name only. Do not include a street address or number.'
   );
 
@@ -228,10 +227,7 @@ export const iceReportProofSchema = z.object({
 
 export type IceReportInput = z.infer<typeof iceReportInputSchema>;
 
-export async function insertIceReport(
-  store: IceReportStore,
-  row: IceReportIntakeInsert
-) {
+export async function insertIceReport(store: IceReportStore, row: IceReportIntakeInsert) {
   const { data, error } = await store
     .from('ice_report_intake')
     .insert(row)

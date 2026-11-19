@@ -11,7 +11,7 @@ import {
   saveCRMBroadcastDraft,
   sendCRMBroadcast,
 } from '@/lib/actions/crm';
-import type { BroadcastProgress, CRMBroadcast } from '@/types/crm';
+import type { BroadcastMetrics, BroadcastProgress, CRMBroadcast } from '@/types/crm';
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
@@ -133,11 +133,17 @@ describe('broadcast history labelling', () => {
    * campaign's row and a total of 1 keeps the pager out of the way. The paging
    * assertion passes a larger number explicitly.
    */
-  const render = (broadcasts: CRMBroadcast[], total = broadcasts.length, page = 1) => {
+  const render = (
+    broadcasts: CRMBroadcast[],
+    total = broadcasts.length,
+    page = 1,
+    metrics: Record<string, BroadcastMetrics> = {}
+  ) => {
     act(() => {
       root.render(
         <CRMBroadcastComposer
           initialBroadcasts={broadcasts}
+          broadcastMetrics={metrics}
           totalBroadcastCount={total}
           historyPage={page}
           segments={[]}
@@ -194,6 +200,30 @@ describe('broadcast history labelling', () => {
   it('shows no note when there are no tests', () => {
     render([broadcast(), broadcast()]);
     expect(text()).not.toContain('test sent to yourself');
+  });
+
+  it('renders the SQL ledger aggregate instead of the campaign counters', () => {
+    const row = broadcast({ recipient_count: 128, sent_count: 128, failed_count: 0 });
+
+    render([row], 1, 1, {
+      [row.id]: {
+        broadcastId: row.id,
+        recipientCount: 100,
+        acceptedCount: 90,
+        failedCount: 4,
+        suppressedCount: 2,
+        pendingCount: 0,
+        recordedCount: 96,
+        unresolvedCount: 4,
+      },
+    });
+
+    expect(text()).toContain('100');
+    expect(text()).toContain('90 accepted');
+    expect(text()).toContain('4 did not send');
+    expect(text()).toContain('2 suppressed');
+    expect(text()).toContain('4 not recorded');
+    expect(text()).not.toContain('128 accepted');
   });
 });
 

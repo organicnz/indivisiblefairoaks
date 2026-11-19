@@ -1,6 +1,6 @@
 'use client';
 
-import { CheckCircle2, FileImage, LockKeyhole, LoaderCircle, TriangleAlert } from 'lucide-react';
+import { CheckCircle2, FileImage, LoaderCircle, LockKeyhole, TriangleAlert } from 'lucide-react';
 import { type ChangeEvent, type FormEvent, useEffect, useState } from 'react';
 import { fetchWithTimeout } from '@/lib/service-fetch';
 
@@ -72,9 +72,7 @@ export function ReunificationForm() {
         },
         30_000
       );
-      const payload = (await response.json().catch(() => ({}))) as
-        | SubmitResult
-        | SubmitError;
+      const payload = (await response.json().catch(() => ({}))) as SubmitResult | SubmitError;
 
       if (!response.ok || !payload || payload.ok !== true) {
         setError(
@@ -329,8 +327,8 @@ export function ReunificationForm() {
           Optional private photo
         </legend>
         <p className="text-xs leading-relaxed text-muted-foreground">
-          A recent photo can help verification. It is stored privately and never appears on the
-          map. JPEG, PNG, or WebP, under 4 MB.
+          A recent photo can help verification. It is stored privately and never appears on the map.
+          JPEG, PNG, or WebP, under 4 MB.
         </p>
         <div className="flex flex-wrap items-center gap-3">
           <label
@@ -353,7 +351,7 @@ export function ReunificationForm() {
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={photoPreview}
-              alt="Selected photo preview"
+              alt="Preview of the selected upload"
               className="size-14 border border-border object-cover"
             />
           ) : null}
@@ -366,9 +364,7 @@ export function ReunificationForm() {
       </fieldset>
 
       <fieldset className="space-y-2 border-t border-border pt-5">
-        <legend className="font-display text-lg font-semibold tracking-[-0.02em]">
-          Consent
-        </legend>
+        <legend className="font-display text-lg font-semibold tracking-[-0.02em]">Consent</legend>
         <label className="flex items-start gap-2.5 text-xs leading-relaxed text-muted-foreground">
           <input
             type="checkbox"

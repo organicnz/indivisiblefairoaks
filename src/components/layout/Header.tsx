@@ -5,7 +5,7 @@ import { ArrowUpRight, Heart, Menu, Search, X } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Suspense, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AccountButton } from '@/components/layout/AccountButton';
 import { EditorialButton, EditorialDrawerRow } from '@/components/layout/EditorialButton';
 import { NavDropdown } from '@/components/layout/NavDropdown';
@@ -28,65 +28,12 @@ const FOCUS_RING =
 // module load, rather than filtering the list on every header render.
 const { alertRoute, primaryRoutes } = getHeaderNavigation();
 
+// No Suspense wrapper. The header is synchronous, and in the PPR production
+// shell a boundary kept the real banner in a hidden streamed segment while the
+// static fallback stayed painted — global navigation disappeared on every
+// page. Render it directly so the server HTML is the banner readers get.
 export function Header() {
-  return (
-    <Suspense fallback={<HeaderFallback />}>
-      <HeaderInner />
-    </Suspense>
-  );
-}
-
-/**
- * Rendered while the client component hydrates.
- *
- * A plain `<div>`, not a `<header>`: the real header owns the `banner` landmark,
- * and two of them in the tree means assistive tech announces the site header
- * twice. The nav items are inert spans for the same reason — a Suspense fallback
- * full of focusable links would add a second, non-functional set of tab stops
- * for the frame or two it is on screen.
- */
-function HeaderFallback() {
-  return (
-    <div
-      aria-hidden="true"
-      className="fixed inset-x-0 top-0 z-50 border-b border-foreground/20 bg-background"
-    >
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 md:h-[4.25rem] lg:px-8">
-        <div className="flex items-center gap-3">
-          <div className="relative size-10 shrink-0">
-            <Image
-              src="/images/logo/indivisible-emblem.png"
-              alt=""
-              width={40}
-              height={40}
-              className="h-full w-full object-contain"
-              priority
-              unoptimized
-            />
-          </div>
-          <div>
-            <span className="block font-display text-xl font-semibold leading-none tracking-[-0.03em] text-foreground">
-              Indivisible
-            </span>
-            <span className="mt-1 block text-[9px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
-              Fair Oaks &amp; Carmichael
-            </span>
-          </div>
-        </div>
-        <div className="hidden items-center gap-4 md:flex">
-          {ROUTES.map((link) => (
-            <span
-              key={link.href}
-              className="whitespace-nowrap text-[10px] font-bold uppercase tracking-[0.1em] text-foreground/45"
-            >
-              {link.short ?? link.label}
-            </span>
-          ))}
-        </div>
-      </div>
-      <div className="hidden h-10 border-t border-border md:block" />
-    </div>
-  );
+  return <HeaderInner />;
 }
 
 function HeaderInner() {
@@ -133,14 +80,11 @@ function HeaderInner() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           {/* Tier one: identity and actions. */}
           <div className="flex h-16 items-center justify-between gap-4 md:h-[4.25rem]">
-            <Link
-              href="/"
-              className={`group flex items-center gap-3 rounded-sm ${FOCUS_RING}`}
-            >
+            <Link href="/" className={`group flex items-center gap-3 rounded-sm ${FOCUS_RING}`}>
               <div className="relative size-10 shrink-0 transition-transform duration-300 ease-out group-hover:-rotate-2 motion-reduce:group-hover:rotate-0">
                 <Image
                   src="/images/logo/indivisible-emblem.png"
-                  alt="Indivisible Fair Oaks &amp; Carmichael"
+                  alt=""
                   width={40}
                   height={40}
                   className="h-full w-full object-contain"
@@ -223,9 +167,7 @@ function HeaderInner() {
                     href={link.href}
                     aria-current={isActive ? 'page' : undefined}
                     className={`relative inline-flex h-full items-center whitespace-nowrap rounded-sm px-2.5 text-[11px] font-bold uppercase tracking-[0.1em] transition-colors duration-300 ease-out xl:px-3 xl:text-[11.5px] ${FOCUS_RING} ${
-                      isActive
-                        ? 'text-primary-ink'
-                        : 'text-foreground/65 hover:text-foreground'
+                      isActive ? 'text-primary-ink' : 'text-foreground/65 hover:text-foreground'
                     }`}
                   >
                     {link.short ?? link.label}
@@ -240,10 +182,7 @@ function HeaderInner() {
               })}
             </nav>
 
-            <nav
-              aria-label="ICE alerts"
-              className="flex h-full shrink-0 items-center"
-            >
+            <nav aria-label="ICE alerts" className="flex h-full shrink-0 items-center">
               <Link
                 href={alertRoute.href}
                 aria-current={isAlertActive ? 'page' : undefined}
@@ -312,7 +251,7 @@ function HeaderInner() {
                 <div className="relative w-10 h-10 shrink-0">
                   <Image
                     src="/images/logo/indivisible-emblem.png"
-                    alt="Indivisible Fair Oaks &amp; Carmichael"
+                    alt=""
                     width={40}
                     height={40}
                     className="w-full h-full object-contain"

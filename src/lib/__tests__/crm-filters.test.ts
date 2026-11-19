@@ -2,7 +2,6 @@
 import { describe, expect, it } from 'vitest';
 import {
   type ContactFilters,
-  consentLabel,
   filterArgs,
   filterParams,
   filtersFromSegment,
@@ -365,28 +364,6 @@ describe('pageRange', () => {
    */
   it('reports 0–0 with no results rather than 1–0', () => {
     expect(pageRange(1, 50, 0)).toEqual([0, 0]);
-  });
-});
-
-describe('consentLabel', () => {
-  /**
-   * Three states, and the middle one is the change.
-   *
-   * Rendering a `null` row as "Opted in" is how an organiser auditing opt-outs
-   * comes to believe a person agreed to hear from the chapter when they were never
-   * asked — and "Opted in" is also what tells a reader the contact *is* in the
-   * broadcast audience, which a null row is not.
-   */
-  it('names all three states distinctly', () => {
-    expect(consentLabel(true)).toBe('Opted out');
-    expect(consentLabel(false)).toBe('Opted in');
-    expect(consentLabel(null)).toBe('Never asked');
-  });
-
-  it('never renders a never-asked contact as opted in', () => {
-    // The one assertion worth stating on its own: the whole tri-state migration
-    // is undone at the display layer by this single string.
-    expect(consentLabel(null)).not.toBe(consentLabel(false));
   });
 });
 

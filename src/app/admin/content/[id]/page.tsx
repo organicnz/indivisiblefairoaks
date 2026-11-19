@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
-import { ContentEditor } from '@/components/admin/content/ContentEditor';
+import { connection } from 'next/server';
+import { ContentEditor } from '@/components/admin/content/ContentEditorClient';
 import { getContentForEdit } from '@/lib/actions/content';
 import { requireAdminPage } from '@/lib/admin-auth';
 import { env } from '@/lib/env';
@@ -7,6 +8,10 @@ import { env } from '@/lib/env';
 export const instant = false;
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
+  // The editor's metadata reads the admin session, which reaches Supabase's
+  // clock. Without a dynamic signal Next tries to prerender the metadata and
+  // logs an unstable `Date.now()` error for this route.
+  await connection();
   const { id } = await params;
   const numericId = Number.parseInt(id, 10);
   if (Number.isNaN(numericId)) {

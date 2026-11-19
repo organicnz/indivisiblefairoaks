@@ -1,4 +1,4 @@
-import { type NextRequest, NextResponse } from 'next/server';
+import { connection, type NextRequest, NextResponse } from 'next/server';
 import { createPublicClient } from '@/lib/supabase-server';
 
 /**
@@ -6,6 +6,13 @@ import { createPublicClient } from '@/lib/supabase-server';
  * Edge API endpoint returning photos from Supabase DB `gallery_photos` table.
  */
 export async function GET(req: NextRequest) {
+  // This handler reads `req.url` and must not run in the build-time prerender
+  // pass. Without an explicit request-time signal Next attempts it, throws
+  // NEXT_PRERENDER_INTERRUPTED, and the catch below reports that as a gallery
+  // failure even though the route is dynamic. `connection()` is the same
+  // boundary used by /api/geo and /api/health.
+  await connection();
+
   try {
     const { searchParams } = new URL(req.url);
     const category = searchParams.get('category')?.slice(0, 120);

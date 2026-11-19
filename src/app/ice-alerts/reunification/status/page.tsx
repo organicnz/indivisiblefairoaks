@@ -51,7 +51,7 @@ export default async function ReunificationStatusPage({
     );
   }
 
-  let request;
+  let request: Awaited<ReturnType<typeof findReunificationStatus>>;
   try {
     request = await findReunificationStatus(store, token);
   } catch {

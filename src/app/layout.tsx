@@ -12,6 +12,7 @@ import { Header } from '@/components/layout/Header';
 import { ThemeAwareToaster } from '@/components/layout/ThemeAwareToaster';
 import { ThemeHud } from '@/components/layout/ThemeHud';
 import { VgpuThemeCanvas } from '@/components/layout/VgpuThemeCanvas';
+import { ClientOnly } from '@/components/ui/ClientOnly';
 import { DataPointsProvider } from '@/components/ui/DataPointsProvider';
 import { WallEChatWidget } from '@/components/ui/WallEChatWidget';
 import { VisualEditErrorBoundary } from '@/components/visual-edit/VisualEditErrorBoundary';
@@ -228,23 +229,29 @@ export default async function RootLayout({
             </main>
             <Footer />
             <WallEChatWidget />
-            <VisualEditErrorBoundary>
-              <VisualEditLazyMount />
-            </VisualEditErrorBoundary>
+            <ClientOnly>
+              <VisualEditErrorBoundary>
+                <VisualEditLazyMount />
+              </VisualEditErrorBoundary>
+            </ClientOnly>
           </DataPointsProvider>
         </Providers>
-        <ThemeAwareToaster />
+        <ClientOnly>
+          <ThemeAwareToaster />
+        </ClientOnly>
         <ThemeHud />
         <VgpuThemeCanvas />
         {env.NEXT_E2E_BUILD !== 'true' && (
           <>
-            <Analytics />
-            <SpeedInsights />
-            {/* Session replay, consent-aware and masked. Renders nothing; the
-                rules it applies live in src/lib/posthog.ts. In the e2e guard
-                for the same reason as the two above: a throwaway test bundle
-                must not file replays against the production project. */}
-            <PostHogAnalytics />
+            <ClientOnly>
+              <Analytics />
+              <SpeedInsights />
+              {/* Session replay, consent-aware and masked. Renders nothing;
+                  the rules it applies live in src/lib/posthog.ts. In the e2e
+                  guard for the same reason as the two above: a throwaway test
+                  bundle must not file replays against the production project. */}
+              <PostHogAnalytics />
+            </ClientOnly>
           </>
         )}
       </body>

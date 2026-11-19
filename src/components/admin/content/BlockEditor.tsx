@@ -3,7 +3,6 @@
 import { ChevronDown, ChevronUp, Copy, GripVertical, Plus, Trash2 } from 'lucide-react';
 import {
   type FormEvent,
-  type HTMLAttributes,
   type KeyboardEvent,
   useCallback,
   useEffect,
@@ -20,14 +19,10 @@ import {
   nextBlockId,
   stripTags,
 } from '@/lib/blocks';
-import {
-  type BlockKind,
-  definitionFor,
-  searchBlocks,
-} from './block-definitions';
-import { SlashMenu } from './SlashMenu';
 import { BlockBody } from './BlockBody';
+import { type BlockKind, definitionFor, searchBlocks } from './block-definitions';
 import { RowBlockCard } from './RowBlockCard';
+import { SlashMenu } from './SlashMenu';
 
 interface Props {
   blocks: Block[];
@@ -53,7 +48,6 @@ interface Props {
    */
   composeHref?: string | null;
 }
-
 
 /** Debounce is short enough to feel live and long enough not to thrash re-renders. */
 const INPUT_DEBOUNCE_MS = 120;

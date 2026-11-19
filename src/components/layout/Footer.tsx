@@ -28,7 +28,7 @@ export async function Footer() {
               <div className="relative w-11 h-11 shrink-0 group-hover:scale-105 transition-transform">
                 <Image
                   src="/images/logo/indivisible-emblem.png"
-                  alt="Indivisible Fair Oaks & Carmichael"
+                  alt=""
                   width={44}
                   height={44}
                   className="w-full h-full object-contain"

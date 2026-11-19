@@ -26,7 +26,7 @@ export default async function NewslettersPage() {
     <div className="civic-page w-full min-h-screen bg-background pb-20 text-foreground pt-(--header-clearance)">
       <NewslettersMasthead dataPoints={dataPoints} />
 
-      <div className="mx-auto max-w-5xl space-y-16 px-4 py-16 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-5xl space-y-12 px-4 py-16 sm:px-6 lg:px-8">
         <NewsletterArchiveSection newsletters={newslettersRows} dataPoints={dataPoints} />
         <ActionAlertsSubscription initialData={dataPoints} />
         <NeighboringChaptersSection />

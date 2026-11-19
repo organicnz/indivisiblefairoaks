@@ -7,6 +7,7 @@
  * personal workspace), skip silently to avoid clobbering committed types.
  */
 import { lines, runInherit, runText } from '../bun-exec.mjs';
+import { resolveSupabaseAccessToken } from '../supabase-access-token.mjs';
 import { readEnvValue } from './_env-file.mjs';
 import { PROJECT_REF } from './_project-ref.mjs';
 
@@ -25,6 +26,17 @@ const changed = lines(
 );
 
 if (changed.length === 0) process.exit(0);
+
+// Same no-token policy as post-commit: a pull must not fail because a
+// contributor does not hold the Management API credential. CI catches the
+// stale file once the migration has actually been applied.
+const accessToken = await resolveSupabaseAccessToken();
+if (!accessToken) {
+  console.log('');
+  console.log('ℹ️   SUPABASE_ACCESS_TOKEN is not set — skipping TypeScript type regeneration.');
+  console.log('    After the migration is applied, run: bun run types:generate');
+  process.exit(0);
+}
 
 const supabaseUrl = await readEnvValue('NEXT_PUBLIC_SUPABASE_URL', '.env.local');
 

@@ -13,6 +13,7 @@ import {
   Users,
 } from 'lucide-react';
 import { useState } from 'react';
+import { SECTION_TITLE } from '@/components/layout/PageMasthead';
 
 // The old Drive folder these cards pointed at is no longer publicly readable
 // (it returns 404). Keep the cards useful without pretending each one has its
@@ -154,26 +155,24 @@ export function MeetingMaterials() {
   };
 
   return (
-    <section className="space-y-8" aria-label="Meeting Materials and Archives">
+    <section aria-label="Meeting Materials and Archives">
       {/* Section Header & View Switcher */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-4 border-b border-border">
+      <div className="civic-section-head civic-section-head--compact">
         <div>
           <p className="civic-section-index">Chapter records</p>
-          <h2 className="mt-2 font-display text-3xl font-semibold tracking-[-0.03em]">
-            Meeting Reviews &amp; Printable Handouts
-          </h2>
+          <h2 className={`mt-2 ${SECTION_TITLE}`}>Meeting Reviews &amp; Printable Handouts</h2>
           <p className="mt-2 max-w-2xl text-sm text-muted-foreground dark:text-ink-on-dark">
-            Official monthly meeting summaries, steering committee recaps, and downloadable materials
-            distributed at chapter gatherings.
+            Official monthly meeting summaries, steering committee recaps, and downloadable
+            materials distributed at chapter gatherings.
           </p>
         </div>
 
         {/* Tab Controls */}
-        <div className="inline-flex shrink-0 border border-border bg-surface-muted p-1">
+        <div className="inline-flex shrink-0 border border-border bg-surface-muted p-1 md:col-span-2 lg:col-span-1 lg:col-start-2 lg:justify-self-end">
           <button
             type="button"
             onClick={() => setActiveTab('reviews')}
-            className={`min-h-11 px-4 py-2 text-[11px] font-bold uppercase tracking-[0.12em] transition-colors ${
+            className={`min-h-11 px-3 py-2 text-[11px] font-bold uppercase tracking-[0.12em] transition-colors ${
               activeTab === 'reviews'
                 ? 'bg-primary text-white'
                 : 'text-muted-foreground dark:text-ink-on-dark hover:text-foreground'
@@ -185,7 +184,7 @@ export function MeetingMaterials() {
           <button
             type="button"
             onClick={() => setActiveTab('handouts')}
-            className={`min-h-11 px-4 py-2 text-[11px] font-bold uppercase tracking-[0.12em] transition-colors ${
+            className={`min-h-11 px-3 py-2 text-[11px] font-bold uppercase tracking-[0.12em] transition-colors ${
               activeTab === 'handouts'
                 ? 'bg-primary text-white'
                 : 'text-muted-foreground dark:text-ink-on-dark hover:text-foreground'
@@ -199,12 +198,10 @@ export function MeetingMaterials() {
 
       {/* TAB 1: Meeting Reviews */}
       {activeTab === 'reviews' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* Left: Meeting list selector */}
           <div className="lg:col-span-5 space-y-3">
-            <p className="civic-section-index px-1">
-              Select Chapter Meeting
-            </p>
+            <p className="civic-section-index px-1">Select Chapter Meeting</p>
             {MEETING_REVIEWS.map((review) => {
               const isSelected = selectedReview.id === review.id;
               return (
@@ -254,7 +251,7 @@ export function MeetingMaterials() {
           </div>
 
           {/* Right: Selected Meeting Deep Dive */}
-          <div className="civic-panel space-y-6 p-6 lg:col-span-7">
+          <div className="civic-panel space-y-5 p-5 lg:col-span-7">
             <div className="border-b border-border pb-4">
               <div className="flex items-center gap-2 text-xs font-bold text-primary-ink dark:text-primary-on-dark-muted uppercase tracking-wider mb-2">
                 <Calendar size={14} />
@@ -327,7 +324,7 @@ export function MeetingMaterials() {
 
       {/* TAB 2: Printable Handouts */}
       {activeTab === 'handouts' && (
-        <div className="space-y-6">
+        <div className="space-y-5">
           <div className="flex items-start gap-3 border border-primary/20 bg-primary/5 p-4 text-xs text-foreground dark:text-ink-on-dark">
             <Printer className="text-accent-gold shrink-0 mt-0.5" size={18} />
             <p className="leading-relaxed">
@@ -338,11 +335,11 @@ export function MeetingMaterials() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
             {PRINTABLE_HANDOUTS.map((handout) => (
               <div
                 key={handout.id}
-                className="civic-panel civic-card-lift flex flex-col justify-between p-6 hover:border-primary/40"
+                className="civic-panel civic-card-lift flex flex-col justify-between p-5 hover:border-primary/40"
               >
                 <div className="space-y-3">
                   <div className="flex items-center justify-between gap-2">
@@ -367,7 +364,7 @@ export function MeetingMaterials() {
                   </p>
                 </div>
 
-                <div className="pt-6 mt-4 border-t border-border flex items-center justify-between gap-4">
+                <div className="pt-4 mt-4 border-t border-border flex items-center justify-between gap-4">
                   <span className="text-[11px] text-muted-foreground dark:text-ink-muted-on-dark">
                     Ready for Print &amp; Distribution
                   </span>
@@ -384,7 +381,7 @@ export function MeetingMaterials() {
           </div>
 
           {/* Archive repository card */}
-          <div className="flex flex-col items-center justify-between gap-4 border border-border bg-surface-muted p-6 sm:flex-row">
+          <div className="flex flex-col items-center justify-between gap-4 border border-border bg-surface-muted p-5 sm:flex-row">
             <div className="flex items-center gap-3">
               <FolderOpen size={24} className="text-accent-gold shrink-0" />
               <div>

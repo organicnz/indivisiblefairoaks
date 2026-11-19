@@ -1,4 +1,5 @@
-import type { ConsentDecision, CRMSegment } from '@/types/crm';
+import type { ConsentDecision, ConsentFilter, CRMSegment } from '@/types/crm';
+import { CRM_CONTACT_CONSENT_VALUES } from './crm-contact-options';
 
 /**
  * The directory's filter state, and the two rules that were previously applied
@@ -15,32 +16,6 @@ import type { ConsentDecision, CRMSegment } from '@/types/crm';
  * fourth hand-written `URLSearchParams` block — is exactly the thing that has to
  * be remembered.
  */
-
-export type ConsentFilter = 'all' | ConsentDecision;
-
-/**
- * The three stored states, and what each one is.
- *
- * `do_not_email` is tri-state since migration 20261005020000, and the distinction
- * between the last two is the whole point of that migration:
- *
- *   true  — asked, declined or unsubscribed
- *   false — asked, **agreed**
- *   null  — never asked
- *
- * Before it, `false` meant both "agreed" and "never asked", so the audience
- * resolver could only require "not opted out" and every contact who had never
- * heard of the question was in the next campaign. `'opted_in'` below is an
- * explicit *yes*, and `'unasked'` is what was previously unreachable.
- */
-export const CONSENT_STATES = ['opted_out', 'opted_in', 'unasked'] as const;
-
-/**
- * The stored states. An alias for `ConsentDecision`, not a second union: two
- * spellings of the same three literals is how one of them silently gains a
- * fourth value and the audience resolver stops agreeing with the filter bar.
- */
-export type ConsentState = ConsentDecision;
 
 /**
  * Whether a contact with this consent value is reachable by a broadcast.
@@ -110,7 +85,7 @@ export function parseConsentFilter(raw: string | undefined | null): ConsentFilte
 
 /** The allowlist of values `parseConsentFilter` accepts — and that `filterParams` emits. */
 export function isConsentFilter(value: string): value is ConsentFilter {
-  return value === 'all' || CONSENT_STATES.includes(value as ConsentState);
+  return value === 'all' || (CRM_CONTACT_CONSENT_VALUES as readonly string[]).includes(value);
 }
 
 /**
@@ -135,7 +110,7 @@ export function filterArgs(filters: ContactFilters): {
   status: string;
   district: string;
   tag: string;
-  consent?: ConsentState;
+  consent?: ConsentDecision;
 } {
   return {
     query: filters.query,
@@ -223,17 +198,4 @@ export function pageRange(page: number, pageSize: number, totalCount: number): [
   const first = (page - 1) * pageSize + 1;
   const last = Math.min(page * pageSize, totalCount);
   return [first, last];
-}
-
-/**
- * Consent as a display value.
- *
- * Three states now, because the column stores three. The wording matters more
- * than usual here: "Never asked" is not a soft synonym for "Opted in", and
- * rendering a null row as "Opted in" is how an organiser auditing opt-outs ends up
- * believing a person agreed to hear from the chapter.
- */
-export function consentLabel(doNotEmail: boolean | null): string {
-  if (doNotEmail === null) return 'Never asked';
-  return doNotEmail ? 'Opted out' : 'Opted in';
 }

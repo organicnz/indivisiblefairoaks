@@ -4,7 +4,6 @@ import {
   AlertTriangle,
   Check,
   ExternalLink,
-  Globe2,
   LoaderCircle,
   Play,
   Plus,
@@ -31,7 +30,8 @@ function stableTimestamp(value: string | null) {
 }
 
 function statusClass(status: IceCrawlSource['last_status']) {
-  if (status === 'ok') return 'border-primary/35 bg-primary/5 text-primary-ink dark:text-primary-on-dark';
+  if (status === 'ok')
+    return 'border-primary/35 bg-primary/5 text-primary-ink dark:text-primary-on-dark';
   if (status === 'partial') return 'border-accent/40 bg-accent/5 text-accent';
   if (status === 'blocked') return 'border-border bg-surface-muted text-muted-foreground';
   if (status === 'error') return 'border-accent/40 bg-accent/10 text-accent';
@@ -49,7 +49,10 @@ export function IceCrawlManager({ sources }: { sources: IceCrawlSource[] }) {
   const [error, setError] = useState<string | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
 
-  function runAction(action: () => Promise<{ success: boolean; error?: string; summary?: unknown }>, success: string) {
+  function runAction(
+    action: () => Promise<{ success: boolean; error?: string; summary?: unknown }>,
+    success: string
+  ) {
     setError(null);
     setMessage(null);
     startTransition(async () => {
@@ -110,7 +113,10 @@ export function IceCrawlManager({ sources }: { sources: IceCrawlSource[] }) {
           </div>
         </div>
 
-        <form onSubmit={addSource} className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_14rem_8rem_auto] lg:items-end">
+        <form
+          onSubmit={addSource}
+          className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_14rem_8rem_auto] lg:items-end"
+        >
           <div>
             <label htmlFor="ice-crawl-url" className={labelClass}>
               Public seed URL <span className="text-accent">*</span>
@@ -158,7 +164,11 @@ export function IceCrawlManager({ sources }: { sources: IceCrawlSource[] }) {
             disabled={pending || !rights}
             className="inline-flex min-h-10 items-center justify-center gap-1.5 border border-primary bg-primary px-4 py-2 text-[10px] font-bold uppercase tracking-[0.1em] text-white transition-colors hover:bg-primary-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-55"
           >
-            {pending && !activeId ? <LoaderCircle className="size-3 animate-spin" /> : <Plus className="size-3" />}
+            {pending && !activeId ? (
+              <LoaderCircle className="size-3 animate-spin" />
+            ) : (
+              <Plus className="size-3" />
+            )}
             Add source
           </button>
         </form>
@@ -178,13 +188,19 @@ export function IceCrawlManager({ sources }: { sources: IceCrawlSource[] }) {
       </section>
 
       {error ? (
-        <p role="alert" className="flex items-start gap-2 border border-accent/40 bg-accent/10 p-3 text-xs leading-relaxed">
+        <p
+          role="alert"
+          className="flex items-start gap-2 border border-accent/40 bg-accent/10 p-3 text-xs leading-relaxed"
+        >
           <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-accent" aria-hidden="true" />
           {error}
         </p>
       ) : null}
       {message ? (
-        <p role="status" className="border border-primary/30 bg-primary/5 p-3 text-xs leading-relaxed">
+        <p
+          role="status"
+          className="border border-primary/30 bg-primary/5 p-3 text-xs leading-relaxed"
+        >
           <Check className="mr-1 inline size-3.5" aria-hidden="true" />
           {message}
         </p>
@@ -201,7 +217,9 @@ export function IceCrawlManager({ sources }: { sources: IceCrawlSource[] }) {
               <div className="flex flex-wrap items-start justify-between gap-3 p-4">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-1.5">
-                    <span className={`border px-1.5 py-0.5 font-mono text-[8px] font-bold uppercase tracking-[0.08em] ${statusClass(source.last_status)}`}>
+                    <span
+                      className={`border px-1.5 py-0.5 font-mono text-[8px] font-bold uppercase tracking-[0.08em] ${statusClass(source.last_status)}`}
+                    >
                       {source.last_status ?? 'never run'}
                     </span>
                     <span className="border border-border bg-background px-1.5 py-0.5 font-mono text-[8px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
@@ -225,10 +243,12 @@ export function IceCrawlManager({ sources }: { sources: IceCrawlSource[] }) {
                       <ExternalLink className="size-3.5" aria-hidden="true" />
                     </a>
                   </h2>
-                  <p className="mt-1 truncate font-mono text-[9px] text-muted-foreground">{source.url}</p>
+                  <p className="mt-1 truncate font-mono text-[9px] text-muted-foreground">
+                    {source.url}
+                  </p>
                   <p className="mt-1 font-mono text-[8px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
-                    Last run {stableTimestamp(source.last_crawled_at)} / {source.last_page_count} pages /{' '}
-                    {source.last_report_count} reports
+                    Last run {stableTimestamp(source.last_crawled_at)} / {source.last_page_count}{' '}
+                    pages / {source.last_report_count} reports
                   </p>
                 </div>
                 <div className="flex shrink-0 flex-wrap gap-2">
@@ -273,7 +293,10 @@ export function IceCrawlManager({ sources }: { sources: IceCrawlSource[] }) {
               </div>
               {source.last_error ? (
                 <p className="flex items-start gap-2 border-t border-border bg-surface-muted px-4 py-2.5 text-[10px] leading-relaxed text-muted-foreground">
-                  <AlertTriangle className="mt-0.5 size-3 shrink-0 text-accent" aria-hidden="true" />
+                  <AlertTriangle
+                    className="mt-0.5 size-3 shrink-0 text-accent"
+                    aria-hidden="true"
+                  />
                   {source.last_error}
                 </p>
               ) : null}

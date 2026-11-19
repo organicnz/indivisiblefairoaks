@@ -1,5 +1,6 @@
 import {
   collapseNewsWhitespace,
+  findNewsPhrase,
   findNewsWords,
   matchesNewsWord,
   parseNewsQuery,
@@ -10,11 +11,7 @@ import {
  * results useful when the match sits deep in a long summary, and it returns the
  * original wording rather than the normalized haystack used for matching.
  */
-export function buildNewsSearchSnippet(
-  text: string,
-  query: string,
-  maxLength = 220
-): string {
+export function buildNewsSearchSnippet(text: string, query: string, maxLength = 220): string {
   const source = collapseNewsWhitespace(text);
   if (!source || maxLength <= 0) return '';
   if (source.length <= maxLength) return source;
@@ -26,45 +23,39 @@ export function buildNewsSearchSnippet(
   if (tokens.length === 0) return source;
 
   const words = findNewsWords(source);
-  const phraseMatch = (() => {
-    for (const phrase of phrases) {
-      if (phrase.length === 0 || phrase.length > words.length) continue;
-      for (let start = 0; start <= words.length - phrase.length; start += 1) {
-        if (phrase.every((word, index) => words[start + index]?.word === word)) {
-          return {
-            start: words[start].start,
-            end: words[start + phrase.length - 1].end,
-          };
-        }
-      }
-    }
-    return null;
-  })();
+  const normalizedWords = words.map((word) => word.word);
+  let phraseMatch: { start: number; end: number } | null = null;
+  for (const phrase of phrases) {
+    const start = findNewsPhrase(normalizedWords, phrase);
+    if (start < 0) continue;
+    phraseMatch = {
+      start: words[start].start,
+      end: words[start + phrase.length - 1].end,
+    };
+    break;
+  }
 
   // When the query contains a quoted phrase, only that phrase may justify
   // cropping this field. Falling back to a loose word from the phrase would
   // crop around a partial match even when the phrase was found in the title.
   const tokenMatch =
-    phraseMatch || phrases.length > 0
-      ? null
-      : words.find(({ word }) => tokens.some((token) => matchesNewsWord(word, token)));
-  const matchStart = phraseMatch?.start ?? tokenMatch?.start ?? -1;
-  const matchLength = phraseMatch
-    ? phraseMatch.end - phraseMatch.start
-    : tokenMatch
-      ? tokenMatch.end - tokenMatch.start
-      : 0;
+    !phraseMatch && phrases.length === 0
+      ? words.find(({ word }) => tokens.some((token) => matchesNewsWord(word, token)))
+      : null;
+  const matchStart = phraseMatch?.start ?? tokenMatch?.start;
 
   // The query matched a different field (usually the title). Cropping this
   // text from the front would imply a match that is not here and add an
   // ellipsis to an excerpt the reader could have seen whole.
-  if (matchStart === -1) return source;
+  if (matchStart === undefined) return source;
 
-  let start =
-    Math.max(
-      0,
-      matchStart - Math.floor((maxLength - Math.min(matchLength, maxLength)) / 2)
-    );
+  const matchEnd = phraseMatch?.end ?? tokenMatch?.end ?? matchStart;
+  const matchLength = matchEnd - matchStart;
+
+  let start = Math.max(
+    0,
+    matchStart - Math.floor((maxLength - Math.min(matchLength, maxLength)) / 2)
+  );
   if (start > 0) {
     const previousSpace = source.lastIndexOf(' ', start);
     start = previousSpace === -1 ? 0 : previousSpace + 1;

@@ -1,20 +1,33 @@
 'use client';
 
+import {
+  AlertCircle,
+  CheckCircle2,
+  Loader2,
+  Mail,
+  Send,
+  ShieldCheck,
+  Sparkles,
+} from 'lucide-react';
 import { useState, useTransition } from 'react';
-import { Mail, Send, CheckCircle2, AlertCircle, Loader2, Sparkles, ShieldCheck } from 'lucide-react';
-import { DataPoint } from '@/components/ui/DataPoint';
 import { subscribeActionAlerts } from '@/app/news/actions';
+import { DataPoint } from '@/components/ui/DataPoint';
 
 export interface ActionAlertsSubscriptionProps {
   initialData?: Record<string, string>;
   className?: string;
 }
 
-export function ActionAlertsSubscription({ initialData, className = '' }: ActionAlertsSubscriptionProps) {
+export function ActionAlertsSubscription({
+  initialData,
+  className = '',
+}: ActionAlertsSubscriptionProps) {
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [feedbackMessage, setFeedbackMessage] = useState('');
+  const [pendingConfirmation, setPendingConfirmation] = useState(false);
+  const [alreadySubscribed, setAlreadySubscribed] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -29,7 +42,8 @@ export function ActionAlertsSubscription({ initialData, className = '' }: Action
     if (name.trim()) formData.append('name', name);
 
     // Read honeypot if filled by bot
-    const honeypotInput = (e.currentTarget.elements.namedItem('website') as HTMLInputElement | null)?.value;
+    const honeypotInput = (e.currentTarget.elements.namedItem('website') as HTMLInputElement | null)
+      ?.value;
     if (honeypotInput) formData.append('website', honeypotInput);
 
     startTransition(async () => {
@@ -41,6 +55,8 @@ export function ActionAlertsSubscription({ initialData, className = '' }: Action
         } else {
           setStatus('success');
           setFeedbackMessage(res.message);
+          setPendingConfirmation(Boolean(res.pendingConfirmation));
+          setAlreadySubscribed(Boolean(res.alreadySubscribed));
           setEmail('');
           setName('');
         }
@@ -55,6 +71,8 @@ export function ActionAlertsSubscription({ initialData, className = '' }: Action
   const handleReset = () => {
     setStatus('idle');
     setFeedbackMessage('');
+    setPendingConfirmation(false);
+    setAlreadySubscribed(false);
     setEmail('');
     setName('');
   };
@@ -100,20 +118,40 @@ export function ActionAlertsSubscription({ initialData, className = '' }: Action
           <div
             role="status"
             aria-live="polite"
-            className="border border-emerald-700/30 bg-emerald-500/10 p-6 sm:p-7 transition-colors"
+            className={`border p-6 sm:p-7 transition-colors ${
+              pendingConfirmation
+                ? 'border-sky-700/30 bg-sky-500/10'
+                : 'border-emerald-700/30 bg-emerald-500/10'
+            }`}
           >
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div className="flex items-start gap-3">
-                <div className="rounded-full bg-emerald-500/20 p-2 text-emerald-600 dark:text-emerald-400">
-                  <CheckCircle2 size={24} className="shrink-0" />
+                <div
+                  className={`rounded-full p-2 ${
+                    pendingConfirmation
+                      ? 'bg-sky-500/20 text-sky-700 dark:text-sky-300'
+                      : 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                  }`}
+                >
+                  {pendingConfirmation ? (
+                    <Mail size={24} className="shrink-0" />
+                  ) : (
+                    <CheckCircle2 size={24} className="shrink-0" />
+                  )}
                 </div>
                 <div className="space-y-1">
                   <p className="font-bold text-foreground dark:text-white text-base">
-                    You're Subscribed to Action Alerts!
+                    {pendingConfirmation
+                      ? 'Check your inbox to confirm'
+                      : alreadySubscribed
+                        ? "You're already subscribed"
+                        : "You're subscribed to Action Alerts"}
                   </p>
                   <p className="text-xs sm:text-sm text-muted-foreground dark:text-ink-on-dark">
                     {feedbackMessage ||
-                      "Thank you for joining our grassroots community. We'll keep you updated on rapid response rallies and legislative votes."}
+                      (pendingConfirmation
+                        ? 'Open the confirmation email and click the link. You are not on the list until you do.'
+                        : "Thank you for joining our grassroots community. We'll keep you updated on rapid response rallies and legislative votes.")}
                   </p>
                 </div>
               </div>
@@ -216,7 +254,9 @@ export function ActionAlertsSubscription({ initialData, className = '' }: Action
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 text-[11px] sm:text-xs text-muted-foreground dark:text-ink-on-dark/70">
               <div className="flex items-center gap-1.5">
                 <ShieldCheck size={14} className="text-accent-gold shrink-0" />
-                <span>We respect your privacy. No spam. One-click unsubscribe anytime.</span>
+                <span>
+                  Double opt-in: we email a confirmation link first. One-click unsubscribe anytime.
+                </span>
               </div>
 
               <div className="shrink-0 flex items-center gap-1">

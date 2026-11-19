@@ -25,6 +25,7 @@ const PAGES: { path: string; name?: string }[] = [
   { path: '/choir', name: 'Resistance Choir' },
   { path: '/news', name: 'News & Updates' },
   { path: '/newsletters', name: 'Newsletters & Bulletins' },
+  { path: '/newsletters/summer-action-bulletin-2026', name: 'Newsletter issue' },
   { path: '/contact' },
   { path: '/gallery' },
   { path: '/links', name: 'Coalition Links' },
@@ -85,7 +86,9 @@ test('a11y: all public pages pass axe WCAG 2.1 A/AA in both themes', async ({ pa
               .join('\n')
           )
           .join('\n');
-        console.log(`\naxe findings on ${path} (${theme}):\n${summary}${detail ? `\n${detail}` : ''}`);
+        console.log(
+          `\naxe findings on ${path} (${theme}):\n${summary}${detail ? `\n${detail}` : ''}`
+        );
       }
 
       if (serious.length > 0) {

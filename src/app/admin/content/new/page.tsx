@@ -1,4 +1,4 @@
-import { ContentEditor } from '@/components/admin/content/ContentEditor';
+import { ContentEditor } from '@/components/admin/content/ContentEditorClient';
 import { requireAdminPage } from '@/lib/admin-auth';
 import { CONTENT_TYPES, type ContentType } from '@/lib/content';
 import { env } from '@/lib/env';

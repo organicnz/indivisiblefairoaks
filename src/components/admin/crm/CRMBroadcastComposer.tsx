@@ -1,21 +1,18 @@
 'use client';
 
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { toast } from 'sonner';
-import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import { BroadcastAudiencePanel } from '@/components/admin/crm/BroadcastAudiencePanel';
-import { BroadcastDispatchBar } from '@/components/admin/crm/BroadcastDispatchBar';
-import { BroadcastMessageEditor } from '@/components/admin/crm/BroadcastMessageEditor';
 import { BroadcastComposerHeader } from '@/components/admin/crm/BroadcastComposerHeader';
 import { BroadcastConfirmationDialog } from '@/components/admin/crm/BroadcastConfirmationDialog';
+import { BroadcastDispatchBar } from '@/components/admin/crm/BroadcastDispatchBar';
 import { BroadcastDraftsList } from '@/components/admin/crm/BroadcastDraftsList';
 import { BroadcastHistoryTable } from '@/components/admin/crm/BroadcastHistoryTable';
-import { CampaignTemplateDialog } from '@/components/admin/crm/CampaignTemplateDialog';
+import { BroadcastMessageEditor } from '@/components/admin/crm/BroadcastMessageEditor';
 import { FALLBACK_TAGS } from '@/components/admin/crm/broadcast-options';
+import { CampaignTemplateDialog } from '@/components/admin/crm/CampaignTemplateDialog';
 import { parseBodyToBlocks, serializeBlocksToBody } from '@/components/admin/crm/composer/parser';
-import { CAMPAIGN_TEMPLATES } from '@/components/admin/crm/composer/templates';
 import {
   deleteCRMBroadcastDraft,
   getBroadcastProgress,
@@ -30,11 +27,13 @@ import { BROADCAST_RECIPIENT_CEILING } from '@/lib/crm-broadcast';
 import { countPages, pageRange } from '@/lib/crm-filters';
 import { BROADCAST_HISTORY_PAGE_SIZE, PROGRESS_POLL_TIMEOUT_MS } from '@/lib/crm-limits';
 import { createClient } from '@/lib/supabase';
-import type { BroadcastProgress, CRMBroadcast, CRMSegment } from '@/types/crm';
+import type { BroadcastMetrics, BroadcastProgress, CRMBroadcast, CRMSegment } from '@/types/crm';
 import type { BackendStatus, ComposerBlock, ComposerTemplate } from '@/types/unified';
 
 interface Props {
   initialBroadcasts: CRMBroadcast[];
+  /** SQL aggregates for `initialBroadcasts`, keyed by campaign id. */
+  broadcastMetrics?: Record<string, BroadcastMetrics>;
   /**
    * How many campaigns exist in total, not how many are on this page.
    *
@@ -66,9 +65,9 @@ interface Props {
   backendStatus?: BackendStatus;
 }
 
-
 export function CRMBroadcastComposer({
   initialBroadcasts,
+  broadcastMetrics = {},
   totalBroadcastCount,
   historyPage,
   initialDrafts = [],
@@ -846,7 +845,6 @@ export function CRMBroadcastComposer({
               progress={progress}
               handleResumeProgress={handleResumeProgress}
             />
-
           </div>
         </div>
       </div>
@@ -883,6 +881,7 @@ export function CRMBroadcastComposer({
 
       <BroadcastHistoryTable
         broadcasts={initialBroadcasts}
+        metricsById={broadcastMetrics}
         totalCount={totalBroadcastCount}
         testCount={testCount}
         expandedId={expandedId}

@@ -1,11 +1,12 @@
 'use client';
 
-import { ArrowRight, PenLine, Trash2 } from 'lucide-react';
+import { Archive, ArrowRight, FileText, PenLine, Trash2 } from 'lucide-react';
+import Link from 'next/link';
 import { ConfirmAction } from '@/components/admin/ConfirmAction';
+import { NewsletterTopicPills } from '@/components/newsletters/NewsletterTopicPills';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { HighlightedText } from '@/components/ui/HighlightedText';
 import { NewsSearchExcerpt } from '@/components/ui/NewsSearchExcerpt';
-import { NewsletterTopicPills } from '@/components/newsletters/NewsletterTopicPills';
 import { NEWSLETTER_CARD_EXCERPT_LENGTH } from '@/lib/news-text';
 import type { NewsletterRow } from '@/lib/queries/civic';
 
@@ -26,8 +27,12 @@ export function NewsletterCard({
   onDelete,
   searchQuery,
 }: NewsletterCardProps) {
+  const pdfUrl = newsletter.pdf_url?.trim() || null;
+  const archiveUrl = newsletter.archive_url?.trim() || null;
+  const hasFullIssue = Boolean(newsletter.body?.trim() || pdfUrl || archiveUrl);
+
   return (
-    <article className="civic-panel civic-card-lift flex flex-col justify-between p-6 hover:border-primary/40">
+    <article className="civic-panel civic-card-lift flex flex-col justify-between p-5 hover:border-primary/40">
       <div className="space-y-3">
         <div className="flex items-center justify-between gap-3">
           <span className="text-xs font-bold uppercase tracking-wider text-primary-ink dark:text-accent-gold">
@@ -75,7 +80,12 @@ export function NewsletterCard({
         </div>
 
         <h3 className="font-display text-2xl font-semibold leading-snug tracking-[-0.02em]">
-          <HighlightedText text={newsletter.title} query={searchQuery} />
+          <Link
+            href={`/newsletters/${newsletter.slug}`}
+            className="transition-colors hover:text-primary-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:hover:text-primary-on-dark"
+          >
+            <HighlightedText text={newsletter.title} query={searchQuery} />
+          </Link>
         </h3>
         {newsletter.description ? (
           <p className="text-xs leading-relaxed text-muted-foreground dark:text-ink-on-dark">
@@ -89,19 +99,51 @@ export function NewsletterCard({
         <NewsletterTopicPills topics={newsletter.topics} query={searchQuery} />
       </div>
 
-      <div className="mt-6 flex items-center justify-between border-t border-border pt-6 dark:border-white/10">
-        <a
-          href="mailto:contact@indivisiblefairoaks.org?subject=Archive%20Request%20-%20Bulletin"
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4 dark:border-white/10">
+        <Link
+          href={`/newsletters/${newsletter.slug}`}
           className="flex min-h-6 items-center gap-1 rounded-xs text-xs font-bold text-primary-ink hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:text-primary-on-dark"
         >
-          <DataPoint name="news.read_bulletin" as="span" initialData={dataPoints}>
-            Request Full Issue
-          </DataPoint>
+          {hasFullIssue ? (
+            <DataPoint name="news.read_bulletin" as="span" initialData={dataPoints}>
+              Read Full Issue
+            </DataPoint>
+          ) : (
+            <span>Read Summary</span>
+          )}
           <ArrowRight size={14} aria-hidden="true" />
-        </a>
-        <span className="text-[11px] text-muted-foreground dark:text-ink-muted-on-dark">
-          PDF &amp; Email Archive
-        </span>
+        </Link>
+
+        {pdfUrl || archiveUrl ? (
+          <div className="flex flex-wrap items-center justify-end gap-3 text-[11px] font-bold text-muted-foreground dark:text-ink-muted-on-dark">
+            {pdfUrl ? (
+              <a
+                href={pdfUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex min-h-6 items-center gap-1 hover:text-primary-ink hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:hover:text-primary-on-dark"
+              >
+                <FileText size={12} aria-hidden="true" />
+                PDF
+              </a>
+            ) : null}
+            {archiveUrl ? (
+              <a
+                href={archiveUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex min-h-6 items-center gap-1 hover:text-primary-ink hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:hover:text-primary-on-dark"
+              >
+                <Archive size={12} aria-hidden="true" />
+                Archive
+              </a>
+            ) : null}
+          </div>
+        ) : (
+          <span className="text-[11px] text-muted-foreground dark:text-ink-muted-on-dark">
+            On-site issue
+          </span>
+        )}
       </div>
     </article>
   );

@@ -18,6 +18,7 @@ const ROUTES = [
   { path: '/choir', name: 'Choir' },
   { path: '/news', name: 'News' },
   { path: '/newsletters', name: 'Newsletters' },
+  { path: '/newsletters/summer-action-bulletin-2026', name: 'Newsletter issue' },
   { path: '/contact', name: 'Contact' },
   { path: '/gallery', name: 'Gallery' },
   { path: '/links', name: 'Coalition links' },
@@ -38,9 +39,7 @@ const ROUTES = [
 
 const WIDTHS = [320, 390, 768, 1280] as const;
 
-test('public routes keep one h1, ordered headings, one main, and no overflow', async ({
-  page,
-}) => {
+test('public routes keep one h1, ordered headings, one main, and no overflow', async ({ page }) => {
   test.slow();
   await page.setViewportSize({ width: 1280, height: 900 });
   const failures: { route: string; reason: string }[] = [];

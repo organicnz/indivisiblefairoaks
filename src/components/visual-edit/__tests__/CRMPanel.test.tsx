@@ -5,6 +5,10 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CRMPanel } from '@/components/visual-edit/CRMPanel';
+import {
+  CRM_CONTACT_BULK_CONSENT_OPTIONS,
+  CRM_CONTACT_BULK_STATUS_OPTIONS,
+} from '@/lib/crm-contact-options';
 
 const getCRMContacts = vi.hoisted(() =>
   vi.fn().mockResolvedValue({
@@ -160,9 +164,6 @@ vi.mock('next/navigation', () => ({
 vi.mock('@/lib/crm-filters', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/crm-filters')>();
   return {
-    consentLabel: (v: boolean | null) =>
-      v === null ? 'Never asked' : v ? 'Opted out' : 'Opted in',
-    ConsentFilter: null,
     splitActiveValues: (s: string) =>
       !s || s === 'all'
         ? []
@@ -237,6 +238,41 @@ describe('CRMPanel', () => {
       await new Promise((r) => setTimeout(r, 50));
     });
   });
+
+  const selectAllConstituents = async () => {
+    const selectAllCheckbox = document.body.querySelector<HTMLInputElement>(
+      'input[aria-label="Select all constituents on page"]'
+    );
+    expect(selectAllCheckbox).not.toBeNull();
+    await act(async () => {
+      selectAllCheckbox?.click();
+    });
+    expect(document.body.textContent).toContain('Bulk Actions (1)');
+  };
+
+  const changeFilterValue = async (selector: string, value: string) => {
+    const control = document.body.querySelector<HTMLInputElement | HTMLSelectElement>(selector);
+    expect(control).not.toBeNull();
+    await act(async () => {
+      if (control) {
+        const prototype =
+          control instanceof HTMLSelectElement
+            ? HTMLSelectElement.prototype
+            : HTMLInputElement.prototype;
+        const setValue = Object.getOwnPropertyDescriptor(prototype, 'value')?.set;
+        setValue?.call(control, value);
+        control.dispatchEvent(
+          new Event(control instanceof HTMLSelectElement ? 'change' : 'input', { bubbles: true })
+        );
+      }
+      await new Promise((r) => setTimeout(r, 50));
+    });
+  };
+
+  const findButtonByText = (text: string) =>
+    Array.from(document.body.querySelectorAll<HTMLButtonElement>('button')).find(
+      (button) => button.textContent?.trim() === text
+    );
 
   afterEach(async () => {
     await act(async () => root.unmount());
@@ -740,6 +776,178 @@ describe('CRMPanel', () => {
     });
     expect(document.body.textContent).toContain('Select all (1)');
     expect(document.body.textContent).not.toContain('Bulk Actions (1)');
+  });
+
+  it('clears the bulk selection when the search changes', async () => {
+    await selectAllConstituents();
+    await changeFilterValue('input[placeholder^="Search constituents"]', 'test');
+
+    expect(document.body.textContent).not.toContain('Bulk Actions (1)');
+    expect(getCRMContacts).toHaveBeenLastCalledWith(expect.objectContaining({ query: 'test' }));
+  });
+
+  it.each([
+    [
+      'consent',
+      'select[aria-label="Filter by email consent"]',
+      'opted_out',
+      { consent: 'opted_out' },
+    ],
+    ['status', 'select[aria-label="Filter by constituent status"]', 'donor', { status: 'donor' }],
+    ['tag', 'select[aria-label="Filter by tag"]', 'volunteer', { tag: 'volunteer' }],
+    ['district', 'input[aria-label="Filter by district"]', 'CA-06', { district: 'CA-06' }],
+  ] as const)(
+    'clears the bulk selection when the %s filter changes',
+    async (_label, selector, value, expected) => {
+      await selectAllConstituents();
+      await changeFilterValue(selector, value);
+
+      expect(document.body.textContent).not.toContain('Bulk Actions (1)');
+      expect(getCRMContacts).toHaveBeenLastCalledWith(expect.objectContaining(expected));
+    }
+  );
+
+  it('clears the bulk selection when filters are reset', async () => {
+    await changeFilterValue('select[aria-label="Filter by constituent status"]', 'donor');
+    await selectAllConstituents();
+
+    const resetAllBtn = document.body.querySelector<HTMLButtonElement>(
+      'button[aria-label="Reset all filters"]'
+    );
+    expect(resetAllBtn).not.toBeNull();
+    await act(async () => {
+      resetAllBtn?.click();
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    expect(document.body.textContent).not.toContain('Bulk Actions (1)');
+    expect(getCRMContacts).toHaveBeenLastCalledWith(expect.objectContaining({ status: undefined }));
+  });
+
+  it('clears the bulk selection when a segment is applied or cleared', async () => {
+    await selectAllConstituents();
+
+    const segmentsBtn = findButtonByText('Segments');
+    expect(segmentsBtn).not.toBeUndefined();
+    await act(async () => {
+      segmentsBtn?.click();
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    // This segment has no query or consent, so only its status list changes
+    // the key; the Volunteers segment would hide a missing segment-list key.
+    const segmentCard = Array.from(
+      document.body.querySelectorAll<HTMLButtonElement>('button')
+    ).find((b) => b.textContent?.includes('Multi-status') ?? false);
+    expect(segmentCard).not.toBeUndefined();
+    await act(async () => {
+      segmentCard?.click();
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    expect(document.body.textContent).not.toContain('Bulk Actions (1)');
+
+    await selectAllConstituents();
+    const clearSegmentBtn = document.body.querySelector<HTMLButtonElement>(
+      'button[aria-label="Clear applied segment"]'
+    );
+    expect(clearSegmentBtn).not.toBeNull();
+    await act(async () => {
+      clearSegmentBtn?.click();
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    expect(document.body.textContent).not.toContain('Bulk Actions (1)');
+  });
+
+  it('keeps the bulk selection when only the page changes', async () => {
+    const firstPageResponse = {
+      contacts: [
+        {
+          id: 'c1',
+          email: 'test@test.org',
+          first_name: 'Test',
+          last_name: 'Person',
+          do_not_email: false,
+          tags: ['test'],
+          status: 'supporter',
+          phone: null,
+          address: null,
+          city: null,
+          zip_code: null,
+          district: 'CA-06',
+          notes: null,
+          total_donated_cents: 0,
+          source: 'manual',
+        },
+      ],
+      totalCount: 30,
+    };
+    // A different contact on page two proves the selected row is off-page.
+    const secondPageResponse = {
+      contacts: [
+        {
+          ...firstPageResponse.contacts[0],
+          id: 'c2',
+          email: 'second@test.org',
+          first_name: 'Second',
+        },
+      ],
+      totalCount: 30,
+    };
+    // One response for the status-filter reload, one for the Next click.
+    getCRMContacts.mockResolvedValueOnce(firstPageResponse);
+    getCRMContacts.mockResolvedValueOnce(secondPageResponse);
+
+    await changeFilterValue('select[aria-label="Filter by constituent status"]', 'donor');
+    await selectAllConstituents();
+
+    const nextButton = findButtonByText('Next');
+    expect(nextButton).not.toBeUndefined();
+    await act(async () => {
+      nextButton?.click();
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    expect(getCRMContacts).toHaveBeenLastCalledWith(
+      expect.objectContaining({ page: 2, pageSize: 25, status: 'donor' })
+    );
+    expect(document.body.textContent).toContain('Page 2 of 2 (30 total)');
+    expect(document.body.textContent).toContain('second@test.org');
+    expect(findButtonByText('Next')?.disabled).toBe(true);
+
+    expect(document.body.textContent).toContain('Bulk Actions (1)');
+  });
+
+  it('uses the shared bulk order and labels for the 360 panel bulk controls', async () => {
+    const selectAllCheckbox = document.body.querySelector<HTMLInputElement>(
+      'input[aria-label="Select all constituents on page"]'
+    );
+    expect(selectAllCheckbox).not.toBeNull();
+    await act(async () => {
+      selectAllCheckbox?.click();
+    });
+
+    const bulkStatusSelect = document.body.querySelector<HTMLSelectElement>(
+      'select[aria-label="Bulk update status"]'
+    );
+    const bulkConsentSelect = document.body.querySelector<HTMLSelectElement>(
+      'select[aria-label="Bulk update consent"]'
+    );
+    expect(bulkStatusSelect).not.toBeNull();
+    expect(bulkConsentSelect).not.toBeNull();
+
+    const renderedOptions = (select: HTMLSelectElement) =>
+      Array.from(select.options)
+        .filter((option) => option.value !== '')
+        .map((option) => [option.value, option.textContent?.trim()]);
+
+    expect(renderedOptions(bulkStatusSelect as HTMLSelectElement)).toEqual(
+      CRM_CONTACT_BULK_STATUS_OPTIONS.map(({ value, compactLabel }) => [value, compactLabel])
+    );
+    expect(renderedOptions(bulkConsentSelect as HTMLSelectElement)).toEqual(
+      CRM_CONTACT_BULK_CONSENT_OPTIONS.map(({ value, bulkLabel }) => [value, bulkLabel])
+    );
   });
 
   it('performs bulk status update for selected constituents', async () => {

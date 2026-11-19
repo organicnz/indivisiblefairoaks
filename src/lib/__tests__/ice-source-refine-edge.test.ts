@@ -1,7 +1,11 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import {
+  buildChunkMessages,
   buildMessages,
+  buildSynthesisMessages,
+  chunkSourceText,
+  parseChunkNotes,
   parseRefineResponse,
 } from '../../../supabase/functions/ice-source-refine/logic';
 
@@ -31,10 +35,7 @@ const GOOD_DIGEST = [
 
 describe('ice-source-refine line selection', () => {
   it('rebuilds cleaned text from the original lines only', () => {
-    const result = parseRefineResponse(
-      '{"isReport":true,"keep":[4,5]}',
-      SOURCE
-    );
+    const result = parseRefineResponse('{"isReport":true,"keep":[4,5]}', SOURCE);
     expect(result).toEqual({
       isReport: true,
       text: 'ICE agents arrested two people in Fair Oaks, CA on Tuesday.\nThe agency said the operation followed a months-long investigation.',
@@ -43,10 +44,7 @@ describe('ice-source-refine line selection', () => {
 
   it('accepts a fenced response and string line numbers', () => {
     expect(
-      parseRefineResponse(
-        '```json\n{"isReport":true,"keep":["4",5]}\n```',
-        SOURCE
-      )?.text
+      parseRefineResponse('```json\n{"isReport":true,"keep":["4",5]}\n```', SOURCE)?.text
     ).toContain('months-long investigation');
   });
 
@@ -91,11 +89,7 @@ describe('ice-source-refine digest mode', () => {
   it('rejects a digest assembled mainly from a source passage', () => {
     const copied = `${DIGEST_SOURCE.split('\n')[0]} Additional context written separately to reach the minimum digest length for this test.`;
     expect(
-      parseRefineResponse(
-        JSON.stringify({ isReport: true, text: copied }),
-        DIGEST_SOURCE,
-        'refine'
-      )
+      parseRefineResponse(JSON.stringify({ isReport: true, text: copied }), DIGEST_SOURCE, 'refine')
     ).toBeNull();
   });
 
@@ -110,6 +104,16 @@ describe('ice-source-refine digest mode', () => {
     expect(
       parseRefineResponse(JSON.stringify({ isReport: true, text: digest }), source, 'refine')
     ).toEqual({ isReport: true, text: digest });
+  });
+
+  it('rejects a lightly edited source article, not just an exact copied run', () => {
+    const source =
+      'Over the weekend, U.S. Customs and Border Protection Air and Marine Operations agents, U.S. Border Patrol agents, U.S. Coast Guard crews and military partners intercepted four separate maritime smuggling vessels off the Southern California coast, apprehending 81 people. The enforcement actions began at 12:45 p.m. on Saturday, Nov. 7, when Air and Marine Operations crews and partners simultaneously interdicted two vessels off the coast of Catalina Island.';
+    const digest =
+      'U.S. Customs and Border Protection (CBP) and partner agencies intercepted four maritime smuggling vessels off Southern California over the weekend, apprehending a total of 81 people. The operations began at 12:45 p.m. on Saturday, Nov. 7, when Air and Marine Operations crews and naval partners simultaneously interdicted two vessels near Catalina Island.';
+    expect(
+      parseRefineResponse(JSON.stringify({ isReport: true, text: digest }), source, 'refine')
+    ).toBeNull();
   });
 
   it('rejects invented numbers, links and markup', () => {
@@ -161,11 +165,106 @@ describe('ice-source-refine digest mode', () => {
       sourceTitle: 'Example',
       mode: 'refine',
     });
-    expect(system.content).toContain('Restructure the source');
-    expect(system.content).toContain('12 or more consecutive words');
+    expect(system.content).toContain('Do not retell the page');
+    expect(system.content).toContain('7 or more consecutive words');
     expect(system.content).toContain('never for people');
     expect(system.content).not.toContain('NUMBERED PAGE TEXT');
     expect(user.content).toContain('SOURCE TEXT');
     expect(user.content).toContain('12 people');
+  });
+});
+
+describe('ice-source-refine long-source chunking', () => {
+  it('keeps the end of a source when it exceeds the old prompt cap', () => {
+    const lines = Array.from(
+      { length: 2_000 },
+      (_, index) => `Line ${index} records an enforcement detail for the report.`
+    );
+    const source = lines.join('\n');
+    const [, user] = buildMessages({
+      text: source,
+      sourceUrl: 'https://www.ice.gov/news/releases/example',
+      sourceTitle: 'Example',
+      mode: 'refine',
+    });
+
+    expect(user.content).toContain('Line 0 ');
+    expect(user.content).toContain('Line 1999 ');
+  });
+
+  it('splits a long source into complete, ordered chunks', () => {
+    const paragraphs = Array.from(
+      { length: 80 },
+      (_, index) => `Paragraph ${index}: the agency reported a distinct fact.`
+    );
+    const source = paragraphs.join('\n\n');
+    const chunks = chunkSourceText(source, {
+      size: 700,
+      overlap: 0,
+      maxChunks: 100,
+      lineSafe: true,
+    });
+
+    expect(chunks).not.toBeNull();
+    expect(chunks?.[0]).toContain('Paragraph 0:');
+    expect(chunks?.at(-1)).toContain('Paragraph 79:');
+    expect(chunks?.join('\n')).toContain('Paragraph 40:');
+  });
+
+  it('fails closed when the full source exceeds the chunk budget', () => {
+    expect(
+      chunkSourceText('x'.repeat(5_000), {
+        size: 1_000,
+        overlap: 0,
+        maxChunks: 2,
+      })
+    ).toBeNull();
+  });
+
+  it('numbers every chunk and builds a synthesis prompt from every note', () => {
+    const input = {
+      text: 'source',
+      sourceUrl: 'https://www.ice.gov/news/releases/example',
+      sourceTitle: 'Example',
+      mode: 'refine' as const,
+    };
+    const [chunkSystem, chunkUser] = buildChunkMessages(input, 'PART BODY', 1, 3);
+    expect(chunkSystem.content).toContain('factual notes');
+    expect(chunkSystem.content).toContain('1500 characters');
+    expect(chunkUser.content).toContain('PART 2 OF 3');
+    expect(chunkUser.content).toContain('PART BODY');
+
+    const [synthesisSystem, synthesisUser] = buildSynthesisMessages(input, [
+      'First note with 12 people.',
+      'Second note with a vehicle.',
+    ]);
+    expect(synthesisSystem.content).toContain('final faithful public digest');
+    expect(synthesisUser.content).toContain('First note with 12 people.');
+    expect(synthesisUser.content).toContain('Second note with a vehicle.');
+  });
+
+  it('accepts grounded chunk notes and rejects invented numbers or markup', () => {
+    const source =
+      'ICE agents arrested 12 people in Los Angeles on Tuesday after a months-long investigation.';
+    const notes =
+      'The agency reported arresting 12 people in Los Angeles on Tuesday after an investigation.';
+
+    expect(parseChunkNotes(JSON.stringify({ isReport: true, notes }), source)).toEqual({
+      isReport: true,
+      notes,
+    });
+    expect(
+      parseChunkNotes(JSON.stringify({ isReport: true, notes: notes.replace('12', '17') }), source)
+    ).toBeNull();
+    expect(
+      parseChunkNotes(
+        JSON.stringify({ isReport: true, notes: `${notes} https://example.org` }),
+        source
+      )
+    ).toBeNull();
+    expect(parseChunkNotes(JSON.stringify({ isReport: false, notes: '' }), source)).toEqual({
+      isReport: false,
+      notes: '',
+    });
   });
 });

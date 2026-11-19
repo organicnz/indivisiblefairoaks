@@ -19,14 +19,18 @@ interface Props {
   keep: CRMContact;
   isOpen: boolean;
   onClose: () => void;
+  /** Preselect a known duplicate, e.g. the contact the editor's email preflight found. */
+  initialCandidate?: CRMContact | null;
+  /** Runs after the merge RPC succeeds, before the modal closes. */
+  onMerged?: () => void;
 }
 
-export function CRMMergeModal({ keep, isOpen, onClose }: Props) {
+export function CRMMergeModal({ keep, isOpen, onClose, initialCandidate = null, onMerged }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [search, setSearch] = useState('');
-  const [candidate, setCandidate] = useState<CRMContact | null>(null);
-  const [results, setResults] = useState<CRMContact[]>([]);
+  const [candidate, setCandidate] = useState<CRMContact | null>(initialCandidate);
+  const [results, setResults] = useState<CRMContact[]>(initialCandidate ? [initialCandidate] : []);
   const [searching, setSearching] = useState(false);
 
   const handleSearch = async (e?: React.FormEvent) => {
@@ -76,6 +80,7 @@ export function CRMMergeModal({ keep, isOpen, onClose }: Props) {
         const res = await mergeCRMContacts({ keepId: keep.id, removeId: candidate.id });
         if (res.success) {
           toast.success('Contacts merged');
+          onMerged?.();
           onClose();
           router.refresh();
         } else {

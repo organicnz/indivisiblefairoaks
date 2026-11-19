@@ -361,6 +361,69 @@ export type Database = {
           },
         ]
       }
+      crm_broadcast_recipients: {
+        Row: {
+          accepted_at: string | null
+          broadcast_id: string
+          contact_id: string | null
+          created_at: string
+          email: string
+          failed_at: string | null
+          id: string
+          provider_id: string | null
+          reason: string | null
+          recipient_name: string | null
+          status: string
+          suppressed_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          broadcast_id: string
+          contact_id?: string | null
+          created_at?: string
+          email: string
+          failed_at?: string | null
+          id?: string
+          provider_id?: string | null
+          reason?: string | null
+          recipient_name?: string | null
+          status: string
+          suppressed_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          broadcast_id?: string
+          contact_id?: string | null
+          created_at?: string
+          email?: string
+          failed_at?: string | null
+          id?: string
+          provider_id?: string | null
+          reason?: string | null
+          recipient_name?: string | null
+          status?: string
+          suppressed_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_broadcast_recipients_broadcast_id_fkey"
+            columns: ["broadcast_id"]
+            isOneToOne: false
+            referencedRelation: "crm_broadcasts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_broadcast_recipients_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "crm_contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       crm_contacts: {
         Row: {
           address: string | null
@@ -372,7 +435,10 @@ export type Database = {
           first_name: string | null
           id: string
           last_contacted_at: string | null
+          last_engaged_at: string | null
+          last_inbound_at: string | null
           last_name: string | null
+          last_outbound_at: string | null
           notes: string | null
           phone: string | null
           search_vector: unknown
@@ -395,7 +461,9 @@ export type Database = {
           first_name?: string | null
           id?: string
           last_contacted_at?: string | null
+          last_inbound_at?: string | null
           last_name?: string | null
+          last_outbound_at?: string | null
           notes?: string | null
           phone?: string | null
           search_vector?: unknown
@@ -418,7 +486,9 @@ export type Database = {
           first_name?: string | null
           id?: string
           last_contacted_at?: string | null
+          last_inbound_at?: string | null
           last_name?: string | null
+          last_outbound_at?: string | null
           notes?: string | null
           phone?: string | null
           search_vector?: unknown
@@ -770,9 +840,12 @@ export type Database = {
       }
       newsletters: {
         Row: {
+          archive_url: string | null
+          body: string
           created_at: string
           date_label: string
           description: string
+          pdf_url: string | null
           published_at: string | null
           slug: string
           sort_order: number
@@ -780,9 +853,12 @@ export type Database = {
           topics: string[]
         }
         Insert: {
+          archive_url?: string | null
+          body?: string
           created_at?: string
           date_label?: string
           description?: string
+          pdf_url?: string | null
           published_at?: string | null
           slug: string
           sort_order?: number
@@ -790,9 +866,12 @@ export type Database = {
           topics?: string[]
         }
         Update: {
+          archive_url?: string | null
+          body?: string
           created_at?: string
           date_label?: string
           description?: string
+          pdf_url?: string | null
           published_at?: string | null
           slug?: string
           sort_order?: number
@@ -926,6 +1005,38 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      crm_broadcast_followups: {
+        Args: { p_broadcast_id: string; p_limit?: number; p_offset?: number }
+        Returns: {
+          contact_id: string | null
+          email: string
+          failed_at: string | null
+          provider_id: string | null
+          reason: string | null
+          recipient_name: string | null
+          status: string
+          suppressed_at: string | null
+          total_count: number
+          updated_at: string
+        }[]
+      }
+      crm_broadcast_metrics: {
+        Args: { p_broadcast_ids: string[] }
+        Returns: {
+          accepted_count: number
+          broadcast_id: string
+          failed_count: number
+          pending_count: number
+          recipient_count: number
+          recorded_count: number
+          suppressed_count: number
+          unresolved_count: number
+        }[]
+      }
+      crm_broadcast_settle_recipients: {
+        Args: { p_broadcast_id: string; p_results: Json }
+        Returns: number
+      }
       crm_stats: { Args: never; Returns: Json }
       crm_sync_historical_records: { Args: never; Returns: Json }
       is_admin: { Args: never; Returns: boolean }

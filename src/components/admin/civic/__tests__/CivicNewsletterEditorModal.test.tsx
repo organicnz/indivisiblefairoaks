@@ -6,6 +6,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CivicNewsletterEditorModal } from '@/components/admin/civic/CivicNewsletterEditorModal';
 import { type CivicNewsletterRecord, saveCivicNewsletter } from '@/lib/actions/civic';
+import { sendCivicNewsletterTest } from '@/lib/actions/civic-newsletter-broadcast';
 import { NEWSLETTER_LONG_SENTENCE_WORDS } from '@/lib/news-text';
 import { NEWSLETTER_LIMITS } from '@/lib/newsletters';
 
@@ -13,6 +14,10 @@ import { NEWSLETTER_LIMITS } from '@/lib/newsletters';
 
 vi.mock('@/lib/actions/civic', () => ({
   saveCivicNewsletter: vi.fn(),
+}));
+
+vi.mock('@/lib/actions/civic-newsletter-broadcast', () => ({
+  sendCivicNewsletterTest: vi.fn(),
 }));
 
 vi.mock('sonner', () => ({
@@ -40,6 +45,9 @@ const newsletter: CivicNewsletterRecord = {
   title: 'Summer Bulletin',
   date_label: 'July 2026',
   description: 'Summer organizing update.',
+  body: 'The full summer issue text.',
+  pdf_url: 'https://example.org/summer-bulletin.pdf',
+  archive_url: 'https://example.org/archive/summer-bulletin',
   topics: ['Election Defense'],
   sort_order: 10,
   published_at: '2026-07-01T00:00:00Z',
@@ -49,6 +57,7 @@ describe('CivicNewsletterEditorModal', () => {
   let container: HTMLDivElement;
   let root: Root;
   const saveNewsletter = vi.mocked(saveCivicNewsletter);
+  const sendTest = vi.mocked(sendCivicNewsletterTest);
 
   beforeEach(() => {
     container = document.createElement('div');
@@ -57,6 +66,8 @@ describe('CivicNewsletterEditorModal', () => {
 
     saveNewsletter.mockReset();
     saveNewsletter.mockResolvedValue({ success: true, data: newsletter });
+    sendTest.mockReset();
+    sendTest.mockResolvedValue({ success: true, testRecipient: 'admin@example.org' });
   });
 
   afterEach(() => {
@@ -95,6 +106,9 @@ describe('CivicNewsletterEditorModal', () => {
     const payload = saveNewsletter.mock.calls[0]?.[0];
     expect(payload?.published_at).toBe('2026-07-01T00:00:00.000Z');
     expect(payload?.original_slug).toBe('summer-bulletin');
+    expect(payload?.body).toBe('The full summer issue text.');
+    expect(payload?.pdf_url).toBe('https://example.org/summer-bulletin.pdf');
+    expect(payload?.archive_url).toBe('https://example.org/archive/summer-bulletin');
     expect(onSaved).toHaveBeenCalledWith(newsletter, 'summer-bulletin');
   });
 
@@ -281,5 +295,40 @@ describe('CivicNewsletterEditorModal', () => {
     });
 
     expect(document.body.textContent).toContain('1 long sentence');
+  });
+
+  it('sends the current draft to the admin test path without saving it', async () => {
+    await act(async () => {
+      root.render(
+        <CivicNewsletterEditorModal
+          isOpen={true}
+          onClose={vi.fn()}
+          newsletter={newsletter}
+          onSaved={vi.fn()}
+        />
+      );
+    });
+
+    const testButton = [...document.querySelectorAll<HTMLButtonElement>('button')].find((button) =>
+      /send test/i.test(button.textContent ?? '')
+    );
+    if (!testButton) throw new Error('Send test button did not render');
+
+    await act(async () => {
+      testButton.click();
+      await Promise.resolve();
+    });
+
+    expect(sendTest).toHaveBeenCalledTimes(1);
+    expect(sendTest).toHaveBeenCalledWith({
+      title: 'Summer Bulletin',
+      dateLabel: 'July 2026',
+      description: 'Summer organizing update.',
+      body: 'The full summer issue text.',
+      pdfUrl: 'https://example.org/summer-bulletin.pdf',
+      archiveUrl: 'https://example.org/archive/summer-bulletin',
+      slug: 'summer-bulletin',
+    });
+    expect(saveNewsletter).not.toHaveBeenCalled();
   });
 });

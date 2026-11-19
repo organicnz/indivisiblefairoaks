@@ -111,6 +111,21 @@
   }
 }
 
+/* Archive pages sit inside a narrower measure and repeat this head several
+   times, so they use the same rule with less air between label, title and the
+   content it introduces. */
+.civic-page .civic-section-head.civic-section-head--compact {
+  gap: 1rem;
+  padding-block-end: 1rem;
+  margin-block-end: 1.5rem;
+}
+
+@media (min-width: 48rem) {
+  .civic-page .civic-section-head.civic-section-head--compact {
+    gap: 1.5rem;
+  }
+}
+
 /* Admin is an operational surface, not a separate SaaS design system. The
    global base already supplies Fraunces; this removes the legacy weight,
    uppercase and wide tracking that individual admin headings still carry.
@@ -246,21 +261,6 @@
 
 .civic-page .civic-panel--muted {
   background: var(--surface-muted);
-}
-
-.civic-page .civic-data-row {
-  display: grid;
-  gap: 0.75rem;
-  padding-block: 1.25rem;
-  border-block-start: 1px solid var(--border);
-}
-
-@media (min-width: 40rem) {
-  .civic-page .civic-data-row {
-    grid-template-columns: minmax(10rem, 0.35fr) minmax(0, 1fr) auto;
-    align-items: start;
-    gap: 1.5rem;
-  }
 }
 
 .civic-page .civic-meta {

@@ -14,6 +14,7 @@ export type AdminAuditAction =
   | 'admin.role.revoke'
   | 'crm.contact.delete'
   | 'crm.contact.bulk_delete'
+  | 'crm.contact.bulk_update'
   | 'crm.broadcast.send'
   | 'crm.broadcast.self_test'
   | 'content.publish'
@@ -58,9 +59,7 @@ export interface AdminAuditEntry {
   metadata?: Record<string, unknown> | null;
 }
 
-export type AdminAuditResult =
-  | { ok: true }
-  | { ok: false; error: string };
+export type AdminAuditResult = { ok: true } | { ok: false; error: string };
 
 interface AuditInsertClient {
   from(table: string): {

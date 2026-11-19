@@ -1,14 +1,9 @@
 'use client';
 
-import {
-  AlertCircle,
-  Loader2,
-  RotateCcw,
-} from 'lucide-react';
+import { AlertCircle, RotateCcw } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import {
   type ContentRevision,
   deleteContent,
@@ -20,12 +15,7 @@ import {
   setContentStatus,
 } from '@/lib/actions/content';
 import { type Block, isTransient, parseHtml, serializeBlocks } from '@/lib/blocks';
-import {
-  type ContentType,
-  contentComposeHref,
-  readingStats,
-  slugifyTitle,
-} from '@/lib/content';
+import { type ContentType, contentComposeHref, readingStats, slugifyTitle } from '@/lib/content';
 import { clearDraft, isWorthRecovering, readDraft, writeDraft } from '@/lib/draft-recovery';
 import {
   canRedo,
@@ -38,11 +28,11 @@ import {
 } from '@/lib/editor-history';
 import { htmlToExcerpt } from '@/lib/sanitize';
 import { isStaleConflict } from '@/lib/visual-edit/conflict';
-import type { EditorFields } from './editor-fields';
 import { BlockEditor } from './BlockEditor';
 import { ContentEditorHeader } from './ContentEditorHeader';
 import { ContentEditorSettingsPanel } from './ContentEditorSettingsPanel';
 import { ContentPreview } from './ContentPreview';
+import type { EditorFields } from './editor-fields';
 import { RevisionsPanel } from './RevisionsPanel';
 
 export interface ContentEditorInitial {

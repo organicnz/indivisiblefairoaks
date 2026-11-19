@@ -17,16 +17,9 @@ export type PreparedNewsField = {
 };
 
 export function prepareNewsField(value: string | null | undefined): PreparedNewsField | null {
-  if (typeof value !== 'string' || value.length === 0) return null;
+  if (!value) return null;
   const normalized = normalizeNewsText(value);
-  if (!normalized) return null;
-  return { words: normalized.split(' ') };
-}
-
-export function prepareNewsFields(
-  fields: readonly (string | null | undefined)[]
-): (PreparedNewsField | null)[] {
-  return fields.map(prepareNewsField);
+  return normalized ? { words: normalized.split(' ') } : null;
 }
 
 /**

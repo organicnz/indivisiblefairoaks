@@ -1,14 +1,18 @@
-import type { IceSourceExtractionMethod } from '@/lib/ice-crawl-types';
 import { env } from '@/lib/env';
+import type { IceSourceExtractionMethod } from '@/lib/ice-crawl-types';
 
 /**
  * The crawler stores readable page text, but government newsroom pages wrap
  * the report in navigation, cookie/consent copy and a feedback survey. The
- * refinement endpoint asks a model to select the source lines that belong to
- * the report; the line text itself is never rewritten.
+ * refinement endpoint either selects the source lines that belong to the report
+ * or writes a source-grounded digest, depending on mode. In clean mode the line
+ * text itself is never rewritten; in refine mode the digest is checked against
+ * the source before it is cached or shown.
  */
-const MAX_AI_REFINE_CHARS = 24_000;
-const REFINE_TIMEOUT_MS = 35_000;
+// Match the database's stored-source ceiling. The Edge Function splits long
+// sources into bounded chunks, so this is not a single-model prompt limit.
+const MAX_AI_REFINE_CHARS = 500_000;
+const REFINE_TIMEOUT_MS = 55_000;
 const MAX_STORED_CHARS = 500_000;
 
 export type SourceRefinement = {
@@ -118,7 +122,10 @@ const CHROME_LINES = new Set([
 ]);
 
 function cleanLine(value: string) {
-  return value.normalize('NFKC').replace(/[ \t]+/g, ' ').trim();
+  return value
+    .normalize('NFKC')
+    .replace(/[ \t]+/g, ' ')
+    .trim();
 }
 
 function lineKey(value: string) {
@@ -149,9 +156,7 @@ export function cleanSourceTextFallback(value: string) {
   const shareIndex = lines.findIndex((line) => lineKey(line) === 'share on facebook');
   const articleStart =
     shareIndex >= 0
-      ? lines.findIndex(
-          (line, index) => index > shareIndex && lineKey(line) === 'print this page'
-        )
+      ? lines.findIndex((line, index) => index > shareIndex && lineKey(line) === 'print this page')
       : -1;
   const bodyLines = articleStart >= 0 ? lines.slice(articleStart + 1) : lines;
   const output: string[] = [];
@@ -182,10 +187,7 @@ export function cleanSourceTextFallback(value: string) {
  * the model reliably tells them apart; feed entries are already source-shaped.
  * Keeping the decision here also makes the fallback path testable.
  */
-export function shouldRefineSourceText(
-  method: IceSourceExtractionMethod,
-  _text: string
-) {
+export function shouldRefineSourceText(method: IceSourceExtractionMethod, _text: string) {
   return method === 'html' || method === 'fallback';
 }
 
@@ -208,7 +210,10 @@ export function isLikelySourceReport(value: string) {
 
   const opening = text.split('\n').slice(0, 4).join(' ');
   if (INDEX_PAGE.test(opening)) return false;
-  if (STATISTICS_PAGE.test(opening) && !/\b(?:reported|sighting|spotted|said|statement)\b/i.test(text)) {
+  if (
+    STATISTICS_PAGE.test(opening) &&
+    !/\b(?:reported|sighting|spotted|said|statement)\b/i.test(text)
+  ) {
     return false;
   }
   return true;
@@ -216,10 +221,7 @@ export function isLikelySourceReport(value: string) {
 
 function groundedRefinement(source: string, refined: string) {
   const sourceLines = new Set(
-    cleanSourceTextFallback(source)
-      .split('\n')
-      .map(lineKey)
-      .filter(Boolean)
+    cleanSourceTextFallback(source).split('\n').map(lineKey).filter(Boolean)
   );
   for (const line of cleanSourceTextFallback(refined).split('\n')) {
     const key = lineKey(line);
@@ -237,9 +239,18 @@ function groundedRefinement(source: string, refined: string) {
  */
 const MIN_REPORT_DIGEST_CHARS = 120;
 const MAX_REPORT_DIGEST_CHARS = 5_000;
-const MIN_COPY_RUN_WORDS = 12;
-const MAX_COPY_RUN_WORDS = 20;
-const MAX_COPIED_RATIO = 0.3;
+/*
+ * Copy detection deliberately looks at shorter windows than the model is
+ * asked to avoid. A lightly edited source sentence can break an exact
+ * twelve-word match while still reading as the publisher's sentence; the
+ * national CBP release on the test archive did exactly that. Seven-word
+ * overlap catches that mosaic copying, while the ratio leaves room for one
+ * isolated factual phrase (an agency unit, a date, a number) in otherwise
+ * original prose.
+ */
+const COPY_SHINGLE_WORDS = 7;
+const MAX_COPY_RUN_WORDS = 14;
+const MAX_COPIED_RATIO = 0.25;
 
 function digestWords(value: string) {
   return value
@@ -271,23 +282,23 @@ export function digestInventsNumber(source: string, digest: string) {
 export function digestCopyProfile(source: string, digest: string) {
   const sourceWords = digestWords(source);
   const outputWords = digestWords(digest);
-  if (outputWords.length < MIN_COPY_RUN_WORDS) {
+  if (outputWords.length < COPY_SHINGLE_WORDS) {
     return { longestRun: 0, copiedRatio: 0 };
   }
 
   const shingles = new Set<string>();
-  for (let index = 0; index <= sourceWords.length - MIN_COPY_RUN_WORDS; index += 1) {
-    shingles.add(sourceWords.slice(index, index + MIN_COPY_RUN_WORDS).join(' '));
+  for (let index = 0; index <= sourceWords.length - COPY_SHINGLE_WORDS; index += 1) {
+    shingles.add(sourceWords.slice(index, index + COPY_SHINGLE_WORDS).join(' '));
   }
   if (shingles.size === 0) return { longestRun: 0, copiedRatio: 0 };
 
   const covered = new Array<boolean>(outputWords.length).fill(false);
   let copiedWords = 0;
-  for (let index = 0; index <= outputWords.length - MIN_COPY_RUN_WORDS; index += 1) {
-    if (!shingles.has(outputWords.slice(index, index + MIN_COPY_RUN_WORDS).join(' '))) {
+  for (let index = 0; index <= outputWords.length - COPY_SHINGLE_WORDS; index += 1) {
+    if (!shingles.has(outputWords.slice(index, index + COPY_SHINGLE_WORDS).join(' '))) {
       continue;
     }
-    for (let offset = 0; offset < MIN_COPY_RUN_WORDS; offset += 1) {
+    for (let offset = 0; offset < COPY_SHINGLE_WORDS; offset += 1) {
       const position = index + offset;
       if (!covered[position]) {
         covered[position] = true;

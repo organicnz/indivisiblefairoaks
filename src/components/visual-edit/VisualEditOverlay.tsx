@@ -20,7 +20,6 @@ import {
   registerVisualEditExitGuard,
   useVisualEditMode,
 } from '@/components/layout/visual-edit-store';
-import { RovingToolbar } from '@/components/visual-edit/RovingToolbar';
 import {
   type ContentRevision,
   getContentBySlugForEdit,
@@ -32,7 +31,6 @@ import {
 } from '@/lib/actions/content';
 import { getCRMEdgeFunctionHealth, uploadCRMMedia } from '@/lib/actions/crm';
 import { getVisualPageContext } from '@/lib/actions/visual';
-import { describeOversizedBody, describeSlugConflict } from '@/lib/content';
 import { moveBlockItem } from '@/lib/block-order';
 import {
   applyBlockShell,
@@ -48,11 +46,9 @@ import {
   parseHtml,
   serializeBlocks,
 } from '@/lib/blocks';
-import {
-  COPY_REGION_VERSION_ATTR,
-  copyRegionSlug,
-  getPageCopyRegions,
-} from '@/lib/copy-regions';
+import { describeOversizedBody, describeSlugConflict } from '@/lib/content';
+import { COPY_REGION_VERSION_ATTR, copyRegionSlug, getPageCopyRegions } from '@/lib/copy-regions';
+import { dataPointGroup } from '@/lib/data-point-groups';
 import { clearDraft, isWorthRecovering, readDraft, writeDraft } from '@/lib/draft-recovery';
 import { cmsSlugForPath } from '@/lib/edit-target';
 // Aliased: `History` is the DOM's own global type. Importing it unaliased would
@@ -68,7 +64,6 @@ import {
   undo as undoHistory,
 } from '@/lib/editor-history';
 import { saveDataPoint } from '@/lib/queries/civic-client';
-import { dataPointGroup } from '@/lib/data-point-groups';
 import { isStaleConflict } from '@/lib/visual-edit/conflict';
 import { extractBlocksFromDOM } from '@/lib/visual-edit/extract-blocks-from-dom';
 import {
@@ -104,40 +99,41 @@ import type {
   VisualPageContext,
   VisualSectionOverlayItem,
 } from '@/types/unified';
+import { AltTextDialog } from './AltTextDialog';
+import { BatchSelectionBar } from './BatchSelectionBar';
+import { BlockContextMenu } from './BlockContextMenu';
 import { BlockLibraryModal, type BlockTemplate } from './BlockLibraryModal';
 import { BreadcrumbBar } from './BreadcrumbBar';
 import { CommandPalette } from './CommandPalette';
-import { clampFixedPanelPosition, type FixedPanelPosition } from './fixed-panel-position';
-import { normalizeLinkTarget } from './composer/content/richTextDom';
 import { CRMPanel } from './CRMPanel';
+import { normalizeLinkTarget } from './composer/content/richTextDom';
 import { DataPointDrawer } from './DataPointDrawer';
-import { ElementInspectorHud } from './ElementInspectorHud';
-import { focusEditorFallback } from './focusable';
-import { applyInlineFormatCommand, type InlineFormatCommand } from './InlineFormatToolbar';
-import { ModalDialog } from './ModalDialog';
-import { PageA11yAuditor } from './PageA11yAuditor';
-import { PageNavigatorDrawer } from './PageNavigatorDrawer';
-import { SlashCommandMenu } from './SlashCommandMenu';
-import { insertLink, runTextareaFormatCommand } from './textareaFormat';
-import { useBlockDrag } from './useBlockDrag';
-import { type CopyRegionSaveResult, useBlockWriter } from './useBlockWriter';
-import { useComposerPagePreview } from './useComposerPagePreview';
-import { useBeforeUnloadWarning } from './useBeforeUnloadWarning';
 import {
   DeleteSectionsDialog,
   RegionSwitchDialog,
   ReorderSectionDialog,
   RouteLeaveDialog,
 } from './EditorConfirmationDialogs';
-import { AltTextDialog } from './AltTextDialog';
-import { BlockContextMenu } from './BlockContextMenu';
-import { BatchSelectionBar } from './BatchSelectionBar';
+import { ElementInspectorHud } from './ElementInspectorHud';
+import { clampFixedPanelPosition, type FixedPanelPosition } from './fixed-panel-position';
+import { focusEditorFallback } from './focusable';
+import { applyInlineFormatCommand, type InlineFormatCommand } from './InlineFormatToolbar';
 import { KeyboardShortcutsDialog } from './KeyboardShortcutsDialog';
 import { LinkInsertDialog, type LinkModalState } from './LinkInsertDialog';
+import { PageA11yAuditor } from './PageA11yAuditor';
+import { PageNavigatorDrawer } from './PageNavigatorDrawer';
 import { PageSettingsDialog } from './PageSettingsDialog';
-import { SectionOverlayLayer } from './SectionOverlayLayer';
 import { RevisionsHistoryDialog } from './RevisionsHistoryDialog';
+import { SectionOverlayLayer } from './SectionOverlayLayer';
+import { SlashCommandMenu } from './SlashCommandMenu';
 import { SystemDiagnosticsDialog } from './SystemDiagnosticsDialog';
+import { insertLink, runTextareaFormatCommand } from './textareaFormat';
+import { useBeforeUnloadWarning } from './useBeforeUnloadWarning';
+import { useBlockDrag } from './useBlockDrag';
+import { type CopyRegionSaveResult, useBlockWriter } from './useBlockWriter';
+import { useComposerPagePreview } from './useComposerPagePreview';
+import { useVisualEditChrome } from './useVisualEditChrome';
+import { useVisualEditViewport } from './useVisualEditViewport';
 import { ViewportDeviceBar } from './ViewportDeviceBar';
 import {
   compileClassNames,
@@ -152,6 +148,16 @@ import {
   VisualDiffModal,
 } from './VisualDiffModal';
 import { VisualEditorSidebar } from './VisualEditorSidebar';
+import {
+  carrySessionBlockIds,
+  collectAnchorIds,
+  findAnchorOwner,
+  INLINE_EDITABLE_BLOCK_TYPES,
+  readInlineListItems,
+  resolveBlockContentRoot,
+  routeForPathname,
+  wrapSelectionWithTag,
+} from './visual-edit-overlay-helpers';
 
 /**
  * Visual editing surface for every page across the site.
@@ -180,116 +186,6 @@ const AUTOSAVE_DELAY_MS = 2500;
  */
 const DOCUMENT_LOAD_TIMEOUT_MS = 20_000;
 
-/**
- * Elements whose `innerHTML` is a block's own editable content.
- *
- * A block's root in the DOM is normally one of these: a paragraph is a `<p>`, a
- * heading an `<h2>`, a callout a `<div class="cw-callout">`. Reading such an
- * element's `innerHTML` is exactly reading the content the block model stores.
- *
- * A `<section>`, `<div>` or `<main>` *layout* wrapper is deliberately absent.
- * On a coded page a block's DOM address is the section that renders it, so
- * reading the wrapper's `innerHTML` would save every sibling block as one
- * block's `html` — inflating the body past `MAX_BODY_BYTES` and making "This
- * page is too large to save" fire on every later save.
- */
-const TEXT_CONTENT_TAGS: ReadonlySet<string> = new Set([
-  'p',
-  'h1',
-  'h2',
-  'h3',
-  'h4',
-  'h5',
-  'h6',
-  'blockquote',
-  'pre',
-  'li',
-  'dd',
-  'dt',
-  'figcaption',
-  'td',
-  'th',
-]);
-
-/**
- * Divs that are a block's own root even though the tag is generic.
- *
- * `serializeBlock` gives a callout and a button a `<div>` root carrying a `cw-`
- * structural class, so those two are content, not layout.
- */
-const TEXT_CONTENT_ROOT_CLASSES = ['cw-callout', 'cw-action'] as const;
-
-function isTextContentRoot(element: HTMLElement): boolean {
-  if (TEXT_CONTENT_TAGS.has(element.tagName.toLowerCase())) return true;
-  return TEXT_CONTENT_ROOT_CLASSES.some((className) => element.classList.contains(className));
-}
-
-/**
- * The element whose `innerHTML` is the content of the block being committed.
- *
- * The inline session's element is often a child of the block's rendered root —
- * a link or a `<strong>` inside a paragraph — so the block's own content is
- * read from the nearest textual ancestor rather than from the session element.
- *
- * Climbing stops at the block root, and the block root is accepted only when it
- * is itself a content root (`<p>`, `<h2>`, a `cw-callout` div, …). That bound is
- * the fix for "This page is too large to save": on a coded page the block
- * resolves to a `<section>`, and a `<section>`'s `innerHTML` is the whole
- * section, not the block.
- *
- * Returns null when no content root can be found — the caller must not persist
- * a layout wrapper's markup as a block's content.
- */
-export function resolveBlockContentRoot(
-  element: HTMLElement,
-  blockRoot: HTMLElement | null
-): HTMLElement | null {
-  if (!blockRoot || !blockRoot.contains(element)) {
-    return isTextContentRoot(element) ? element : null;
-  }
-  let node: HTMLElement | null = element;
-  while (node && node !== blockRoot) {
-    if (isTextContentRoot(node)) return node;
-    node = node.parentElement;
-  }
-  return isTextContentRoot(blockRoot) ? blockRoot : null;
-}
-
-/**
- * Read the top-level items of a list block from the live DOM.
- *
- * An inline session can start on an `<li>`, whose `innerHTML` is only one item.
- * The block stores the whole list, so the write must walk to the owning
- * `<ul>`/`<ol>` rather than persisting the edited item as the list.
- */
-function readInlineListItems(
-  blockRoot: HTMLElement | null,
-  contentRoot: HTMLElement | null
-): string[] | null {
-  const listRoot = blockRoot?.matches('ul, ol')
-    ? blockRoot
-    : (contentRoot?.closest('ul, ol') ?? blockRoot?.closest('ul, ol') ?? null);
-  if (!listRoot) return null;
-  const items = Array.from(listRoot.children)
-    .filter((child): child is HTMLLIElement => child.tagName === 'LI')
-    .map((item) => item.innerHTML);
-  return items.length > 0 ? items : null;
-}
-
-/** Block types whose text an inline session can represent in the saved model. */
-const INLINE_EDITABLE_BLOCK_TYPES: ReadonlySet<Block['type']> = new Set([
-  'heading',
-  'paragraph',
-  'quote',
-  'callout',
-  'button',
-  'bulletList',
-  'orderedList',
-  'code',
-]);
-
-export type ViewportMode = 'desktop' | 'tablet' | 'mobile';
-
 export interface InlineEditSession {
   element: HTMLElement;
   initialHtml: string;
@@ -300,7 +196,6 @@ export interface InlineEditSession {
   top: number;
   left: number;
 }
-
 
 export interface ImageEditSession {
   element: HTMLImageElement;
@@ -336,8 +231,7 @@ type ImageWriteOutcome = 'saved' | 'failed' | 'unsupported';
  *
  * One list, not two: a label added here and not to the selector is a block that
  * can be created but never converted back to, and a label removed here but left
- * there is the reverse. `CONVERT_BLOCK_OPTIONS` is deliberately separate — it
- * carries variants (heading levels, callout tones) rather than types.
+ * there is the reverse.
  */
 const BLOCK_TYPE_OPTIONS: ReadonlyArray<{ type: Block['type']; label: string }> = [
   { type: 'paragraph', label: 'Paragraph Text' },
@@ -354,23 +248,6 @@ const BLOCK_TYPE_OPTIONS: ReadonlyArray<{ type: Block['type']; label: string }> 
   { type: 'row', label: 'Row / Columns' },
 ];
 
-const CONVERT_BLOCK_OPTIONS: ReadonlyArray<{
-  type: LeafBlockType;
-  label: string;
-  headingLevel?: HeadingLevel;
-  calloutTone?: CalloutTone;
-}> = [
-  { type: 'heading', label: 'Heading 2 (H2)', headingLevel: 2 },
-  { type: 'heading', label: 'Heading 3 (H3)', headingLevel: 3 },
-  { type: 'paragraph', label: 'Paragraph Text' },
-  { type: 'callout', label: 'Callout (Info)', calloutTone: 'info' },
-  { type: 'callout', label: 'Callout (Action)', calloutTone: 'action' },
-  { type: 'callout', label: 'Callout (Warning)', calloutTone: 'warning' },
-  { type: 'quote', label: 'Quote Block' },
-  { type: 'bulletList', label: 'Bullet List' },
-  { type: 'code', label: 'Code Snippet' },
-];
-
 /**
  * The section modal's paragraph toolbar. Deliberately narrower than the pill:
  * the field is a textarea of HTML, so list and block-format commands have no
@@ -383,154 +260,6 @@ const _SECTION_MODAL_FORMAT_COMMANDS: readonly InlineFormatCommand[] = [
   'strikethrough',
   'link',
 ];
-
-function wrapSelectionWithTag(tagName: string, className?: string) {
-  if (typeof window === 'undefined') return;
-  const selection = window.getSelection();
-  if (!selection || selection.rangeCount === 0) return;
-  const range = selection.getRangeAt(0);
-  if (tagName === 'hr') {
-    const hr = document.createElement('hr');
-    if (className) hr.className = className;
-    range.deleteContents();
-    range.insertNode(hr);
-    return;
-  }
-  const el = document.createElement(tagName);
-  if (className) el.className = className;
-  try {
-    el.appendChild(range.extractContents());
-    range.insertNode(el);
-  } catch {
-    document.execCommand('formatBlock', false, tagName);
-  }
-}
-
-/**
- * The shape of an `id` attribute, shared by both anchor checks.
- *
- * `(?:^|\s)`, not `\b`: a word boundary also matches the `id` inside
- * `data-id`, which would report a collision that is not one. The composer's
- * save guard and its live warning both build from this string, so the two
- * cannot disagree about what counts as an anchor.
- */
-const ANCHOR_ATTRIBUTE_PREFIX = String.raw`(?:^|\s)id=["']`;
-
-/** Every id a block carries, or every id on the page but one block's. */
-function collectAnchorIds(blocks: Block[], exceptIndex: number | null = null): string[] {
-  const ids: string[] = [];
-  blocks.forEach((block, index) => {
-    if (index === exceptIndex) return;
-    // A shell block's root id is no longer inside its `html`; the model owns it.
-    if (block.shell?.anchorId) ids.push(block.shell.anchorId);
-    if (!('html' in block) || typeof block.html !== 'string') return;
-    const pattern = new RegExp(`${ANCHOR_ATTRIBUTE_PREFIX}([^"']+)["']`, 'gi');
-    for (const match of block.html.matchAll(pattern)) {
-      if (match[1]) ids.push(match[1]);
-    }
-  });
-  return ids;
-}
-
-/**
- * The index of another block that already owns `anchorId`, or `null` if free.
- *
- * An `id` identifies exactly one element. Two blocks carrying the same one
- * produces invalid HTML, breaks every in-page link that meant the first of
- * them, and fails the composer's own accessibility audit — so the write is
- * refused with a message naming the conflict, rather than silently minting a
- * duplicate or silently renaming what the operator typed.
- */
-function findAnchorOwner(blocks: Block[], blockIndex: number, anchorId: string): number | null {
-  const escaped = anchorId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const pattern = new RegExp(`${ANCHOR_ATTRIBUTE_PREFIX}${escaped}["']`, 'i');
-  const wanted = anchorId.toLowerCase();
-  for (let i = 0; i < blocks.length; i += 1) {
-    if (i === blockIndex) continue;
-    const block = blocks[i];
-    if (block.shell?.anchorId?.toLowerCase() === wanted) return i;
-    if ('html' in block && typeof block.html === 'string' && pattern.test(block.html)) {
-      return i;
-    }
-  }
-  return null;
-}
-
-/**
- * Give a refreshed document the ids of the blocks the panel is still editing.
- *
- * A reload parses `content.body` again, and `parseHtml` mints fresh ids; the
- * composer keys an editing session by id. Without this carry-over a page-side
- * refresh reads as "a different block" even though it is the same paragraph in
- * the same place, and the inspector rebuilds the draft from markup — silently
- * discarding whatever the operator had not applied yet.
- *
- * Only the blocks that are part of the live session are mapped: the block the
- * panel has open, the multi-selection, and the batch target snapshot. A block
- * nobody is holding keeps its fresh id, so a refresh cannot make two unrelated
- * blocks look like one. Mapping is positional on purpose — the same index is
- * the same place on the page, and a block that has moved is still the block the
- * operator is looking at.
- */
-function carrySessionBlockIds(
-  next: readonly Block[],
-  previous: readonly Block[],
-  session: {
-    openIndex: number | null;
-    selectedIds: readonly string[];
-    batchIds: readonly string[];
-  }
-): Block[] {
-  const idByIndex = new Map<number, string>();
-  const bind = (index: number, id: string | undefined) => {
-    if (!id || index < 0 || index >= next.length) return;
-    idByIndex.set(index, id);
-  };
-
-  bind(
-    session.openIndex ?? -1,
-    session.openIndex !== null ? previous[session.openIndex]?.id : undefined
-  );
-  for (const id of new Set([...session.selectedIds, ...session.batchIds])) {
-    bind(
-      previous.findIndex((block) => block.id === id),
-      id
-    );
-  }
-
-  if (idByIndex.size === 0) return [...next];
-  return next.map((block, index) => {
-    const id = idByIndex.get(index);
-    return id ? { ...block, id } : block;
-  });
-}
-
-/**
- * The full address a document at `pathname` belongs to.
- *
- * React supplies the pathname; the search string and hash live only in the
- * browser. Preserving them matters because `?region=` is part of the document
- * address: restoring only `/about` would silently reopen the whole page instead
- * of the copy region the operator was editing.
- */
-function routeForPathname(pathname: string): string {
-  if (typeof window === 'undefined') return pathname;
-  return `${pathname}${window.location.search}${window.location.hash}`;
-}
-
-/**
- * Confirm the dialog that owns `input`.
- *
- * These dialogs are portalled but are not forms, so `input.form` is null and
- * the native Enter-to-submit path has nothing to submit. Find the confirm
- * button inside this dialog instead of the first one elsewhere in the document.
- */
-function confirmDialogFromInput(input: HTMLInputElement): void {
-  input
-    .closest('[role="dialog"]')
-    ?.querySelector<HTMLButtonElement>('[data-confirm]')
-    ?.click();
-}
 
 export function VisualEditOverlay() {
   const router = useRouter();
@@ -579,9 +308,7 @@ export function VisualEditOverlay() {
    * or edit, which reads as a broken editor. Track the markers instead: a
    * streamed or toggled-in region appears in the selector as soon as it exists.
    */
-  const [renderedRegionIds, setRenderedRegionIds] = useState<ReadonlySet<string>>(
-    () => new Set()
-  );
+  const [renderedRegionIds, setRenderedRegionIds] = useState<ReadonlySet<string>>(() => new Set());
   useEffect(() => {
     if (!enabled || !isAdmin) return;
 
@@ -591,9 +318,7 @@ export function VisualEditOverlay() {
         if (document.querySelector(`[data-copy-region="${region.id}"]`)) next.add(region.id);
       }
       setRenderedRegionIds((previous) =>
-        previous.size === next.size && [...next].every((id) => previous.has(id))
-          ? previous
-          : next
+        previous.size === next.size && [...next].every((id) => previous.has(id)) ? previous : next
       );
     };
 
@@ -665,12 +390,9 @@ export function VisualEditOverlay() {
     setActiveRegionId((current) => (current === regionId ? current : regionId));
     syncRegionParamInUrl(regionId);
     if (regionId) {
-      highlightPageSection(
-        document.querySelector<HTMLElement>(`[data-copy-region="${regionId}"]`)
-      );
+      highlightPageSection(document.querySelector<HTMLElement>(`[data-copy-region="${regionId}"]`));
     }
   }, []);
-
 
   const rootRef = useRef<HTMLElement | null>(null);
   /**
@@ -901,9 +623,7 @@ export function VisualEditOverlay() {
    * committed document change without moving the whole callback or creating a
    * second history path.
    */
-  const commitBlocksRef = useRef<
-    (next: Block[], coalesceKey?: string | null) => void
-  >(() => {});
+  const commitBlocksRef = useRef<(next: Block[], coalesceKey?: string | null) => void>(() => {});
   blocksRef.current = blocks;
 
   /**
@@ -1012,16 +732,8 @@ export function VisualEditOverlay() {
   // Backend health details popover state
   const [showHealthDetails, setShowHealthDetails] = useState(false);
 
-  const [dockCollapsed, setDockCollapsed] = useState(() => {
-    try {
-      return (
-        typeof window !== 'undefined' &&
-        window.localStorage?.getItem('visual_edit_dock_collapsed') === 'true'
-      );
-    } catch {
-      return false;
-    }
-  });
+  const { dockCollapsed, setDockCollapsed, showInspector, toggleDockCollapsed, toggleInspector } =
+    useVisualEditChrome();
 
   /**
    * The single path into the Visual Composer Inspector.
@@ -1395,8 +1107,8 @@ export function VisualEditOverlay() {
   );
 
   // Responsive Viewport Simulation Mode
-  const [viewportMode, setViewportMode] = useState<ViewportMode>('desktop');
-  const [deviceOrientation, setDeviceOrientation] = useState<'portrait' | 'landscape'>('portrait');
+  const { viewportMode, deviceOrientation, setViewportMode, handleRotateOrientation } =
+    useVisualEditViewport(enabled, isAdmin);
 
   // Command Palette & Pro HUD States
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
@@ -1635,37 +1347,6 @@ export function VisualEditOverlay() {
     setSidebarActiveTab('library');
   }, []);
   const [isPageNavigatorOpen, setIsPageNavigatorOpen] = useState(false);
-  const [showInspector, setShowInspector] = useState(() => {
-    try {
-      return (
-        typeof window !== 'undefined' &&
-        window.localStorage?.getItem('visual_edit_inspector') !== 'false'
-      );
-    } catch {
-      return true;
-    }
-  });
-  const toggleInspector = useCallback(() => {
-    setShowInspector((prev) => {
-      const next = !prev;
-      try {
-        window.localStorage?.setItem('visual_edit_inspector', String(next));
-      } catch {}
-      toast.info(`Inspector HUD ${next ? 'enabled' : 'disabled'}`);
-      return next;
-    });
-  }, []);
-
-  const toggleDockCollapsed = useCallback(() => {
-    setDockCollapsed((prev) => {
-      const next = !prev;
-      try {
-        window.localStorage?.setItem('visual_edit_dock_collapsed', String(next));
-      } catch {}
-      return next;
-    });
-  }, []);
-
   /**
    * Reserve the rail on the dedicated composer route.
    *
@@ -1681,11 +1362,7 @@ export function VisualEditOverlay() {
   const sidebarWideForRail =
     !sidebarCollapsedForRail &&
     (isComposerActiveForRail || sidebarActiveTab === 'composer' || sidebarActiveTab === 'library');
-  const railMode = sidebarCollapsedForRail
-    ? 'collapsed'
-    : sidebarWideForRail
-      ? 'wide'
-      : 'expanded';
+  const railMode = sidebarCollapsedForRail ? 'collapsed' : sidebarWideForRail ? 'wide' : 'expanded';
 
   useEffect(() => {
     // This component returns null unless both gates are on, so only then is
@@ -1699,11 +1376,6 @@ export function VisualEditOverlay() {
     applyVisualEditRail(railMode);
     return () => applyVisualEditRail(null);
   }, [enabled, isAdmin, isComposerWorkspace, railMode]);
-
-  const handleRotateOrientation = useCallback(() => {
-    setDeviceOrientation((prev) => (prev === 'portrait' ? 'landscape' : 'portrait'));
-    toast.info(`Orientation: ${deviceOrientation === 'portrait' ? 'Landscape' : 'Portrait'}`);
-  }, [deviceOrientation]);
 
   const titleId = useId();
   const slugId = useId();
@@ -1940,13 +1612,9 @@ export function VisualEditOverlay() {
     // remains the fallback, the edit URL is next for an ordinary page, and a
     // region is never either row.
     const composerPathMatch = /^\/compose\/(\d+)\/?$/.exec(pathname);
-    const composerPathRowId = composerPathMatch
-      ? Number(composerPathMatch[1])
-      : null;
+    const composerPathRowId = composerPathMatch ? Number(composerPathMatch[1]) : null;
     const validComposerPathRowId =
-      composerPathRowId !== null &&
-      Number.isSafeInteger(composerPathRowId) &&
-      composerPathRowId > 0
+      composerPathRowId !== null && Number.isSafeInteger(composerPathRowId) && composerPathRowId > 0
         ? composerPathRowId
         : null;
     const declaredRowId = isRegion
@@ -2009,8 +1677,7 @@ export function VisualEditOverlay() {
       if (!pendingRouteChangeRef.current) {
         pendingRouteChangeRef.current = true;
         setPendingRouteChange({
-          restoreRoute:
-            loadedRouteRef.current ?? routeForPathname(previousPathname ?? pathname),
+          restoreRoute: loadedRouteRef.current ?? routeForPathname(previousPathname ?? pathname),
         });
       }
       return;
@@ -2309,9 +1976,7 @@ export function VisualEditOverlay() {
    * silently replace the document the operator chose to keep.
    */
   const cancelDeferredDocumentChange = useCallback(() => {
-    setPendingRegionSwitch((pending) =>
-      pending?.stage === 'composer-close' ? null : pending
-    );
+    setPendingRegionSwitch((pending) => (pending?.stage === 'composer-close' ? null : pending));
 
     const loadedRoute = loadedRouteRef.current;
     if (!loadedRoute) return;
@@ -2785,8 +2450,7 @@ export function VisualEditOverlay() {
     return () => registerVisualEditExitGuard(null);
   }, [canExitVisualEditing, enabled, isAdmin]);
 
-  const autosavePaused =
-    autosaveFailure?.scope === draftScope && autosaveFailure.snapshot === body;
+  const autosavePaused = autosaveFailure?.scope === draftScope && autosaveFailure.snapshot === body;
 
   /**
    * The page-level unsaved guard kept the route from loading.
@@ -2857,14 +2521,7 @@ export function VisualEditOverlay() {
       clearDraft(draftScope);
     }
     activateRegion(regionId);
-  }, [
-    activateRegion,
-    body,
-    clearDraft,
-    draftScope,
-    pageRegions,
-    pendingRegionSwitch,
-  ]);
+  }, [activateRegion, body, clearDraft, draftScope, pageRegions, pendingRegionSwitch]);
 
   /**
    * A switch requested while the composer was open waits for the panel to
@@ -3287,8 +2944,7 @@ export function VisualEditOverlay() {
               updated_at: saved.updatedAt,
               created_at: new Date().toISOString(),
               published_at:
-                saved.publishedAt ??
-                (saveStatus === 'publish' ? new Date().toISOString() : null),
+                saved.publishedAt ?? (saveStatus === 'publish' ? new Date().toISOString() : null),
             };
           });
           /**
@@ -3953,8 +3609,7 @@ export function VisualEditOverlay() {
           });
           return;
         }
-        const targetBlock =
-          blockIndex !== null ? blocksRef.current[blockIndex] : undefined;
+        const targetBlock = blockIndex !== null ? blocksRef.current[blockIndex] : undefined;
 
         if (targetBlock?.type === 'bulletList' || targetBlock?.type === 'orderedList') {
           const items = readInlineListItems(blockRoot, contentRoot);
@@ -4085,7 +3740,14 @@ export function VisualEditOverlay() {
       element.innerHTML = initialHtml;
       toast.error('This text is outside the saved page document, so it cannot be saved.');
     },
-    [router, writeToBlock, writeToCopyRegion, locate, describeUnsaveableDocument, documentReadRefusal]
+    [
+      router,
+      writeToBlock,
+      writeToCopyRegion,
+      locate,
+      describeUnsaveableDocument,
+      documentReadRefusal,
+    ]
   );
 
   /**
@@ -4283,7 +3945,6 @@ export function VisualEditOverlay() {
     [locate, writeToBlock, writeToCopyRegion, setHistory]
   );
 
-
   /**
    * Restore an image session's preview and the block model that contains it.
    *
@@ -4371,15 +4032,11 @@ export function VisualEditOverlay() {
       }
       const previousAlt = session.element.alt;
       session.element.alt = newAlt;
-      const outcome = await persistImageEdit(
-        session,
-        (block) => ({ ...block, alt: newAlt }),
-        {
-          successMessage: 'Image alt text updated',
-          copyRegionSuccessMessage: 'Alt text saved to copy region',
-          errorMessage: 'Failed to save alt text',
-        }
-      );
+      const outcome = await persistImageEdit(session, (block) => ({ ...block, alt: newAlt }), {
+        successMessage: 'Image alt text updated',
+        copyRegionSuccessMessage: 'Alt text saved to copy region',
+        errorMessage: 'Failed to save alt text',
+      });
       if (outcome === 'unsupported') {
         session.element.alt = previousAlt;
         toast.error('Alt text cannot be saved for this block type');
@@ -4439,16 +4096,12 @@ export function VisualEditOverlay() {
           const session = imageSessionRef.current;
           const previousSrc = session.element.src;
           session.element.src = newUrl;
-          const outcome = await persistImageEdit(
-            session,
-            (block) => ({ ...block, src: newUrl }),
-            {
-              successMessage: 'Image replaced and saved',
-              copyRegionSuccessMessage: 'Image uploaded and saved to region!',
-              copyRegionErrorMessage: 'Image uploaded but region save failed',
-              errorMessage: 'Image uploaded but page save failed',
-            }
-          );
+          const outcome = await persistImageEdit(session, (block) => ({ ...block, src: newUrl }), {
+            successMessage: 'Image replaced and saved',
+            copyRegionSuccessMessage: 'Image uploaded and saved to region!',
+            copyRegionErrorMessage: 'Image uploaded but region save failed',
+            errorMessage: 'Image uploaded but page save failed',
+          });
           /*
            * The upload succeeded, but the image has nowhere to be written or
            * the write failed. Restore the old preview only when the target is
@@ -4475,61 +4128,6 @@ export function VisualEditOverlay() {
     },
     [persistImageEdit, documentReadRefusal]
   );
-
-  // Responsive Viewport Simulation effect: smoothly constrain <main>
-  useEffect(() => {
-    const main = document.querySelector('main');
-    if (!main) return;
-
-    if (!enabled || !isAdmin || viewportMode === 'desktop') {
-      main.style.maxWidth = '';
-      main.style.marginLeft = '';
-      main.style.marginRight = '';
-      main.style.boxShadow = '';
-      main.style.borderLeft = '';
-      main.style.borderRight = '';
-      main.style.transition = 'max-width 300ms ease-out';
-    } else if (viewportMode === 'mobile') {
-      main.style.maxWidth = deviceOrientation === 'portrait' ? '390px' : '844px';
-      main.style.marginLeft = 'auto';
-      main.style.marginRight = 'auto';
-      main.style.boxShadow = '0 25px 60px -15px rgba(0, 0, 0, 0.7)';
-      main.style.borderLeft = '1px solid rgba(255, 255, 255, 0.15)';
-      main.style.borderRight = '1px solid rgba(255, 255, 255, 0.15)';
-      main.style.transition = 'max-width 300ms ease-out';
-    } else if (viewportMode === 'tablet') {
-      main.style.maxWidth = deviceOrientation === 'portrait' ? '768px' : '1024px';
-      main.style.marginLeft = 'auto';
-      main.style.marginRight = 'auto';
-      main.style.boxShadow = '0 25px 60px -15px rgba(0, 0, 0, 0.5)';
-      main.style.borderLeft = '1px solid rgba(255, 255, 255, 0.12)';
-      main.style.borderRight = '1px solid rgba(255, 255, 255, 0.12)';
-      main.style.transition = 'max-width 300ms ease-out';
-    }
-
-    const timer = setTimeout(() => {
-      window.dispatchEvent(new Event('resize'));
-    }, 320);
-
-    return () => {
-      clearTimeout(timer);
-    };
-  }, [enabled, isAdmin, viewportMode, deviceOrientation]);
-
-  // Clean up viewport simulation styles on unmount
-  useEffect(() => {
-    return () => {
-      const main = document.querySelector('main');
-      if (main) {
-        main.style.maxWidth = '';
-        main.style.marginLeft = '';
-        main.style.marginRight = '';
-        main.style.boxShadow = '';
-        main.style.borderLeft = '';
-        main.style.borderRight = '';
-      }
-    };
-  }, []);
 
   // In-place direct click-to-edit listener for sections, copy regions, and images
   useEffect(() => {
@@ -4733,9 +4331,7 @@ export function VisualEditOverlay() {
        */
       if (textTarget) {
         const refusal =
-          copyRegionId || dataPointContainer
-            ? documentReadRefusal()
-            : describeUnsaveableDocument();
+          copyRegionId || dataPointContainer ? documentReadRefusal() : describeUnsaveableDocument();
         if (refusal) {
           e.preventDefault();
           e.stopPropagation();
@@ -5490,9 +5086,7 @@ export function VisualEditOverlay() {
       }
       if (key === 's') {
         event.preventDefault();
-        void saveDocument(
-          contentRow ? 'Page saved to Supabase' : 'Page connected to Supabase CMS'
-        );
+        void saveDocument(contentRow ? 'Page saved to Supabase' : 'Page connected to Supabase CMS');
         return;
       }
       if (key === 'z') {
@@ -5710,9 +5304,7 @@ export function VisualEditOverlay() {
      * operator never loses edits they did not knowingly replace.
      */
     if (dirtyRef.current) {
-      toast.error(
-        'Save or discard the current page changes before restoring a revision.'
-      );
+      toast.error('Save or discard the current page changes before restoring a revision.');
       return;
     }
     if (!contentRow || revisionsContentId !== contentRow.id) {
@@ -5971,8 +5563,7 @@ export function VisualEditOverlay() {
             updated_at: saved.updatedAt,
             created_at: new Date().toISOString(),
             published_at:
-              saved.publishedAt ??
-              (pageStatus === 'publish' ? new Date().toISOString() : null),
+              saved.publishedAt ?? (pageStatus === 'publish' ? new Date().toISOString() : null),
           };
         });
         setSavedBody(persistedBody);
@@ -6048,8 +5639,7 @@ export function VisualEditOverlay() {
   const paletteSaveBlockedReason = inlineSession
     ? (documentReadRefusal() ?? undefined)
     : (unsaveableReason ?? undefined);
-  const paletteCanSave =
-    (Boolean(inlineSession) || dirty) && !paletteSaveBlockedReason;
+  const paletteCanSave = (Boolean(inlineSession) || dirty) && !paletteSaveBlockedReason;
   const recoveredDraftBlockedReason =
     unsaveableReason ??
     (inlineSession
@@ -6080,9 +5670,7 @@ export function VisualEditOverlay() {
       ) {
         focusInlineEditorOrFallback();
         closeLinkModal(false);
-        toast.error(
-          'This link is no longer editable. Select it again to change its destination.'
-        );
+        toast.error('This link is no longer editable. Select it again to change its destination.');
         return;
       }
       /*
@@ -6106,9 +5694,7 @@ export function VisualEditOverlay() {
       if (!restoreCapturedLinkRange()) {
         focusInlineEditorOrFallback();
         closeLinkModal(false);
-        toast.error(
-          'The selected text is no longer editable. Select it again to add a link.'
-        );
+        toast.error('The selected text is no longer editable. Select it again to add a link.');
         return;
       }
       document.execCommand('createLink', false, url);
@@ -6165,7 +5751,6 @@ export function VisualEditOverlay() {
           </button>
         </div>
       )}
-
       {/* ── In-Page Visual Section Overlays ────────────────────────────── */}
       {showSectionBadges && sectionOverlays.length > 0 && sectionActionsAvailable && (
         <SectionOverlayLayer
@@ -6222,7 +5807,8 @@ export function VisualEditOverlay() {
           onToggleFrame={toggleSectionFrame}
           onDelete={handleDeleteSection}
         />
-      )}      {selectedBlockIndexes.size > 1 && !isVisualComposerOpen && sectionActionsAvailable ? (
+      )}{' '}
+      {selectedBlockIndexes.size > 1 && !isVisualComposerOpen && sectionActionsAvailable ? (
         <BatchSelectionBar
           count={selectedBlockIndexes.size}
           saving={savingBackend}
@@ -6232,7 +5818,8 @@ export function VisualEditOverlay() {
           onDeleteSelected={() => handleDeleteSections(Array.from(selectedBlockIndexes))}
           onClear={clearSelection}
         />
-      ) : null}      {/* ── Inline Slash Commands Floating Palette ──────────────────────── */}
+      ) : null}{' '}
+      {/* ── Inline Slash Commands Floating Palette ──────────────────────── */}
       {inlineSession && (
         <SlashCommandMenu
           open={isSlashMenuOpen}
@@ -6275,13 +5862,10 @@ export function VisualEditOverlay() {
             toast.info('Civic Ghostwriter AI ready — select text or click Ghostwriter');
           }}
           onInsertLink={() => {
-            runWithSlashSelection(() =>
-              openLinkModal({ textareaId: null, url: '', text: '' })
-            );
+            runWithSlashSelection(() => openLinkModal({ textareaId: null, url: '', text: '' }));
           }}
         />
       )}
-
       {/*
         ── Visual Editor Sidebar ────────────────────────────────────────────
 
@@ -6303,7 +5887,6 @@ export function VisualEditOverlay() {
         aria-hidden="true"
         tabIndex={-1}
       />
-
       <VisualEditorSidebar
         collapsed={dockCollapsed}
         onToggleCollapsed={toggleDockCollapsed}
@@ -6412,12 +5995,9 @@ export function VisualEditOverlay() {
         onReorderSection={handleReorderSectionWithConfirmation}
         onDeleteSection={(idx) => handleDeleteSection(idx)}
         blockTypeOptions={BLOCK_TYPE_OPTIONS}
-        adminEditUrl={
-          target?.editUrl ?? (contentRow ? `/admin/content/${contentRow.id}` : null)
-        }
+        adminEditUrl={target?.editUrl ?? (contentRow ? `/admin/content/${contentRow.id}` : null)}
         composerProps={composerProps}
       />
-
       <PageSettingsDialog
         open={isSettingsOpen}
         onOpenChange={setIsSettingsOpen}
@@ -6455,13 +6035,12 @@ export function VisualEditOverlay() {
               ? 'Save or cancel the image edit before importing a page snapshot'
               : isVisualComposerOpen
                 ? 'Close the composer before importing a page snapshot'
-                : unsaveableReason ?? 'Import page snapshot JSON file'
+                : (unsaveableReason ?? 'Import page snapshot JSON file')
         }
         saveDisabled={savingBackend || Boolean(unsaveableReason)}
         saveTitle={unsaveableReason ?? 'Save page settings to Supabase'}
         savingBackend={savingBackend}
       />
-
       {/* ── Supabase S3 Media Library Modal ────────────────────────────── */}
       {mediaModalOpen && (
         <CRMMediaLibraryModal
@@ -6475,9 +6054,7 @@ export function VisualEditOverlay() {
              * change the operator made over a fallback.
              */
             const mediaRefusal =
-              mediaTarget === 'section'
-                ? describeUnsaveableDocument()
-                : documentReadRefusal();
+              mediaTarget === 'section' ? describeUnsaveableDocument() : documentReadRefusal();
             if (mediaRefusal) {
               toast.error(mediaRefusal);
               setMediaModalOpen(false);
@@ -6555,7 +6132,6 @@ export function VisualEditOverlay() {
           initialFolder="content"
         />
       )}
-
       <RevisionsHistoryDialog
         open={isRevisionsOpen}
         onOpenChange={(open) => {
@@ -6575,12 +6151,7 @@ export function VisualEditOverlay() {
         }
         onRestore={handleRestoreRevision}
       />
-
-      <KeyboardShortcutsDialog
-        open={isShortcutsOpen}
-        onOpenChange={setIsShortcutsOpen}
-      />
-
+      <KeyboardShortcutsDialog open={isShortcutsOpen} onOpenChange={setIsShortcutsOpen} />
       <SystemDiagnosticsDialog
         open={isDiagnosticsModalOpen}
         onOpenChange={setIsDiagnosticsModalOpen}
@@ -6589,42 +6160,32 @@ export function VisualEditOverlay() {
         statusLoading={statusLoading}
         onProbe={() => probeBackendHealth()}
       />
-
       {/* ── Link Insert Dialog (replaces browser prompt) ────────────────── */}
       {linkModal && (
         <LinkInsertDialog
           modal={linkModal}
-          onUrlChange={(url) =>
-            setLinkModal((prev) => (prev ? { ...prev, url } : null))
-          }
-          onTextChange={(text) =>
-            setLinkModal((prev) => (prev ? { ...prev, text } : null))
-          }
+          onUrlChange={(url) => setLinkModal((prev) => (prev ? { ...prev, url } : null))}
+          onTextChange={(text) => setLinkModal((prev) => (prev ? { ...prev, text } : null))}
           onCancel={() => closeLinkModal()}
           onConfirm={handleConfirmLink}
         />
       )}
-
       {altTextModal && (
         <AltTextDialog
           value={altTextModal.value}
           saving={isSavingAlt}
           readRefusal={documentReadRefusal()}
-          onValueChange={(value) =>
-            setAltTextModal((prev) => (prev ? { ...prev, value } : null))
-          }
+          onValueChange={(value) => setAltTextModal((prev) => (prev ? { ...prev, value } : null))}
           onCancel={cancelAltTextModal}
           onSave={() => void saveAltText()}
         />
       )}
-
       {/* ── CRM Panel ─────────────────────────────────────────────────────── */}
       <CRMPanel
         isOpen={isCRMPanelOpen}
         onClose={() => setIsCRMPanelOpen(false)}
         initialTab={crmTab}
       />
-
       {/* ── Interactive DOM Hierarchy Breadcrumb Bar ──────────────────────── */}
       <BreadcrumbBar
         visible={
@@ -6650,7 +6211,6 @@ export function VisualEditOverlay() {
         }
         onOpenDataPoints={() => setIsDataPointDrawerOpen(true)}
       />
-
       {/* ── Viewport Device Simulator Bar ──────────────────────────────────── */}
       <ViewportDeviceBar
         viewportMode={viewportMode}
@@ -6658,15 +6218,10 @@ export function VisualEditOverlay() {
         onRotate={handleRotateOrientation}
         onReset={() => setViewportMode('desktop')}
       />
-
       {/* ── Live Element Inspector HUD ─────────────────────────────────────── */}
       <ElementInspectorHud
         enabled={
-          enabled &&
-          isAdmin &&
-          showInspector &&
-          documentLoadState === 'ready' &&
-          !unsaveableReason
+          enabled && isAdmin && showInspector && documentLoadState === 'ready' && !unsaveableReason
         }
         inlineActive={Boolean(inlineSession || imageSession)}
         onOpenStudio={() => {
@@ -6674,7 +6229,6 @@ export function VisualEditOverlay() {
           if (targetIndex !== null) openVisualComposer('block', targetIndex);
         }}
       />
-
       {/* ── Pro Command Palette (⌘K) ───────────────────────────────────────── */}
       <CommandPalette
         open={isCommandPaletteOpen}
@@ -6727,16 +6281,13 @@ export function VisualEditOverlay() {
         onExportJson={handleExportPageJson}
         onExit={toggle}
       />
-
       {/* ── Page DataPoints Matrix Drawer ──────────────────────────────────── */}
       <DataPointDrawer
         isOpen={isDataPointDrawerOpen}
         onClose={() => setIsDataPointDrawerOpen(false)}
       />
-
       {/* ── Civic A11y & Page Health Auditor ─────────────────────────────────── */}
       <PageA11yAuditor isOpen={isA11yAuditorOpen} onClose={() => setIsA11yAuditorOpen(false)} />
-
       {/* ── Visual Change Review & Diff Modal (⌘⇧V) ─────────────────────────── */}
       <VisualDiffModal
         open={isDiffModalOpen}
@@ -6754,7 +6305,6 @@ export function VisualEditOverlay() {
         saveBlockedReason={unsaveableReason ?? undefined}
       />
       {/* Visual Composer is integrated directly into the sidebar (⌘E) */}
-
       {/* ── Visual Composer Element Library & Templates Modal (⌘⇧E) ─────────── */}
       <BlockLibraryModal
         open={isBlockLibraryOpen}
@@ -6762,7 +6312,6 @@ export function VisualEditOverlay() {
         insertTargetIndex={libraryTargetIndex}
         onInsertBlock={handleInsertBlockFromLibrary}
       />
-
       {/* ── Visual Composer Structure Navigator & Tree (⌘7) ────────────────── */}
       <PageNavigatorDrawer
         open={isPageNavigatorOpen}
@@ -6786,7 +6335,6 @@ export function VisualEditOverlay() {
           handleOpenBlockLibrary(targetIndex ?? null);
         }}
       />
-
       {/*
         ── Drag insertion line ──────────────────────────────────────────────
         The gap the block would land in, drawn where it would land. The dragged
@@ -6808,7 +6356,6 @@ export function VisualEditOverlay() {
           <span className="absolute -left-1 -top-[3px] size-2.5 rounded-full bg-accent-gold" />
         </div>
       ) : null}
-
       {blockDrag ? (
         <div
           data-testid="block-drag-hud"
@@ -6823,7 +6370,6 @@ export function VisualEditOverlay() {
           </span>
         </div>
       ) : null}
-
       {/* ── Visual Composer On-Canvas Right-Click Context Menu ──────────────── */}
       {contextMenu && (
         <BlockContextMenu
@@ -6868,7 +6414,6 @@ export function VisualEditOverlay() {
           }}
         />
       )}
-
       {pendingRegionSwitch?.stage === 'page-confirm' && (
         <RegionSwitchDialog
           regionLabel={pendingRegionLabel ?? ''}
@@ -6876,7 +6421,6 @@ export function VisualEditOverlay() {
           onDiscard={confirmRegionSwitch}
         />
       )}
-
       {deleteConfirmIndexes !== null && (
         <DeleteSectionsDialog
           indexes={deleteConfirmIndexes}
@@ -6892,7 +6436,6 @@ export function VisualEditOverlay() {
           }}
         />
       )}
-
       {reorderConfirm !== null && (
         <ReorderSectionDialog
           label={reorderConfirm.label}
@@ -6907,7 +6450,6 @@ export function VisualEditOverlay() {
           }}
         />
       )}
-
       {pendingRouteChange && (
         <RouteLeaveDialog
           pathname={pathname}

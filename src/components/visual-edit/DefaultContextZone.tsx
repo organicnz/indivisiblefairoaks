@@ -27,12 +27,11 @@ import {
   Tablet,
   UsersRound,
 } from 'lucide-react';
-import type { Block } from '@/lib/blocks';
 import { themeModeLabel } from '@/lib/theme';
-import type { VisualEditorSidebarProps } from './VisualEditorSidebar';
 import { EditorBlockList } from './EditorBlockList';
 import { EditorDocumentPanel } from './EditorDocumentPanel';
 import { EditorSupportPanel } from './EditorSupportPanel';
+import type { VisualEditorSidebarProps } from './VisualEditorSidebar';
 
 export function DefaultContextZone(props: VisualEditorSidebarProps) {
   const {
@@ -352,7 +351,7 @@ export function DefaultContextZone(props: VisualEditorSidebarProps) {
                 ? 'Wait for the saved document to open before adding a block'
                 : documentLoadState === 'degraded'
                   ? 'Reload the saved document before adding a block'
-                  : unsaveableReason ?? 'Add a block to this document'
+                  : (unsaveableReason ?? 'Add a block to this document')
             }
             className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-primary-bright px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-white shadow-xs transition-colors hover:bg-primary-light focus-visible:ring-2 focus-visible:ring-accent-gold disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-primary-bright"
           >
@@ -544,7 +543,6 @@ export function DefaultContextZone(props: VisualEditorSidebarProps) {
       <EditorSupportPanel props={props} />
 
       <EditorBlockList props={props} />
-
     </div>
   );
 }

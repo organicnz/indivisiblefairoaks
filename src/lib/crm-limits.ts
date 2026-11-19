@@ -91,6 +91,16 @@ export const CRM_DIRECTORY_PAGE_SIZE = 50;
 export const CRM_DIRECTORY_MAX_PAGE_SIZE = 100;
 
 /**
+ * Timeline entries per contact page.
+ *
+ * The contact 360 used to read an unbounded activity list, then a hard cap of
+ * 50 with no pager. The cap stopped the payload from growing with the largest
+ * broadcast, but it made older interactions unreachable. The size lives here so
+ * the server range and the timeline pager cannot drift.
+ */
+export const CRM_CONTACT_TIMELINE_PAGE_SIZE = 50;
+
+/**
  * Follow-up board page size, and the ceiling a caller may ask for.
  *
  * The page passed a literal `100` and the action had no clamp at all, so a

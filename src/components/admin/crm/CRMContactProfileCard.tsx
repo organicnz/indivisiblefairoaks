@@ -1,16 +1,18 @@
 'use client';
 
 import {
+  Activity,
   Calendar,
   CalendarCheck,
-  Check,
   DollarSign,
   Edit2,
   GitMerge,
+  Inbox,
   Loader2,
   MapPin,
   Phone,
   Plus,
+  Send,
   Trash2,
   X,
 } from 'lucide-react';
@@ -21,17 +23,30 @@ import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import { CRMContactEditorModal } from '@/components/admin/crm/CRMContactEditorModal';
 import { CRMMergeModal } from '@/components/admin/crm/CRMMergeModal';
 import { deleteCRMContact, saveCRMContact, setCRMEmailConsent } from '@/lib/actions/crm';
-import type { ConsentDecision, CRMContact } from '@/types/crm';
+import {
+  CRM_CONTACT_CONSENT_OPTIONS,
+  CRM_CONTACT_DEFAULTS,
+  CRM_CONTACT_DISTRICT_OPTIONS,
+  CRM_CONTACT_STATUS_OPTIONS,
+  crmContactConsentValue,
+} from '@/lib/crm-contact-options';
+import type { ConsentDecision, CRMContact, CRMContactStatus } from '@/types/crm';
 
 interface CRMContactProfileCardProps {
   contact: CRMContact;
   openTaskCount: number;
 }
 
-export function CRMContactProfileCard({
-  contact,
-  openTaskCount,
-}: CRMContactProfileCardProps) {
+function formatHistoryDate(value: string | null): string {
+  if (!value) return 'Not yet';
+  return new Date(value).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
+export function CRMContactProfileCard({ contact, openTaskCount }: CRMContactProfileCardProps) {
   const router = useRouter();
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [isMergeOpen, setIsMergeOpen] = useState(false);
@@ -43,17 +58,11 @@ export function CRMContactProfileCard({
   const [editFirstName, setEditFirstName] = useState(contact.first_name || '');
   const [editLastName, setEditLastName] = useState(contact.last_name || '');
   const [editPhone, setEditPhone] = useState(contact.phone || '');
-  const [editDistrict, setEditDistrict] = useState(contact.district || 'CA-06');
-  const [editStatus, setEditStatus] = useState<
-    'active_volunteer' | 'supporter' | 'donor' | 'choir' | 'organizer' | 'inactive'
-  >(
-    (contact.status as
-      | 'active_volunteer'
-      | 'supporter'
-      | 'donor'
-      | 'choir'
-      | 'organizer'
-      | 'inactive') || 'supporter'
+  const [editDistrict, setEditDistrict] = useState(
+    contact.district || CRM_CONTACT_DEFAULTS.district
+  );
+  const [editStatus, setEditStatus] = useState<CRMContactStatus>(
+    (contact.status as CRMContactStatus) || CRM_CONTACT_DEFAULTS.status
   );
   const [editAddress, setEditAddress] = useState(contact.address || '');
   const [editCity, setEditCity] = useState(contact.city || '');
@@ -69,6 +78,9 @@ export function CRMContactProfileCard({
   const fullName =
     [contact.first_name, contact.last_name].filter(Boolean).join(' ') ||
     contact.email.split('@')[0];
+  const statusLabel =
+    CRM_CONTACT_STATUS_OPTIONS.find((option) => option.value === contact.status)?.label ??
+    contact.status.replace('_', ' ');
 
   const handleDelete = async () => {
     // No confirm() here: the ConfirmAction below only calls this from its
@@ -293,9 +305,11 @@ export function CRMContactProfileCard({
                     onChange={(e) => setEditDistrict(e.target.value)}
                     className="w-full px-2.5 py-1.5 rounded-lg border border-border text-xs font-bold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
                   >
-                    <option value="CA-06">CA-06</option>
-                    <option value="CA-03">CA-03</option>
-                    <option value="CA-07">CA-07</option>
+                    {CRM_CONTACT_DISTRICT_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
                   </select>
                 </label>
               </div>
@@ -303,25 +317,14 @@ export function CRMContactProfileCard({
                 <span className="block mb-1">Status</span>
                 <select
                   value={editStatus}
-                  onChange={(e) =>
-                    setEditStatus(
-                      e.target.value as
-                        | 'active_volunteer'
-                        | 'supporter'
-                        | 'donor'
-                        | 'choir'
-                        | 'organizer'
-                        | 'inactive'
-                    )
-                  }
+                  onChange={(e) => setEditStatus(e.target.value as CRMContactStatus)}
                   className="w-full px-2 py-1.5 rounded-lg border border-border text-xs font-bold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
                 >
-                  <option value="active_volunteer">Active Volunteer</option>
-                  <option value="supporter">Supporter</option>
-                  <option value="donor">Donor</option>
-                  <option value="choir">Resistance Choir</option>
-                  <option value="organizer">Organizer</option>
-                  <option value="inactive">Inactive</option>
+                  {CRM_CONTACT_STATUS_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
                 </select>
               </label>
               <label className="block text-[10px] font-black uppercase text-muted-foreground">
@@ -398,7 +401,7 @@ export function CRMContactProfileCard({
                 <p className="text-xs text-muted-foreground mt-0.5">{contact.email}</p>
               </div>
               <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-blue-50 text-blue-800 border border-blue-200 shrink-0">
-                {contact.status.replace('_', ' ')}
+                {statusLabel}
               </span>
             </div>
 
@@ -410,14 +413,16 @@ export function CRMContactProfileCard({
                 </span>
                 <select
                   id="consent-state"
-                  value={contact.do_not_email === null ? 'unasked' : String(contact.do_not_email)}
+                  value={crmContactConsentValue(contact.do_not_email)}
                   disabled={consentBusy}
                   onChange={(e) => void handleConsentChange(e.target.value as ConsentDecision)}
                   className="mt-1 w-full rounded-lg border border-border bg-surface-card px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-wider text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 disabled:opacity-50"
                 >
-                  <option value="unasked">Never asked — not in the audience</option>
-                  <option value="true">Opted out — not in the audience</option>
-                  <option value="false">Agreed — receives broadcasts</option>
+                  {CRM_CONTACT_CONSENT_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.profileLabel}
+                    </option>
+                  ))}
                 </select>
               </label>
               {contact.unsubscribed_at && (
@@ -437,7 +442,7 @@ export function CRMContactProfileCard({
               <div className="flex items-center gap-2.5 text-muted-foreground">
                 <MapPin size={15} className="text-muted-foreground shrink-0" />
                 <span>
-                  {contact.city || 'Fair Oaks'}, {contact.zip_code || 'CA'} &middot;{' '}
+                  {contact.city || CRM_CONTACT_DEFAULTS.city}, {contact.zip_code || 'CA'} &middot;{' '}
                   <strong className="text-foreground font-mono">{contact.district}</strong>
                 </span>
               </div>
@@ -452,13 +457,46 @@ export function CRMContactProfileCard({
               <div className="flex items-center gap-2.5 text-muted-foreground">
                 <Calendar size={15} className="text-muted-foreground shrink-0" />
                 <span>
-                  Member since{' '}
+                  Joined{' '}
                   {new Date(contact.created_at).toLocaleDateString('en-US', {
                     month: 'short',
                     day: 'numeric',
                     year: 'numeric',
                   })}
                 </span>
+              </div>
+
+              <div className="space-y-2 border-t border-border pt-3">
+                <div className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">
+                  Contact history
+                </div>
+                <div className="flex items-center gap-2.5 text-muted-foreground">
+                  <Send size={15} className="text-blue-500 shrink-0" aria-hidden="true" />
+                  <span className="min-w-0">
+                    Last outbound:{' '}
+                    <strong className="text-foreground">
+                      {formatHistoryDate(contact.last_outbound_at)}
+                    </strong>
+                  </span>
+                </div>
+                <div className="flex items-center gap-2.5 text-muted-foreground">
+                  <Inbox size={15} className="text-amber-500 shrink-0" aria-hidden="true" />
+                  <span className="min-w-0">
+                    Last inbound:{' '}
+                    <strong className="text-foreground">
+                      {formatHistoryDate(contact.last_inbound_at)}
+                    </strong>
+                  </span>
+                </div>
+                <div className="flex items-center gap-2.5 text-muted-foreground">
+                  <Activity size={15} className="text-emerald-500 shrink-0" aria-hidden="true" />
+                  <span className="min-w-0">
+                    Last engaged:{' '}
+                    <strong className="text-foreground">
+                      {formatHistoryDate(contact.last_engaged_at)}
+                    </strong>
+                  </span>
+                </div>
               </div>
 
               <div className="flex items-center gap-2.5 text-muted-foreground">

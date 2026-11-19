@@ -26,6 +26,11 @@ test.describe('header layout', () => {
     await page.waitForLoadState('load').catch(() => {});
     await page.waitForTimeout(300);
 
+    // The real banner must be the visible one. A static fallback can keep the
+    // page looking complete while the interactive header stays in a hidden
+    // PPR Suspense boundary; role visibility catches that state.
+    await expect(page.getByRole('banner')).toBeVisible();
+
     const failures: { width: string; reason: string }[] = [];
 
     for (const { name, width, height } of WIDTHS) {

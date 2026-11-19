@@ -2,22 +2,18 @@
 
 import * as Sentry from '@sentry/nextjs';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  Copy,
-  KeyRound,
-  Loader2,
-  Plus,
-  Shield,
-  ShieldAlert,
-  ShieldCheck,
-  Trash2,
-} from 'lucide-react';
+import { KeyRound, Loader2, Plus, Shield, ShieldAlert, ShieldCheck, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
-import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import { MfaEnrollmentDialog } from '@/components/account/MfaEnrollmentDialog';
 import { MfaRecoveryCodesDialog } from '@/components/account/MfaRecoveryCodesDialog';
+import {
+  type Factor,
+  nextFactorLabel,
+  totpSecretFromUri,
+} from '@/components/account/mfa-settings-helpers';
+import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import { Button } from '@/components/ui/Button';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { SITE_NAME } from '@/config/site';
@@ -29,12 +25,6 @@ import { unenrollMfaFactorAction } from '@/lib/actions/settings';
 import { getTotpEnrollmentUri } from '@/lib/mfa';
 import { recoveryCodesText } from '@/lib/mfa-recovery';
 import { createClient } from '@/lib/supabase';
-import {
-  type Factor,
-  groupSecret,
-  nextFactorLabel,
-  totpSecretFromUri,
-} from '@/components/account/mfa-settings-helpers';
 
 export function MfaSettings({
   autoEnroll = false,
@@ -58,9 +48,7 @@ export function MfaSettings({
   const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
   const [recoveryBusy, setRecoveryBusy] = useState(false);
   const [recoveryError, setRecoveryError] = useState('');
-  const [recoveryCopyState, setRecoveryCopyState] = useState<'idle' | 'copied' | 'failed'>(
-    'idle'
-  );
+  const [recoveryCopyState, setRecoveryCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
   const [recoveryDownloadState, setRecoveryDownloadState] = useState<
     'idle' | 'downloaded' | 'failed'
   >('idle');
@@ -226,8 +214,7 @@ export function MfaSettings({
         // second authenticator keeps the existing set; if the status has not
         // loaded, do not replace a set we cannot see — the panel will refetch
         // and offer Generate if there are none.
-        const shouldGenerate =
-          !addingAdditionalFactor || recoveryStatus?.total === 0;
+        const shouldGenerate = !addingAdditionalFactor || recoveryStatus?.total === 0;
         if (shouldGenerate) {
           await generateAndShowRecoveryCodes();
         } else {
@@ -348,9 +335,7 @@ export function MfaSettings({
       setRecoverySaveError('');
     } catch {
       setRecoveryDownloadState('failed');
-      setRecoverySaveError(
-        'The download could not be started. Use copy or print instead.'
-      );
+      setRecoverySaveError('The download could not be started. Use copy or print instead.');
     }
   }
 
@@ -517,8 +502,8 @@ export function MfaSettings({
                   Recovery codes
                 </h4>
                 <p className="mt-2 text-xs text-muted-foreground font-medium leading-relaxed">
-                  Use one code if you lose every authenticator. Each code works once and resets
-                  your authenticator setup, so you must enroll a new one afterwards.
+                  Use one code if you lose every authenticator. Each code works once and resets your
+                  authenticator setup, so you must enroll a new one afterwards.
                 </p>
                 <p className="mt-2 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
                   {recoveryStatusError

@@ -8,6 +8,14 @@ vi.mock('@/lib/supabase-server', () => ({
   createPublicClient,
 }));
 
+// `connection()` asserts that Next is inside a request scope. This suite calls
+// the route handler directly, so keep the real NextResponse and stub only the
+// request-scope boundary.
+vi.mock('next/server', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('next/server')>();
+  return { ...actual, connection: vi.fn(async () => undefined) };
+});
+
 const { GET: getGallery } = await import('@/app/api/gallery/route');
 
 describe('Gallery Edge API Route (/api/gallery)', () => {

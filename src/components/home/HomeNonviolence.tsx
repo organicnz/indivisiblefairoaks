@@ -49,7 +49,7 @@ export function HomeNonviolence({ dataPoints }: { dataPoints: Record<string, str
             </div>
 
             <div className="lg:col-span-7 lg:col-start-6 lg:pt-8">
-              <div className="relative border-l-2 border-accent-gold-on-dark pl-5 sm:pl-7">
+              <div className="border-l-2 border-accent-gold-on-dark pl-5 sm:pl-7">
                 <span
                   aria-hidden="true"
                   className="block font-display text-6xl leading-[0.45] text-accent-gold-on-dark/40"
@@ -72,12 +72,12 @@ export function HomeNonviolence({ dataPoints }: { dataPoints: Record<string, str
 
               <div
                 aria-hidden="true"
-                className="mt-8 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-white/15 pt-4 font-mono text-[9px] font-bold uppercase tracking-[0.16em] text-ink-muted-on-dark"
+                className="mt-8 grid grid-cols-2 gap-x-4 gap-y-1.5 border-t border-white/15 pt-4 font-mono text-[9px] font-bold uppercase tracking-[0.16em] text-ink-muted-on-dark sm:flex sm:flex-wrap sm:items-center sm:gap-x-4 sm:gap-y-2"
               >
                 {COMMITMENTS.map((commitment, index) => (
-                  <span key={commitment} className="inline-flex items-center gap-x-4">
+                  <span key={commitment} className="inline-flex items-center gap-x-2 sm:gap-x-4">
                     {index > 0 ? (
-                      <span className="size-1 bg-accent-gold-on-dark/70" />
+                      <span className="hidden size-1 bg-accent-gold-on-dark/70 sm:block" />
                     ) : null}
                     <span>{commitment}</span>
                   </span>

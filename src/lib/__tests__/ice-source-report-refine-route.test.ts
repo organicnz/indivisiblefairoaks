@@ -21,20 +21,36 @@ vi.mock('@/lib/ice-crawl-store', async (importOriginal) => {
   };
 });
 
-vi.mock('@/lib/ice-source-refine', () => ({ refineSourceReportWithAi }));
+vi.mock('@/lib/ice-source-refine', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/ice-source-refine')>();
+  return { ...actual, refineSourceReportWithAi };
+});
 
 const { POST } = await import('@/app/api/ice-source-reports/refine/route');
 
 const ID = '0f0f0f0f-0f0f-4f0f-8f0f-0f0f0f0f0f0f';
-const DIGEST =
-  'Federal immigration agents detained eight people in Boston, MA during a multi-agency operation, officials said.\n\nInvestigators said the arrests followed a months-long inquiry.';
+const DIGEST = [
+  'Federal immigration authorities took eight people into custody in Boston, Massachusetts, during a coordinated operation, officials said.',
+  'The action followed a months-long inquiry, according to the agency, which said several federal and local partners took part. No injuries were reported, and the source did not identify those detained or describe possible charges.',
+].join('\n\n');
+
+const COPIED_DIGEST = [
+  'ICE agents arrested eight people in Boston, MA during a multi-agency operation.',
+  'The agency said the arrests followed a months-long investigation into a network that allegedly moved people across state lines.',
+  'Officials said the operation involved several federal and local partners and that no one was injured.',
+].join(' ');
 
 const REPORT = {
   id: ID,
   source_url: 'https://www.ice.gov/news/releases/example',
   source_title: 'ICE Boston operation',
   title: 'ICE Boston operation',
-  text_content: 'ICE agents arrested eight people in Boston, MA during a multi-agency operation.',
+  text_content: [
+    'ICE agents arrested eight people in Boston, MA during a multi-agency operation.',
+    'The agency said the arrests followed a months-long investigation into a network that allegedly moved people across state lines.',
+    'Officials said the operation involved several federal and local partners and that no one was injured.',
+    'The source did not identify the people taken into custody or describe the charges they may face.',
+  ].join(' '),
   refined_text: null,
   refined_at: null,
 };
@@ -63,7 +79,7 @@ describe('POST /api/ice-source-reports/refine', () => {
     expect(getSourceReportForRefinement).not.toHaveBeenCalled();
   });
 
-  it('returns a previously cached digest without calling the AI endpoint', async () => {
+  it('returns a previously cached digest only when it still passes the copy checks', async () => {
     getSourceReportForRefinement.mockResolvedValue({
       ...REPORT,
       refined_text: DIGEST,
@@ -84,6 +100,44 @@ describe('POST /api/ice-source-reports/refine', () => {
     expect(refineSourceReportWithAi).not.toHaveBeenCalled();
   });
 
+  it('regenerates a cached digest that copied the source instead of serving it', async () => {
+    getSourceReportForRefinement.mockResolvedValue({
+      ...REPORT,
+      refined_text: COPIED_DIGEST,
+      refined_at: '2026-11-19T12:00:00.000Z',
+    });
+
+    const response = await POST(request({ id: ID }));
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload).toMatchObject({ ok: true, text: DIGEST, cached: false });
+    expect(JSON.stringify(payload)).not.toContain(COPIED_DIGEST);
+    expect(refineSourceReportWithAi).toHaveBeenCalledWith({
+      text: REPORT.text_content,
+      sourceUrl: REPORT.source_url,
+      sourceTitle: REPORT.source_title,
+    });
+    expect(saveSourceReportRefinement).toHaveBeenCalledWith({}, ID, DIGEST, expect.any(String));
+  });
+
+  it('never falls back to an unsafe cached digest when regeneration fails', async () => {
+    getSourceReportForRefinement.mockResolvedValue({
+      ...REPORT,
+      refined_text: COPIED_DIGEST,
+      refined_at: '2026-11-19T12:00:00.000Z',
+    });
+    refineSourceReportWithAi.mockResolvedValueOnce(null);
+
+    const response = await POST(request({ id: ID }));
+    const payload = await response.json();
+
+    expect(response.status).toBe(502);
+    expect(payload.ok).toBe(false);
+    expect(JSON.stringify(payload)).not.toContain(COPIED_DIGEST);
+    expect(saveSourceReportRefinement).not.toHaveBeenCalled();
+  });
+
   it('generates, caches and returns a new digest', async () => {
     const response = await POST(request({ id: ID }));
     const payload = await response.json();
@@ -96,12 +150,7 @@ describe('POST /api/ice-source-reports/refine', () => {
       sourceUrl: REPORT.source_url,
       sourceTitle: REPORT.source_title,
     });
-    expect(saveSourceReportRefinement).toHaveBeenCalledWith(
-      {},
-      ID,
-      DIGEST,
-      expect.any(String)
-    );
+    expect(saveSourceReportRefinement).toHaveBeenCalledWith({}, ID, DIGEST, expect.any(String));
   });
 
   it('does not fall back to raw text when refinement fails', async () => {

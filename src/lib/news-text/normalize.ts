@@ -35,9 +35,14 @@ const LETTER_FOLDS: Record<string, string> = {
 
 const FOLDABLE_LETTERS = /[ßæœøłđðþıħŋŧ]/g;
 
+/** Fold letters that NFKD leaves intact, after the caller has lowercased them. */
+export function foldSpecialLetters(value: string): string {
+  return value.replace(FOLDABLE_LETTERS, (letter) => LETTER_FOLDS[letter] ?? letter);
+}
+
 /** Normalize display/search text without changing the text that is rendered. */
 export function normalizeNewsText(value: string): string {
-  return value
+  const normalized = value
     .normalize('NFKD')
     // Strip combining marks from Latin diacritics ("Café" -> "Cafe") while
     // preserving marks that are part of another script's spelling.
@@ -48,12 +53,15 @@ export function normalizeNewsText(value: string): string {
     // both "chapter's" and "chapters", not become two unrelated tokens.
     .replace(/['’]/g, '')
     .replace(/&/g, ' and ')
-    .toLowerCase()
-    .replace(FOLDABLE_LETTERS, (letter) => LETTER_FOLDS[letter] ?? letter)
-    // Keep letters, numbers and combining marks from every script. Limiting
-    // this to a-z silently erased searches for names written in other scripts.
-    .replace(/[^\p{L}\p{N}\p{M}]+/gu, ' ')
-    .trim();
+    .toLowerCase();
+
+  return (
+    foldSpecialLetters(normalized)
+      // Keep letters, numbers and combining marks from every script. Limiting
+      // this to a-z silently erased searches for names written in other scripts.
+      .replace(/[^\p{L}\p{N}\p{M}]+/gu, ' ')
+      .trim()
+  );
 }
 
 export type NewsTextWord = {
@@ -191,14 +199,20 @@ export function matchesNewsWord(word: string, token: string): boolean {
   return word === token || (token.length >= 4 && word.startsWith(token));
 }
 
-/** Whether a normalized word sequence contains an exact contiguous phrase. */
-export function containsNewsPhrase(
+/** First index where a normalized word sequence contains a contiguous phrase. */
+export function findNewsPhrase(
   words: readonly string[],
-  phrase: readonly string[]
-): boolean {
-  if (phrase.length === 0 || phrase.length > words.length) return false;
-  for (let start = 0; start <= words.length - phrase.length; start += 1) {
-    if (phrase.every((word, index) => words[start + index] === word)) return true;
+  phrase: readonly string[],
+  fromIndex = 0
+): number {
+  if (phrase.length === 0 || phrase.length > words.length) return -1;
+  for (let start = Math.max(0, fromIndex); start <= words.length - phrase.length; start += 1) {
+    if (phrase.every((word, index) => words[start + index] === word)) return start;
   }
-  return false;
+  return -1;
+}
+
+/** Whether a normalized word sequence contains an exact contiguous phrase. */
+export function containsNewsPhrase(words: readonly string[], phrase: readonly string[]): boolean {
+  return findNewsPhrase(words, phrase) >= 0;
 }

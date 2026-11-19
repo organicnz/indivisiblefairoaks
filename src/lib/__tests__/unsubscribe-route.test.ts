@@ -48,7 +48,11 @@ type ContactRow = {
   id: string;
   email: string;
   first_name: string | null;
-  do_not_email: boolean;
+  do_not_email: boolean | null;
+  tags?: string[] | null;
+  newsletter_confirmed_at?: string | null;
+  newsletter_confirm_token?: string | null;
+  unsubscribed_at?: string | null;
 };
 
 /** A tiny PostgREST builder that only models the three shapes the route uses. */
@@ -201,6 +205,35 @@ describe('POST /api/crm/unsubscribe', () => {
     // idempotent write that appended an audit row each time would make the
     // contact's timeline lie.
     expect(writes).toEqual([]);
+  });
+
+  it('clears newsletter confirmation even when the contact was already opted out', async () => {
+    createAdminClient.mockImplementation(
+      fakeClient({
+        id: 'c-1',
+        email: 'organizer@example.com',
+        first_name: 'Robin',
+        do_not_email: true,
+        tags: ['action-alerts', 'newsletter', 'newsletter-confirmed'],
+        newsletter_confirmed_at: '2026-11-01T00:00:00Z',
+        newsletter_confirm_token: '3f2504e0-4f89-41d3-9a0c-0305e82c3302',
+        unsubscribed_at: '2026-10-01T00:00:00Z',
+      })
+    );
+
+    await POST(formPost({ token: TOKEN, confirm: '1' }));
+
+    const update = writes.find((w) => w.op === 'update');
+    expect(update?.payload).toMatchObject({
+      do_not_email: true,
+      unsubscribed_at: '2026-10-01T00:00:00Z',
+      newsletter_confirmed_at: null,
+      newsletter_confirm_token: null,
+      newsletter_confirm_expires_at: null,
+      tags: ['action-alerts', 'newsletter'],
+    });
+    // It was already opted out, so this click must not append a second audit row.
+    expect(writes.some((w) => w.table === 'crm_activities' && w.op === 'insert')).toBe(false);
   });
 
   it('rejects a malformed token without writing', async () => {

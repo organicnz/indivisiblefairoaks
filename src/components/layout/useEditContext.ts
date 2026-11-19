@@ -48,9 +48,8 @@ export function useEditContext(pathname: string): EditContextState {
   /*
    * The initial state is IDLE even when the cache knows the answer.
    *
-   * The header is a Suspense boundary and the overlay below it is not, so the
-   * overlay hydrates first — and its fetch can resolve before React reaches
-   * the streamed header. A `useState` initializer that read this module-level
+   * On a client-side navigation the answer can already be cached before React
+   * renders the header. A `useState` initializer that read this module-level
    * cache would then render the header with `loading: false` on the client
    * against server HTML that rendered the skeleton, and React would throw away
    * the whole header and re-render it (a hydration mismatch on every page).

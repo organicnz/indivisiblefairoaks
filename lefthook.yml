@@ -212,6 +212,17 @@ pre-commit:
       run: bun scripts/hooks/workflow-yaml.mjs {staged_files}
 
     # ── 24. Biome – format + lint staged files ────────────────────────────────
+    biome-check:
+      priority: 21
+      glob: "*.{js,jsx,ts,tsx,json,css}"
+      run: bun --bun biome check --write --no-errors-on-unmatched --files-ignore-unknown=true {staged_files}
+      stage_fixed: true
+
+    # ── 25. oxlint – React / hooks / Next.js rules ────────────────────────────
+    oxlint:
+      priority: 22
+      glob: "*.{ts,tsx}"
+      run: bun --bun oxlint {staged_files}
 
     # ── 26. TypeScript – type-check without full build ────────────────────────
     # `tsrs` is the TypeScript 7 compiler in Rust (Cloudflare + VoidZero). It reads

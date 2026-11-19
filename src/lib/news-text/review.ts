@@ -2,8 +2,8 @@ import { NEWSLETTER_CARD_EXCERPT_LENGTH } from './newsletter';
 import {
   analyzeNewsText,
   NEWSLETTER_LONG_SENTENCE_WORDS,
-  tidyNewsText,
   type NewsTextAnalysis,
+  tidyNewsText,
 } from './newsletter-stats';
 import { normalizeNewsText } from './normalize';
 
@@ -20,78 +20,14 @@ export type NewsTextReviewOptions = {
   cardLength?: number;
 };
 
-const STOP_WORDS = new Set([
-  'about',
-  'after',
-  'again',
-  'against',
-  'also',
-  'and',
-  'are',
-  'because',
-  'been',
-  'before',
-  'being',
-  'both',
-  'but',
-  'can',
-  'could',
-  'did',
-  'does',
-  'for',
-  'from',
-  'had',
-  'has',
-  'have',
-  'her',
-  'here',
-  'him',
-  'his',
-  'how',
-  'into',
-  'its',
-  'more',
-  'most',
-  'not',
-  'now',
-  'our',
-  'out',
-  'over',
-  'she',
-  'should',
-  'some',
-  'than',
-  'that',
-  'the',
-  'their',
-  'them',
-  'then',
-  'there',
-  'these',
-  'they',
-  'this',
-  'those',
-  'through',
-  'today',
-  'too',
-  'under',
-  'until',
-  'very',
-  'was',
-  'were',
-  'what',
-  'when',
-  'where',
-  'which',
-  'while',
-  'who',
-  'why',
-  'will',
-  'with',
-  'would',
-  'you',
-  'your',
-]);
+const STOP_WORDS = new Set(
+  `about after again against also and are because been before being both but can could did
+  does for from had has have her here him his how into its more most not now our out over
+  she should some than that the their them then there these they this those through today
+  too under until very was were what when where which while who why will with would you your`.split(
+    /\s+/
+  )
+);
 
 function repeatedContentWord(value: string): { word: string; count: number } | null {
   const counts = new Map<string, number>();
@@ -123,10 +59,7 @@ function reviewPreparedNewsText(
   const text = value.trim();
   if (!text) return [];
 
-  const cardLength = Math.max(
-    1,
-    Math.floor(options.cardLength ?? NEWSLETTER_CARD_EXCERPT_LENGTH)
-  );
+  const cardLength = Math.max(1, Math.floor(options.cardLength ?? NEWSLETTER_CARD_EXCERPT_LENGTH));
   const suggestions: NewsTextSuggestion[] = [];
 
   if (text.length > cardLength) {
@@ -160,7 +93,8 @@ function reviewPreparedNewsText(
     suggestions.push({
       id: 'short',
       tone: 'info',
-      message: 'Add one or two sentences of context so readers know what happened and why it matters.',
+      message:
+        'Add one or two sentences of context so readers know what happened and why it matters.',
     });
   }
 

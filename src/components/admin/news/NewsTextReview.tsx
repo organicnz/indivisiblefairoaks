@@ -12,19 +12,13 @@ type NewsTextReviewProps = {
 };
 
 /** Compact, non-blocking readability review for the summary editor. */
-export function NewsTextReview({
-  value,
-  className,
-  id,
-  suggestions,
-}: NewsTextReviewProps) {
+export function NewsTextReview({ value, className, id, suggestions }: NewsTextReviewProps) {
   if (!value.trim()) return null;
 
   if (suggestions.length === 0) {
     return (
       <p
         id={id}
-        aria-label="Summary suggestions"
         className={cn(
           'mt-2 inline-flex items-center gap-1.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300',
           className
