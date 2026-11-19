@@ -205,5 +205,12 @@ describe('source text refinement', () => {
         'Federal immigration agents detained 17 people in Boston, MA during a multi-agency operation, the agency said.\n\nThe agency said the arrests followed a months-long investigation.'
       )
     ).toBe(false);
+
+    const digestWithOneFactualRun = [
+      'Federal immigration agents detained eight people in Boston, MA during a multi-agency operation, officials said.',
+      'The account described how ICE agents arrested eight people in Boston, MA during a multi-agency operation. It said the arrests followed a months-long investigation.',
+      'No injuries were reported. The source did not identify the people taken into custody.',
+    ].join('\n\n');
+    expect(isSafeSourceDigest(source, digestWithOneFactualRun)).toBe(true);
   });
 });

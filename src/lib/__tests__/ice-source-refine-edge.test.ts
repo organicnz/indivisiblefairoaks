@@ -88,7 +88,7 @@ describe('ice-source-refine digest mode', () => {
     expect(result).toEqual({ isReport: true, text: GOOD_DIGEST });
   });
 
-  it('rejects a copied twelve-word run', () => {
+  it('rejects a digest assembled mainly from a source passage', () => {
     const copied = `${DIGEST_SOURCE.split('\n')[0]} Additional context written separately to reach the minimum digest length for this test.`;
     expect(
       parseRefineResponse(
@@ -97,6 +97,19 @@ describe('ice-source-refine digest mode', () => {
         'refine'
       )
     ).toBeNull();
+  });
+
+  it('allows one isolated factual run inside a longer paraphrase', () => {
+    const source =
+      'Over the weekend, U.S. Customs and Border Protection Air and Marine Operations agents, U.S. Border Patrol agents, U.S. Coast Guard crews and military partners intercepted four separate maritime smuggling vessels off the Southern California coast, apprehending 81 people.';
+    const digest = [
+      'Federal agents stopped four boats carrying 81 people off Southern California, the agency said.',
+      'The account described how military partners intercepted four separate maritime smuggling vessels off the Southern California coast. It said the incidents occurred over one weekend and involved several agencies.',
+      'No injuries were reported. The source did not identify the people taken into custody or describe the charges they may face.',
+    ].join('\n\n');
+    expect(
+      parseRefineResponse(JSON.stringify({ isReport: true, text: digest }), source, 'refine')
+    ).toEqual({ isReport: true, text: digest });
   });
 
   it('rejects invented numbers, links and markup', () => {
@@ -148,8 +161,8 @@ describe('ice-source-refine digest mode', () => {
       sourceTitle: 'Example',
       mode: 'refine',
     });
-    expect(system.content).toContain('Paraphrase');
-    expect(system.content).toContain('never reproduce a run of 12 or more consecutive words');
+    expect(system.content).toContain('Restructure the source');
+    expect(system.content).toContain('12 or more consecutive words');
     expect(system.content).not.toContain('NUMBERED PAGE TEXT');
     expect(user.content).toContain('SOURCE TEXT');
     expect(user.content).toContain('12 people');

@@ -237,7 +237,9 @@ function groundedRefinement(source: string, refined: string) {
  */
 const MIN_REPORT_DIGEST_CHARS = 120;
 const MAX_REPORT_DIGEST_CHARS = 5_000;
-const MAX_VERBATIM_WORDS = 12;
+const MIN_COPY_RUN_WORDS = 12;
+const MAX_COPY_RUN_WORDS = 20;
+const MAX_COPIED_RATIO = 0.3;
 
 function digestWords(value: string) {
   return value
@@ -260,24 +262,57 @@ export function digestInventsNumber(source: string, digest: string) {
   return numberTokens(digest).some((token) => !allowed.has(token));
 }
 
-/** Reject a copied passage even when punctuation or whitespace differs. */
-export function digestRepeatsSource(source: string, digest: string) {
+/**
+ * Measure how much of a digest reuses source wording. A short factual phrase
+ * (an agency or unit name, a date, an operation description) is not
+ * copy-paste; a digest assembled from source passages is. The longest covered
+ * run and the share of covered words together distinguish the two.
+ */
+export function digestCopyProfile(source: string, digest: string) {
   const sourceWords = digestWords(source);
   const outputWords = digestWords(digest);
-  if (outputWords.length < MAX_VERBATIM_WORDS) return false;
+  if (outputWords.length < MIN_COPY_RUN_WORDS) {
+    return { longestRun: 0, copiedRatio: 0 };
+  }
 
   const shingles = new Set<string>();
-  for (let index = 0; index <= sourceWords.length - MAX_VERBATIM_WORDS; index += 1) {
-    shingles.add(sourceWords.slice(index, index + MAX_VERBATIM_WORDS).join(' '));
+  for (let index = 0; index <= sourceWords.length - MIN_COPY_RUN_WORDS; index += 1) {
+    shingles.add(sourceWords.slice(index, index + MIN_COPY_RUN_WORDS).join(' '));
   }
-  if (shingles.size === 0) return false;
+  if (shingles.size === 0) return { longestRun: 0, copiedRatio: 0 };
 
-  for (let index = 0; index <= outputWords.length - MAX_VERBATIM_WORDS; index += 1) {
-    if (shingles.has(outputWords.slice(index, index + MAX_VERBATIM_WORDS).join(' '))) {
-      return true;
+  const covered = new Array<boolean>(outputWords.length).fill(false);
+  let copiedWords = 0;
+  for (let index = 0; index <= outputWords.length - MIN_COPY_RUN_WORDS; index += 1) {
+    if (!shingles.has(outputWords.slice(index, index + MIN_COPY_RUN_WORDS).join(' '))) {
+      continue;
+    }
+    for (let offset = 0; offset < MIN_COPY_RUN_WORDS; offset += 1) {
+      const position = index + offset;
+      if (!covered[position]) {
+        covered[position] = true;
+        copiedWords += 1;
+      }
     }
   }
-  return false;
+
+  let longestRun = 0;
+  let currentRun = 0;
+  for (const value of covered) {
+    currentRun = value ? currentRun + 1 : 0;
+    longestRun = Math.max(longestRun, currentRun);
+  }
+
+  return { longestRun, copiedRatio: copiedWords / outputWords.length };
+}
+
+/**
+ * Reject a digest built from source passages, while allowing one isolated
+ * factual phrase that cannot reasonably be reworded.
+ */
+export function digestRepeatsSource(source: string, digest: string) {
+  const profile = digestCopyProfile(source, digest);
+  return profile.longestRun >= MAX_COPY_RUN_WORDS || profile.copiedRatio >= MAX_COPIED_RATIO;
 }
 
 /**

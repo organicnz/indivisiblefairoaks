@@ -32,7 +32,9 @@ export type ChatMessage = {
 export const MAX_PROMPT_LINES = 1_000
 export const MIN_DIGEST_CHARS = 120
 export const MAX_DIGEST_CHARS = 5_000
-export const MAX_VERBATIM_WORDS = 12
+export const MIN_COPY_RUN_WORDS = 12
+export const MAX_COPY_RUN_WORDS = 20
+export const MAX_COPIED_RATIO = 0.3
 
 /**
  * Split readable page text into non-empty lines. Blank lines carry layout
@@ -100,7 +102,7 @@ Return exactly one JSON object with these keys:
 
 A report is a specific, source-published account of ICE or immigration enforcement, detention, a checkpoint, an arrest, a deportation, or a related operation. A generic agency page, program description, resource hub, statistics table, archive or listing page, press-release index, navigation page, or page about customer experience, EEO, veterans, privacy, or similar agency administration is NOT a report. If the page is not a report, set isReport false and text to "".
 
-For a report, write 3 to 5 plain-text paragraphs and 180 to 450 words. Use only facts stated in the source. Paraphrase in your own words; do not copy or closely track the source sentences, and never reproduce a run of 12 or more consecutive words from the source. Do not quote more than 8 consecutive words. Keep exact agency names, dates, numbers, cities and states, and attribution such as "the agency said"; do not invent names, numbers, dates, locations, motives, outcomes, legal conclusions, or context. Do not repeat address-level or person-level details that are not necessary to understand the report. Be neutral, specific and non-sensational. Do not include URLs, HTML, Markdown, bullet lists, headings, emoji or a code fence.
+For a report, write 3 to 5 plain-text paragraphs and 180 to 450 words. Use only facts stated in the source. Restructure the source instead of following its sentences: open with the news, group related facts, and paraphrase in your own words. Avoid reproducing complete source sentences or a run of 12 or more consecutive words; shared wording should be limited to short factual phrases such as agency names, titles, dates and numbers. Do not quote more than 8 consecutive words. Keep exact agency names, dates, numbers, cities and states, and attribution such as "the agency said"; do not invent names, numbers, dates, locations, motives, outcomes, legal conclusions, or context. Do not repeat address-level or person-level details that are not necessary to understand the report. Be neutral, specific and non-sensational. Do not include URLs, HTML, Markdown, bullet lists, headings, emoji or a code fence.
 
 Return only the JSON object. Do not include prose outside it.`,
     },
@@ -164,27 +166,59 @@ function numberTokens(value: string): string[] {
 }
 
 /**
- * A digest must not be the source with a new first sentence. Compare
- * overlapping word windows, not characters, so punctuation and whitespace
- * cannot hide a copied passage.
+ * Measure how much of a digest reuses source wording. A short factual phrase
+ * (an agency or unit name, a date, an operation description) is not
+ * copy-paste; a digest assembled from source passages is. The longest covered
+ * run and the share of covered words together distinguish the two.
  */
-export function digestRepeatsSource(source: string, digest: string): boolean {
+export function digestCopyProfile(source: string, digest: string): {
+  longestRun: number
+  copiedRatio: number
+} {
   const sourceWords = digestWords(source)
   const digestWordsValue = digestWords(digest)
-  if (digestWordsValue.length < MAX_VERBATIM_WORDS) return false
+  if (digestWordsValue.length < MIN_COPY_RUN_WORDS) {
+    return { longestRun: 0, copiedRatio: 0 }
+  }
 
   const shingles = new Set<string>()
-  for (let index = 0; index <= sourceWords.length - MAX_VERBATIM_WORDS; index += 1) {
-    shingles.add(sourceWords.slice(index, index + MAX_VERBATIM_WORDS).join(' '))
+  for (let index = 0; index <= sourceWords.length - MIN_COPY_RUN_WORDS; index += 1) {
+    shingles.add(sourceWords.slice(index, index + MIN_COPY_RUN_WORDS).join(' '))
   }
-  if (shingles.size === 0) return false
+  if (shingles.size === 0) return { longestRun: 0, copiedRatio: 0 }
 
-  for (let index = 0; index <= digestWordsValue.length - MAX_VERBATIM_WORDS; index += 1) {
-    if (shingles.has(digestWordsValue.slice(index, index + MAX_VERBATIM_WORDS).join(' '))) {
-      return true
+  const covered = new Array<boolean>(digestWordsValue.length).fill(false)
+  let copiedWords = 0
+  for (let index = 0; index <= digestWordsValue.length - MIN_COPY_RUN_WORDS; index += 1) {
+    if (!shingles.has(digestWordsValue.slice(index, index + MIN_COPY_RUN_WORDS).join(' '))) {
+      continue
+    }
+    for (let offset = 0; offset < MIN_COPY_RUN_WORDS; offset += 1) {
+      const position = index + offset
+      if (!covered[position]) {
+        covered[position] = true
+        copiedWords += 1
+      }
     }
   }
-  return false
+
+  let longestRun = 0
+  let currentRun = 0
+  for (const value of covered) {
+    currentRun = value ? currentRun + 1 : 0
+    longestRun = Math.max(longestRun, currentRun)
+  }
+
+  return { longestRun, copiedRatio: copiedWords / digestWordsValue.length }
+}
+
+/**
+ * Reject a digest built from source passages, while allowing one isolated
+ * factual phrase that cannot reasonably be reworded.
+ */
+export function digestRepeatsSource(source: string, digest: string): boolean {
+  const profile = digestCopyProfile(source, digest)
+  return profile.longestRun >= MAX_COPY_RUN_WORDS || profile.copiedRatio >= MAX_COPIED_RATIO
 }
 
 /** A paraphrase may repeat a source number, but it may not invent one. */
