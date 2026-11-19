@@ -1,7 +1,8 @@
 'use client';
 
-import { FilePlus2, Plus, RefreshCw, Search } from 'lucide-react';
+import { FilePlus2, Plus, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
+import { NewsSearchField } from '@/components/ui/NewsSearchField';
 
 type NewsletterManagerToolbarProps = {
   searchQuery: string;
@@ -23,22 +24,17 @@ export function NewsletterManagerToolbar({
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-surface-muted/60 p-4">
       <div className="flex min-w-[240px] flex-1 items-center gap-2">
-        <div className="relative flex-1">
-          <Search
-            size={15}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-            aria-hidden="true"
-          />
-          <input
-            type="search"
-            aria-label="Search newsletters by title, summary, or topic"
-            data-testid="admin-newsletter-search"
-            value={searchQuery}
-            onChange={(event) => onSearchChange(event.target.value)}
-            placeholder="Search newsletters by title or topic..."
-            className="w-full rounded-xl border border-border bg-background py-1.5 pl-9 pr-3.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary"
-          />
-        </div>
+        <NewsSearchField
+          variant="admin"
+          className="flex-1"
+          value={searchQuery}
+          onChange={onSearchChange}
+          placeholder="Search newsletters by title or topic..."
+          ariaLabel="Search newsletters by title, summary, or topic"
+          testId="admin-newsletter-search"
+          iconSize={15}
+          clearLabel="Clear newsletter search"
+        />
 
         <button
           type="button"

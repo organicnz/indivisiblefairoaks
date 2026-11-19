@@ -116,6 +116,12 @@ describe('InteractiveNewslettersList', () => {
 
     expect(container.textContent).toContain('Choir Night');
     expect(container.textContent).not.toContain('Fall Bulletin');
+    expect(container.textContent).toContain('Showing 1 of 2 bulletins');
+    expect(
+      [...container.querySelectorAll('mark')].some((mark) =>
+        /choir/i.test(mark.textContent ?? '')
+      )
+    ).toBe(true);
 
     const clear = container.querySelector<HTMLButtonElement>('button[aria-label="Clear bulletin search"]');
     expect(clear).not.toBeNull();

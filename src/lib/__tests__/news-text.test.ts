@@ -1,7 +1,11 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import {
+  analyzeNewsletterText,
+  buildNewsSearchSnippet,
   collectNewsletterTopics,
+  countNewsletterParagraphs,
+  countNewsletterSentences,
   countNewsletterWords,
   estimateNewsletterReadingMinutes,
   filterNewsletters,
@@ -10,7 +14,11 @@ import {
   mergeNewsletterRows,
   normalizeNewsText,
   parseNewsletterTopicInput,
+  rankNewsletters,
+  rankNewsPosts,
   sortNewsletters,
+  splitNewsTextHighlights,
+  tidyNewsletterText,
   tokenizeNewsQuery,
 } from '@/lib/news-text';
 
@@ -101,7 +109,101 @@ describe('news and newsletter text processing', () => {
   it('counts words and gives a minimum one-minute reading estimate', () => {
     expect(countNewsletterWords('  One two three  ')).toBe(3);
     expect(countNewsletterWords('   ')).toBe(0);
+    expect(countNewsletterWords("chapter's don't-stop")).toBe(2);
     expect(estimateNewsletterReadingMinutes('word '.repeat(201))).toBe(2);
     expect(estimateNewsletterReadingMinutes('')).toBe(0);
+  });
+
+  it('ranks title matches ahead of summary matches without losing ties', () => {
+    const posts = [
+      {
+        title: 'Community Update',
+        excerpt: 'Schools and funding across the county.',
+        slug: 'community-update',
+      },
+      {
+        title: 'Public Schools Funding',
+        excerpt: 'A deep look at the budget.',
+        slug: 'public-schools-funding',
+      },
+      {
+        title: 'Choir Night',
+        excerpt: 'Music and organizing.',
+        slug: 'choir-night',
+      },
+    ];
+
+    expect(
+      rankNewsPosts(filterNewsPosts(posts, 'schools funding'), 'schools funding').map(
+        (post) => post.title
+      )
+    ).toEqual(['Public Schools Funding', 'Community Update']);
+    expect(rankNewsPosts(posts, '').map((post) => post.title)).toEqual(
+      posts.map((post) => post.title)
+    );
+  });
+
+  it('ranks bulletin title and topic matches ahead of summary matches', () => {
+    const items = [
+      {
+        title: 'September Roundup',
+        description: 'Election defense and choir actions.',
+        topics: ['Local Action'],
+      },
+      {
+        title: 'Choir Actions Bulletin',
+        description: 'Music and organizing.',
+        topics: ['Choir Actions'],
+      },
+    ];
+
+    expect(rankNewsletters(items, 'choir actions').map((item) => item.title)).toEqual([
+      'Choir Actions Bulletin',
+      'September Roundup',
+    ]);
+  });
+
+  it('builds a snippet around the first matching word and preserves the original wording', () => {
+    const text = `${'Introductory context. '.repeat(20)}Schools funding matters here.${' More context.'.repeat(20)}`;
+    const snippet = buildNewsSearchSnippet(text, 'funding', 90);
+
+    expect(snippet).toContain('Schools funding matters here.');
+    expect(snippet.startsWith('…')).toBe(true);
+    expect(snippet.endsWith('…')).toBe(true);
+    expect(snippet.length).toBeLessThanOrEqual(94);
+    expect(buildNewsSearchSnippet('Short text', 'short', 90)).toBe('Short text');
+  });
+
+  it('splits original text into safe highlight segments', () => {
+    const segments = splitNewsTextHighlights('Public Schools, funding!', 'school fund');
+
+    expect(segments.map((segment) => segment.text).join('')).toBe('Public Schools, funding!');
+    expect(segments.filter((segment) => segment.matched).map((segment) => segment.text)).toEqual([
+      'Schools,',
+      'funding!',
+    ]);
+    expect(splitNewsTextHighlights('Choir Night', '')).toEqual([
+      { text: 'Choir Night', matched: false },
+    ]);
+  });
+
+  it('analyzes word, sentence and paragraph counts in one pass', () => {
+    const analysis = analyzeNewsletterText('One two. Three four!\n\nFive six?');
+
+    expect(analysis).toEqual({
+      characters: 31,
+      charactersNoSpaces: 25,
+      words: 6,
+      sentences: 3,
+      paragraphs: 2,
+      readingMinutes: 1,
+    });
+    expect(countNewsletterSentences('No punctuation here')).toBe(1);
+    expect(countNewsletterParagraphs('One\n\nTwo\n\nThree')).toBe(3);
+  });
+
+  it('tidies pasted spacing without changing the words', () => {
+    expect(tidyNewsletterText('  One   two \r\n\r\n\r\n three  ')).toBe('One two\n\nthree');
+    expect(tidyNewsletterText('')).toBe('');
   });
 });

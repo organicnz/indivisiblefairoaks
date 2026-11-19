@@ -1,7 +1,6 @@
-import {
-  countNewsletterWords,
-  estimateNewsletterReadingMinutes,
-} from '@/lib/news-text';
+import { Sparkles } from 'lucide-react';
+import { NewsletterTextStats } from '@/components/admin/news/NewsletterTextStats';
+import { analyzeNewsletterText, tidyNewsletterText } from '@/lib/news-text';
 import { NEWSLETTER_LIMITS } from '@/lib/newsletters';
 
 type NewsletterSummaryFieldProps = {
@@ -14,8 +13,8 @@ export function NewsletterSummaryField({
   onChange,
 }: NewsletterSummaryFieldProps) {
   const descriptionCount = description.length;
-  const wordCount = countNewsletterWords(description);
-  const readingMinutes = estimateNewsletterReadingMinutes(description);
+  const analysis = analyzeNewsletterText(description);
+  const tidied = tidyNewsletterText(description);
 
   return (
     <div>
@@ -40,13 +39,23 @@ export function NewsletterSummaryField({
         required
         className="w-full resize-y rounded-sm border border-border bg-background px-3.5 py-2.5 text-sm font-medium leading-relaxed transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
       />
-      <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">
-        Plain text. Keep it to a short archive summary; the full issue remains in the
-        chapter&rsquo;s email or PDF archive.{' '}
-        {wordCount > 0
-          ? `${wordCount} ${wordCount === 1 ? 'word' : 'words'} · ${readingMinutes} min read.`
-          : null}
-      </p>
+      <div className="mt-1 flex items-start justify-between gap-3">
+        <p className="text-[10px] leading-relaxed text-muted-foreground">
+          Plain text. Keep it to a short archive summary; the full issue remains in the
+          chapter&rsquo;s email or PDF archive. <NewsletterTextStats analysis={analysis} />
+        </p>
+        <button
+          type="button"
+          onClick={() => onChange(tidied)}
+          disabled={!description.trim() || tidied === description}
+          title="Normalize line breaks and repeated spaces without changing the wording"
+          aria-label="Tidy summary spacing"
+          className="inline-flex shrink-0 items-center gap-1 text-[10px] font-bold text-primary-ink transition-colors hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-40 dark:text-primary-on-dark"
+        >
+          <Sparkles size={11} aria-hidden="true" />
+          Tidy spacing
+        </button>
+      </div>
     </div>
   );
 }

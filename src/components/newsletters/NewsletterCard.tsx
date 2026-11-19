@@ -3,6 +3,8 @@
 import { ArrowRight, PenLine, Trash2 } from 'lucide-react';
 import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import { DataPoint } from '@/components/ui/DataPoint';
+import { HighlightedText } from '@/components/ui/HighlightedText';
+import { buildNewsSearchSnippet } from '@/lib/news-text';
 import type { NewsletterRow } from '@/lib/queries/civic';
 
 type NewsletterCardProps = {
@@ -11,6 +13,7 @@ type NewsletterCardProps = {
   isAdmin: boolean;
   onEdit: (newsletter: NewsletterRow) => void;
   onDelete: (slug: string, title: string) => void;
+  searchQuery?: string;
 };
 
 export function NewsletterCard({
@@ -19,8 +22,12 @@ export function NewsletterCard({
   isAdmin,
   onEdit,
   onDelete,
+  searchQuery,
 }: NewsletterCardProps) {
   const topics = Array.isArray(newsletter.topics) ? newsletter.topics : [];
+  const description = searchQuery
+    ? buildNewsSearchSnippet(newsletter.description, searchQuery, 220)
+    : newsletter.description;
 
   return (
     <article className="civic-panel flex flex-col justify-between p-6 transition-colors hover:border-primary/40">
@@ -71,10 +78,10 @@ export function NewsletterCard({
         </div>
 
         <h3 className="font-display text-2xl font-semibold leading-snug tracking-[-0.02em]">
-          {newsletter.title}
+          <HighlightedText text={newsletter.title} query={searchQuery} />
         </h3>
         <p className="text-xs leading-relaxed text-muted-foreground dark:text-ink-on-dark">
-          {newsletter.description}
+          <HighlightedText text={description} query={searchQuery} />
         </p>
         {topics.length > 0 ? (
           <div className="flex flex-wrap gap-1.5 pt-2">
@@ -83,7 +90,7 @@ export function NewsletterCard({
                 key={`${topic}-${index}`}
                 className="border border-border bg-surface-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground dark:text-ink-on-dark"
               >
-                {topic}
+                <HighlightedText text={topic} query={searchQuery} />
               </span>
             ))}
           </div>

@@ -195,4 +195,38 @@ describe('CivicNewsletterEditorModal', () => {
     });
     expect((preview?.textContent?.match(/Election Defense/g) ?? []).length).toBe(1);
   });
+
+  it('tidies pasted summary spacing and reports the live sentence count', async () => {
+    await act(async () => {
+      root.render(
+        <CivicNewsletterEditorModal
+          isOpen={true}
+          onClose={vi.fn()}
+          newsletter={null}
+          onSaved={vi.fn()}
+        />
+      );
+    });
+
+    const description = document.querySelector<HTMLTextAreaElement>('#civic-news-description');
+    if (!description) throw new Error('summary field did not render');
+
+    await act(async () => {
+      setInputValue(description, '  One   two \r\n\r\n\r\n three  ');
+    });
+    expect(document.body.textContent).toContain('3 words');
+    expect(document.body.textContent).toContain('1 sentence');
+
+    const tidy = [...document.querySelectorAll<HTMLButtonElement>('button')].find((button) =>
+      /tidy spacing/i.test(button.textContent ?? '')
+    );
+    if (!tidy) throw new Error('Tidy spacing button did not render');
+
+    await act(async () => {
+      tidy.click();
+      await Promise.resolve();
+    });
+
+    expect(description.value).toBe('One two\n\nthree');
+  });
 });

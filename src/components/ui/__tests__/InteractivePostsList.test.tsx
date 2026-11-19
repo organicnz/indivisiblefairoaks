@@ -122,6 +122,9 @@ describe('InteractivePostsList', () => {
     expect(container.textContent).toContain('1 story matching');
     expect(container.textContent).toContain('Why Fair Oaks Needs Strong Public Schools');
     expect(container.textContent).not.toContain('Mobilizing Carmichael');
+    expect(
+      [...container.querySelectorAll('mark')].some((mark) => mark.textContent === 'Schools')
+    ).toBe(true);
 
     await act(async () => {
       setInputValue(search, 'not-a-real-story');

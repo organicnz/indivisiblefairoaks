@@ -1,15 +1,24 @@
 import { ArrowRight } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { HighlightedText } from '@/components/ui/HighlightedText';
+import { buildNewsSearchSnippet } from '@/lib/news-text';
 import type { PublishedPostSummary } from '@/lib/queries/content';
 import { AdminEditLink, PostDate } from './NewsPostMeta';
 
 type LeadStoryProps = {
   post: PublishedPostSummary;
   isAdmin: boolean;
+  searchQuery?: string;
 };
 
-export function LeadStory({ post, isAdmin }: LeadStoryProps) {
+export function LeadStory({ post, isAdmin, searchQuery }: LeadStoryProps) {
+  const excerpt = post.excerpt
+    ? searchQuery
+      ? buildNewsSearchSnippet(post.excerpt, searchQuery, 260)
+      : post.excerpt
+    : null;
+
   return (
     <article className="civic-panel group overflow-hidden">
       <div className="grid lg:grid-cols-12">
@@ -43,13 +52,13 @@ export function LeadStory({ post, isAdmin }: LeadStoryProps) {
 
             <h3 className="mt-5 text-balance font-display text-3xl font-semibold leading-[1.04] tracking-[-0.035em] text-foreground transition-colors group-hover:text-primary-ink dark:group-hover:text-primary-on-dark sm:text-4xl">
               <Link href={`/${post.slug}`} className="focus:outline-hidden">
-                {post.title}
+                <HighlightedText text={post.title} query={searchQuery} />
               </Link>
             </h3>
 
-            {post.excerpt ? (
+            {excerpt ? (
               <p className="mt-4 max-w-2xl text-pretty text-sm leading-relaxed text-muted-foreground dark:text-ink-on-dark sm:text-base">
-                {post.excerpt}
+                <HighlightedText text={excerpt} query={searchQuery} />
               </p>
             ) : null}
           </div>

@@ -6,7 +6,9 @@ import { useMemo, useState } from 'react';
 import { useEditContext } from '@/components/layout/useEditContext';
 import { LeadStory } from '@/components/news/LeadStory';
 import { PostCard } from '@/components/news/PostCard';
-import { filterNewsPosts, tokenizeNewsQuery } from '@/lib/news-text';
+import { NewsSearchField } from '@/components/ui/NewsSearchField';
+import { SearchResultsSummary } from '@/components/ui/SearchResultsSummary';
+import { filterNewsPosts, rankNewsPosts, tokenizeNewsQuery } from '@/lib/news-text';
 import type { PublishedPostSummary } from '@/lib/queries/content';
 
 interface InteractivePostsListProps {
@@ -18,7 +20,7 @@ export function InteractivePostsList({ initialPosts }: InteractivePostsListProps
   const [searchQuery, setSearchQuery] = useState('');
   const searching = tokenizeNewsQuery(searchQuery).length > 0;
   const filteredPosts = useMemo(
-    () => filterNewsPosts(initialPosts, searchQuery),
+    () => rankNewsPosts(filterNewsPosts(initialPosts, searchQuery), searchQuery),
     [initialPosts, searchQuery]
   );
   const [leadPost, ...supportingPosts] = filteredPosts;
@@ -41,32 +43,16 @@ export function InteractivePostsList({ initialPosts }: InteractivePostsListProps
         </div>
 
         <div className="flex w-full shrink-0 flex-wrap items-center justify-end gap-2 sm:w-auto">
-          <div className="relative w-full sm:w-56">
-            <Search
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground dark:text-ink-muted-on-dark"
-              size={14}
-              aria-hidden="true"
-            />
-            <input
-              type="search"
-              aria-label="Search published news by title, excerpt, or slug"
-              data-testid="news-search"
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Search news..."
-              className="min-h-11 w-full border border-border bg-surface-card py-2 pl-9 pr-9 text-xs text-foreground transition-colors placeholder:text-muted-foreground focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-            />
-            {searchQuery ? (
-              <button
-                type="button"
-                onClick={() => setSearchQuery('')}
-                aria-label="Clear news search"
-                className="absolute right-1.5 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-              >
-                <X size={13} aria-hidden="true" />
-              </button>
-            ) : null}
-          </div>
+          <NewsSearchField
+            variant="news"
+            className="w-full sm:w-56"
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder="Search news..."
+            ariaLabel="Search published news by title, excerpt, or slug"
+            testId="news-search"
+            clearLabel="Clear news search"
+          />
 
           <a
             href="mailto:contact@indivisiblefairoaks.org?subject=Chapter%20news%20submission"
@@ -98,10 +84,12 @@ export function InteractivePostsList({ initialPosts }: InteractivePostsListProps
 
       {searching ? (
         <div className="space-y-4">
-          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground" aria-live="polite">
-            {filteredPosts.length} {filteredPosts.length === 1 ? 'story' : 'stories'} matching “
-            {searchQuery.trim()}”
-          </p>
+          <SearchResultsSummary
+            count={filteredPosts.length}
+            query={searchQuery}
+            singular="story"
+            plural="stories"
+          />
           {filteredPosts.length === 0 ? (
             <div className="civic-panel p-8 text-center text-muted-foreground dark:text-ink-muted-on-dark">
               <Search className="mx-auto mb-3 opacity-40" size={32} aria-hidden="true" />
@@ -121,7 +109,12 @@ export function InteractivePostsList({ initialPosts }: InteractivePostsListProps
           ) : (
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
               {filteredPosts.map((post) => (
-                <PostCard key={post.id} post={post} isAdmin={isAdmin} />
+                <PostCard
+                  key={post.id}
+                  post={post}
+                  isAdmin={isAdmin}
+                  searchQuery={searchQuery}
+                />
               ))}
             </div>
           )}
@@ -145,12 +138,17 @@ export function InteractivePostsList({ initialPosts }: InteractivePostsListProps
         </div>
       ) : (
         <div className="space-y-8">
-          <LeadStory post={leadPost} isAdmin={isAdmin} />
+          <LeadStory post={leadPost} isAdmin={isAdmin} searchQuery={searchQuery} />
 
           {supportingPosts.length > 0 ? (
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
               {supportingPosts.map((post) => (
-                <PostCard key={post.id} post={post} isAdmin={isAdmin} />
+                <PostCard
+                  key={post.id}
+                  post={post}
+                  isAdmin={isAdmin}
+                  searchQuery={searchQuery}
+                />
               ))}
             </div>
           ) : null}

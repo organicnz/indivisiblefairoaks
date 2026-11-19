@@ -1,7 +1,8 @@
 'use client';
 
-import { Plus, Search, X } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { DataPoint } from '@/components/ui/DataPoint';
+import { NewsSearchField } from '@/components/ui/NewsSearchField';
 import { ALL_NEWSLETTER_TOPICS } from '@/lib/news-text';
 
 type NewsletterFilterBarProps = {
@@ -39,34 +40,19 @@ export function NewsletterFilterBar({
 
   return (
     <div className="civic-panel flex flex-col items-stretch justify-between gap-4 p-4 md:flex-row md:items-center">
-      <div className="relative flex-1">
-        <Search
-          className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground dark:text-ink-muted-on-dark"
-          size={16}
-          aria-hidden="true"
-        />
-        <input
-          type="search"
-          aria-label="Search bulletins by title, topic, or summary"
-          data-testid="newsletter-search"
-          placeholder={
-            dataPoints['news.search.placeholder'] || 'Search bulletins, topics, or insights...'
-          }
-          value={searchQuery}
-          onChange={(event) => onSearchChange(event.target.value)}
-          className="w-full border border-border bg-surface-muted py-2.5 pl-10 pr-10 text-xs text-foreground transition-colors placeholder:text-muted-foreground focus:border-primary focus:outline-none sm:text-sm dark:border-white/10 dark:text-white"
-        />
-        {searchQuery ? (
-          <button
-            type="button"
-            onClick={() => onSearchChange('')}
-            aria-label="Clear bulletin search"
-            className="absolute right-2 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-surface-card hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-          >
-            <X size={13} aria-hidden="true" />
-          </button>
-        ) : null}
-      </div>
+      <NewsSearchField
+        variant="newsletter"
+        className="flex-1"
+        value={searchQuery}
+        onChange={onSearchChange}
+        placeholder={
+          dataPoints['news.search.placeholder'] || 'Search bulletins, topics, or insights...'
+        }
+        ariaLabel="Search bulletins by title, topic, or summary"
+        testId="newsletter-search"
+        iconSize={16}
+        clearLabel="Clear bulletin search"
+      />
 
       <div className="flex flex-wrap items-center gap-1.5">
         {visibleTopics.map((topic) => (

@@ -1,15 +1,24 @@
 import { ArrowRight } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { HighlightedText } from '@/components/ui/HighlightedText';
+import { buildNewsSearchSnippet } from '@/lib/news-text';
 import type { PublishedPostSummary } from '@/lib/queries/content';
 import { AdminEditLink, PostDate } from './NewsPostMeta';
 
 type PostCardProps = {
   post: PublishedPostSummary;
   isAdmin: boolean;
+  searchQuery?: string;
 };
 
-export function PostCard({ post, isAdmin }: PostCardProps) {
+export function PostCard({ post, isAdmin, searchQuery }: PostCardProps) {
+  const excerpt = post.excerpt
+    ? searchQuery
+      ? buildNewsSearchSnippet(post.excerpt, searchQuery, 180)
+      : post.excerpt
+    : null;
+
   return (
     <article className="civic-panel group flex flex-col overflow-hidden transition-colors hover:border-primary/40 dark:hover:border-primary-bright/40">
       {post.featured_image ? (
@@ -33,13 +42,13 @@ export function PostCard({ post, isAdmin }: PostCardProps) {
 
           <h3 className="line-clamp-2 font-display text-2xl font-semibold leading-snug tracking-[-0.02em] text-foreground transition-colors group-hover:text-primary-ink dark:group-hover:text-primary-on-dark">
             <Link href={`/${post.slug}`} className="focus:outline-hidden">
-              {post.title}
+              <HighlightedText text={post.title} query={searchQuery} />
             </Link>
           </h3>
 
-          {post.excerpt ? (
+          {excerpt ? (
             <p className="line-clamp-3 text-sm leading-relaxed text-muted-foreground dark:text-ink-on-dark">
-              {post.excerpt}
+              <HighlightedText text={excerpt} query={searchQuery} />
             </p>
           ) : null}
         </div>

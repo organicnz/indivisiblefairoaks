@@ -7,6 +7,7 @@ import { useEditContext } from '@/components/layout/useEditContext';
 import { NewsletterCard } from '@/components/newsletters/NewsletterCard';
 import { NewsletterEmptyState } from '@/components/newsletters/NewsletterEmptyState';
 import { NewsletterFilterBar } from '@/components/newsletters/NewsletterFilterBar';
+import { NewsletterResultsSummary } from '@/components/newsletters/NewsletterResultsSummary';
 import { useDataPoints } from '@/hooks/useDataPoints';
 import { type CivicNewsletterRecord, deleteCivicNewsletter } from '@/lib/actions/civic';
 import {
@@ -14,6 +15,7 @@ import {
   collectNewsletterTopics,
   filterNewsletters,
   mergeNewsletterRows,
+  rankNewsletters,
   sortNewsletters,
 } from '@/lib/news-text';
 import type { NewsletterRow } from '@/lib/queries/civic';
@@ -79,11 +81,14 @@ export function InteractiveNewslettersList({
 
   const filteredNewsletters = useMemo(
     () =>
-      filterNewsletters(newslettersList, {
-        query: searchQuery,
-        topic: activeTopic,
-        allTopicsLabel: ALL_NEWSLETTER_TOPICS,
-      }),
+      rankNewsletters(
+        filterNewsletters(newslettersList, {
+          query: searchQuery,
+          topic: activeTopic,
+          allTopicsLabel: ALL_NEWSLETTER_TOPICS,
+        }),
+        searchQuery
+      ),
     [activeTopic, newslettersList, searchQuery]
   );
 
@@ -150,16 +155,24 @@ export function InteractiveNewslettersList({
 
   return (
     <div className="space-y-8">
-      <NewsletterFilterBar
-        dataPoints={dataPoints}
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        topics={allTopics}
-        activeTopic={activeTopic}
-        onTopicChange={setActiveTopic}
-        isAdmin={isAdmin}
-        onAdd={handleOpenCreateModal}
-      />
+      <div className="space-y-3">
+        <NewsletterFilterBar
+          dataPoints={dataPoints}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          topics={allTopics}
+          activeTopic={activeTopic}
+          onTopicChange={setActiveTopic}
+          isAdmin={isAdmin}
+          onAdd={handleOpenCreateModal}
+        />
+        <NewsletterResultsSummary
+          shown={filteredNewsletters.length}
+          total={newslettersList.length}
+          query={searchQuery}
+          activeTopic={activeTopic}
+        />
+      </div>
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         {newslettersList.length === 0 ? (
@@ -179,6 +192,7 @@ export function InteractiveNewslettersList({
               isAdmin={isAdmin}
               onEdit={handleOpenEditModal}
               onDelete={(slug, title) => void handleDeleteNewsletter(slug, title)}
+              searchQuery={searchQuery}
             />
           ))
         )}

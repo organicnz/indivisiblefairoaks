@@ -8,7 +8,12 @@ import {
   deleteCivicNewsletter,
   getCivicNewslettersAdmin,
 } from '@/lib/actions/civic';
-import { filterNewsletters, mergeNewsletterRows, sortNewsletters } from '@/lib/news-text';
+import {
+  filterNewsletters,
+  mergeNewsletterRows,
+  rankNewsletters,
+  sortNewsletters,
+} from '@/lib/news-text';
 import { NewsletterManagerRow } from '@/components/admin/news/NewsletterManagerRow';
 import { NewsletterManagerToolbar } from '@/components/admin/news/NewsletterManagerToolbar';
 import { CivicNewsletterEditorModal } from './CivicNewsletterEditorModal';
@@ -72,7 +77,7 @@ export function CivicNewsletterManager({
   };
 
   const filteredNewsletters = useMemo(
-    () => filterNewsletters(newsletters, { query: searchQuery }),
+    () => rankNewsletters(filterNewsletters(newsletters, { query: searchQuery }), searchQuery),
     [newsletters, searchQuery]
   );
 
