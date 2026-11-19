@@ -8,6 +8,7 @@
  * after the fact even by the service role.
  */
 export const ADMIN_AUDIT_TABLE = 'admin_audit_log';
+export const ADMIN_AUDIT_OUTBOX_TABLE = 'admin_audit_outbox';
 
 export type AdminAuditAction =
   | 'admin.role.grant'
@@ -59,14 +60,39 @@ export interface AdminAuditEntry {
   metadata?: Record<string, unknown> | null;
 }
 
-export type AdminAuditResult = { ok: true } | { ok: false; error: string };
+export type AdminAuditResult =
+  | { ok: true }
+  | {
+      ok: false;
+      error: string;
+      /**
+       * True when the complete audit payload is durable in
+       * `admin_audit_outbox` and pg_cron will retry delivery. False means the
+       * record could not be written or queued and the caller should report the
+       * stronger failure.
+       */
+      queued: boolean;
+    };
 
 interface AuditInsertClient {
   from(table: string): {
     insert(values: Record<string, unknown>): PromiseLike<{
-      error: { message: string } | null;
+      error: { message: string; code?: string } | null;
     }>;
   };
+}
+
+/**
+ * A transient database fault should not lose the only record of a privileged
+ * mutation. Three attempts covers the usual pooler/connection blip without
+ * holding the action open indefinitely; the delays give the pooler a moment to
+ * recover rather than hammering it.
+ */
+const AUDIT_WRITE_ATTEMPTS = 3;
+const AUDIT_RETRY_DELAYS_MS = [100, 300] as const;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
@@ -91,12 +117,69 @@ function errorMessage(err: unknown): string {
 }
 
 /**
+ * Persist the exact payload that failed to reach the append-only log. The
+ * outbox row and payload share the audit id, so a later delivery can use
+ * `on conflict (id) do nothing` and remove the row safely even if the original
+ * insert committed without its response reaching this process.
+ *
+ * A duplicate id is durable too: it means an earlier attempt already queued
+ * this event. Only a failed insert here leaves the caller with no persisted
+ * copy, which is why the result distinguishes it from the queued case.
+ *
+ * The enqueue gets its own small retry budget. The direct log attempts already
+ * consumed the network retries, but the outbox is now the only copy; a single
+ * pooler blip at this point must not turn a queued event into a lost one.
+ */
+const AUDIT_QUEUE_ATTEMPTS = 2;
+const AUDIT_QUEUE_RETRY_DELAY_MS = 100;
+
+async function queueAuditPayload(
+  client: AuditInsertClient,
+  payload: Record<string, unknown>,
+  lastError: string
+): Promise<boolean> {
+  let lastQueueError: { message: string; code?: string } | null = null;
+
+  for (let attempt = 0; attempt < AUDIT_QUEUE_ATTEMPTS; attempt += 1) {
+    try {
+      const { error } = await client.from(ADMIN_AUDIT_OUTBOX_TABLE).insert({
+        id: payload.id,
+        payload,
+        last_error: lastError.slice(0, 2000),
+      });
+      if (!error || error.code === '23505') return true;
+      lastQueueError = error;
+    } catch (err) {
+      lastQueueError = { message: errorMessage(err) };
+    }
+
+    if (attempt + 1 < AUDIT_QUEUE_ATTEMPTS) await sleep(AUDIT_QUEUE_RETRY_DELAY_MS);
+  }
+
+  console.error('[admin-audit] queue failed', {
+    error: lastQueueError?.message ?? 'unknown',
+    code: lastQueueError?.code,
+  });
+  return false;
+}
+
+/**
  * Record one privileged mutation.
  *
- * Best-effort by construction: the mutation has already committed by the time
- * most callers invoke this, so a failed audit insert must not be reported as a
- * failed mutation. The failure is logged for server diagnostics instead. The
- * append-only table is the durable record; this function never updates it.
+ * Delivery is retried a bounded number of times. Each call generates one
+ * client-side UUID and reuses it for every attempt: `id` is the primary key, so
+ * if the first insert committed but its response was lost, the retry collides
+ * on `23505` instead of writing a second audit row. A duplicate key is
+ * therefore delivery success, not failure.
+ *
+ * If every direct attempt fails, the complete payload is moved to
+ * `admin_audit_outbox` for pg_cron to deliver. The result is still `ok: false`
+ * so the caller can surface the delay, but `queued: true` means the audit record
+ * is durable and retryable. Only `queued: false` means both the audit write and
+ * the outbox write failed.
+ *
+ * This must not turn a completed mutation into a failed one; bulk callers attach
+ * a warning while keeping their mutation success.
  */
 export async function recordAdminAudit(
   adminClient: unknown,
@@ -110,10 +193,13 @@ export async function recordAdminAudit(
       hasActor: Boolean(entry.actorUserId),
       hasTarget: Boolean(entry.targetId),
     });
-    return { ok: false, error };
+    return { ok: false, error, queued: false };
   }
 
   const payload = {
+    // Generated once, before the first attempt. Retrying with a fresh id would
+    // turn a committed-but-unacknowledged insert into a duplicate audit row.
+    id: crypto.randomUUID(),
     actor_user_id: entry.actorUserId,
     actor_email: entry.actorEmail || null,
     action: entry.action,
@@ -128,30 +214,44 @@ export async function recordAdminAudit(
     metadata: auditJson(entry.metadata),
   };
 
-  try {
-    // The generated Database type does not know this table yet. The cast is the
-    // same boundary the action modules use for tables added by migrations that
-    // have not been reflected in the generated types.
-    const client = adminClient as AuditInsertClient;
-    const { error } = await client.from(ADMIN_AUDIT_TABLE).insert(payload);
-    if (error) {
-      console.error('[admin-audit] write failed', {
-        action: entry.action,
-        targetType: entry.targetType,
-        targetId: entry.targetId,
-        error: error.message,
-      });
-      return { ok: false, error: error.message };
+  // The generated Database type does not know this table yet. The cast is the
+  // same boundary the action modules use for tables added by migrations that
+  // have not been reflected in the generated types.
+  const client = adminClient as AuditInsertClient;
+  let lastError = 'audit write failed';
+  let lastFailure: 'error' | 'threw' = 'error';
+
+  for (let attempt = 0; attempt < AUDIT_WRITE_ATTEMPTS; attempt += 1) {
+    try {
+      const { error } = await client.from(ADMIN_AUDIT_TABLE).insert(payload);
+      if (!error) return { ok: true };
+
+      // The id is unique to this record. A collision means the earlier attempt
+      // did commit and only its response failed, so the audit is already durable.
+      if (error.code === '23505') return { ok: true };
+
+      lastError = error.message;
+      lastFailure = 'error';
+    } catch (err) {
+      lastError = errorMessage(err);
+      lastFailure = 'threw';
     }
-    return { ok: true };
-  } catch (err) {
-    const message = errorMessage(err);
-    console.error('[admin-audit] write threw', {
+
+    const retryDelay = AUDIT_RETRY_DELAYS_MS[attempt];
+    if (retryDelay !== undefined) await sleep(retryDelay);
+  }
+
+  const queued = await queueAuditPayload(client, payload, lastError);
+  console.error(
+    lastFailure === 'threw' ? '[admin-audit] write threw' : '[admin-audit] write failed',
+    {
       action: entry.action,
       targetType: entry.targetType,
       targetId: entry.targetId,
-      error: message,
-    });
-    return { ok: false, error: message };
-  }
+      error: lastError,
+      attempts: AUDIT_WRITE_ATTEMPTS,
+      queued,
+    }
+  );
+  return { ok: false, error: lastError, queued };
 }

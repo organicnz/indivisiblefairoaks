@@ -3,6 +3,7 @@
 import {
   Calendar,
   FileText,
+  History,
   LayoutDashboard,
   Link2,
   Newspaper,
@@ -36,6 +37,7 @@ const ITEMS: AdminNavItem[] = [
   { href: '/admin/ice-crawl', label: 'Web Reports', icon: ScanSearch },
   { href: '/admin/links', label: 'Links', icon: Link2 },
   { href: '/admin/crm', labelKey: 'admin.nav.crm', label: 'Civic CRM', icon: UsersRound },
+  { href: '/admin/audit', label: 'Audit log', icon: History },
 ];
 
 export function AdminNav() {

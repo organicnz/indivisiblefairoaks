@@ -63,17 +63,15 @@ describe('admin authorization', () => {
   });
 
   it('rejects non-boolean role values before touching the database', async () => {
-    await expect(
-      markAdminUser('profile-1', 'true' as unknown as boolean)
-    ).rejects.toThrow('Invalid admin role value');
+    await expect(markAdminUser('profile-1', 'true' as unknown as boolean)).rejects.toThrow(
+      'Invalid admin role value'
+    );
     expect(mocks.createAdminClient).not.toHaveBeenCalled();
   });
 
   it('rejects an empty or non-string profile id', async () => {
     await expect(markAdminUser('   ', true)).rejects.toThrow('Invalid profile');
-    await expect(markAdminUser(null as unknown as string, true)).rejects.toThrow(
-      'Invalid profile'
-    );
+    await expect(markAdminUser(null as unknown as string, true)).rejects.toThrow('Invalid profile');
     expect(mocks.createAdminClient).not.toHaveBeenCalled();
   });
 
@@ -84,9 +82,7 @@ describe('admin authorization', () => {
     });
     mocks.createAdminClient.mockResolvedValue(client);
 
-    await expect(markAdminUser('profile-1', true)).rejects.toThrow(
-      'Could not verify admin access'
-    );
+    await expect(markAdminUser('profile-1', true)).rejects.toThrow('Could not verify admin access');
     expect(update).not.toHaveBeenCalled();
   });
 
@@ -140,6 +136,7 @@ describe('admin authorization', () => {
     await markAdminUser('profile-1', true);
 
     expect(auditInsert).toHaveBeenCalledWith({
+      id: expect.any(String),
       actor_user_id: 'admin-1',
       actor_email: 'admin@example.com',
       action: 'admin.role.grant',

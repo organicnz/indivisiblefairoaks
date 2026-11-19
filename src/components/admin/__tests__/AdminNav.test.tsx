@@ -58,6 +58,7 @@ describe('AdminNav', () => {
     expect(hrefs).toContain('/admin/news');
     expect(hrefs).toContain('/admin/links');
     expect(hrefs).toContain('/admin/crm');
+    expect(hrefs).toContain('/admin/audit');
 
     // Accessibility: aria-current="page" on the active route
     const dashboardLink = links.find((l) => l.getAttribute('href') === '/admin');
