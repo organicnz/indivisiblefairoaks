@@ -159,7 +159,9 @@ export async function getUpcomingEventData(): Promise<UpcomingEventData> {
 
 export async function getPartners(): Promise<PartnerRow[]> {
   'use cache';
-  cacheLife('hours');
+  // Migration-backed partner rows must not stay stale for hours after a
+  // database-only change; admin edits still invalidate the tag immediately.
+  cacheLife('minutes');
   cacheTag('partners');
   try {
     const supabase = publicClient();
@@ -176,7 +178,9 @@ export async function getPartners(): Promise<PartnerRow[]> {
 
 export async function getCoalitionLinks(): Promise<CoalitionLinkRow[]> {
   'use cache';
-  cacheLife('hours');
+  // Same freshness rule as partners: a migration or direct DB correction
+  // should appear within minutes even when no admin request revalidates it.
+  cacheLife('minutes');
   cacheTag('coalition-links');
   try {
     const supabase = publicClient();

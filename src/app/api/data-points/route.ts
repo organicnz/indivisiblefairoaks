@@ -185,7 +185,11 @@ export async function POST(req: NextRequest) {
 
     try {
       revalidateTag('data-points', 'hours');
+      // Link Tree and Partners copy lives in the same data_points table, so
+      // editing either group must refresh those routes too, not just home.
       revalidatePath('/');
+      revalidatePath('/links');
+      revalidatePath('/partners');
     } catch {
       // Revalidation may throw outside request lifecycle or in tests
     }
@@ -231,7 +235,11 @@ export async function DELETE(req: NextRequest) {
 
     try {
       revalidateTag('data-points', 'hours');
+      // Link Tree and Partners copy lives in the same data_points table, so
+      // editing either group must refresh those routes too, not just home.
       revalidatePath('/');
+      revalidatePath('/links');
+      revalidatePath('/partners');
     } catch {
       // Revalidation may throw outside request lifecycle or in tests
     }
