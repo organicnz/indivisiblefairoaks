@@ -30,6 +30,30 @@ export type CRMResult<T extends object = object> = {
   error?: string;
 } & T;
 
+/**
+ * The mutation committed and its audit payload is durable in the outbox, but
+ * the append-only log has not accepted it yet. This is a delay, not a lost
+ * record: pg_cron retries delivery. Bulk actions surface it after success so
+ * the organizer knows the audit trail is temporarily behind.
+ */
+export const CRM_AUDIT_QUEUED_WARNING =
+  'The bulk change succeeded. Its audit record could not be written immediately, so it has been queued for automatic retry.';
+
+/**
+ * The mutation committed, so the organizer must not retry it, but neither the
+ * audit log nor the durable outbox accepted the record. Bulk actions return this
+ * instead of pretending the audit write cannot fail; the UI shows it after the
+ * success message.
+ */
+export const CRM_AUDIT_WARNING =
+  'The bulk change succeeded, but its audit record could not be written or queued. The admin audit log is incomplete — do not retry the change.';
+
+/** The operator-facing warning for an audit result, or null when delivered. */
+export function crmAuditWarning(audit: AdminAuditResult): string | null {
+  if (audit.ok) return null;
+  return audit.queued ? CRM_AUDIT_QUEUED_WARNING : CRM_AUDIT_WARNING;
+}
+
 /** The only way a CRM domain module should reach the admin client. */
 export function requireCRMAdmin(): Promise<CRMAdminContext> {
   return requireAdmin();

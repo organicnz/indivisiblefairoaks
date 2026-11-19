@@ -86,6 +86,12 @@ export async function bulkUpdateCRMContacts(
   return contactsWrite.bulkUpdateCRMContacts(...args);
 }
 
+export async function previewBulkCRMContactUpdate(
+  ...args: Parameters<typeof contactsWrite.previewBulkCRMContactUpdate>
+): ReturnType<typeof contactsWrite.previewBulkCRMContactUpdate> {
+  return contactsWrite.previewBulkCRMContactUpdate(...args);
+}
+
 export async function bulkDeleteCRMContacts(
   ...args: Parameters<typeof contactsWrite.bulkDeleteCRMContacts>
 ): ReturnType<typeof contactsWrite.bulkDeleteCRMContacts> {

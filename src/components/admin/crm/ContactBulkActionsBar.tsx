@@ -58,6 +58,7 @@ export function ContactBulkActionsBar({
         </span>
         <select
           disabled={busy}
+          aria-label="Change status for selected constituents"
           onChange={(e) => {
             if (e.target.value) {
               onBulkStatus(e.target.value as CRMContactStatus);

@@ -6,6 +6,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CRMContactList } from '@/components/admin/crm/CRMContactList';
+import { bulkUpdateCRMContacts, previewBulkCRMContactUpdate } from '@/lib/actions/crm';
 
 const { push, refresh } = vi.hoisted(() => ({ push: vi.fn(), refresh: vi.fn() }));
 
@@ -26,6 +27,7 @@ vi.mock('sonner', () => ({
 vi.mock('@/lib/actions/crm', () => ({
   bulkDeleteCRMContacts: vi.fn(),
   bulkUpdateCRMContacts: vi.fn(),
+  previewBulkCRMContactUpdate: vi.fn(),
   deleteCRMContact: vi.fn(),
   deleteCRMSegment: vi.fn(),
   exportCRMContacts: vi.fn(),
@@ -236,5 +238,61 @@ describe('CRMContactList bulk selection scope', () => {
 
     expect(hasBulkBar()).toBe(true);
     expect(selectedCount()).toBe('1');
+  });
+
+  it('opens a preflight summary before writing a bulk status change', async () => {
+    vi.mocked(previewBulkCRMContactUpdate).mockResolvedValue({
+      success: true,
+      preview: {
+        field: 'status',
+        selectedCount: 1,
+        foundCount: 1,
+        changedCount: 1,
+        unchangedCount: 0,
+        plannedValue: 'organizer',
+        distribution: [{ value: 'supporter', count: 1 }],
+      },
+    });
+    vi.mocked(bulkUpdateCRMContacts).mockResolvedValue({ success: true, updatedCount: 1 });
+    vi.mocked(bulkUpdateCRMContacts).mockClear();
+
+    render();
+    click('select-a');
+
+    const select = container.querySelector<HTMLSelectElement>(
+      'select[aria-label="Change status for selected constituents"]'
+    );
+    expect(select).not.toBeNull();
+    await act(async () => {
+      if (!select) return;
+      const setter = Object.getOwnPropertyDescriptor(
+        window.HTMLSelectElement.prototype,
+        'value'
+      )?.set;
+      setter?.call(select, 'organizer');
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+
+    expect(previewBulkCRMContactUpdate).toHaveBeenCalledWith({
+      contactIds: ['a'],
+      status: 'organizer',
+    });
+    expect(bulkUpdateCRMContacts).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain('Review bulk change');
+    expect(document.body.textContent).toContain('Set status to Organizer');
+
+    const apply = Array.from(document.body.querySelectorAll<HTMLButtonElement>('button')).find(
+      (button) => button.textContent?.trim() === 'Apply change to 1'
+    );
+    expect(apply).not.toBeUndefined();
+    await act(async () => {
+      apply?.click();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+    expect(bulkUpdateCRMContacts).toHaveBeenCalledWith({
+      contactIds: ['a'],
+      status: 'organizer',
+    });
   });
 });

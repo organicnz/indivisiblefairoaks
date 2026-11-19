@@ -114,6 +114,33 @@ export type ConsentDecision = 'opted_out' | 'opted_in' | 'unasked';
 /** A consent decision plus the "no filter" state used by directory URLs. */
 export type ConsentFilter = 'all' | ConsentDecision;
 
+/** The dimensions a bulk CRM update can change. */
+export type CRMBulkUpdateField = 'status' | 'consent' | 'district' | 'tags';
+
+/** One current value and how many selected contacts carry it. */
+export interface CRMBulkUpdateDistributionEntry {
+  value: string;
+  count: number;
+}
+
+/**
+ * A read-only preview of one bulk CRM update.
+ *
+ * `selectedCount` is the size of the requested selection; `foundCount` is how
+ * many of those contacts still exist. `changedCount` excludes contacts already
+ * holding the planned value, so the organizer can tell a real change from a
+ * no-op before confirming.
+ */
+export interface CRMBulkUpdatePreview {
+  field: CRMBulkUpdateField;
+  selectedCount: number;
+  foundCount: number;
+  changedCount: number;
+  unchangedCount: number;
+  plannedValue: string;
+  distribution: CRMBulkUpdateDistributionEntry[];
+}
+
 export type CRMContactStatus =
   | 'active_volunteer'
   | 'supporter'

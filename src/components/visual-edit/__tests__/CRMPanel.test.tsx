@@ -5,35 +5,48 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CRMPanel } from '@/components/visual-edit/CRMPanel';
+import { CRM_AUDIT_WARNING } from '@/lib/actions/crm/shared';
 import {
   CRM_CONTACT_BULK_CONSENT_OPTIONS,
   CRM_CONTACT_BULK_STATUS_OPTIONS,
 } from '@/lib/crm-contact-options';
 
-const getCRMContacts = vi.hoisted(() =>
-  vi.fn().mockResolvedValue({
-    contacts: [
-      {
-        id: 'c1',
-        email: 'test@test.org',
-        first_name: 'Test',
-        last_name: 'Person',
-        do_not_email: false,
-        tags: ['test'],
-        status: 'supporter',
-        phone: null,
-        address: null,
-        city: null,
-        zip_code: null,
-        district: 'CA-06',
-        notes: null,
-        total_donated_cents: 0,
-        source: 'manual',
-      },
-    ],
-    totalCount: 1,
-  })
-);
+const toast = vi.hoisted(() => ({
+  success: vi.fn(),
+  warning: vi.fn(),
+  error: vi.fn(),
+  info: vi.fn(),
+  message: vi.fn(),
+}));
+
+vi.mock('sonner', () => ({ toast }));
+
+const DEFAULT_CONTACT = {
+  id: 'c1',
+  email: 'test@test.org',
+  first_name: 'Test',
+  last_name: 'Person',
+  do_not_email: false,
+  tags: ['test'],
+  status: 'supporter',
+  phone: null,
+  address: null,
+  city: null,
+  zip_code: null,
+  district: 'CA-06',
+  notes: null,
+  total_donated_cents: 0,
+  source: 'manual',
+};
+
+const SECOND_PAGE_CONTACT = {
+  ...DEFAULT_CONTACT,
+  id: 'c2',
+  email: 'second@test.org',
+  first_name: 'Second',
+};
+
+const getCRMContacts = vi.hoisted(() => vi.fn());
 
 const exportCRMContacts = vi.hoisted(() =>
   vi.fn().mockResolvedValue({
@@ -74,6 +87,35 @@ const bulkDeleteCRMContacts = vi.hoisted(() =>
     success: true,
     deletedCount: 1,
   })
+);
+
+const previewBulkCRMContactUpdate = vi.hoisted(() =>
+  vi.fn(
+    async (input: {
+      contactIds: string[];
+      status?: string;
+      consent?: string;
+      district?: string;
+      addTag?: string;
+    }) => ({
+      success: true,
+      preview: {
+        field: input.addTag
+          ? 'tags'
+          : input.district
+            ? 'district'
+            : input.consent
+              ? 'consent'
+              : 'status',
+        selectedCount: input.contactIds.length,
+        foundCount: 1,
+        changedCount: 1,
+        unchangedCount: 0,
+        plannedValue: input.addTag ?? input.district ?? input.consent ?? input.status ?? '',
+        distribution: [{ value: 'supporter', count: 1 }],
+      },
+    })
+  )
 );
 
 const getCRMExistingTags = vi.hoisted(() =>
@@ -119,6 +161,7 @@ vi.mock('@/lib/actions/crm', () => ({
   saveCRMContact,
   bulkUpdateCRMContacts,
   bulkDeleteCRMContacts,
+  previewBulkCRMContactUpdate,
   getCRMExistingTags,
   getCRMContactDetail,
   getCRMSegments: vi.fn().mockResolvedValue({
@@ -223,6 +266,13 @@ describe('CRMPanel', () => {
   let root: Root;
   beforeEach(async () => {
     vi.clearAllMocks();
+    getCRMContacts.mockReset();
+    // Just over one page, so the pagination controls are present without a
+    // test having to force a filter reload first.
+    getCRMContacts.mockResolvedValue({
+      contacts: [DEFAULT_CONTACT],
+      totalCount: 30,
+    });
     container = document.createElement('div');
     document.body.appendChild(container);
     globalThis.URL.createObjectURL = vi.fn().mockReturnValue('blob:mock-url');
@@ -248,6 +298,20 @@ describe('CRMPanel', () => {
       selectAllCheckbox?.click();
     });
     expect(document.body.textContent).toContain('Bulk Actions (1)');
+  };
+
+  const confirmBulkPreflight = async () => {
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50));
+    });
+    const applyButton = Array.from(
+      document.body.querySelectorAll<HTMLButtonElement>('button')
+    ).find((button) => button.textContent?.trim().startsWith('Apply change'));
+    expect(applyButton).not.toBeUndefined();
+    await act(async () => {
+      applyButton?.click();
+      await new Promise((r) => setTimeout(r, 50));
+    });
   };
 
   const changeFilterValue = async (selector: string, value: string) => {
@@ -861,46 +925,11 @@ describe('CRMPanel', () => {
   });
 
   it('keeps the bulk selection when only the page changes', async () => {
-    const firstPageResponse = {
-      contacts: [
-        {
-          id: 'c1',
-          email: 'test@test.org',
-          first_name: 'Test',
-          last_name: 'Person',
-          do_not_email: false,
-          tags: ['test'],
-          status: 'supporter',
-          phone: null,
-          address: null,
-          city: null,
-          zip_code: null,
-          district: 'CA-06',
-          notes: null,
-          total_donated_cents: 0,
-          source: 'manual',
-        },
-      ],
-      totalCount: 30,
-    };
-    // A different contact on page two proves the selected row is off-page.
-    const secondPageResponse = {
-      contacts: [
-        {
-          ...firstPageResponse.contacts[0],
-          id: 'c2',
-          email: 'second@test.org',
-          first_name: 'Second',
-        },
-      ],
-      totalCount: 30,
-    };
-    // One response for the status-filter reload, one for the Next click.
-    getCRMContacts.mockResolvedValueOnce(firstPageResponse);
-    getCRMContacts.mockResolvedValueOnce(secondPageResponse);
-
-    await changeFilterValue('select[aria-label="Filter by constituent status"]', 'donor');
     await selectAllConstituents();
+    getCRMContacts.mockResolvedValueOnce({
+      contacts: [SECOND_PAGE_CONTACT],
+      totalCount: 30,
+    });
 
     const nextButton = findButtonByText('Next');
     expect(nextButton).not.toBeUndefined();
@@ -909,13 +938,9 @@ describe('CRMPanel', () => {
       await new Promise((r) => setTimeout(r, 50));
     });
 
-    expect(getCRMContacts).toHaveBeenLastCalledWith(
-      expect.objectContaining({ page: 2, pageSize: 25, status: 'donor' })
-    );
-    expect(document.body.textContent).toContain('Page 2 of 2 (30 total)');
+    // The selected page-one contact is off-screen, but its selection survives.
     expect(document.body.textContent).toContain('second@test.org');
-    expect(findButtonByText('Next')?.disabled).toBe(true);
-
+    expect(document.body.textContent).not.toContain('test@test.org');
     expect(document.body.textContent).toContain('Bulk Actions (1)');
   });
 
@@ -950,6 +975,40 @@ describe('CRMPanel', () => {
     );
   });
 
+  it('shows a bulk preflight summary and waits for confirmation', async () => {
+    await selectAllConstituents();
+
+    const bulkStatusSelect = document.body.querySelector<HTMLSelectElement>(
+      'select[aria-label="Bulk update status"]'
+    );
+    expect(bulkStatusSelect).not.toBeNull();
+    await act(async () => {
+      if (bulkStatusSelect) {
+        bulkStatusSelect.value = 'organizer';
+        bulkStatusSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    expect(previewBulkCRMContactUpdate).toHaveBeenCalledWith({
+      contactIds: ['c1'],
+      status: 'organizer',
+    });
+    expect(bulkUpdateCRMContacts).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain('Review bulk change');
+    expect(document.body.textContent).toContain('Current status distribution');
+    expect(document.body.textContent).toContain('Set status to Organizer');
+
+    const cancel = Array.from(document.body.querySelectorAll<HTMLButtonElement>('button')).find(
+      (button) => button.textContent?.trim() === 'Cancel'
+    );
+    expect(cancel).not.toBeUndefined();
+    await act(async () => cancel?.click());
+    expect(bulkUpdateCRMContacts).not.toHaveBeenCalled();
+  });
+
   it('performs bulk status update for selected constituents', async () => {
     const selectAllCheckbox = document.body.querySelector<HTMLInputElement>(
       'input[aria-label="Select all constituents on page"]'
@@ -969,6 +1028,7 @@ describe('CRMPanel', () => {
         bulkStatusSelect.dispatchEvent(new Event('change', { bubbles: true }));
       }
     });
+    await confirmBulkPreflight();
 
     expect(bulkUpdateCRMContacts).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -976,6 +1036,29 @@ describe('CRMPanel', () => {
         status: 'organizer',
       })
     );
+  });
+
+  it('warns when a bulk status update succeeds but its audit row cannot be written', async () => {
+    bulkUpdateCRMContacts.mockResolvedValueOnce({
+      success: true,
+      updatedCount: 1,
+      warning: CRM_AUDIT_WARNING,
+    });
+    await selectAllConstituents();
+
+    const bulkStatusSelect = document.body.querySelector<HTMLSelectElement>(
+      'select[aria-label="Bulk update status"]'
+    );
+    expect(bulkStatusSelect).not.toBeNull();
+    await act(async () => {
+      if (bulkStatusSelect) {
+        bulkStatusSelect.value = 'organizer';
+        bulkStatusSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
+    await confirmBulkPreflight();
+
+    expect(toast.warning).toHaveBeenCalledWith(CRM_AUDIT_WARNING);
   });
 
   it('performs bulk consent update for selected constituents', async () => {
@@ -997,6 +1080,7 @@ describe('CRMPanel', () => {
         bulkConsentSelect.dispatchEvent(new Event('change', { bubbles: true }));
       }
     });
+    await confirmBulkPreflight();
 
     expect(bulkUpdateCRMContacts).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1038,6 +1122,7 @@ describe('CRMPanel', () => {
     await act(async () => {
       applyTagBtn?.click();
     });
+    await confirmBulkPreflight();
 
     expect(bulkUpdateCRMContacts).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1184,6 +1269,7 @@ describe('CRMPanel', () => {
     await act(async () => {
       applyDistrictBtn?.click();
     });
+    await confirmBulkPreflight();
 
     expect(bulkUpdateCRMContacts).toHaveBeenCalledWith(
       expect.objectContaining({

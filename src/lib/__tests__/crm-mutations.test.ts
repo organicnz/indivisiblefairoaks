@@ -42,6 +42,7 @@ import {
   updateCRMNote,
   updateCRMTask,
 } from '@/lib/actions/crm';
+import { CRM_AUDIT_QUEUED_WARNING, CRM_AUDIT_WARNING } from '@/lib/actions/crm/shared';
 import { env } from '@/lib/env';
 import type { MockTableConfig } from './supabase-mock';
 import { createMockAdminClient } from './supabase-mock';
@@ -813,14 +814,133 @@ describe('CRM mutation failure paths', () => {
         target_type: 'crm_contact',
         target_id: 'bulk-update',
         target_label: '2 selected contacts',
-        before: null,
-        after: null,
+        before: {
+          contact_ids: ['c1', 'c2'],
+          contacts: [
+            { id: 'c1', status: 'supporter', district: null },
+            { id: 'c2', status: 'supporter', district: null },
+          ],
+        },
+        after: {
+          contact_ids: ['c1', 'c2'],
+          contacts: [
+            { id: 'c1', status: 'active_volunteer', district: 'District 4' },
+            { id: 'c2', status: 'active_volunteer', district: 'District 4' },
+          ],
+        },
         mfa_level: 'aal2',
         outcome: 'success',
         metadata: {
           requested_count: 2,
+          requested_ids: ['c1', 'c2'],
+          affected_count: 2,
+          affected_ids: ['c1', 'c2'],
           updated_count: 2,
           changed_fields: ['status', 'district'],
+        },
+      });
+    });
+
+    it('succeeds with a warning when the bulk update commits but its audit row cannot be written', async () => {
+      tables.crm_contacts = {
+        rows: [
+          { id: 'c1', status: 'supporter', tags: [] },
+          { id: 'c2', status: 'supporter', tags: [] },
+        ],
+      };
+      tables.admin_audit_log = {
+        rows: [],
+        insertError: { message: 'audit table offline' },
+      };
+      tables.admin_audit_outbox = { rows: [] };
+
+      const res = await bulkUpdateCRMContacts({
+        contactIds: ['c1', 'c2'],
+        status: 'active_volunteer',
+      });
+
+      expect(res).toEqual({
+        success: true,
+        updatedCount: 2,
+        warning: CRM_AUDIT_QUEUED_WARNING,
+      });
+      expect(tables.crm_contacts.rows).toMatchObject([
+        { id: 'c1', status: 'active_volunteer' },
+        { id: 'c2', status: 'active_volunteer' },
+      ]);
+      expect(tables.admin_audit_log.rows).toEqual([]);
+      expect(tables.admin_audit_outbox.rows).toHaveLength(1);
+      expect(tables.admin_audit_outbox.rows?.[0]).toMatchObject({
+        payload: {
+          action: 'crm.contact.bulk_update',
+          target_type: 'crm_contact',
+          target_id: 'bulk-update',
+          outcome: 'success',
+          metadata: {
+            requested_count: 2,
+            updated_count: 2,
+            changed_fields: ['status'],
+          },
+        },
+        last_error: 'audit table offline',
+      });
+    });
+
+    it('reports the stronger warning when neither the audit log nor the outbox accepts the record', async () => {
+      tables.crm_contacts = {
+        rows: [{ id: 'c1', status: 'supporter', tags: [] }],
+      };
+      tables.admin_audit_log = {
+        rows: [],
+        insertError: { message: 'audit table offline' },
+      };
+      tables.admin_audit_outbox = {
+        rows: [],
+        insertError: { message: 'outbox offline' },
+      };
+
+      const res = await bulkUpdateCRMContacts({
+        contactIds: ['c1'],
+        status: 'active_volunteer',
+      });
+
+      expect(res).toEqual({
+        success: true,
+        updatedCount: 1,
+        warning: CRM_AUDIT_WARNING,
+      });
+      expect(tables.admin_audit_outbox.rows).toEqual([]);
+    });
+
+    it('warns after a successful tag bulk update if its audit row cannot be written', async () => {
+      tables.crm_contacts = {
+        rows: [{ id: 'c1', status: 'supporter', tags: ['old'] }],
+      };
+      tables.admin_audit_log = {
+        rows: [],
+        insertError: { message: 'audit table offline' },
+      };
+      tables.admin_audit_outbox = { rows: [] };
+
+      const res = await bulkUpdateCRMContacts({
+        contactIds: ['c1'],
+        addTags: ['new-tag'],
+        removeTags: ['old'],
+      });
+
+      expect(res).toEqual({
+        success: true,
+        updatedCount: 1,
+        warning: CRM_AUDIT_QUEUED_WARNING,
+      });
+      expect(tables.crm_contacts.rows?.[0]?.tags).toEqual(['new-tag']);
+      expect(tables.admin_audit_log.rows).toEqual([]);
+      expect(tables.admin_audit_outbox.rows).toHaveLength(1);
+      expect(tables.admin_audit_outbox.rows?.[0]).toMatchObject({
+        payload: {
+          action: 'crm.contact.bulk_update',
+          outcome: 'success',
+          metadata: { changed_fields: ['tags'], updated_count: 1 },
         },
       });
     });
@@ -843,6 +963,8 @@ describe('CRM mutation failure paths', () => {
       expect(tables.admin_audit_log.rows?.[0]?.metadata).toEqual({
         requested_count: 1,
         requested_ids: ['c1'],
+        affected_count: 1,
+        affected_ids: ['c1'],
         changed_fields: ['status'],
       });
     });
@@ -995,8 +1117,18 @@ describe('CRM mutation failure paths', () => {
       expect(tables.admin_audit_log.rows?.[0]).toMatchObject({
         action: 'crm.contact.bulk_update',
         outcome: 'success',
+        before: {
+          contact_ids: ['c1'],
+          contacts: [{ id: 'c1', tags: [] }],
+        },
+        after: {
+          contact_ids: ['c1'],
+          contacts: [{ id: 'c1', tags: ['new-tag'] }],
+        },
         metadata: {
           requested_count: 2,
+          affected_count: 1,
+          affected_ids: ['c1'],
           updated_count: 1,
           changed_fields: ['tags'],
         },
@@ -1115,8 +1247,52 @@ describe('CRM mutation failure paths', () => {
         metadata: {
           requested_count: 2,
           requested_ids: ['c1', 'c2'],
+          affected_count: 2,
+          affected_ids: ['c1', 'c2'],
           updated_count: 2,
           changed_fields: ['status', 'district', 'tags', 'consent'],
+        },
+        before: {
+          contact_ids: ['c1', 'c2'],
+          contacts: [
+            {
+              id: 'c1',
+              status: 'supporter',
+              district: null,
+              tags: ['old'],
+              do_not_email: false,
+              unsubscribed_at: null,
+            },
+            {
+              id: 'c2',
+              status: 'supporter',
+              district: null,
+              tags: ['old'],
+              do_not_email: false,
+              unsubscribed_at: null,
+            },
+          ],
+        },
+        after: {
+          contact_ids: ['c1', 'c2'],
+          contacts: [
+            {
+              id: 'c1',
+              status: 'active_volunteer',
+              district: 'CA-06',
+              tags: ['new-tag'],
+              do_not_email: true,
+              unsubscribed_at: expect.any(String),
+            },
+            {
+              id: 'c2',
+              status: 'active_volunteer',
+              district: 'CA-06',
+              tags: ['new-tag'],
+              do_not_email: true,
+              unsubscribed_at: expect.any(String),
+            },
+          ],
         },
       });
       // The operation audit replaces per-contact timeline rows, which would
@@ -1199,9 +1375,81 @@ describe('CRM mutation failure paths', () => {
             { id: 'c2', email: 'c@d.co' },
           ],
         },
-        after: null,
+        after: {
+          contact_ids: ['c1', 'c2'],
+          contacts: [
+            { id: 'c1', deleted: true },
+            { id: 'c2', deleted: true },
+          ],
+        },
         outcome: 'success',
-        metadata: { requested_count: 2, deleted_count: 2 },
+        metadata: {
+          requested_count: 2,
+          requested_ids: ['c1', 'c2'],
+          affected_count: 2,
+          affected_ids: ['c1', 'c2'],
+          deleted_count: 2,
+        },
+      });
+    });
+
+    it('records only the contacts the delete actually removed', async () => {
+      tables.crm_contacts = {
+        rows: [{ id: 'c1', email: 'a@b.co', first_name: 'Ada', last_name: 'A' }],
+      };
+      tables.admin_audit_log = { rows: [] };
+
+      const res = await bulkDeleteCRMContacts(['c1', 'missing']);
+
+      expect(res).toEqual({ success: true, deletedCount: 1 });
+      expect(tables.admin_audit_log.rows?.[0]).toMatchObject({
+        before: {
+          contact_ids: ['c1'],
+          contacts: [{ id: 'c1', email: 'a@b.co', first_name: 'Ada', last_name: 'A' }],
+        },
+        after: {
+          contact_ids: ['c1'],
+          contacts: [{ id: 'c1', deleted: true }],
+        },
+        metadata: {
+          requested_count: 2,
+          requested_ids: ['c1', 'missing'],
+          affected_count: 1,
+          affected_ids: ['c1'],
+          deleted_count: 1,
+        },
+      });
+    });
+
+    it('succeeds with a warning when the bulk delete commits but its audit row cannot be written', async () => {
+      tables.crm_contacts = {
+        rows: [
+          { id: 'c1', email: 'a@b.co' },
+          { id: 'c2', email: 'c@d.co' },
+        ],
+      };
+      tables.admin_audit_log = {
+        rows: [],
+        insertError: { message: 'audit table offline' },
+      };
+      tables.admin_audit_outbox = { rows: [] };
+
+      const res = await bulkDeleteCRMContacts(['c1', 'c2']);
+
+      expect(res).toEqual({
+        success: true,
+        deletedCount: 2,
+        warning: CRM_AUDIT_QUEUED_WARNING,
+      });
+      expect(tables.crm_contacts.rows).toEqual([]);
+      expect(tables.admin_audit_log.rows).toEqual([]);
+      expect(tables.admin_audit_outbox.rows).toHaveLength(1);
+      expect(tables.admin_audit_outbox.rows?.[0]).toMatchObject({
+        payload: {
+          action: 'crm.contact.bulk_delete',
+          outcome: 'success',
+          metadata: { requested_count: 2, deleted_count: 2 },
+        },
       });
     });
 

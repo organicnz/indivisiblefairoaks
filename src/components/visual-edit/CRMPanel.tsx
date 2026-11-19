@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { CivicEventManager } from '@/components/admin/civic/CivicEventManager';
 import { CivicLinkManager } from '@/components/admin/civic/CivicLinkManager';
 import { CivicNewsletterManager } from '@/components/admin/civic/CivicNewsletterManager';
+import { BulkUpdatePreflightDialog } from '@/components/admin/crm/BulkUpdatePreflightDialog';
 import { CRMContactEditorModal } from '@/components/admin/crm/CRMContactEditorModal';
 import { CRMTaskForm } from '@/components/admin/crm/CRMTaskForm';
 import {
@@ -24,6 +25,7 @@ import { CRMPanelContactOverview } from '@/components/visual-edit/CRMPanelContac
 import { CRMPanelContactTasks } from '@/components/visual-edit/CRMPanelContactTasks';
 import { CRMPanelContactTimeline } from '@/components/visual-edit/CRMPanelContactTimeline';
 import { CRMPanelHeader } from '@/components/visual-edit/CRMPanelHeader';
+import { useBulkUpdatePreflight } from '@/hooks/useBulkUpdatePreflight';
 import { useClearSelectionOnKeyChange } from '@/hooks/useClearSelectionOnKeyChange';
 import {
   addCRMNote,
@@ -119,6 +121,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({
     tags: string[];
   } | null>(null);
   const [selectedContactIds, setSelectedContactIds] = useState<Set<string>>(new Set());
+  const bulkPreflight = useBulkUpdatePreflight();
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
   const [bulkTagInput, setBulkTagInput] = useState('');
   const [bulkDistrictInput, setBulkDistrictInput] = useState('');
@@ -561,12 +564,15 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({
     setPage(1);
   };
 
-  const handleBulkStatus = async (status: CRMContactStatus) => {
-    if (selectedContactIds.size === 0) return;
+  const handleBulkStatus = async (
+    status: CRMContactStatus,
+    contactIds: string[] = Array.from(selectedContactIds)
+  ) => {
+    if (contactIds.length === 0) return;
     setIsBulkUpdating(true);
     try {
       const res = await bulkUpdateCRMContacts({
-        contactIds: Array.from(selectedContactIds),
+        contactIds,
         status,
       });
       if (res.success) {
@@ -575,6 +581,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({
             ? 'Updated the selected constituents'
             : `Updated status for ${res.updatedCount} constituents`
         );
+        if (res.warning) toast.warning(res.warning);
         setSelectedContactIds(new Set());
         loadContacts();
       } else {
@@ -587,12 +594,15 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({
     }
   };
 
-  const handleBulkConsent = async (consent: ConsentDecision) => {
-    if (selectedContactIds.size === 0) return;
+  const handleBulkConsent = async (
+    consent: ConsentDecision,
+    contactIds: string[] = Array.from(selectedContactIds)
+  ) => {
+    if (contactIds.length === 0) return;
     setIsBulkUpdating(true);
     try {
       const res = await bulkUpdateCRMContacts({
-        contactIds: Array.from(selectedContactIds),
+        contactIds,
         consent,
       });
       if (res.success) {
@@ -601,6 +611,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({
             ? 'Updated consent for the selected constituents'
             : `Updated consent for ${res.updatedCount} constituents`
         );
+        if (res.warning) toast.warning(res.warning);
         setSelectedContactIds(new Set());
         loadContacts();
       } else {
@@ -613,13 +624,16 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({
     }
   };
 
-  const handleBulkAddTag = async () => {
-    if (selectedContactIds.size === 0 || !bulkTagInput.trim()) return;
-    const tag = bulkTagInput.trim().toLowerCase();
+  const handleBulkAddTag = async (
+    tagInput: string = bulkTagInput,
+    contactIds: string[] = Array.from(selectedContactIds)
+  ) => {
+    const tag = tagInput.trim().toLowerCase();
+    if (contactIds.length === 0 || !tag) return;
     setIsBulkUpdating(true);
     try {
       const res = await bulkUpdateCRMContacts({
-        contactIds: Array.from(selectedContactIds),
+        contactIds,
         addTags: [tag],
       });
       if (res.success) {
@@ -628,6 +642,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({
             ? `Added tag #${tag} to the selected constituents`
             : `Added tag #${tag} to ${res.updatedCount} constituents`
         );
+        if (res.warning) toast.warning(res.warning);
         setBulkTagInput('');
         setSelectedContactIds(new Set());
         loadContacts();
@@ -642,13 +657,16 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({
     }
   };
 
-  const handleBulkDistrict = async () => {
-    if (selectedContactIds.size === 0 || !bulkDistrictInput.trim()) return;
-    const district = bulkDistrictInput.trim().toUpperCase();
+  const handleBulkDistrict = async (
+    districtInput: string = bulkDistrictInput,
+    contactIds: string[] = Array.from(selectedContactIds)
+  ) => {
+    const district = districtInput.trim().toUpperCase();
+    if (contactIds.length === 0 || !district) return;
     setIsBulkUpdating(true);
     try {
       const res = await bulkUpdateCRMContacts({
-        contactIds: Array.from(selectedContactIds),
+        contactIds,
         district,
       });
       if (res.success) {
@@ -657,6 +675,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({
             ? `Assigned district ${district} to the selected constituents`
             : `Assigned district ${district} to ${res.updatedCount} constituents`
         );
+        if (res.warning) toast.warning(res.warning);
         setBulkDistrictInput('');
         setSelectedContactIds(new Set());
         loadContacts();
@@ -667,6 +686,57 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({
       toast.error(err instanceof Error ? err.message : 'Failed to assign district');
     } finally {
       setIsBulkUpdating(false);
+    }
+  };
+
+  const beginBulkStatus = (status: CRMContactStatus) => {
+    void bulkPreflight.begin({
+      contactIds: Array.from(selectedContactIds),
+      field: 'status',
+      value: status,
+    });
+  };
+
+  const beginBulkConsent = (consent: ConsentDecision) => {
+    void bulkPreflight.begin({
+      contactIds: Array.from(selectedContactIds),
+      field: 'consent',
+      value: consent,
+    });
+  };
+
+  const beginBulkTag = () => {
+    const tag = bulkTagInput.trim().toLowerCase();
+    if (!tag) return;
+    void bulkPreflight.begin({
+      contactIds: Array.from(selectedContactIds),
+      field: 'tags',
+      value: tag,
+    });
+  };
+
+  const beginBulkDistrict = () => {
+    const district = bulkDistrictInput.trim().toUpperCase();
+    if (!district) return;
+    void bulkPreflight.begin({
+      contactIds: Array.from(selectedContactIds),
+      field: 'district',
+      value: district,
+    });
+  };
+
+  const confirmBulkPreflight = () => {
+    const plan = bulkPreflight.plan;
+    if (!plan) return;
+    bulkPreflight.close();
+    if (plan.field === 'status') {
+      void handleBulkStatus(plan.value as CRMContactStatus, plan.contactIds);
+    } else if (plan.field === 'consent') {
+      void handleBulkConsent(plan.value as ConsentDecision, plan.contactIds);
+    } else if (plan.field === 'tags') {
+      void handleBulkAddTag(plan.value, plan.contactIds);
+    } else {
+      void handleBulkDistrict(plan.value, plan.contactIds);
     }
   };
 
@@ -858,15 +928,15 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({
                 onPageChange={(next) => setPage(next)}
                 selectedContactIds={selectedContactIds}
                 onSelectedContactIdsChange={setSelectedContactIds}
-                isBulkUpdating={isBulkUpdating}
+                isBulkUpdating={isBulkUpdating || bulkPreflight.loading}
                 bulkTagInput={bulkTagInput}
                 onBulkTagInputChange={(value) => setBulkTagInput(value)}
                 bulkDistrictInput={bulkDistrictInput}
                 onBulkDistrictInputChange={(value) => setBulkDistrictInput(value)}
-                onBulkStatus={(status) => void handleBulkStatus(status)}
-                onBulkConsent={(consent) => void handleBulkConsent(consent)}
-                onBulkAddTag={() => void handleBulkAddTag()}
-                onBulkDistrict={() => void handleBulkDistrict()}
+                onBulkStatus={beginBulkStatus}
+                onBulkConsent={beginBulkConsent}
+                onBulkAddTag={beginBulkTag}
+                onBulkDistrict={beginBulkDistrict}
                 onBulkDelete={() => void handleBulkDelete()}
               />
 
@@ -1017,6 +1087,16 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({
           )}
         </DialogContent>
       </Dialog>
+
+      <BulkUpdatePreflightDialog
+        open={bulkPreflight.plan !== null}
+        preview={bulkPreflight.preview}
+        loading={bulkPreflight.loading}
+        error={bulkPreflight.error}
+        busy={isBulkUpdating}
+        onCancel={bulkPreflight.close}
+        onConfirm={confirmBulkPreflight}
+      />
 
       {/* Contact Editor Modal */}
       {editorModal}

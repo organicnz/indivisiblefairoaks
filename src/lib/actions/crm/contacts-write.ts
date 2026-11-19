@@ -3,6 +3,7 @@ import {
   CRM_CONTACT_CONSENT_VALUES,
   CRM_CONTACT_DEFAULTS,
   CRM_CONTACT_STATUS_VALUES,
+  crmContactConsentValue,
   crmContactDoNotEmail,
   normalizeCRMEmail,
 } from '@/lib/crm-contact-options';
@@ -14,11 +15,20 @@ import {
   normalizeTags,
   parseCRMImportCsv,
 } from '@/lib/crm-import';
-import type { ConsentDecision, CRMContact, CRMContactInsert, CRMContactUpdate } from '@/types/crm';
+import type {
+  ConsentDecision,
+  CRMBulkUpdateDistributionEntry,
+  CRMBulkUpdatePreview,
+  CRMContact,
+  CRMContactInsert,
+  CRMContactStatus,
+  CRMContactUpdate,
+} from '@/types/crm';
 import type { Database } from '@/types/supabase';
 import {
   type AdminClient,
   type CRMResult,
+  crmAuditWarning,
   escapeIlike,
   recordCRMAudit,
   requireCRMAdmin,
@@ -28,6 +38,55 @@ import {
 
 const CRM_ACTIVITY_WARNING =
   'Saved, but the CRM timeline entry could not be recorded. The activity log is incomplete.';
+
+const BULK_AUDIT_CONTACT_COLUMNS = 'id, status, district, tags, do_not_email, unsubscribed_at';
+
+/** The contact fields a bulk operation can change, plus the id they belong to. */
+type BulkAuditContact = {
+  id: string;
+  status?: string | null;
+  district?: string | null;
+  tags?: string[] | null;
+  do_not_email?: boolean | null;
+  unsubscribed_at?: string | null;
+};
+
+type BulkAuditFieldSet = {
+  status: boolean;
+  district: boolean;
+  tags: boolean;
+  consent: boolean;
+};
+
+type BulkContactChange = {
+  id: string;
+  before: Record<string, unknown>;
+  after: Record<string, unknown>;
+};
+
+/** Keep only the values a bulk operation actually changed, keyed by contact. */
+function snapshotBulkContact(
+  contact: BulkAuditContact,
+  fields: BulkAuditFieldSet
+): Record<string, unknown> {
+  const snapshot: Record<string, unknown> = { id: contact.id };
+  if (fields.status) snapshot.status = contact.status ?? null;
+  if (fields.district) snapshot.district = contact.district ?? null;
+  if (fields.tags) snapshot.tags = Array.isArray(contact.tags) ? contact.tags : [];
+  if (fields.consent) {
+    snapshot.do_not_email = contact.do_not_email ?? null;
+    snapshot.unsubscribed_at = contact.unsubscribed_at ?? null;
+  }
+  return snapshot;
+}
+
+function countBulkDistribution(values: string[]): CRMBulkUpdateDistributionEntry[] {
+  const counts = new Map<string, number>();
+  for (const value of values) counts.set(value, (counts.get(value) ?? 0) + 1);
+  return [...counts.entries()]
+    .map(([value, count]) => ({ value, count }))
+    .sort((a, b) => b.count - a.count || a.value.localeCompare(b.value));
+}
 
 /**
  * The fields a contact write may carry, without the create-only defaults.
@@ -392,6 +451,135 @@ export async function deleteCRMContact(id: string): Promise<CRMResult> {
   return { success: true };
 }
 
+/**
+ * Read-only preflight for a bulk update.
+ *
+ * The selection survives paging, so the loaded page cannot supply the current
+ * distribution. Resolve the exact IDs on the server and return counts before
+ * the UI asks the organizer to confirm; this function never writes or audits.
+ */
+export async function previewBulkCRMContactUpdate({
+  contactIds,
+  status,
+  consent,
+  district,
+  addTag,
+}: {
+  contactIds: string[];
+  status?: CRMContactStatus;
+  consent?: ConsentDecision;
+  district?: string;
+  addTag?: string;
+}): Promise<CRMResult<{ preview?: CRMBulkUpdatePreview }>> {
+  const { adminClient } = await requireCRMAdmin();
+  const uniqueIds = [...new Set(contactIds ?? [])];
+  if (uniqueIds.length === 0) return { success: false, error: 'No contacts selected' };
+
+  const plannedFields = [status, consent, district, addTag].filter((value) => value !== undefined);
+  if (plannedFields.length !== 1) {
+    return { success: false, error: 'Choose exactly one bulk change to preview' };
+  }
+
+  if (status !== undefined && !(CRM_CONTACT_STATUS_VALUES as readonly string[]).includes(status)) {
+    return { success: false, error: 'Invalid status' };
+  }
+  if (consent !== undefined && !CRM_CONTACT_CONSENT_VALUES.includes(consent)) {
+    return { success: false, error: 'Invalid consent value' };
+  }
+
+  const plannedDistrict = district?.trim();
+  if (district !== undefined && !plannedDistrict) {
+    return { success: false, error: 'District is required' };
+  }
+
+  let plannedTag: string | undefined;
+  if (addTag !== undefined) {
+    plannedTag = addTag.trim().toLowerCase();
+    const parsed = tagSchema.safeParse(plannedTag);
+    if (!parsed.success) {
+      return {
+        success: false,
+        error: `Invalid tag "${addTag.trim().slice(0, MAX_TAG_LENGTH)}"`,
+      };
+    }
+  }
+
+  const { data, error } = await adminClient
+    .from('crm_contacts')
+    .select(BULK_AUDIT_CONTACT_COLUMNS)
+    .in('id', uniqueIds);
+  if (error) return { success: false, error: error.message };
+
+  const contacts = (data ?? []) as BulkAuditContact[];
+  let preview: CRMBulkUpdatePreview;
+
+  if (status !== undefined) {
+    const changedCount = contacts.filter((contact) => contact.status !== status).length;
+    preview = {
+      field: 'status',
+      selectedCount: uniqueIds.length,
+      foundCount: contacts.length,
+      changedCount,
+      unchangedCount: contacts.length - changedCount,
+      plannedValue: status,
+      distribution: countBulkDistribution(contacts.map((contact) => contact.status ?? '')),
+    };
+  } else if (consent !== undefined) {
+    const changedCount = contacts.filter(
+      (contact) => crmContactConsentValue(contact.do_not_email ?? null) !== consent
+    ).length;
+    preview = {
+      field: 'consent',
+      selectedCount: uniqueIds.length,
+      foundCount: contacts.length,
+      changedCount,
+      unchangedCount: contacts.length - changedCount,
+      plannedValue: consent,
+      distribution: countBulkDistribution(
+        contacts.map((contact) => crmContactConsentValue(contact.do_not_email ?? null))
+      ),
+    };
+  } else if (plannedDistrict !== undefined) {
+    const changedCount = contacts.filter(
+      (contact) => (contact.district ?? '').trim() !== plannedDistrict
+    ).length;
+    preview = {
+      field: 'district',
+      selectedCount: uniqueIds.length,
+      foundCount: contacts.length,
+      changedCount,
+      unchangedCount: contacts.length - changedCount,
+      plannedValue: plannedDistrict,
+      distribution: countBulkDistribution(
+        contacts.map((contact) => (contact.district ?? '').trim())
+      ),
+    };
+  } else {
+    const planned = plannedTag ?? '';
+    const changedCount = contacts.filter(
+      (contact) =>
+        !(Array.isArray(contact.tags) ? contact.tags : []).some(
+          (tag) => tag.toLowerCase() === planned
+        )
+    ).length;
+    const tagValues = contacts.flatMap((contact) => {
+      const tags = Array.isArray(contact.tags) ? contact.tags : [];
+      return tags.length > 0 ? tags : [''];
+    });
+    preview = {
+      field: 'tags',
+      selectedCount: uniqueIds.length,
+      foundCount: contacts.length,
+      changedCount,
+      unchangedCount: contacts.length - changedCount,
+      plannedValue: planned,
+      distribution: countBulkDistribution(tagValues),
+    };
+  }
+
+  return { success: true, preview };
+}
+
 export async function bulkUpdateCRMContacts({
   contactIds,
   status,
@@ -416,7 +604,7 @@ export async function bulkUpdateCRMContacts({
   consent?: ConsentDecision;
   addTags?: string[];
   removeTags?: string[];
-}): Promise<CRMResult<{ updatedCount?: number }>> {
+}): Promise<CRMResult<{ updatedCount?: number; warning?: string }>> {
   const admin = await requireCRMAdmin();
   const { adminClient } = admin;
 
@@ -459,25 +647,45 @@ export async function bulkUpdateCRMContacts({
     ...(addTags?.length || removeTags?.length ? ['tags'] : []),
     ...(consent ? ['consent'] : []),
   ];
+  const auditFields: BulkAuditFieldSet = {
+    status: Boolean(status),
+    district: Boolean(district),
+    tags: Boolean(addTags?.length || removeTags?.length),
+    consent: Boolean(consent),
+  };
   /*
    * One operation-level audit row, not one per contact: a 5,000-row bulk would
-   * flood both the audit log and each timeline. The metadata carries the
-   * requested IDs, requested/affected counts, and the API-level fields this call
-   * changed.
+   * flood both the audit log and each timeline. The before/after snapshots carry
+   * only the fields this operation changed for each affected contact, so an
+   * admin can identify exactly what changed without copying full CRM profiles
+   * into the audit table.
    */
-  const auditBulkUpdate = (outcome: 'success' | 'failure', updatedCount?: number, error?: string) =>
+  const auditBulkUpdate = (
+    outcome: 'success' | 'failure',
+    updatedCount?: number,
+    error?: string,
+    changes: BulkContactChange[] = [],
+    affectedIds: string[] = changes.map((change) => change.id)
+  ) =>
     recordCRMAudit(admin, {
       action: 'crm.contact.bulk_update',
       targetType: 'crm_contact',
       targetId: contactIds.length === 1 ? contactIds[0] : 'bulk-update',
       targetLabel: `${contactIds.length} selected contact${contactIds.length === 1 ? '' : 's'}`,
-      before: null,
-      after: null,
+      before: changes.length
+        ? { contact_ids: affectedIds, contacts: changes.map((change) => change.before) }
+        : null,
+      after: changes.length
+        ? { contact_ids: affectedIds, contacts: changes.map((change) => change.after) }
+        : null,
       outcome,
       error: error ?? null,
       metadata: {
         requested_count: contactIds.length,
         requested_ids: contactIds,
+        ...(affectedIds.length
+          ? { affected_count: affectedIds.length, affected_ids: affectedIds }
+          : {}),
         ...(updatedCount === undefined ? {} : { updated_count: updatedCount }),
         changed_fields: changedFields,
       },
@@ -502,6 +710,16 @@ export async function bulkUpdateCRMContacts({
       payload.status = status as Database['public']['Tables']['crm_contacts']['Update']['status'];
     if (district) payload.district = district;
 
+    // Capture the previous values before the write. The update returns the
+    // affected rows below, so this pair lets us record exactly which contacts
+    // changed and what they changed from.
+    const { data: beforeData } = await adminClient
+      .from('crm_contacts')
+      .select(BULK_AUDIT_CONTACT_COLUMNS)
+      .in('id', contactIds);
+    const beforeRows = (beforeData ?? []) as BulkAuditContact[];
+    const beforeById = new Map(beforeRows.map((contact) => [contact.id, contact]));
+
     const { error, count } = await adminClient
       .from('crm_contacts')
       .update(payload, { count: 'exact' })
@@ -516,17 +734,53 @@ export async function bulkUpdateCRMContacts({
       await auditBulkUpdate('failure', 0, message);
       return { success: false, error: message };
     }
-    await auditBulkUpdate('success', count ?? undefined);
+
+    // Read the affected rows back rather than projecting the request in memory:
+    // database defaults and triggers can change the stored values, and admins
+    // need the audit trail to match what actually landed.
+    const { data: afterData } = await adminClient
+      .from('crm_contacts')
+      .select(BULK_AUDIT_CONTACT_COLUMNS)
+      .in('id', contactIds);
+    const afterRows = (afterData ?? []) as BulkAuditContact[];
+    const afterById = new Map(afterRows.map((contact) => [contact.id, contact]));
+    const affectedIds =
+      afterRows.length > 0 ? afterRows.map((contact) => contact.id) : count ? contactIds : [];
+    const changes: BulkContactChange[] = affectedIds.flatMap((id) => {
+      const before = beforeById.get(id);
+      if (!before) return [];
+      const after = afterById.get(id) ?? ({ ...before, ...payload } as BulkAuditContact);
+      return [
+        {
+          id,
+          before: snapshotBulkContact(before, auditFields),
+          after: snapshotBulkContact(after, auditFields),
+        },
+      ];
+    });
+
+    const audit = await auditBulkUpdate(
+      'success',
+      count ?? undefined,
+      undefined,
+      changes,
+      affectedIds
+    );
+    const warning = crmAuditWarning(audit);
     revalidateCRMRoutes();
     // A missing exact count is not zero. The update has already succeeded, so
     // omit the number rather than telling the organizer nothing changed.
-    return { success: true, ...(count === null ? {} : { updatedCount: count }) };
+    return {
+      success: true,
+      ...(count === null ? {} : { updatedCount: count }),
+      ...(warning ? { warning } : {}),
+    };
   }
 
   // When modifying tags, fetch existing tags, apply set modifications, and persist
   const { data: contacts, error: fetchErr } = await adminClient
     .from('crm_contacts')
-    .select('id, tags')
+    .select(BULK_AUDIT_CONTACT_COLUMNS)
     .in('id', contactIds);
 
   if (fetchErr) {
@@ -552,6 +806,7 @@ export async function bulkUpdateCRMContacts({
    * succeeded or none did.
    */
   let updated = 0;
+  const changes: BulkContactChange[] = [];
   for (const c of contacts || []) {
     let currentTags = Array.isArray(c.tags) ? c.tags : [];
     if (normRemove.size > 0) {
@@ -574,14 +829,14 @@ export async function bulkUpdateCRMContacts({
       .from('crm_contacts')
       .update(updatePayload)
       .eq('id', c.id)
-      .select('id')
+      .select(BULK_AUDIT_CONTACT_COLUMNS)
       .maybeSingle();
     if (updateError) {
       const message =
         updated === 0
           ? updateError.message
           : `${updateError.message} — ${updated} of ${contacts.length} selected contacts were updated before the failure; the rest were not.`;
-      await auditBulkUpdate('failure', updated, message);
+      await auditBulkUpdate('failure', updated, message, changes);
       return { success: false, updatedCount: updated, error: message };
     }
     if (!updatedContact) {
@@ -589,20 +844,32 @@ export async function bulkUpdateCRMContacts({
         updated === 0
           ? 'A selected contact no longer exists'
           : `A selected contact no longer exists after ${updated} of ${contacts.length} selected contacts were updated; the rest were not.`;
-      await auditBulkUpdate('failure', updated, message);
+      await auditBulkUpdate('failure', updated, message, changes);
       return { success: false, updatedCount: updated, error: message };
     }
+    const before = c as BulkAuditContact;
+    const after = { ...before, ...updatePayload, ...updatedContact } as BulkAuditContact;
+    changes.push({
+      id: c.id,
+      before: snapshotBulkContact(before, auditFields),
+      after: snapshotBulkContact(after, auditFields),
+    });
     updated += 1;
   }
 
-  await auditBulkUpdate('success', contacts.length);
+  const audit = await auditBulkUpdate('success', contacts.length, undefined, changes);
+  const warning = crmAuditWarning(audit);
   revalidateCRMRoutes();
-  return { success: true, updatedCount: contacts.length };
+  return {
+    success: true,
+    updatedCount: contacts.length,
+    ...(warning ? { warning } : {}),
+  };
 }
 
 export async function bulkDeleteCRMContacts(
   contactIds: string[]
-): Promise<CRMResult<{ deletedCount?: number }>> {
+): Promise<CRMResult<{ deletedCount?: number; warning?: string }>> {
   const admin = await requireCRMAdmin();
   const { adminClient } = admin;
 
@@ -618,30 +885,53 @@ export async function bulkDeleteCRMContacts(
     .select('id, email, first_name, last_name')
     .in('id', contactIds);
 
-  const before = {
-    contact_ids: contactIds,
-    contacts: selectedRows ?? null,
-  };
-  const auditBulkDelete = (outcome: 'success' | 'failure', deletedCount?: number, error?: string) =>
-    recordCRMAudit(admin, {
+  const selectedById = new Map(
+    (selectedRows ?? []).map((contact) => [contact.id, contact as Record<string, unknown>])
+  );
+  const auditBulkDelete = (
+    outcome: 'success' | 'failure',
+    deletedCount?: number,
+    error?: string,
+    affectedIds: string[] = []
+  ) => {
+    const changes = affectedIds.map((id) => ({
+      id,
+      before: deletedById.get(id) ?? selectedById.get(id) ?? { id },
+      after: { id, deleted: true },
+    }));
+    return recordCRMAudit(admin, {
       action: 'crm.contact.bulk_delete',
       targetType: 'crm_contact',
       targetId: contactIds.length === 1 ? contactIds[0] : 'bulk-delete',
       targetLabel: `${contactIds.length} selected contact${contactIds.length === 1 ? '' : 's'}`,
-      before,
-      after: null,
+      before: changes.length
+        ? { contact_ids: affectedIds, contacts: changes.map((change) => change.before) }
+        : null,
+      after: changes.length
+        ? { contact_ids: affectedIds, contacts: changes.map((change) => change.after) }
+        : null,
       outcome,
       error: error ?? null,
       metadata: {
         requested_count: contactIds.length,
+        requested_ids: contactIds,
+        ...(affectedIds.length
+          ? { affected_count: affectedIds.length, affected_ids: affectedIds }
+          : {}),
         ...(deletedCount === undefined ? {} : { deleted_count: deletedCount }),
       },
     });
+  };
 
-  const { error, count } = await adminClient
+  const {
+    error,
+    count,
+    data: deletedData,
+  } = await adminClient
     .from('crm_contacts')
     .delete({ count: 'exact' })
-    .in('id', contactIds);
+    .in('id', contactIds)
+    .select('id, email, first_name, last_name');
 
   if (error) {
     await auditBulkDelete('failure', undefined, error.message);
@@ -653,11 +943,24 @@ export async function bulkDeleteCRMContacts(
     return { success: false, error: message };
   }
 
-  await auditBulkDelete('success', count ?? undefined);
+  const deletedRows = (
+    Array.isArray(deletedData) ? deletedData : deletedData ? [deletedData] : []
+  ) as { id: string }[];
+  const deletedById = new Map(
+    deletedRows.map((contact) => [contact.id, contact as Record<string, unknown>])
+  );
+  const affectedIds =
+    deletedRows.length > 0 ? deletedRows.map((row) => row.id) : count ? contactIds : [];
+  const audit = await auditBulkDelete('success', count ?? undefined, undefined, affectedIds);
+  const warning = crmAuditWarning(audit);
   revalidateCRMRoutes();
   // Same rule as the update above: do not turn an unavailable count into a
   // claim that zero constituents were deleted.
-  return { success: true, ...(count === null ? {} : { deletedCount: count }) };
+  return {
+    success: true,
+    ...(count === null ? {} : { deletedCount: count }),
+    ...(warning ? { warning } : {}),
+  };
 }
 
 export async function addCRMNote({

@@ -5,12 +5,14 @@ import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { toast } from 'sonner';
 import { ConfirmAction } from '@/components/admin/ConfirmAction';
+import { BulkUpdatePreflightDialog } from '@/components/admin/crm/BulkUpdatePreflightDialog';
 import { ContactBulkActionsBar } from '@/components/admin/crm/ContactBulkActionsBar';
 import { CRMContactActionBar } from '@/components/admin/crm/CRMContactActionBar';
 import { CRMContactEditorModal } from '@/components/admin/crm/CRMContactEditorModal';
 import { CRMContactFilterForm } from '@/components/admin/crm/CRMContactFilterForm';
 import { CRMContactTable } from '@/components/admin/crm/CRMContactTable';
 import { CRMImportModal } from '@/components/admin/crm/CRMImportModal';
+import { useBulkUpdatePreflight } from '@/hooks/useBulkUpdatePreflight';
 import { useClearSelectionOnKeyChange } from '@/hooks/useClearSelectionOnKeyChange';
 import {
   bulkDeleteCRMContacts,
@@ -122,6 +124,7 @@ export function CRMContactList({
 
   // Multi-selection state for bulk batch actions.
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const bulkPreflight = useBulkUpdatePreflight();
 
   const [draftFilters, setDraftFilters] = useState<ContactFilters>(() =>
     initialContactFilters({
@@ -477,13 +480,15 @@ export function CRMContactList({
     }
   };
 
-  const handleBulkStatus = async (newStatus: CRMContactStatus) => {
-    if (selectedIds.size === 0) return;
+  const handleBulkStatus = async (
+    newStatus: CRMContactStatus,
+    contactIds: string[] = Array.from(selectedIds)
+  ) => {
+    if (contactIds.length === 0) return;
     setBulkActionBusy(true);
     try {
-      const ids = Array.from(selectedIds);
       const res = await bulkUpdateCRMContacts({
-        contactIds: ids,
+        contactIds,
         status: newStatus,
       });
       if (res.success) {
@@ -492,6 +497,7 @@ export function CRMContactList({
             ? 'Updated the selected constituents'
             : `Updated status for ${res.updatedCount} constituents`
         );
+        if (res.warning) toast.warning(res.warning);
         setSelectedIds(new Set());
         router.refresh();
       } else {
@@ -504,14 +510,16 @@ export function CRMContactList({
     }
   };
 
-  const handleBulkAddTag = async () => {
-    const trimmed = bulkTagInput.trim();
-    if (!trimmed || selectedIds.size === 0) return;
+  const handleBulkAddTag = async (
+    tagInput: string = bulkTagInput,
+    contactIds: string[] = Array.from(selectedIds)
+  ) => {
+    const trimmed = tagInput.trim();
+    if (!trimmed || contactIds.length === 0) return;
     setBulkActionBusy(true);
     try {
-      const ids = Array.from(selectedIds);
       const res = await bulkUpdateCRMContacts({
-        contactIds: ids,
+        contactIds,
         addTags: [trimmed],
       });
       if (res.success) {
@@ -520,6 +528,7 @@ export function CRMContactList({
             ? `Added tag #${trimmed} to the selected constituents`
             : `Added tag #${trimmed} to ${res.updatedCount} constituents`
         );
+        if (res.warning) toast.warning(res.warning);
         setBulkTagInput('');
         setSelectedIds(new Set());
         router.refresh();
@@ -533,19 +542,22 @@ export function CRMContactList({
     }
   };
 
-  const handleBulkDistrict = async () => {
-    const trimmed = bulkDistrictInput.trim();
-    if (!trimmed || selectedIds.size === 0) return;
+  const handleBulkDistrict = async (
+    districtInput: string = bulkDistrictInput,
+    contactIds: string[] = Array.from(selectedIds)
+  ) => {
+    const trimmed = districtInput.trim();
+    if (!trimmed || contactIds.length === 0) return;
     setBulkActionBusy(true);
     try {
-      const ids = Array.from(selectedIds);
-      const res = await bulkUpdateCRMContacts({ contactIds: ids, district: trimmed });
+      const res = await bulkUpdateCRMContacts({ contactIds, district: trimmed });
       if (res.success) {
         toast.success(
           res.updatedCount === undefined
             ? 'Set district for the selected constituents'
             : `Set district for ${res.updatedCount} constituents`
         );
+        if (res.warning) toast.warning(res.warning);
         setBulkDistrictInput('');
         setSelectedIds(new Set());
         router.refresh();
@@ -559,12 +571,14 @@ export function CRMContactList({
     }
   };
 
-  const handleBulkConsent = async (consent: ConsentDecision) => {
-    if (selectedIds.size === 0) return;
+  const handleBulkConsent = async (
+    consent: ConsentDecision,
+    contactIds: string[] = Array.from(selectedIds)
+  ) => {
+    if (contactIds.length === 0) return;
     setBulkActionBusy(true);
     try {
-      const ids = Array.from(selectedIds);
-      const res = await bulkUpdateCRMContacts({ contactIds: ids, consent });
+      const res = await bulkUpdateCRMContacts({ contactIds, consent });
       if (res.success) {
         const label =
           consent === 'opted_out'
@@ -577,6 +591,7 @@ export function CRMContactList({
             ? 'Updated consent for the selected constituents'
             : `${label === 'marked unasked' ? 'Marked' : 'Opted'} ${res.updatedCount} constituents ${label === 'marked unasked' ? 'as never asked' : label}`
         );
+        if (res.warning) toast.warning(res.warning);
         setSelectedIds(new Set());
         router.refresh();
       } else {
@@ -586,6 +601,57 @@ export function CRMContactList({
       toast.error('Failed to update consent');
     } finally {
       setBulkActionBusy(false);
+    }
+  };
+
+  const beginBulkStatus = (status: CRMContactStatus) => {
+    void bulkPreflight.begin({
+      contactIds: Array.from(selectedIds),
+      field: 'status',
+      value: status,
+    });
+  };
+
+  const beginBulkConsent = (consent: ConsentDecision) => {
+    void bulkPreflight.begin({
+      contactIds: Array.from(selectedIds),
+      field: 'consent',
+      value: consent,
+    });
+  };
+
+  const beginBulkTag = () => {
+    const tag = bulkTagInput.trim();
+    if (!tag) return;
+    void bulkPreflight.begin({
+      contactIds: Array.from(selectedIds),
+      field: 'tags',
+      value: tag,
+    });
+  };
+
+  const beginBulkDistrict = () => {
+    const district = bulkDistrictInput.trim();
+    if (!district) return;
+    void bulkPreflight.begin({
+      contactIds: Array.from(selectedIds),
+      field: 'district',
+      value: district,
+    });
+  };
+
+  const confirmBulkPreflight = () => {
+    const plan = bulkPreflight.plan;
+    if (!plan) return;
+    bulkPreflight.close();
+    if (plan.field === 'status') {
+      void handleBulkStatus(plan.value as CRMContactStatus, plan.contactIds);
+    } else if (plan.field === 'consent') {
+      void handleBulkConsent(plan.value as ConsentDecision, plan.contactIds);
+    } else if (plan.field === 'tags') {
+      void handleBulkAddTag(plan.value, plan.contactIds);
+    } else {
+      void handleBulkDistrict(plan.value, plan.contactIds);
     }
   };
 
@@ -621,6 +687,7 @@ export function CRMContactList({
             ? 'Deleted the selected constituents'
             : `Deleted ${res.deletedCount} constituents`
         );
+        if (res.warning) toast.warning(res.warning);
         setSelectedIds(new Set());
         router.refresh();
       } else {
@@ -916,19 +983,32 @@ export function CRMContactList({
       {selectedIds.size > 0 && (
         <ContactBulkActionsBar
           count={selectedIds.size}
-          busy={bulkActionBusy}
+          busy={bulkActionBusy || bulkPreflight.loading}
           tagInput={bulkTagInput}
           districtInput={bulkDistrictInput}
-          onClear={() => setSelectedIds(new Set())}
+          onClear={() => {
+            bulkPreflight.close();
+            setSelectedIds(new Set());
+          }}
           onTagInputChange={setBulkTagInput}
           onDistrictInputChange={setBulkDistrictInput}
-          onBulkStatus={(status) => void handleBulkStatus(status)}
-          onBulkAddTag={() => void handleBulkAddTag()}
-          onBulkDistrict={() => void handleBulkDistrict()}
-          onBulkConsent={(consent) => void handleBulkConsent(consent)}
+          onBulkStatus={beginBulkStatus}
+          onBulkAddTag={beginBulkTag}
+          onBulkDistrict={beginBulkDistrict}
+          onBulkConsent={beginBulkConsent}
           onBulkDelete={() => void handleBulkDelete()}
         />
       )}
+
+      <BulkUpdatePreflightDialog
+        open={bulkPreflight.plan !== null}
+        preview={bulkPreflight.preview}
+        loading={bulkPreflight.loading}
+        error={bulkPreflight.error}
+        busy={bulkActionBusy}
+        onCancel={bulkPreflight.close}
+        onConfirm={confirmBulkPreflight}
+      />
     </div>
   );
 }
