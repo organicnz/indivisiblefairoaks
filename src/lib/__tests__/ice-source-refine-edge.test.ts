@@ -163,6 +163,7 @@ describe('ice-source-refine digest mode', () => {
     });
     expect(system.content).toContain('Restructure the source');
     expect(system.content).toContain('12 or more consecutive words');
+    expect(system.content).toContain('never for people');
     expect(system.content).not.toContain('NUMBERED PAGE TEXT');
     expect(user.content).toContain('SOURCE TEXT');
     expect(user.content).toContain('12 people');
