@@ -12,3 +12,12 @@ export const STATUS_COLORS: Record<string, string> = {
   organizer: 'bg-blue-500/10 text-blue-400',
   inactive: 'bg-rose-500/10 text-rose-400',
 };
+
+export const CONSENT_OPTIONS: Array<{
+  value: 'opted_in' | 'opted_out' | 'unasked';
+  label: string;
+}> = [
+  { value: 'opted_in', label: 'Opted in' },
+  { value: 'opted_out', label: 'Opted out' },
+  { value: 'unasked', label: 'Never asked' },
+];
