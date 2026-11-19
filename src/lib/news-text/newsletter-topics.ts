@@ -1,6 +1,6 @@
 import { normalizeNewsletterTopics } from '@/lib/newsletters';
 import { ALL_NEWSLETTER_TOPICS, newsletterTopicKey, uniqueNewsletterTopics } from './topics';
-import { filterNewsletters, type NewsletterTextFields } from './search';
+import type { NewsletterTextFields } from './search';
 
 const TOPIC_LIST_MARKER = /^(?:[-*•]+|\d+[.)])\s*/;
 const TOPIC_SEPARATOR = /[,;|\t\r\n]+|\s*[•·]\s*/;
@@ -33,26 +33,25 @@ export type NewsletterTopicCounts = {
 };
 
 /**
- * Count the archive's topics under the current query.
+ * Count topics in the rows that already survived the current query.
  *
  * A chip count is useful only when it describes the rows the reader can still
  * reach: showing the unfiltered total beside a filtered list would promise
- * results that the active query has already removed.
+ * results that the active query has already removed. The caller passes the
+ * query matches so this function never repeats the text search.
  */
 export function countNewsletterTopics<T extends NewsletterTextFields>(
   items: readonly T[],
-  query = '',
   allTopicsLabel = ALL_NEWSLETTER_TOPICS
 ): NewsletterTopicCounts {
-  const matching = filterNewsletters(items, { query });
   const byTopic: Record<string, number> = {};
 
-  for (const item of matching) {
+  for (const item of items) {
     for (const topic of uniqueNewsletterTopics(item.topics, allTopicsLabel)) {
       const key = newsletterTopicKey(topic);
       byTopic[key] = (byTopic[key] ?? 0) + 1;
     }
   }
 
-  return { all: matching.length, byTopic };
+  return { all: items.length, byTopic };
 }

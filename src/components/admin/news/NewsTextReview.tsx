@@ -1,32 +1,24 @@
 import { AlertTriangle, CheckCircle2, Info } from 'lucide-react';
-import {
-  NEWSLETTER_CARD_EXCERPT_LENGTH,
-  reviewNewsText,
-  type NewsTextSuggestion,
-} from '@/lib/news-text';
+import type { NewsTextSuggestion } from '@/lib/news-text';
 import { cn } from '@/lib/utils';
 
 type NewsTextReviewProps = {
   value: string;
-  /** How much of the summary the public card can show before it clamps. */
-  cardLength?: number;
   className?: string;
   /** Optional id so the textarea can include the advice in aria-describedby. */
   id?: string;
-  /** Prepared suggestions from `inspectNewsText`; avoids a second analysis pass. */
-  suggestions?: readonly NewsTextSuggestion[];
+  /** Prepared suggestions from `inspectNewsText`; this component renders only. */
+  suggestions: readonly NewsTextSuggestion[];
 };
 
-/** Compact, non-blocking readability review shared by both summary editors. */
+/** Compact, non-blocking readability review for the summary editor. */
 export function NewsTextReview({
   value,
-  cardLength = NEWSLETTER_CARD_EXCERPT_LENGTH,
   className,
   id,
-  suggestions: preparedSuggestions,
+  suggestions,
 }: NewsTextReviewProps) {
   if (!value.trim()) return null;
-  const suggestions = preparedSuggestions ?? reviewNewsText(value, { cardLength });
 
   if (suggestions.length === 0) {
     return (

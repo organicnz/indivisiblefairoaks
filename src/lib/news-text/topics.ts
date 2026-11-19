@@ -1,5 +1,6 @@
-import { cleanNewsletterTopicLabel } from '@/lib/newsletters';
-import { normalizeNewsText } from './normalize';
+import { newsletterTopicKey, normalizeNewsletterTopics } from '@/lib/newsletters';
+
+export { newsletterTopicKey };
 
 /**
  * The archive's "no topic selected" sentinel.
@@ -10,49 +11,31 @@ import { normalizeNewsText } from './normalize';
  */
 export const ALL_NEWSLETTER_TOPICS = 'All Topics';
 
-/** Fold a topic label the same way search folds text, so chips cannot drift. */
-export function newsletterTopicKey(value: string): string {
-  return normalizeNewsText(cleanNewsletterTopicLabel(value));
-}
-
-/** Whether a label is the sentinel, including a translated sentinel. */
+/** Whether a label is the canonical sentinel or the caller's translated label. */
 export function isAllNewsletterTopics(
   topic: string,
   allTopicsLabel = ALL_NEWSLETTER_TOPICS
 ): boolean {
   const key = newsletterTopicKey(topic);
-  return Boolean(key) && key === newsletterTopicKey(allTopicsLabel);
+  return (
+    Boolean(key) &&
+    (key === newsletterTopicKey(ALL_NEWSLETTER_TOPICS) ||
+      key === newsletterTopicKey(allTopicsLabel))
+  );
 }
 
 /**
  * Return clean, first-seen topic labels without the archive sentinel.
  *
- * Legacy rows can contain duplicate spellings or `All Topics` as a stored tag.
- * Every public/admin surface now uses this one dedupe rule, so a card cannot
- * show two chips for the same topic that the filter considers one.
+ * Legacy rows can contain duplicate spellings or either the canonical or
+ * translated sentinel as a stored tag. Normalizing and filtering in one shared
+ * place keeps cards, counts and filters from disagreeing.
  */
 export function uniqueNewsletterTopics(
   topics: readonly string[] | null | undefined,
   allTopicsLabel = ALL_NEWSLETTER_TOPICS
 ): string[] {
-  const seen = new Set<string>();
-  const unique: string[] = [];
-
-  for (const rawTopic of Array.isArray(topics) ? topics : []) {
-    if (typeof rawTopic !== 'string') continue;
-    const topic = cleanNewsletterTopicLabel(rawTopic);
-    const key = newsletterTopicKey(topic);
-    if (
-      !key ||
-      seen.has(key) ||
-      isAllNewsletterTopics(topic) ||
-      isAllNewsletterTopics(topic, allTopicsLabel)
-    ) {
-      continue;
-    }
-    seen.add(key);
-    unique.push(topic);
-  }
-
-  return unique;
+  return normalizeNewsletterTopics(Array.isArray(topics) ? topics : []).filter(
+    (topic) => !isAllNewsletterTopics(topic, allTopicsLabel)
+  );
 }

@@ -1,7 +1,8 @@
 import { NEWSLETTER_CARD_EXCERPT_LENGTH } from './newsletter';
 import {
-  analyzeNewsletterText,
+  analyzeNewsText,
   NEWSLETTER_LONG_SENTENCE_WORDS,
+  tidyNewsText,
   type NewsTextAnalysis,
 } from './newsletter-stats';
 import { normalizeNewsText } from './normalize';
@@ -17,8 +18,6 @@ export type NewsTextSuggestion = {
 export type NewsTextReviewOptions = {
   /** How much of the summary the public card can show before it clamps. */
   cardLength?: number;
-  /** Reuse an analysis the caller already computed for the same value. */
-  analysis?: NewsTextAnalysis;
 };
 
 const STOP_WORDS = new Set([
@@ -116,14 +115,14 @@ function repeatedContentWord(value: string): { word: string; count: number } | n
  * still owns the wording. Suggestions are ordered by impact and capped so the
  * field does not turn into a wall of warnings while someone types.
  */
-export function reviewNewsText(
+function reviewPreparedNewsText(
   value: string,
-  options: NewsTextReviewOptions = {}
+  options: NewsTextReviewOptions,
+  analysis: NewsTextAnalysis
 ): NewsTextSuggestion[] {
   const text = value.trim();
   if (!text) return [];
 
-  const analysis = options.analysis ?? analyzeNewsletterText(text);
   const cardLength = Math.max(
     1,
     Math.floor(options.cardLength ?? NEWSLETTER_CARD_EXCERPT_LENGTH)
@@ -174,4 +173,28 @@ export function reviewNewsText(
   }
 
   return suggestions.slice(0, 3);
+}
+
+export type NewsTextInspection = {
+  analysis: NewsTextAnalysis;
+  suggestions: NewsTextSuggestion[];
+  /** Whitespace-normalized text; the caller decides whether to apply it. */
+  tidied: string;
+  canTidy: boolean;
+};
+
+/** Everything an authoring surface needs from one text value. */
+export function inspectNewsText(
+  value: string,
+  options: NewsTextReviewOptions = {}
+): NewsTextInspection {
+  const analysis = analyzeNewsText(value);
+  const tidied = tidyNewsText(value);
+
+  return {
+    analysis,
+    suggestions: reviewPreparedNewsText(value, options, analysis),
+    tidied,
+    canTidy: Boolean(value.trim()) && tidied !== value,
+  };
 }

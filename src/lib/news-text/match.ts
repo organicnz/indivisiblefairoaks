@@ -2,7 +2,6 @@ import {
   containsNewsPhrase,
   matchesNewsWord,
   normalizeNewsText,
-  parseNewsQuery,
   type ParsedNewsQuery,
 } from './normalize';
 
@@ -52,15 +51,6 @@ export function matchesPreparedNewsText(
   );
 }
 
-export function matchesNewsText(
-  fields: readonly (string | null | undefined)[],
-  query: string
-): boolean {
-  const parsed = parseNewsQuery(query);
-  if (parsed.tokens.length === 0) return true;
-  return matchesPreparedNewsText(prepareNewsFields(fields), parsed);
-}
-
 /**
  * How strongly one query token matches a field.
  *
@@ -104,14 +94,4 @@ export function scorePreparedNewsText(
     score += phraseHits * weight * 2;
   });
   return score;
-}
-
-export function scoreNewsText(
-  fields: readonly (string | null | undefined)[],
-  query: string,
-  weights?: readonly number[]
-): number {
-  const parsed = parseNewsQuery(query);
-  if (parsed.tokens.length === 0) return 0;
-  return scorePreparedNewsText(prepareNewsFields(fields), parsed, weights);
 }

@@ -1,11 +1,4 @@
 import {
-  NEWS_POST_FIELD_WEIGHTS,
-  newsletterSearchFields,
-  newsletterSearchWeights,
-  newsPostSearchFields,
-} from './fields';
-import {
-  matchesNewsText,
   matchesPreparedNewsText,
   prepareNewsFields,
   scorePreparedNewsText,
@@ -13,7 +6,6 @@ import {
 import { parseNewsQuery } from './normalize';
 import {
   ALL_NEWSLETTER_TOPICS,
-  isAllNewsletterTopics,
   newsletterTopicKey,
   uniqueNewsletterTopics,
 } from './topics';
@@ -26,17 +18,37 @@ export type NewsletterTextFields = {
   sort_order?: number | null;
 };
 
-export type NewsletterFilterOptions = {
-  query?: string;
-  topic?: string;
-  allTopicsLabel?: string;
-};
-
 export type NewsPostTextFields = {
   title: string;
   excerpt?: string | null;
   slug?: string | null;
 };
+
+/** Title hits lead, summaries support them, and slugs catch URL-shaped queries. */
+const NEWS_POST_FIELD_WEIGHTS = [8, 4, 2] as const;
+
+function newsletterTopics(
+  item: Pick<NewsletterTextFields, 'topics'>
+): readonly string[] {
+  return Array.isArray(item.topics) ? item.topics : [];
+}
+
+function newsPostSearchFields(
+  post: NewsPostTextFields
+): readonly (string | null | undefined)[] {
+  return [post.title, post.excerpt, post.slug];
+}
+
+/** Topic and title hits lead; the date label is a low-weight fallback. */
+function newsletterSearchFields(
+  item: NewsletterTextFields
+): readonly (string | null | undefined)[] {
+  return [item.title, item.description, item.date_label, ...newsletterTopics(item)];
+}
+
+function newsletterSearchWeights(item: NewsletterTextFields): readonly number[] {
+  return [10, 4, 2, ...newsletterTopics(item).map(() => 6)];
+}
 
 /** All unique topics in first-seen order, with case-insensitive duplicates removed. */
 export function collectNewsletterTopics(
@@ -44,7 +56,7 @@ export function collectNewsletterTopics(
   allTopicsLabel = ALL_NEWSLETTER_TOPICS
 ): string[] {
   return uniqueNewsletterTopics(
-    items.flatMap((item) => (Array.isArray(item.topics) ? item.topics : [])),
+    items.flatMap((item) => newsletterTopics(item)),
     allTopicsLabel
   );
 }
@@ -55,68 +67,27 @@ export function hasNewsletterTopic(topics: readonly string[], topic: string): bo
   return Boolean(key) && topics.some((candidate) => newsletterTopicKey(candidate) === key);
 }
 
-function matchesNewsletterTopic(
-  item: NewsletterTextFields,
-  options: NewsletterFilterOptions
-): boolean {
-  const topic = options.topic ?? ALL_NEWSLETTER_TOPICS;
-  if (!topic.trim() || isAllNewsletterTopics(topic, options.allTopicsLabel)) return true;
-  const topics = Array.isArray(item.topics) ? item.topics : [];
-  return hasNewsletterTopic(topics, topic);
-}
-
-/**
- * Filter the archive by topic and free text.
- *
- * `allTopicsLabel` is supplied by the caller because the public page can
- * translate the "All Topics" chip through a CMS data point. Matching the
- * sentinel by value lets a translated chip keep working without making the
- * filter understand presentation.
- */
-export function filterNewsletters<T extends NewsletterTextFields>(
-  items: readonly T[],
-  options: NewsletterFilterOptions = {}
-): T[] {
-  const { query = '' } = options;
-  return items.filter(
-    (item) =>
-      matchesNewsletterTopic(item, options) &&
-      matchesNewsText(newsletterSearchFields(item), query)
-  );
-}
-
-/** Filter published news posts by title, excerpt and slug. */
-export function filterNewsPosts<T extends NewsPostTextFields>(
-  posts: readonly T[],
-  query: string
-): T[] {
-  return posts.filter((post) => matchesNewsText(newsPostSearchFields(post), query));
-}
-
 type SearchCollectionOptions<T> = {
   query: string;
   fields: (item: T) => readonly (string | null | undefined)[];
   weights: (item: T) => readonly number[];
-  accepts?: (item: T) => boolean;
 };
 
 /**
  * Filter, match and rank a collection in one prepared pass.
  *
- * The previous high-level APIs filtered first and ranked the survivors, which
- * normalized every searchable field twice. Preparing each candidate once also
- * guarantees that the row that survives filtering is the same row the ranking
- * scored.
+ * The query is parsed once, and each candidate's searchable fields are
+ * normalized once. The same prepared fields decide both survival and score, so
+ * a result can never be filtered by one interpretation and ranked by another.
  */
 function searchNewsCollection<T>(
   items: readonly T[],
   options: SearchCollectionOptions<T>
 ): T[] {
   const parsed = parseNewsQuery(options.query);
-  const candidates = options.accepts ? items.filter(options.accepts) : [...items];
-  if (parsed.tokens.length === 0) return candidates;
+  if (parsed.tokens.length === 0) return [...items];
 
-  return candidates
+  return items
     .map((item, index) => {
       const fields = prepareNewsFields(options.fields(item));
       if (!matchesPreparedNewsText(fields, parsed)) return null;
@@ -145,15 +116,18 @@ export function searchNewsPosts<T extends NewsPostTextFields>(
   });
 }
 
-/** Filter and rank bulletins, including their topic-filter semantics. */
+/**
+ * Filter and rank bulletins by text only. Topic filtering is a set operation on
+ * the matching rows, so callers can count topics without running the text
+ * search a second time.
+ */
 export function searchNewsletters<T extends NewsletterTextFields>(
   items: readonly T[],
-  options: NewsletterFilterOptions = {}
+  query: string
 ): T[] {
   return searchNewsCollection(items, {
-    query: options.query ?? '',
+    query,
     fields: newsletterSearchFields,
     weights: newsletterSearchWeights,
-    accepts: (item) => matchesNewsletterTopic(item, options),
   });
 }

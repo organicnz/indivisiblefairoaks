@@ -1,4 +1,9 @@
-import { matchesNewsWord, normalizeNewsText, parseNewsQuery } from './normalize';
+import {
+  collapseNewsWhitespace,
+  findNewsWords,
+  matchesNewsWord,
+  parseNewsQuery,
+} from './normalize';
 
 /**
  * Build a compact excerpt around the first matching word. This keeps search
@@ -10,7 +15,7 @@ export function buildNewsSearchSnippet(
   query: string,
   maxLength = 220
 ): string {
-  const source = text.replace(/\s+/g, ' ').trim();
+  const source = collapseNewsWhitespace(text);
   if (!source || maxLength <= 0) return '';
   if (source.length <= maxLength) return source;
 
@@ -20,30 +25,15 @@ export function buildNewsSearchSnippet(
   // from the front just because a snippet was requested.
   if (tokens.length === 0) return source;
 
-  const parts: { start: number; end: number; words: string[] }[] = [];
-  let offset = 0;
-  for (const part of source.split(/(\s+)/)) {
-    if (part && part.trim()) {
-      parts.push({
-        start: offset,
-        end: offset + part.length,
-        words: normalizeNewsText(part).split(' ').filter(Boolean),
-      });
-    }
-    offset += part.length;
-  }
-
-  const words = parts.flatMap((part) => part.words.map((word) => ({ word, part })));
+  const words = findNewsWords(source);
   const phraseMatch = (() => {
     for (const phrase of phrases) {
       if (phrase.length === 0 || phrase.length > words.length) continue;
       for (let start = 0; start <= words.length - phrase.length; start += 1) {
-        if (
-          phrase.every((word, index) => words[start + index]?.word === word)
-        ) {
+        if (phrase.every((word, index) => words[start + index]?.word === word)) {
           return {
-            start: words[start].part.start,
-            end: words[start + phrase.length - 1].part.end,
+            start: words[start].start,
+            end: words[start + phrase.length - 1].end,
           };
         }
       }
@@ -51,14 +41,18 @@ export function buildNewsSearchSnippet(
     return null;
   })();
 
-  const tokenMatch = phraseMatch
-    ? null
-    : words.find(({ word }) => tokens.some((token) => matchesNewsWord(word, token)));
-  const matchStart = phraseMatch?.start ?? tokenMatch?.part.start ?? -1;
+  // When the query contains a quoted phrase, only that phrase may justify
+  // cropping this field. Falling back to a loose word from the phrase would
+  // crop around a partial match even when the phrase was found in the title.
+  const tokenMatch =
+    phraseMatch || phrases.length > 0
+      ? null
+      : words.find(({ word }) => tokens.some((token) => matchesNewsWord(word, token)));
+  const matchStart = phraseMatch?.start ?? tokenMatch?.start ?? -1;
   const matchLength = phraseMatch
     ? phraseMatch.end - phraseMatch.start
     : tokenMatch
-      ? tokenMatch.part.end - tokenMatch.part.start
+      ? tokenMatch.end - tokenMatch.start
       : 0;
 
   // The query matched a different field (usually the title). Cropping this

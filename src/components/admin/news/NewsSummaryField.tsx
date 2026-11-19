@@ -116,12 +116,7 @@ export function NewsSummaryField({
         </div>
       </div>
 
-      <NewsTextReview
-        id={reviewId}
-        value={value}
-        cardLength={cardLength}
-        suggestions={suggestions}
-      />
+      <NewsTextReview id={reviewId} value={value} suggestions={suggestions} />
     </div>
   );
 }

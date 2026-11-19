@@ -23,6 +23,10 @@ export function useNewsletterArchive<T extends NewsletterTextFields>(
 ) {
   const search = useNewsSearch();
   const [activeTopic, setActiveTopic] = useState(ALL_NEWSLETTER_TOPICS);
+  const activeIsAll = useMemo(
+    () => isAllNewsletterTopics(activeTopic, allTopicsLabel),
+    [activeTopic, allTopicsLabel]
+  );
 
   const allTopics = useMemo(
     () => [ALL_NEWSLETTER_TOPICS, ...collectNewsletterTopics(items, allTopicsLabel)],
@@ -31,29 +35,31 @@ export function useNewsletterArchive<T extends NewsletterTextFields>(
 
   // A topic chip can disappear when its last bulletin is deleted or renamed.
   // Leaving the stale filter selected would show an empty grid with no visible
-  // chip explaining why, so return to the complete archive instead.
+  // chip explaining why, so return to the complete archive instead. A translated
+  // "All Topics" label is also a sentinel, not a stale topic.
   useEffect(() => {
-    if (
-      activeTopic !== ALL_NEWSLETTER_TOPICS &&
-      !hasNewsletterTopic(allTopics, activeTopic)
-    ) {
+    if (!activeIsAll && !hasNewsletterTopic(allTopics, activeTopic)) {
       setActiveTopic(ALL_NEWSLETTER_TOPICS);
     }
-  }, [activeTopic, allTopics]);
+  }, [activeIsAll, activeTopic, allTopics]);
 
-  const results = useMemo(
-    () =>
-      searchNewsletters(items, {
-        query: search.effectiveQuery,
-        topic: activeTopic,
-        allTopicsLabel,
-      }),
-    [activeTopic, allTopicsLabel, items, search.effectiveQuery]
+  // Query matching happens once. Topic filtering and chip counts then reuse the
+  // same result set instead of normalizing every searchable field a second time.
+  const queryMatches = useMemo(
+    () => searchNewsletters(items, search.effectiveQuery),
+    [items, search.effectiveQuery]
   );
 
+  const results = useMemo(() => {
+    if (activeIsAll) return queryMatches;
+    return queryMatches.filter((item) =>
+      hasNewsletterTopic(Array.isArray(item.topics) ? item.topics : [], activeTopic)
+    );
+  }, [activeIsAll, activeTopic, queryMatches]);
+
   const topicCounts = useMemo(
-    () => countNewsletterTopics(items, search.effectiveQuery, allTopicsLabel),
-    [allTopicsLabel, items, search.effectiveQuery]
+    () => countNewsletterTopics(queryMatches, allTopicsLabel),
+    [allTopicsLabel, queryMatches]
   );
 
   const clearFilters = useCallback(() => {
@@ -64,7 +70,7 @@ export function useNewsletterArchive<T extends NewsletterTextFields>(
   // One derived truth for all result surfaces. The admin empty state and the
   // public archive previously each checked query/topic independently, which is
   // exactly how a clear button ends up saying "search" after a topic filter.
-  const topicFiltered = !isAllNewsletterTopics(activeTopic, allTopicsLabel);
+  const topicFiltered = !activeIsAll;
   const filtering = search.searching || topicFiltered;
 
   return {

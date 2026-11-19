@@ -151,7 +151,6 @@ export function InteractiveNewslettersList({
           onTopicChange={setActiveTopic}
           onAdd={isAdmin ? handleOpenCreateModal : undefined}
           resultsId="newsletter-results"
-          allTopicsLabel={allTopicsLabel}
         />
         <NewsletterResultsSummary
           shown={filteredNewsletters.length}

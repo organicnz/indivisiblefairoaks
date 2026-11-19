@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { normalizeNewsText } from './news-text/normalize';
+import { collapseNewsWhitespace, normalizeNewsText } from './news-text/normalize';
 
 /**
  * One contract for bulletin writes.
@@ -54,22 +54,9 @@ export function slugifyNewsletter(text: string): string {
     .slice(0, 80);
 }
 
-const TOPIC_INVISIBLE = /[\u00AD\u200B-\u200D\u2060\uFEFF]/g;
-const TOPIC_SPACES = /[\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]/g;
-
-/** Public because the read-side topic collector uses the same label rules. */
-export function cleanNewsletterTopicLabel(value: string): string {
-  return value
-    .replace(TOPIC_INVISIBLE, '')
-    .replace(TOPIC_SPACES, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function topicKey(value: string): string {
-  // Topic identity must match the read-side search fold: accents, apostrophes,
-  // punctuation and `&` cannot make two chips for the same subject.
-  return normalizeNewsText(cleanNewsletterTopicLabel(value));
+/** Topic identity must match the read-side search fold. */
+export function newsletterTopicKey(value: string): string {
+  return normalizeNewsText(collapseNewsWhitespace(value));
 }
 
 /**
@@ -83,9 +70,9 @@ export function normalizeNewsletterTopics(topics: readonly string[]): string[] {
   const seen = new Set<string>();
   const normalized: string[] = [];
   for (const topic of topics) {
-    const value = cleanNewsletterTopicLabel(topic);
+    const value = collapseNewsWhitespace(topic);
     if (!value) continue;
-    const key = topicKey(value);
+    const key = newsletterTopicKey(value);
     if (!key || seen.has(key)) continue;
     seen.add(key);
     normalized.push(value);

@@ -11,8 +11,8 @@
  * state. That keeps them cheap to test and safe to use while rendering.
  */
 
-const INVISIBLE_CHARACTERS = /[\u00AD\u200B-\u200D\u2060\uFEFF]/g;
-const UNICODE_SPACES = /[\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]/g;
+export const INVISIBLE_CHARACTERS = /[\u00AD\u200B-\u200D\u2060\uFEFF]/g;
+export const UNICODE_SPACES = /[\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]/g;
 
 /**
  * Fold letters that do not decompose under NFKD. Without this, "Søren" and
@@ -54,6 +54,32 @@ export function normalizeNewsText(value: string): string {
     // this to a-z silently erased searches for names written in other scripts.
     .replace(/[^\p{L}\p{N}\p{M}]+/gu, ' ')
     .trim();
+}
+
+export type NewsTextWord = {
+  word: string;
+  start: number;
+  end: number;
+};
+
+/**
+ * A normalized word still needs its original offsets so highlighting can mark
+ * the word itself rather than the whole whitespace-delimited chunk. Punctuation
+ * is omitted from the range; `&` is treated as the word "and", matching the
+ * normalizer.
+ */
+const NEWS_WORD_PATTERN = /[\p{L}\p{N}][\p{L}\p{N}\p{M}'’]*|&/gu;
+
+/** Find normalized words and their original character ranges. */
+export function findNewsWords(text: string): NewsTextWord[] {
+  const words: NewsTextWord[] = [];
+  for (const match of text.matchAll(NEWS_WORD_PATTERN)) {
+    const word = normalizeNewsText(match[0]);
+    if (!word) continue;
+    const start = match.index ?? 0;
+    words.push({ word, start, end: start + match[0].length });
+  }
+  return words;
 }
 
 export type ParsedNewsQuery = {
@@ -127,27 +153,27 @@ export function parseNewsQuery(query: string): ParsedNewsQuery {
   return { tokens, phrases };
 }
 
-/** Split a query into unique normalized tokens, in the order they were typed. */
-export function tokenizeNewsQuery(query: string): string[] {
-  return parseNewsQuery(query).tokens;
-}
-
 /**
  * Whether the input is more than whitespace, punctuation or invisible paste
  * debris. UI surfaces use this instead of testing `query` for truthiness, which
  * treated "   " as an active search and cropped every summary.
  */
 export function hasNewsQuery(query: string): boolean {
-  return tokenizeNewsQuery(query).length > 0;
+  return parseNewsQuery(query).tokens.length > 0;
 }
 
-/** Collapse a query for display without changing the normalized match rules. */
-export function displayNewsQuery(query: string): string {
-  return query
+/** Collapse invisible separators and whitespace without changing visible words. */
+export function collapseNewsWhitespace(value: string): string {
+  return value
     .replace(INVISIBLE_CHARACTERS, '')
     .replace(UNICODE_SPACES, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+/** Collapse a query for display without changing the normalized match rules. */
+export function displayNewsQuery(query: string): string {
+  return collapseNewsWhitespace(query);
 }
 
 /** The display query when it is searchable, or an empty string when it is not. */

@@ -1,14 +1,8 @@
-import { matchesNewsWord, normalizeNewsText, parseNewsQuery } from './normalize';
+import { findNewsWords, matchesNewsWord, parseNewsQuery } from './normalize';
 
 export type NewsTextSegment = {
   text: string;
   matched: boolean;
-};
-
-type TextPart = {
-  start: number;
-  end: number;
-  words: string[];
 };
 
 type TextRange = {
@@ -29,22 +23,7 @@ export function splitNewsTextHighlights(text: string, query: string): NewsTextSe
   const { tokens, phrases } = parseNewsQuery(query);
   if (tokens.length === 0) return [{ text, matched: false }];
 
-  const parts: TextPart[] = [];
-  let offset = 0;
-  for (const value of text.split(/(\s+)/)) {
-    if (!value) continue;
-    const start = offset;
-    const end = start + value.length;
-    if (value.trim()) {
-      const words = normalizeNewsText(value).split(' ').filter(Boolean);
-      if (words.length > 0) parts.push({ start, end, words });
-    }
-    offset = end;
-  }
-
-  const words = parts.flatMap((part) =>
-    part.words.map((word) => ({ word, start: part.start, end: part.end }))
-  );
+  const words = findNewsWords(text);
   const ranges: TextRange[] = [];
 
   for (const phrase of phrases) {
