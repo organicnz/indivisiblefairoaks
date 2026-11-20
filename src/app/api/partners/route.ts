@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireAdminApi } from '@/lib/admin-api-auth';
+import { recordAdminAudit } from '@/lib/admin-audit';
 import { readJsonBodyWithLimit } from '@/lib/request-body';
 import { createPublicClient } from '@/lib/supabase-server';
 
@@ -104,6 +105,26 @@ export async function POST(req: NextRequest) {
       url: payload.url,
       sort_order: payload.sort_order,
     };
+    const auditSave = (
+      outcome: 'success' | 'failure',
+      targetId: string,
+      targetLabel: string,
+      after: unknown,
+      error?: string
+    ) =>
+      recordAdminAudit(auth.session.adminClient, {
+        actorUserId: auth.session.adminUserId,
+        actorEmail: auth.session.adminEmail,
+        action: 'partner.save',
+        targetType: 'partner',
+        targetId,
+        targetLabel,
+        before: null,
+        after,
+        mfaLevel: auth.session.mfaLevel,
+        outcome,
+        error: error ?? null,
+      });
 
     const { data, error } = await auth.session.supabase
       .from('partners')
@@ -112,9 +133,17 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (error) {
+      await auditSave('failure', finalSlug, payload.name, upsertRow, error.message);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    const saved = (data ?? null) as { slug?: string; name?: string } | null;
+    await auditSave(
+      'success',
+      saved?.slug ?? finalSlug,
+      saved?.name ?? payload.name,
+      data ?? upsertRow
+    );
     return NextResponse.json({ success: true, partner: data }, { status: 200 });
   } catch (err) {
     return NextResponse.json(
@@ -149,10 +178,27 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'slug parameter required' }, { status: 400 });
     }
 
+    const auditDelete = (outcome: 'success' | 'failure', after: unknown, error?: string) =>
+      recordAdminAudit(auth.session.adminClient, {
+        actorUserId: auth.session.adminUserId,
+        actorEmail: auth.session.adminEmail,
+        action: 'partner.delete',
+        targetType: 'partner',
+        targetId: slug,
+        targetLabel: slug,
+        before: null,
+        after,
+        mfaLevel: auth.session.mfaLevel,
+        outcome,
+        error: error ?? null,
+      });
+
     const { error } = await auth.session.supabase.from('partners').delete().eq('slug', slug);
     if (error) {
+      await auditDelete('failure', null, error.message);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
+    await auditDelete('success', { deleted: true });
 
     return NextResponse.json({ success: true, deleted: slug }, { status: 200 });
   } catch (err) {

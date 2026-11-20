@@ -36,7 +36,7 @@ let storageMocks: {
 function configure(
   tables: Record<string, MockTableConfig>,
   storage?: { upload?: unknown; remove?: unknown }
-): { upload: ReturnType<typeof vi.fn>; remove: ReturnType<typeof vi.fn> } {
+) {
   const upload = vi.fn().mockResolvedValue(storage?.upload ?? { error: null });
   const remove = vi.fn().mockResolvedValue(storage?.remove ?? { error: null });
   storageMocks = { upload, remove };
@@ -44,8 +44,13 @@ function configure(
     ...createMockAdminClient(tables),
     storage: { from: vi.fn(() => ({ upload, remove })) },
   };
-  mockRequireAdmin.mockResolvedValue({ adminClient: client });
-  return { upload, remove };
+  mockRequireAdmin.mockResolvedValue({
+    adminUserId: 'admin-1',
+    adminEmail: 'admin@example.com',
+    mfaLevel: 'aal2',
+    adminClient: client,
+  });
+  return { upload, remove, client };
 }
 
 /** A live content row the `assertContentPublished` gate must let through. */
@@ -89,6 +94,9 @@ function mediaRow(overrides: Partial<ContentMediaRow> = {}): ContentMediaRow {
 beforeEach(() => {
   mockRequireAdmin.mockReset();
   mockRequireAdmin.mockResolvedValue({
+    adminUserId: 'admin-1',
+    adminEmail: 'admin@example.com',
+    mfaLevel: 'aal2',
     adminClient: {
       ...createMockAdminClient({}),
       storage: {
@@ -149,9 +157,7 @@ describe('content-media actions', () => {
         content_media: { rows: [] },
       });
 
-      await expect(getContentMedia(42)).rejects.toThrow(
-        'Failed to load content: connection reset'
-      );
+      await expect(getContentMedia(42)).rejects.toThrow('Failed to load content: connection reset');
     });
 
     it('throws when the media list query fails', async () => {
@@ -184,15 +190,26 @@ describe('content-media actions', () => {
         folder: 'content',
         sort_order: 5,
       };
+      const audits: Record<string, unknown>[] = [];
       configure({
         content: { rows: [publishedRow(42)] },
         content_media: { rows: [], insert: { id: 'new-id' } },
+        admin_audit_log: { rows: [], onInsert: (row) => audits.push(row) },
       });
 
       const result = await createContentMediaRow(input);
       expect(result.success).toBe(true);
       expect(result.data?.id).toBe('new-id');
       expect(result.data?.sort_order).toBe(5);
+      expect(audits).toHaveLength(1);
+      expect(audits[0]).toMatchObject({
+        actor_user_id: 'admin-1',
+        action: 'content.media.create',
+        target_type: 'content_media',
+        target_id: 'new-id',
+        target_label: 'test.jpg',
+        outcome: 'success',
+      });
     });
 
     it('rejects invalid input', async () => {
@@ -206,9 +223,11 @@ describe('content-media actions', () => {
 
     it('reports an insert failure', async () => {
       const { createContentMediaRow } = await import('@/lib/actions/content-media');
+      const audits: Record<string, unknown>[] = [];
       configure({
         content: { rows: [publishedRow(42)] },
         content_media: { rows: [], error: { message: 'insert blew up' } },
+        admin_audit_log: { rows: [], onInsert: (row) => audits.push(row) },
       });
 
       const result = await createContentMediaRow({
@@ -223,6 +242,12 @@ describe('content-media actions', () => {
       });
       expect(result.success).toBe(false);
       expect(result.error).toBe('insert blew up');
+      expect(audits[0]).toMatchObject({
+        action: 'content.media.create',
+        target_id: 'content/42-xyz.jpg',
+        outcome: 'failure',
+        error: 'insert blew up',
+      });
     });
 
     it('refuses a draft content row', async () => {
@@ -254,9 +279,11 @@ describe('content-media actions', () => {
   describe('updateContentMediaRow', () => {
     it('updates alt_text and caption', async () => {
       const { updateContentMediaRow } = await import('@/lib/actions/content-media');
+      const audits: Record<string, unknown>[] = [];
       configure({
         content: { rows: [publishedRow(42)] },
         content_media: { rows: [mediaRow({ id: 'test-id', content_id: 42 })] },
+        admin_audit_log: { rows: [], onInsert: (row) => audits.push(row) },
       });
 
       const result = await updateContentMediaRow('test-id', {
@@ -266,6 +293,15 @@ describe('content-media actions', () => {
       expect(result.success).toBe(true);
       expect(result.data?.alt_text).toBe('New alt');
       expect(result.data?.caption).toBe('New caption');
+      expect(audits[0]).toMatchObject({
+        action: 'content.media.update',
+        target_type: 'content_media',
+        target_id: 'test-id',
+        target_label: 'hero.jpg',
+        outcome: 'success',
+        before: { alt_text: null, caption: null },
+        after: { alt_text: 'New alt', caption: 'New caption' },
+      });
     });
 
     it('rejects invalid patch', async () => {
@@ -285,17 +321,25 @@ describe('content-media actions', () => {
 
     it('reports a fetch failure', async () => {
       const { updateContentMediaRow } = await import('@/lib/actions/content-media');
+      const audits: Record<string, unknown>[] = [];
       configure({
         content: { rows: [publishedRow(42)] },
         content_media: {
           rows: [mediaRow({ id: 'test-id', content_id: 42 })],
           error: { message: 'fetch blew up' },
         },
+        admin_audit_log: { rows: [], onInsert: (row) => audits.push(row) },
       });
 
       const result = await updateContentMediaRow('test-id', { alt_text: 'x' });
       expect(result.success).toBe(false);
       expect(result.error).toBe('fetch blew up');
+      expect(audits[0]).toMatchObject({
+        action: 'content.media.update',
+        target_id: 'test-id',
+        outcome: 'failure',
+        error: 'fetch blew up',
+      });
     });
   });
 
@@ -304,20 +348,41 @@ describe('content-media actions', () => {
 
     it('deletes when path has no other references', async () => {
       const { deleteContentMediaRow } = await import('@/lib/actions/content-media');
+      const audits: Record<string, unknown>[] = [];
       const { remove } = configure({
         content: { rows: [publishedRow(42)] },
         content_media: { rows: [mediaRow({ id: 'test-id', path: REFERENCED_PATH })] },
         content_revisions: { rows: [] },
+        admin_audit_log: { rows: [], onInsert: (row) => audits.push(row) },
       });
 
       const result = await deleteContentMediaRow('test-id');
       expect(result.success).toBe(true);
       expect(result.data?.deleted).toBe(true);
       expect(remove).toHaveBeenCalledWith([REFERENCED_PATH]);
+      expect(audits).toHaveLength(2);
+      expect(audits[0]).toMatchObject({
+        actor_user_id: 'admin-1',
+        action: 'content.media.delete',
+        target_type: 'content_media',
+        target_id: 'test-id',
+        target_label: 'hero.jpg',
+        outcome: 'success',
+        before: { path: REFERENCED_PATH },
+        after: { storage_deleted: true, row_deleted: false },
+        metadata: { phase: 'storage_removed' },
+      });
+      expect(audits[1]).toMatchObject({
+        action: 'content.media.delete',
+        outcome: 'success',
+        after: { storage_deleted: true, row_deleted: true },
+        metadata: { phase: 'complete' },
+      });
     });
 
     it('blocks delete when path in content.body', async () => {
       const { deleteContentMediaRow } = await import('@/lib/actions/content-media');
+      const audits: Record<string, unknown>[] = [];
       configure({
         content: {
           rows: [
@@ -328,16 +393,26 @@ describe('content-media actions', () => {
         },
         content_media: { rows: [mediaRow({ id: 'test-id', path: REFERENCED_PATH })] },
         content_revisions: { rows: [] },
+        admin_audit_log: { rows: [], onInsert: (row) => audits.push(row) },
       });
 
       const result = await deleteContentMediaRow('test-id');
       expect(result.success).toBe(false);
       expect(result.error).toContain('content body');
       expect(result.data?.retained).toBe('referenced');
+      expect(audits).toHaveLength(1);
+      expect(audits[0]).toMatchObject({
+        action: 'content.media.delete',
+        target_id: 'test-id',
+        outcome: 'denied',
+        after: { storage_deleted: false, row_deleted: false },
+        error: 'Path still referenced in content body',
+      });
     });
 
     it('blocks delete when path is featured_image', async () => {
       const { deleteContentMediaRow } = await import('@/lib/actions/content-media');
+      const audits: Record<string, unknown>[] = [];
       configure({
         content: {
           rows: [
@@ -348,15 +423,25 @@ describe('content-media actions', () => {
         },
         content_media: { rows: [mediaRow({ id: 'test-id', path: REFERENCED_PATH })] },
         content_revisions: { rows: [] },
+        admin_audit_log: { rows: [], onInsert: (row) => audits.push(row) },
       });
 
       const result = await deleteContentMediaRow('test-id');
       expect(result.success).toBe(false);
       expect(result.error).toContain('featured_image');
+      expect(audits).toHaveLength(1);
+      expect(audits[0]).toMatchObject({
+        action: 'content.media.delete',
+        target_id: 'test-id',
+        outcome: 'denied',
+        after: { storage_deleted: false, row_deleted: false },
+        error: 'Path still used as featured_image',
+      });
     });
 
     it('blocks delete when path is referenced by a revision', async () => {
       const { deleteContentMediaRow } = await import('@/lib/actions/content-media');
+      const audits: Record<string, unknown>[] = [];
       configure({
         content: { rows: [publishedRow(42)] },
         content_media: { rows: [mediaRow({ id: 'test-id', path: REFERENCED_PATH })] },
@@ -368,30 +453,47 @@ describe('content-media actions', () => {
             },
           ],
         },
+        admin_audit_log: { rows: [], onInsert: (row) => audits.push(row) },
       });
 
       const result = await deleteContentMediaRow('test-id');
       expect(result.success).toBe(false);
       expect(result.error).toContain('content revisions');
+      expect(audits).toHaveLength(1);
+      expect(audits[0]).toMatchObject({
+        action: 'content.media.delete',
+        target_id: 'test-id',
+        outcome: 'denied',
+        after: { storage_deleted: false, row_deleted: false },
+        error: 'Path still referenced in content revisions',
+      });
     });
 
     it('refuses deletion when the content body reference check fails', async () => {
       const { deleteContentMediaRow } = await import('@/lib/actions/content-media');
+      const audits: Record<string, unknown>[] = [];
       const { remove } = configure({
         content: {
           rows: [publishedRow(42)],
-          errors: [
-            { kind: 'ilike', column: 'body', error: { message: 'body scan failed' } },
-          ],
+          errors: [{ kind: 'ilike', column: 'body', error: { message: 'body scan failed' } }],
         },
         content_media: { rows: [mediaRow({ id: 'test-id', path: REFERENCED_PATH })] },
         content_revisions: { rows: [] },
+        admin_audit_log: { rows: [], onInsert: (row) => audits.push(row) },
       });
 
       const result = await deleteContentMediaRow('test-id');
       expect(result.success).toBe(false);
       expect(result.error).toBe('Could not verify media references: body scan failed');
       expect(remove).not.toHaveBeenCalled();
+      expect(audits).toHaveLength(1);
+      expect(audits[0]).toMatchObject({
+        action: 'content.media.delete',
+        target_id: 'test-id',
+        outcome: 'failure',
+        after: { storage_deleted: false, row_deleted: false },
+        error: 'Could not verify media references: body scan failed',
+      });
     });
 
     it('refuses deletion when the featured-image reference check fails', async () => {
@@ -424,9 +526,7 @@ describe('content-media actions', () => {
         content_media: { rows: [mediaRow({ id: 'test-id', path: REFERENCED_PATH })] },
         content_revisions: {
           rows: [],
-          errors: [
-            { kind: 'ilike', column: 'body', error: { message: 'revision scan failed' } },
-          ],
+          errors: [{ kind: 'ilike', column: 'body', error: { message: 'revision scan failed' } }],
         },
       });
 
@@ -438,11 +538,13 @@ describe('content-media actions', () => {
 
     it('surfaces a storage failure rather than deleting the row', async () => {
       const { deleteContentMediaRow } = await import('@/lib/actions/content-media');
+      const audits: Record<string, unknown>[] = [];
       configure(
         {
           content: { rows: [publishedRow(42)] },
           content_media: { rows: [mediaRow({ id: 'test-id', path: REFERENCED_PATH })] },
           content_revisions: { rows: [] },
+          admin_audit_log: { rows: [], onInsert: (row) => audits.push(row) },
         },
         { remove: { error: { message: 'bucket unavailable' } } }
       );
@@ -450,6 +552,13 @@ describe('content-media actions', () => {
       const result = await deleteContentMediaRow('test-id');
       expect(result.success).toBe(false);
       expect(result.error).toContain('bucket unavailable');
+      expect(audits[0]).toMatchObject({
+        action: 'content.media.delete',
+        target_id: 'test-id',
+        outcome: 'failure',
+        after: { storage_deleted: false, row_deleted: false },
+        error: expect.stringContaining('bucket unavailable'),
+      });
     });
 
     it('reports a database failure after the file was removed, leaving the row for retry', async () => {
@@ -461,6 +570,7 @@ describe('content-media actions', () => {
           deleteError: { message: 'row lock timeout' },
         },
         content_revisions: { rows: [] },
+        admin_audit_log: { rows: [] },
       };
       const { remove } = configure(tables);
 
@@ -472,6 +582,114 @@ describe('content-media actions', () => {
       expect(result.error).toContain('Retry');
       expect(remove).toHaveBeenCalledWith([REFERENCED_PATH]);
       expect(tables.content_media.rows).toHaveLength(1);
+      expect(tables.admin_audit_log.rows).toHaveLength(2);
+      expect(tables.admin_audit_log.rows?.[0]).toMatchObject({
+        action: 'content.media.delete',
+        target_id: 'test-id',
+        outcome: 'success',
+        after: { storage_deleted: true, row_deleted: false },
+        metadata: { phase: 'storage_removed' },
+      });
+      expect(tables.admin_audit_log.rows?.[1]).toMatchObject({
+        action: 'content.media.delete',
+        target_id: 'test-id',
+        outcome: 'failure',
+        after: { storage_deleted: true, row_deleted: false },
+        metadata: { phase: 'row_delete_failed' },
+        error: expect.stringContaining('file was removed from storage'),
+      });
+    });
+
+    it('audits a delete refused by the publication gate', async () => {
+      const { deleteContentMediaRow } = await import('@/lib/actions/content-media');
+      const audits: Record<string, unknown>[] = [];
+      const { remove } = configure({
+        content: { rows: [publishedRow(42, { status: 'draft' })] },
+        content_media: { rows: [mediaRow({ id: 'test-id', path: REFERENCED_PATH })] },
+        content_revisions: { rows: [] },
+        admin_audit_log: { rows: [], onInsert: (row) => audits.push(row) },
+      });
+
+      await expect(deleteContentMediaRow('test-id')).rejects.toThrow(
+        'Content row not found or unpublished'
+      );
+      expect(remove).not.toHaveBeenCalled();
+      expect(audits).toHaveLength(1);
+      expect(audits[0]).toMatchObject({
+        action: 'content.media.delete',
+        target_id: 'test-id',
+        outcome: 'denied',
+        after: { storage_deleted: false, row_deleted: false },
+        error: 'Content row not found or unpublished',
+      });
+    });
+
+    it('audits a thrown storage failure without deleting the row', async () => {
+      const { deleteContentMediaRow } = await import('@/lib/actions/content-media');
+      const audits: Record<string, unknown>[] = [];
+      const tables = {
+        content: { rows: [publishedRow(42)] },
+        content_media: { rows: [mediaRow({ id: 'test-id', path: REFERENCED_PATH })] },
+        content_revisions: { rows: [] },
+        admin_audit_log: {
+          rows: [],
+          onInsert: (row: Record<string, unknown>) => audits.push(row),
+        },
+      };
+      const { remove } = configure(tables);
+      remove.mockRejectedValueOnce(new Error('socket hang up'));
+
+      const result = await deleteContentMediaRow('test-id');
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('socket hang up');
+      expect(tables.content_media.rows).toHaveLength(1);
+      expect(audits).toHaveLength(1);
+      expect(audits[0]).toMatchObject({
+        action: 'content.media.delete',
+        outcome: 'failure',
+        after: { storage_deleted: false, row_deleted: false },
+        error: expect.stringContaining('socket hang up'),
+      });
+    });
+
+    it('audits a thrown database failure after the file was removed', async () => {
+      const { deleteContentMediaRow } = await import('@/lib/actions/content-media');
+      const audits: Record<string, unknown>[] = [];
+      const { client } = configure({
+        content: { rows: [publishedRow(42)] },
+        content_media: { rows: [mediaRow({ id: 'test-id', path: REFERENCED_PATH })] },
+        content_revisions: { rows: [] },
+        admin_audit_log: { rows: [], onInsert: (row) => audits.push(row) },
+      });
+      const originalFrom = client.from.bind(client);
+      client.from = (table: string) => {
+        const builder = originalFrom(table);
+        if (table === 'content_media') {
+          builder.delete = () => {
+            throw new Error('row delete exploded');
+          };
+        }
+        return builder;
+      };
+
+      const result = await deleteContentMediaRow('test-id');
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('file was removed from storage');
+      expect(result.error).toContain('row delete exploded');
+      expect(audits).toHaveLength(2);
+      expect(audits[0]).toMatchObject({
+        action: 'content.media.delete',
+        outcome: 'success',
+        after: { storage_deleted: true, row_deleted: false },
+        metadata: { phase: 'storage_removed' },
+      });
+      expect(audits[1]).toMatchObject({
+        action: 'content.media.delete',
+        outcome: 'failure',
+        after: { storage_deleted: true, row_deleted: false },
+        metadata: { phase: 'row_delete_failed' },
+        error: expect.stringContaining('row delete exploded'),
+      });
     });
 
     it('can retry after a transient database failure clears', async () => {
@@ -501,19 +719,29 @@ describe('content-media actions', () => {
 
     it('returns not found if the media row is gone', async () => {
       const { deleteContentMediaRow } = await import('@/lib/actions/content-media');
+      const audits: Record<string, unknown>[] = [];
       configure({
         content: { rows: [publishedRow(42)] },
         content_media: { rows: [] },
         content_revisions: { rows: [] },
+        admin_audit_log: { rows: [], onInsert: (row) => audits.push(row) },
       });
 
       const result = await deleteContentMediaRow('test-id');
       expect(result.success).toBe(false);
       expect(result.error).toBe('Media row not found');
+      expect(audits).toHaveLength(1);
+      expect(audits[0]).toMatchObject({
+        action: 'content.media.delete',
+        target_id: 'test-id',
+        outcome: 'failure',
+        error: 'Media row not found',
+      });
     });
 
     it('reports a fetch failure', async () => {
       const { deleteContentMediaRow } = await import('@/lib/actions/content-media');
+      const audits: Record<string, unknown>[] = [];
       configure({
         content: { rows: [publishedRow(42)] },
         content_media: {
@@ -521,11 +749,19 @@ describe('content-media actions', () => {
           error: { message: 'fetch blew up' },
         },
         content_revisions: { rows: [] },
+        admin_audit_log: { rows: [], onInsert: (row) => audits.push(row) },
       });
 
       const result = await deleteContentMediaRow('test-id');
       expect(result.success).toBe(false);
       expect(result.error).toBe('fetch blew up');
+      expect(audits).toHaveLength(1);
+      expect(audits[0]).toMatchObject({
+        action: 'content.media.delete',
+        target_id: 'test-id',
+        outcome: 'failure',
+        error: 'fetch blew up',
+      });
     });
   });
 

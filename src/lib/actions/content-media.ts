@@ -1,7 +1,8 @@
 'use server';
 
 import { z } from 'zod';
-import { requireAdmin } from '@/lib/admin-auth';
+import { type AdminAuditEntry, type AdminAuditOutcome, recordAdminAudit } from '@/lib/admin-audit';
+import { type AdminSession, requireAdmin } from '@/lib/admin-auth';
 import { getStorageUrl } from '@/lib/supabase';
 import type {
   ContentMediaDeleteResult,
@@ -38,6 +39,21 @@ const PATCH_PARTIAL = CONTENT_MEDIA_PATCH_SCHEMA.partial();
 
 const MAX_CONTENT_IMAGE_BYTES = 5 * 1024 * 1024;
 const CONTENT_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'] as const;
+
+type ContentMediaDeleteState = { storage_deleted: boolean; row_deleted: boolean };
+
+async function recordContentMediaAudit(
+  admin: AdminSession,
+  entry: Omit<AdminAuditEntry, 'actorUserId' | 'actorEmail' | 'mfaLevel' | 'targetType'>
+) {
+  return recordAdminAudit(admin.adminClient, {
+    actorUserId: admin.adminUserId,
+    actorEmail: admin.adminEmail,
+    mfaLevel: admin.mfaLevel,
+    targetType: 'content_media',
+    ...entry,
+  });
+}
 
 function mediaUrl(path: string): string {
   return getStorageUrl(path, 'media');
@@ -92,7 +108,8 @@ export async function getContentMedia(contentId: number): Promise<ContentMediaLi
 export async function createContentMediaRow(
   input: ContentMediaInsert
 ): Promise<ContentMediaUploadResult> {
-  const { adminClient } = await requireAdmin();
+  const admin = await requireAdmin();
+  const { adminClient } = admin;
   const parsed = CONTENT_MEDIA_SCHEMA.safeParse(input);
   if (!parsed.success) return { success: false, error: parsed.error.message };
   await assertContentPublished(input.content_id);
@@ -103,8 +120,29 @@ export async function createContentMediaRow(
     .select()
     .single();
 
-  if (error) return { success: false, error: error.message };
-  return { success: true, data: data as ContentMediaRow };
+  if (error) {
+    await recordContentMediaAudit(admin, {
+      action: 'content.media.create',
+      targetId: parsed.data.path,
+      targetLabel: parsed.data.name,
+      before: null,
+      after: parsed.data,
+      outcome: 'failure',
+      error: error.message,
+    });
+    return { success: false, error: error.message };
+  }
+
+  const row = data as ContentMediaRow;
+  await recordContentMediaAudit(admin, {
+    action: 'content.media.create',
+    targetId: row.id,
+    targetLabel: row.name,
+    before: null,
+    after: row,
+    outcome: 'success',
+  });
+  return { success: true, data: row };
 }
 
 /**
@@ -114,18 +152,30 @@ export async function updateContentMediaRow(
   id: string,
   patch: ContentMediaPatch
 ): Promise<ContentMediaUploadResult> {
-  const { adminClient } = await requireAdmin();
+  const admin = await requireAdmin();
+  const { adminClient } = admin;
   const parsed = PATCH_PARTIAL.safeParse(patch);
   if (!parsed.success) return { success: false, error: parsed.error.message };
 
-  const { data: existing, error: fetchErr } = await adminClient
+  const { data: existingData, error: fetchErr } = await adminClient
     .from('content_media')
-    .select('content_id')
+    .select('*')
     .eq('id', id)
     .maybeSingle();
 
-  if (fetchErr) return { success: false, error: fetchErr.message };
-  if (!existing) return { success: false, error: 'Media row not found' };
+  if (fetchErr || !existingData) {
+    const error = fetchErr ? fetchErr.message : 'Media row not found';
+    await recordContentMediaAudit(admin, {
+      action: 'content.media.update',
+      targetId: id,
+      before: null,
+      after: null,
+      outcome: 'failure',
+      error,
+    });
+    return { success: false, error };
+  }
+  const existing = existingData as ContentMediaRow;
   await assertContentPublished(existing.content_id);
 
   const { data, error } = await adminClient
@@ -135,9 +185,30 @@ export async function updateContentMediaRow(
     .select()
     .maybeSingle();
 
-  if (error) return { success: false, error: error.message };
-  if (!data) return { success: false, error: 'Media row vanished during update' };
-  return { success: true, data: data as ContentMediaRow };
+  if (error || !data) {
+    const message = error ? error.message : 'Media row vanished during update';
+    await recordContentMediaAudit(admin, {
+      action: 'content.media.update',
+      targetId: id,
+      targetLabel: existing.name,
+      before: existing,
+      after: parsed.data,
+      outcome: 'failure',
+      error: message,
+    });
+    return { success: false, error: message };
+  }
+
+  const row = data as ContentMediaRow;
+  await recordContentMediaAudit(admin, {
+    action: 'content.media.update',
+    targetId: id,
+    targetLabel: row.name,
+    before: existing,
+    after: row,
+    outcome: 'success',
+  });
+  return { success: true, data: row };
 }
 
 /**
@@ -147,73 +218,153 @@ export async function updateContentMediaRow(
 export async function deleteContentMediaRow(
   id: string
 ): Promise<ContentMediaUploadResult<ContentMediaDeleteResult>> {
-  const { adminClient } = await requireAdmin();
+  const admin = await requireAdmin();
+  const { adminClient } = admin;
 
-  const { data: target, error: fetchErr } = await adminClient
+  const { data: targetData, error: fetchErr } = await adminClient
     .from('content_media')
-    .select('path, content_id')
+    .select('*')
     .eq('id', id)
     .maybeSingle();
 
-  if (fetchErr) return { success: false, error: fetchErr.message };
-  if (!target) return { success: false, error: 'Media row not found' };
-  await assertContentPublished(target.content_id);
-
+  if (fetchErr || !targetData) {
+    const error = fetchErr ? fetchErr.message : 'Media row not found';
+    await recordContentMediaAudit(admin, {
+      action: 'content.media.delete',
+      targetId: id,
+      before: null,
+      after: null,
+      outcome: 'failure',
+      error,
+    });
+    return { success: false, error };
+  }
+  const target = targetData as ContentMediaRow;
   const path = target.path;
+  const auditDelete = (
+    outcome: AdminAuditOutcome,
+    after: ContentMediaDeleteState,
+    error?: string,
+    phase?: 'storage_removed' | 'row_delete_failed' | 'complete'
+  ) =>
+    recordContentMediaAudit(admin, {
+      action: 'content.media.delete',
+      targetId: id,
+      targetLabel: target.name,
+      before: target,
+      after,
+      outcome,
+      error: error ?? null,
+      metadata: phase ? { phase } : null,
+    });
+
+  try {
+    await assertContentPublished(target.content_id);
+  } catch (err) {
+    const error = err instanceof Error ? err.message : 'Content row not found or unpublished';
+    await auditDelete('denied', { storage_deleted: false, row_deleted: false }, error);
+    throw err;
+  }
 
   // Check content.body, content.featured_image, content_revisions.body for this path
-  const { adminClient: client } = await requireAdmin();
   const [bodyRef, heroRef, revRef] = await Promise.all([
-    client.from('content').select('id').ilike('body', `%${path}%`).limit(1),
-    client.from('content').select('id').eq('featured_image', mediaUrl(path)).limit(1),
-    client.from('content_revisions').select('id').ilike('body', `%${path}%`).limit(1),
+    adminClient.from('content').select('id').ilike('body', `%${path}%`).limit(1),
+    adminClient.from('content').select('id').eq('featured_image', mediaUrl(path)).limit(1),
+    adminClient.from('content_revisions').select('id').ilike('body', `%${path}%`).limit(1),
   ]);
 
   const referenceError = bodyRef.error ?? heroRef.error ?? revRef.error;
   if (referenceError) {
-    return {
-      success: false,
-      error: `Could not verify media references: ${referenceError.message}`,
-    };
+    const error = `Could not verify media references: ${referenceError.message}`;
+    await auditDelete('failure', { storage_deleted: false, row_deleted: false }, error);
+    return { success: false, error };
   }
 
   if (bodyRef.data && bodyRef.data.length > 0) {
+    const error = 'Path still referenced in content body';
+    await auditDelete('denied', { storage_deleted: false, row_deleted: false }, error);
     return {
       success: false,
-      error: 'Path still referenced in content body',
+      error,
       data: { deleted: false, retained: 'referenced' },
     };
   }
   if (heroRef.data && heroRef.data.length > 0) {
+    const error = 'Path still used as featured_image';
+    await auditDelete('denied', { storage_deleted: false, row_deleted: false }, error);
     return {
       success: false,
-      error: 'Path still used as featured_image',
+      error,
       data: { deleted: false, retained: 'referenced' },
     };
   }
   if (revRef.data && revRef.data.length > 0) {
+    const error = 'Path still referenced in content revisions';
+    await auditDelete('denied', { storage_deleted: false, row_deleted: false }, error);
     return {
       success: false,
-      error: 'Path still referenced in content revisions',
+      error,
       data: { deleted: false, retained: 'referenced' },
     };
   }
 
-  // Delete from storage then DB
-  const { error: storageErr } = await client.storage.from('media').remove([path]);
-  if (storageErr) return { success: false, error: `Storage delete failed: ${storageErr.message}` };
+  const rowDeleteFailure = (detail: string) =>
+    `The file was removed from storage, but the media record could not be deleted: ${detail}. Retry the delete to finish cleanup.`;
 
-  const { error: dbErr } = await client.from('content_media').delete().eq('id', id);
+  // The storage removal cannot be undone, so its success is audited before the
+  // row delete can throw, hang, or be lost with the process. The completion
+  // entry below records the row half.
+  let storageErr: { message: string } | null = null;
+  try {
+    const result = await adminClient.storage.from('media').remove([path]);
+    storageErr = result.error;
+  } catch (err) {
+    const error = `Storage delete failed: ${err instanceof Error ? err.message : 'unknown storage error'}`;
+    await auditDelete('failure', { storage_deleted: false, row_deleted: false }, error);
+    return { success: false, error };
+  }
+  if (storageErr) {
+    const error = `Storage delete failed: ${storageErr.message}`;
+    await auditDelete('failure', { storage_deleted: false, row_deleted: false }, error);
+    return { success: false, error };
+  }
+
+  await auditDelete(
+    'success',
+    { storage_deleted: true, row_deleted: false },
+    undefined,
+    'storage_removed'
+  );
+
+  let dbErr: { message: string } | null = null;
+  try {
+    const result = await adminClient.from('content_media').delete().eq('id', id);
+    dbErr = result.error;
+  } catch (err) {
+    const error = rowDeleteFailure(err instanceof Error ? err.message : 'unknown database error');
+    await auditDelete(
+      'failure',
+      { storage_deleted: true, row_deleted: false },
+      error,
+      'row_delete_failed'
+    );
+    return { success: false, error };
+  }
   if (dbErr) {
     // The storage object is already gone. Returning the raw database error
     // would leave the organizer guessing whether the media still exists; say
     // which half completed and that retrying will finish the cleanup.
-    return {
-      success: false,
-      error: `The file was removed from storage, but the media record could not be deleted: ${dbErr.message}. Retry the delete to finish cleanup.`,
-    };
+    const error = rowDeleteFailure(dbErr.message);
+    await auditDelete(
+      'failure',
+      { storage_deleted: true, row_deleted: false },
+      error,
+      'row_delete_failed'
+    );
+    return { success: false, error };
   }
 
+  await auditDelete('success', { storage_deleted: true, row_deleted: true }, undefined, 'complete');
   return { success: true, data: { deleted: true } };
 }
 

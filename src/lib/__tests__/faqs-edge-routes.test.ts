@@ -8,14 +8,30 @@ const requireAdminApi = vi.hoisted(() => vi.fn());
 vi.mock('@/lib/supabase-server', () => ({ createPublicClient }));
 vi.mock('@/lib/admin-api-auth', () => ({ requireAdminApi }));
 
-function adminSession(supabase: unknown) {
+const audits: Record<string, unknown>[] = [];
+
+function adminSession(supabase: { from: (table: string) => unknown }) {
+  const client = {
+    from: (table: string) => {
+      if (table === 'admin_audit_log') {
+        return {
+          insert: async (row: Record<string, unknown>) => {
+            audits.push(row);
+            return { error: null };
+          },
+        };
+      }
+      return supabase.from(table);
+    },
+  };
   return {
     ok: true as const,
     session: {
-      supabase,
-      adminClient: supabase,
+      supabase: client,
+      adminClient: client,
       adminUserId: 'admin-1',
       adminEmail: 'admin@example.com',
+      mfaLevel: 'aal2' as const,
     },
   };
 }
@@ -25,6 +41,7 @@ const { GET: getFaqs, POST: postFaq, DELETE: deleteFaq } = await import('@/app/a
 describe('FAQs Edge API Route (/api/faqs)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    audits.length = 0;
   });
 
   it('GET returns formatted faqs and distinct categories', async () => {
@@ -126,6 +143,15 @@ describe('FAQs Edge API Route (/api/faqs)', () => {
     const json = await res.json();
     expect(json.success).toBe(true);
     expect(json.faq.question).toBe('How do I join?');
+    expect(audits[0]).toMatchObject({
+      actor_user_id: 'admin-1',
+      action: 'faq.save',
+      target_type: 'faq',
+      target_id: 'how-to-join',
+      target_label: 'How do I join?',
+      mfa_level: 'aal2',
+      outcome: 'success',
+    });
   });
 
   it('DELETE deletes FAQ by slug when user is admin', async () => {
@@ -147,5 +173,69 @@ describe('FAQs Edge API Route (/api/faqs)', () => {
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.success).toBe(true);
+    expect(audits[0]).toMatchObject({
+      action: 'faq.delete',
+      target_type: 'faq',
+      target_id: 'old-faq',
+      outcome: 'success',
+      after: { deleted: true },
+    });
+  });
+
+  it('POST audits a failed FAQ save', async () => {
+    requireAdminApi.mockResolvedValue(
+      adminSession({
+        from: () => ({
+          upsert: () => ({
+            select: () => ({
+              single: async () => ({ data: null, error: { message: 'faqs table is locked' } }),
+            }),
+          }),
+        }),
+      })
+    );
+
+    const req = new Request('https://indivisiblefairoaks.org/api/faqs', {
+      method: 'POST',
+      body: JSON.stringify({
+        category: 'Chapter',
+        question: 'What fails?',
+        answer: 'A test.',
+      }),
+    }) as unknown as NextRequest;
+
+    const res = await postFaq(req);
+    expect(res.status).toBe(500);
+    expect(audits[0]).toMatchObject({
+      action: 'faq.save',
+      target_id: 'what-fails',
+      outcome: 'failure',
+      error: 'faqs table is locked',
+    });
+  });
+
+  it('DELETE audits a failed FAQ delete', async () => {
+    requireAdminApi.mockResolvedValue(
+      adminSession({
+        from: () => ({
+          delete: () => ({
+            eq: async () => ({ error: { message: 'faqs delete failed' } }),
+          }),
+        }),
+      })
+    );
+
+    const req = new Request('https://indivisiblefairoaks.org/api/faqs?slug=old-faq', {
+      method: 'DELETE',
+    }) as unknown as NextRequest;
+
+    const res = await deleteFaq(req);
+    expect(res.status).toBe(500);
+    expect(audits[0]).toMatchObject({
+      action: 'faq.delete',
+      target_id: 'old-faq',
+      outcome: 'failure',
+      error: 'faqs delete failed',
+    });
   });
 });

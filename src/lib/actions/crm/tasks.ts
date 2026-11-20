@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { CRM_TASKS_MAX_PAGE_SIZE, CRM_TASKS_PAGE_SIZE } from '@/lib/crm-limits';
 import type { CRMTask, CRMTaskWithContact } from '@/types/crm';
 import type { Database } from '@/types/supabase';
-import { type CRMResult, requireCRMAdmin, revalidateCRMRoutes } from './shared';
+import { type CRMResult, recordCRMAudit, requireCRMAdmin, revalidateCRMRoutes } from './shared';
 
 export type TaskScope = 'open' | 'overdue' | 'upcoming' | 'done' | 'all';
 
@@ -89,27 +89,52 @@ export async function getCRMTasksForContact(contactId: string): Promise<CRMTask[
 export async function addCRMTask(
   rawInput: z.input<typeof taskSchema>
 ): Promise<CRMResult<{ taskId?: string }>> {
-  const { adminClient, adminUserId } = await requireCRMAdmin();
+  const admin = await requireCRMAdmin();
+  const { adminClient, adminUserId } = admin;
   const parsed = taskSchema.safeParse(rawInput);
   if (!parsed.success) {
     return { success: false, error: parsed.error.issues[0]?.message || 'Invalid input' };
   }
 
   const { contactId, title, details, dueAt } = parsed.data;
+  const insertPayload = {
+    contact_id: contactId || null,
+    title,
+    details: details || null,
+    due_at: dueAt || null,
+    created_by: adminUserId,
+  };
+  const auditCreate = (
+    outcome: 'success' | 'failure',
+    targetId: string,
+    after: unknown,
+    error?: string
+  ) =>
+    recordCRMAudit(admin, {
+      action: 'crm.task.create',
+      targetType: 'crm_task',
+      targetId,
+      targetLabel: title,
+      before: null,
+      after,
+      outcome,
+      error: error ?? null,
+      metadata: { contact_id: contactId || null },
+    });
   const { data, error } = await adminClient
     .from('crm_tasks')
-    .insert({
-      contact_id: contactId || null,
-      title,
-      details: details || null,
-      due_at: dueAt || null,
-      created_by: adminUserId,
-    })
+    .insert(insertPayload)
     .select('id')
     .single();
 
-  if (error) return { success: false, error: error.message };
+  if (error) {
+    // A refused insert created no row, so the target is the creation attempt
+    // rather than the contact the task would have belonged to.
+    await auditCreate('failure', 'new-task', insertPayload, error.message);
+    return { success: false, error: error.message };
+  }
 
+  await auditCreate('success', data.id, { ...insertPayload, id: data.id });
   revalidateCRMRoutes(contactId);
   return { success: true, taskId: data.id };
 }
@@ -125,36 +150,86 @@ export async function setCRMTaskStatus({
   const parsed = taskStatusSchema.safeParse({ id, status });
   if (!parsed.success)
     return { success: false, error: parsed.error.issues[0]?.message ?? 'Invalid input' };
-  const { adminClient } = await requireCRMAdmin();
+  const admin = await requireCRMAdmin();
+  const { adminClient } = admin;
   const now = new Date().toISOString();
+  const updatePayload = {
+    status: parsed.data.status,
+    completed_at: parsed.data.status === 'done' ? now : null,
+    updated_at: now,
+  };
   const { data, error } = await adminClient
     .from('crm_tasks')
-    .update({
-      status: parsed.data.status,
-      completed_at: parsed.data.status === 'done' ? now : null,
-      updated_at: now,
-    })
+    .update(updatePayload)
     .eq('id', parsed.data.id)
-    .select('contact_id')
+    .select('contact_id, title')
     .maybeSingle();
 
-  if (error) return { success: false, error: error.message };
-  if (!data) return { success: false, error: 'That follow-up no longer exists' };
+  if (error || !data) {
+    const message = error ? error.message : 'That follow-up no longer exists';
+    await recordCRMAudit(admin, {
+      action: 'crm.task.status',
+      targetType: 'crm_task',
+      targetId: parsed.data.id,
+      targetLabel: null,
+      before: null,
+      after: updatePayload,
+      outcome: 'failure',
+      error: message,
+    });
+    return { success: false, error: message };
+  }
+  // `.select()` returns the post-update row, so there is no honest `before`
+  // state here; the payload records the change without relabelling the new
+  // status as the old one.
+  await recordCRMAudit(admin, {
+    action: 'crm.task.status',
+    targetType: 'crm_task',
+    targetId: parsed.data.id,
+    targetLabel: data.title ?? parsed.data.id,
+    before: null,
+    after: updatePayload,
+    outcome: 'success',
+    metadata: { contact_id: data.contact_id ?? null },
+  });
   revalidateCRMRoutes(data.contact_id);
   return { success: true };
 }
 
 export async function deleteCRMTask(id: string): Promise<CRMResult> {
-  const { adminClient } = await requireCRMAdmin();
+  const admin = await requireCRMAdmin();
+  const { adminClient } = admin;
   const { data, error } = await adminClient
     .from('crm_tasks')
     .delete()
     .eq('id', id)
-    .select('contact_id')
+    .select('contact_id, title')
     .maybeSingle();
 
-  if (error) return { success: false, error: error.message };
-  if (!data) return { success: false, error: 'That follow-up no longer exists' };
+  if (error || !data) {
+    const message = error ? error.message : 'That follow-up no longer exists';
+    await recordCRMAudit(admin, {
+      action: 'crm.task.delete',
+      targetType: 'crm_task',
+      targetId: id,
+      targetLabel: null,
+      before: null,
+      after: null,
+      outcome: 'failure',
+      error: message,
+    });
+    return { success: false, error: message };
+  }
+  await recordCRMAudit(admin, {
+    action: 'crm.task.delete',
+    targetType: 'crm_task',
+    targetId: id,
+    targetLabel: data.title ?? id,
+    before: { id, contact_id: data.contact_id, title: data.title },
+    after: { deleted: true },
+    outcome: 'success',
+    metadata: { contact_id: data.contact_id ?? null },
+  });
   revalidateCRMRoutes(data.contact_id);
   return { success: true };
 }
@@ -162,7 +237,8 @@ export async function deleteCRMTask(id: string): Promise<CRMResult> {
 export async function updateCRMTask(
   rawInput: z.input<typeof updateTaskSchema>
 ): Promise<CRMResult> {
-  const { adminClient } = await requireCRMAdmin();
+  const admin = await requireCRMAdmin();
+  const { adminClient } = admin;
   const parsed = updateTaskSchema.safeParse(rawInput);
   if (!parsed.success) {
     return { success: false, error: parsed.error.issues[0]?.message || 'Invalid input' };
@@ -185,11 +261,33 @@ export async function updateCRMTask(
     .from('crm_tasks')
     .update(updatePayload)
     .eq('id', id)
-    .select('contact_id')
+    .select('contact_id, title')
     .maybeSingle();
 
-  if (error) return { success: false, error: error.message };
-  if (!data) return { success: false, error: 'That follow-up no longer exists' };
+  if (error || !data) {
+    const message = error ? error.message : 'That follow-up no longer exists';
+    await recordCRMAudit(admin, {
+      action: 'crm.task.update',
+      targetType: 'crm_task',
+      targetId: id,
+      targetLabel: updatePayload.title ?? null,
+      before: null,
+      after: updatePayload,
+      outcome: 'failure',
+      error: message,
+    });
+    return { success: false, error: message };
+  }
+  await recordCRMAudit(admin, {
+    action: 'crm.task.update',
+    targetType: 'crm_task',
+    targetId: id,
+    targetLabel: data.title ?? id,
+    before: null,
+    after: updatePayload,
+    outcome: 'success',
+    metadata: { contact_id: data.contact_id ?? contactId ?? null },
+  });
   revalidateCRMRoutes(data.contact_id || contactId);
   return { success: true };
 }
@@ -209,16 +307,6 @@ const taskSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'Due date must be YYYY-MM-DD')
     .nullable()
     .optional(),
-});
-
-const noteSchema = z.object({
-  contactId: z.string().uuid(),
-  title: z
-    .string()
-    .trim()
-    .min(1, 'Title is required')
-    .max(200, 'Title must be 200 characters or fewer'),
-  description: z.string().trim().max(2000, 'Notes must be 2000 characters or fewer').optional(),
 });
 
 const updateTaskSchema = z.object({

@@ -2,7 +2,13 @@ import { z } from 'zod';
 import { CRM_CONTACT_CONSENT_VALUES } from '@/lib/crm-contact-options';
 import { MAX_TAGS_PER_CONTACT, normalizeTags } from '@/lib/crm-import';
 import type { CRMSegment } from '@/types/crm';
-import { type CRMResult, requireCRMAdmin, revalidateCRMRoutes, tagSchema } from './shared';
+import {
+  type CRMResult,
+  recordCRMAudit,
+  requireCRMAdmin,
+  revalidateCRMRoutes,
+  tagSchema,
+} from './shared';
 
 /**
  * A reusable filter. `consent` is a first-class member, not a spare column:
@@ -71,7 +77,8 @@ export async function getCRMSegments(): Promise<{ segments: CRMSegment[]; trunca
 export async function saveCRMSegment(
   rawInput: z.input<typeof segmentSchema>
 ): Promise<CRMResult<{ segmentId?: string }>> {
-  const { adminClient } = await requireCRMAdmin();
+  const admin = await requireCRMAdmin();
+  const { adminClient } = admin;
   const parsed = segmentSchema.safeParse(rawInput);
   if (!parsed.success) {
     return { success: false, error: parsed.error.issues[0]?.message || 'Invalid input' };
@@ -119,6 +126,24 @@ export async function saveCRMSegment(
     };
   };
 
+  const auditSave = (
+    outcome: 'success' | 'failure',
+    targetId: string,
+    before: unknown,
+    after: unknown,
+    error?: string
+  ) =>
+    recordCRMAudit(admin, {
+      action: 'crm.segment.save',
+      targetType: 'crm_segment',
+      targetId,
+      targetLabel: name,
+      before,
+      after,
+      outcome,
+      error: error ?? null,
+    });
+
   if (id) {
     const { data, error } = await segments
       .from('crm_segments')
@@ -126,37 +151,65 @@ export async function saveCRMSegment(
       .eq('id', id)
       .select('id')
       .maybeSingle();
-    if (error) return { success: false, error: error.message };
     // A concurrent delete between the read and the write matches no row. Asking
     // for `maybeSingle()` makes that empty result observable instead of turning
     // it into a raw PGRST116 error the organizer cannot act on.
-    if (!data) return { success: false, error: 'That segment no longer exists' };
+    if (error || !data) {
+      const message = error ? error.message : 'That segment no longer exists';
+      await auditSave('failure', id, { id }, row, message);
+      return { success: false, error: message };
+    }
+    await auditSave('success', data.id, { id }, { ...row, id: data.id });
     revalidateCRMRoutes();
     return { success: true, segmentId: data.id };
   }
 
   const { data, error } = await segments.from('crm_segments').insert(row).select('id').single();
-  if (error) {
-    if (error.code === '23505') {
-      return { success: false, error: 'A segment with that name already exists' };
+  if (error || !data) {
+    let message = 'The segment could not be created';
+    if (error) {
+      message = error.code === '23505' ? 'A segment with that name already exists' : error.message;
     }
-    return { success: false, error: error.message };
+    await auditSave('failure', name, null, row, message);
+    return { success: false, error: message };
   }
-  if (!data) return { success: false, error: 'The segment could not be created' };
+  await auditSave('success', data.id, null, { ...row, id: data.id });
   revalidateCRMRoutes();
   return { success: true, segmentId: data.id };
 }
 
 export async function deleteCRMSegment(id: string): Promise<CRMResult> {
-  const { adminClient } = await requireCRMAdmin();
+  const admin = await requireCRMAdmin();
+  const { adminClient } = admin;
   const { data, error } = await adminClient
     .from('crm_segments')
     .delete()
     .eq('id', id)
-    .select('id')
+    .select('id, name')
     .maybeSingle();
-  if (error) return { success: false, error: error.message };
-  if (!data) return { success: false, error: 'Segment not found' };
+  if (error || !data) {
+    const message = error ? error.message : 'Segment not found';
+    await recordCRMAudit(admin, {
+      action: 'crm.segment.delete',
+      targetType: 'crm_segment',
+      targetId: id,
+      targetLabel: null,
+      before: null,
+      after: null,
+      outcome: 'failure',
+      error: message,
+    });
+    return { success: false, error: message };
+  }
+  await recordCRMAudit(admin, {
+    action: 'crm.segment.delete',
+    targetType: 'crm_segment',
+    targetId: data.id,
+    targetLabel: data.name ?? data.id,
+    before: { id: data.id, name: data.name },
+    after: { deleted: true },
+    outcome: 'success',
+  });
   revalidateCRMRoutes();
   return { success: true };
 }

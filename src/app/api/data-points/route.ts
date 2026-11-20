@@ -2,8 +2,9 @@ import { revalidatePath, revalidateTag } from 'next/cache';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireAdminApi } from '@/lib/admin-api-auth';
-import { readJsonBodyWithLimit } from '@/lib/request-body';
+import { recordAdminAudit } from '@/lib/admin-audit';
 import { env } from '@/lib/env';
+import { readJsonBodyWithLimit } from '@/lib/request-body';
 import { createPublicClient } from '@/lib/supabase-server';
 
 /** Bounded JSON bodies: these routes are reachable by admins, not the open internet. */
@@ -158,6 +159,25 @@ export async function POST(req: NextRequest) {
       label: payload.label || payload.key,
       updated_at: new Date().toISOString(),
     };
+    const auditSave = (
+      outcome: 'success' | 'failure',
+      targetLabel: string,
+      after: unknown,
+      error?: string
+    ) =>
+      recordAdminAudit(auth.session.adminClient, {
+        actorUserId: auth.session.adminUserId,
+        actorEmail: auth.session.adminEmail,
+        action: 'data_point.save',
+        targetType: 'data_point',
+        targetId: payload.key,
+        targetLabel,
+        before: null,
+        after,
+        mfaLevel: auth.session.mfaLevel,
+        outcome,
+        error: error ?? null,
+      });
 
     // The write goes straight to the database, with no service-key hop through
     // the `data-points` edge function.
@@ -180,8 +200,12 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (error) {
+      await auditSave('failure', upsertRow.label, upsertRow, error.message);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
+
+    const saved = (data ?? null) as { label?: string } | null;
+    await auditSave('success', saved?.label ?? upsertRow.label, data ?? upsertRow);
 
     try {
       revalidateTag('data-points', 'hours');
@@ -228,10 +252,27 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'key parameter required' }, { status: 400 });
     }
 
+    const auditDelete = (outcome: 'success' | 'failure', after: unknown, error?: string) =>
+      recordAdminAudit(auth.session.adminClient, {
+        actorUserId: auth.session.adminUserId,
+        actorEmail: auth.session.adminEmail,
+        action: 'data_point.delete',
+        targetType: 'data_point',
+        targetId: key,
+        targetLabel: key,
+        before: null,
+        after,
+        mfaLevel: auth.session.mfaLevel,
+        outcome,
+        error: error ?? null,
+      });
+
     const { error } = await auth.session.supabase.from('data_points').delete().eq('key', key);
     if (error) {
+      await auditDelete('failure', null, error.message);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
+    await auditDelete('success', { deleted: true });
 
     try {
       revalidateTag('data-points', 'hours');

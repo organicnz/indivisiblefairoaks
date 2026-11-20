@@ -3,7 +3,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { revalidatePath, revalidateTag } from 'next/cache';
 import { z } from 'zod';
-import { requireAdmin } from '@/lib/admin-auth';
+import { type AdminAuditEntry, recordAdminAudit } from '@/lib/admin-audit';
+import { type AdminSession, requireAdmin } from '@/lib/admin-auth';
 import { env } from '@/lib/env';
 import { rateLimit } from '@/lib/rate-limit';
 import {
@@ -69,9 +70,25 @@ const FALLBACK_SETTINGS: MobilizeSettings = {
 };
 
 /** The new tables predate the next `types:generate` run, so these reads are untyped. */
+async function adminContext(): Promise<{ session: AdminSession; client: SupabaseClient }> {
+  const session = await requireAdmin();
+  return { session, client: session.adminClient as unknown as SupabaseClient };
+}
+
 async function adminClient(): Promise<SupabaseClient> {
-  const { adminClient } = await requireAdmin();
-  return adminClient as unknown as SupabaseClient;
+  return (await adminContext()).client;
+}
+
+function recordMobilizeAudit(
+  session: AdminSession,
+  entry: Omit<AdminAuditEntry, 'actorUserId' | 'actorEmail' | 'mfaLevel'>
+) {
+  return recordAdminAudit(session.adminClient, {
+    ...entry,
+    actorUserId: session.adminUserId,
+    actorEmail: session.adminEmail,
+    mfaLevel: session.mfaLevel,
+  });
 }
 
 const settingsSchema = z.object({
@@ -187,7 +204,7 @@ export async function saveMobilizeSettings(
       return fail(parsed.error.issues[0]?.message ?? 'Invalid Mobilize settings');
     }
 
-    const client = await adminClient();
+    const { session, client } = await adminContext();
     const row = {
       id: 1,
       ...parsed.data,
@@ -201,7 +218,28 @@ export async function saveMobilizeSettings(
       .select('*')
       .single();
 
-    if (error) return fail(error.message);
+    if (error) {
+      await recordMobilizeAudit(session, {
+        action: 'mobilize.settings.save',
+        targetType: 'mobilize_settings',
+        targetId: '1',
+        targetLabel: 'Mobilize settings',
+        before: null,
+        after: row,
+        outcome: 'failure',
+        error: error.message,
+      });
+      return fail(error.message);
+    }
+    await recordMobilizeAudit(session, {
+      action: 'mobilize.settings.save',
+      targetType: 'mobilize_settings',
+      targetId: '1',
+      targetLabel: 'Mobilize settings',
+      before: null,
+      after: data as MobilizeSettingsRecord,
+      outcome: 'success',
+    });
     return { success: true, data: data as MobilizeSettingsRecord };
   } catch (err) {
     return fail(err instanceof Error ? err.message : 'Failed to save Mobilize settings');
@@ -371,7 +409,7 @@ export async function importMobilizeEvent(
   input: string
 ): Promise<MobilizeActionResult<MobilizeImportResult>> {
   try {
-    const client = await adminClient();
+    const { session, client } = await adminContext();
     const eventId = parseMobilizeEventUrl(input);
     if (!eventId)
       return fail(
@@ -398,6 +436,25 @@ export async function importMobilizeEvent(
       last_synced_at: nowIso,
       updated_at: nowIso,
     };
+    const auditImport = (
+      outcome: 'success' | 'failure',
+      targetId: string,
+      before: unknown,
+      after: unknown,
+      error?: string,
+      mode?: 'updated' | 'adopted' | 'created'
+    ) =>
+      recordMobilizeAudit(session, {
+        action: 'mobilize.event.import',
+        targetType: 'event',
+        targetId,
+        targetLabel: mapped.row.title,
+        before,
+        after,
+        outcome,
+        error: error ?? null,
+        metadata: { external_id: String(eventId), mode, warnings: mapped.warnings.length },
+      });
 
     const { data: alreadyOwned, error: ownedError } = await client
       .from('events')
@@ -415,8 +472,26 @@ export async function importMobilizeEvent(
         .eq('slug', alreadyOwned.slug)
         .select('slug')
         .maybeSingle();
-      if (error) return fail(error.message);
-      if (!updated) return fail('That event no longer exists');
+      if (error || !updated) {
+        const message = error ? error.message : 'That event no longer exists';
+        await auditImport(
+          'failure',
+          alreadyOwned.slug,
+          { slug: alreadyOwned.slug },
+          { ...facts, slug: alreadyOwned.slug },
+          message,
+          'updated'
+        );
+        return fail(message);
+      }
+      await auditImport(
+        'success',
+        alreadyOwned.slug,
+        { slug: alreadyOwned.slug },
+        { ...facts, slug: alreadyOwned.slug },
+        undefined,
+        'updated'
+      );
       revalidateEvents();
       return {
         success: true,
@@ -447,8 +522,26 @@ export async function importMobilizeEvent(
         .eq('slug', manualMatch.slug)
         .select('slug')
         .maybeSingle();
-      if (error) return fail(error.message);
-      if (!updated) return fail('That event no longer exists');
+      if (error || !updated) {
+        const message = error ? error.message : 'That event no longer exists';
+        await auditImport(
+          'failure',
+          manualMatch.slug,
+          { slug: manualMatch.slug },
+          { ...facts, source: 'mobilize', external_id: String(eventId), slug: manualMatch.slug },
+          message,
+          'adopted'
+        );
+        return fail(message);
+      }
+      await auditImport(
+        'success',
+        manualMatch.slug,
+        { slug: manualMatch.slug },
+        { ...facts, source: 'mobilize', external_id: String(eventId), slug: manualMatch.slug },
+        undefined,
+        'adopted'
+      );
       revalidateEvents();
       return {
         success: true,
@@ -461,7 +554,7 @@ export async function importMobilizeEvent(
       };
     }
 
-    const { error } = await client.from('events').insert({
+    const insertRow = {
       ...mapped.row,
       source: 'mobilize',
       highlight: false,
@@ -470,9 +563,14 @@ export async function importMobilizeEvent(
       sync_locked: false,
       last_synced_at: nowIso,
       updated_at: nowIso,
-    });
-    if (error) return fail(error.message);
+    };
+    const { error } = await client.from('events').insert(insertRow);
+    if (error) {
+      await auditImport('failure', mapped.row.slug, null, insertRow, error.message, 'created');
+      return fail(error.message);
+    }
 
+    await auditImport('success', mapped.row.slug, null, insertRow, undefined, 'created');
     revalidateEvents();
     return {
       success: true,
@@ -570,20 +668,38 @@ export async function setMobilizeRule(
     const cleanId = String(externalId).trim();
     if (!/^\d+$/.test(cleanId)) return fail('A numeric Mobilize event id is required');
 
-    const client = await adminClient();
+    const { session, client } = await adminContext();
+    const auditRule = (outcome: 'success' | 'failure', error?: string) =>
+      recordMobilizeAudit(session, {
+        action: 'mobilize.event.rule',
+        targetType: 'mobilize_event_rule',
+        targetId: cleanId,
+        targetLabel: `Mobilize event ${cleanId}`,
+        before: null,
+        after: { external_id: cleanId, action },
+        outcome,
+        error: error ?? null,
+      });
     if (action === null) {
       const { error } = await client
         .from('mobilize_event_rules')
         .delete()
         .eq('external_id', cleanId);
-      if (error) return fail(error.message);
+      if (error) {
+        await auditRule('failure', error.message);
+        return fail(error.message);
+      }
     } else {
       const { error } = await client
         .from('mobilize_event_rules')
         .upsert({ external_id: cleanId, action }, { onConflict: 'external_id' });
-      if (error) return fail(error.message);
+      if (error) {
+        await auditRule('failure', error.message);
+        return fail(error.message);
+      }
     }
 
+    await auditRule('success');
     revalidateEvents();
     return { success: true, data: null };
   } catch (err) {
@@ -601,16 +717,32 @@ export async function setMobilizeEventHidden(
     const cleanId = String(externalId).trim();
     if (!/^\d+$/.test(cleanId)) return fail('A numeric Mobilize event id is required');
 
-    const client = await adminClient();
+    const { session, client } = await adminContext();
+    const updatePayload = { is_hidden: hidden, updated_at: new Date().toISOString() };
+    const auditVisibility = (outcome: 'success' | 'failure', error?: string) =>
+      recordMobilizeAudit(session, {
+        action: 'mobilize.event.visibility',
+        targetType: 'event',
+        targetId: cleanId,
+        targetLabel: `Mobilize event ${cleanId}`,
+        before: null,
+        after: updatePayload,
+        outcome,
+        error: error ?? null,
+      });
     const { data: updated, error } = await client
       .from('events')
-      .update({ is_hidden: hidden, updated_at: new Date().toISOString() })
+      .update(updatePayload)
       .eq('external_id', cleanId)
       .select('id')
       .maybeSingle();
-    if (error) return fail(error.message);
-    if (!updated) return fail('That event no longer exists');
+    if (error || !updated) {
+      const message = error ? error.message : 'That event no longer exists';
+      await auditVisibility('failure', message);
+      return fail(message);
+    }
 
+    await auditVisibility('success');
     revalidateEvents();
     return { success: true, data: null };
   } catch (err) {
@@ -628,16 +760,32 @@ export async function setEventSyncLock(
     const cleanSlug = typeof slug === 'string' ? slug.trim() : '';
     if (!cleanSlug || cleanSlug.length > 200) return fail('A valid event slug is required');
 
-    const client = await adminClient();
+    const { session, client } = await adminContext();
+    const updatePayload = { sync_locked: locked, updated_at: new Date().toISOString() };
+    const auditLock = (outcome: 'success' | 'failure', error?: string) =>
+      recordMobilizeAudit(session, {
+        action: 'mobilize.event.sync_lock',
+        targetType: 'event',
+        targetId: cleanSlug,
+        targetLabel: cleanSlug,
+        before: null,
+        after: updatePayload,
+        outcome,
+        error: error ?? null,
+      });
     const { data: updated, error } = await client
       .from('events')
-      .update({ sync_locked: locked, updated_at: new Date().toISOString() })
+      .update(updatePayload)
       .eq('slug', cleanSlug)
       .select('id')
       .maybeSingle();
-    if (error) return fail(error.message);
-    if (!updated) return fail('That event no longer exists');
+    if (error || !updated) {
+      const message = error ? error.message : 'That event no longer exists';
+      await auditLock('failure', message);
+      return fail(message);
+    }
 
+    await auditLock('success');
     revalidateEvents();
     return { success: true, data: null };
   } catch (err) {
@@ -650,9 +798,7 @@ export async function getMobilizeSyncRuns(
 ): Promise<MobilizeActionResult<MobilizeSyncRun[]>> {
   try {
     // `NaN` survives `Math.max`/`Math.min` and reaches PostgREST as `limit=NaN`.
-    const safeLimit = Number.isFinite(limit)
-      ? Math.min(Math.max(Math.floor(limit), 1), 50)
-      : 10;
+    const safeLimit = Number.isFinite(limit) ? Math.min(Math.max(Math.floor(limit), 1), 50) : 10;
 
     const client = await adminClient();
     const { data, error } = await client
@@ -673,8 +819,13 @@ export async function getMobilizeSyncRuns(
  * sync, not a second copy in Node.
  */
 export async function runMobilizeSyncNow(): Promise<MobilizeActionResult<Record<string, unknown>>> {
+  let session: AdminSession | null = null;
+  // The audit target is the sync attempt itself, not the admin who asked for
+  // it. One id per invocation keeps this attempt's success or failure record
+  // pointing at the same operation; the requesting admin stays in metadata.
+  const operationId = crypto.randomUUID();
   try {
-    const session = await requireAdmin();
+    session = await requireAdmin();
 
     // "Sync now" fans out to Mobilize and writes many rows. A double-click or
     // a scripted admin session should not start overlapping runs.
@@ -703,16 +854,51 @@ export async function runMobilizeSyncNow(): Promise<MobilizeActionResult<Record<
 
     const body = (await response.json().catch(() => ({}))) as Record<string, unknown>;
     if (!response.ok) {
-      return fail(
+      const error =
         typeof body.error === 'string'
           ? body.error
-          : `The sync function returned HTTP ${response.status}`
-      );
+          : `The sync function returned HTTP ${response.status}`;
+      await recordMobilizeAudit(session, {
+        action: 'mobilize.sync.run',
+        targetType: 'mobilize_sync',
+        targetId: operationId,
+        targetLabel: 'Manual Mobilize sync',
+        before: null,
+        after: { status: response.status, body },
+        outcome: 'failure',
+        error,
+        metadata: { requested_by: session.adminUserId },
+      });
+      return fail(error);
     }
 
+    await recordMobilizeAudit(session, {
+      action: 'mobilize.sync.run',
+      targetType: 'mobilize_sync',
+      targetId: operationId,
+      targetLabel: 'Manual Mobilize sync',
+      before: null,
+      after: body,
+      outcome: 'success',
+      metadata: { requested_by: session.adminUserId },
+    });
     revalidateEvents();
     return { success: true, data: body };
   } catch (err) {
-    return fail(err instanceof Error ? err.message : 'Failed to run the Mobilize sync');
+    const error = err instanceof Error ? err.message : 'Failed to run the Mobilize sync';
+    if (session) {
+      await recordMobilizeAudit(session, {
+        action: 'mobilize.sync.run',
+        targetType: 'mobilize_sync',
+        targetId: operationId,
+        targetLabel: 'Manual Mobilize sync',
+        before: null,
+        after: null,
+        outcome: 'failure',
+        error,
+        metadata: { requested_by: session.adminUserId },
+      });
+    }
+    return fail(error);
   }
 }

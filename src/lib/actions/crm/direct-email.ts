@@ -2,6 +2,7 @@ import { brandShell, escapeHtml, safeSubject, sendEmail } from '@/lib/email';
 import { env } from '@/lib/env';
 import {
   type CRMResult,
+  recordCRMAudit,
   requireCRMAdmin,
   revalidateCRMRoutes,
   sendBlockedInE2E,
@@ -23,7 +24,8 @@ export async function sendCRMDirectEmail({
   const blocked = sendBlockedInE2E();
   if (blocked) return blocked;
 
-  const { adminClient, adminUserId } = await requireCRMAdmin();
+  const admin = await requireCRMAdmin();
+  const { adminClient, adminUserId } = admin;
 
   if (!subject.trim() || !message.trim()) {
     return { success: false, error: 'Subject and message are required' };
@@ -65,6 +67,21 @@ export async function sendCRMDirectEmail({
   }
 
   const cleanSubject = safeSubject(subject.trim());
+  const auditDirectEmail = (
+    outcome: 'success' | 'failure',
+    after: Record<string, unknown>,
+    error?: string
+  ) =>
+    recordCRMAudit(admin, {
+      action: 'crm.direct_email.send',
+      targetType: 'crm_contact',
+      targetId: contactId,
+      targetLabel: contact.email,
+      before: null,
+      after,
+      outcome,
+      error: error ?? null,
+    });
   const recipientName =
     [contact.first_name, contact.last_name].filter(Boolean).join(' ') || 'Supporter';
   const escapedMessage = escapeHtml(message.trim()).replace(/\n/g, '<br />');
@@ -116,12 +133,14 @@ export async function sendCRMDirectEmail({
   });
 
   if (!sendResult.ok) {
-    return { success: false, error: `Email dispatch failed: ${sendResult.error}` };
+    const error = `Email dispatch failed: ${sendResult.error}`;
+    await auditDirectEmail('failure', { email: contact.email, subject: cleanSubject }, error);
+    return { success: false, error };
   }
 
   const now = new Date().toISOString();
 
-  const [contactUpdate, activityInsert] = await Promise.all([
+  const [contactUpdate, activityInsert, auditResult] = await Promise.all([
     adminClient
       .from('crm_contacts')
       .update({ last_outbound_at: now, last_contacted_at: now })
@@ -136,6 +155,11 @@ export async function sendCRMDirectEmail({
       metadata: { resend_id: sendResult.id, subject: cleanSubject },
       created_by: adminUserId,
     }),
+    auditDirectEmail('success', {
+      email: contact.email,
+      subject: cleanSubject,
+      resend_id: sendResult.id,
+    }),
   ]);
 
   const postSendWarnings: string[] = [];
@@ -147,6 +171,13 @@ export async function sendCRMDirectEmail({
   }
   if (activityInsert.error) {
     postSendWarnings.push('its CRM timeline entry could not be recorded');
+  }
+  if (!auditResult.ok) {
+    postSendWarnings.push(
+      auditResult.queued
+        ? 'its audit record could not be written immediately and was queued for automatic retry'
+        : 'its audit record could not be written or queued'
+    );
   }
 
   revalidateCRMRoutes(contactId);

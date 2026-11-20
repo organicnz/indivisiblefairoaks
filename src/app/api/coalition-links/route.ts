@@ -2,6 +2,7 @@ import { revalidatePath, revalidateTag } from 'next/cache';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireAdminApi } from '@/lib/admin-api-auth';
+import { recordAdminAudit } from '@/lib/admin-audit';
 import { readJsonBodyWithLimit } from '@/lib/request-body';
 import { createPublicClient } from '@/lib/supabase-server';
 
@@ -110,6 +111,27 @@ export async function POST(req: NextRequest) {
       badge: payload.badge ?? null,
       sort_order: payload.sort_order,
     };
+    const auditSave = (
+      outcome: 'success' | 'failure',
+      targetId: string,
+      targetLabel: string,
+      after: unknown,
+      error?: string
+    ) =>
+      recordAdminAudit(auth.session.adminClient, {
+        actorUserId: auth.session.adminUserId,
+        actorEmail: auth.session.adminEmail,
+        action: 'coalition_link.save',
+        targetType: 'coalition_link',
+        targetId,
+        targetLabel,
+        before: null,
+        after,
+        mfaLevel: auth.session.mfaLevel,
+        outcome,
+        error: error ?? null,
+        metadata: originalSlug ? { original_slug: originalSlug } : null,
+      });
 
     const write = isRename
       ? auth.session.supabase
@@ -120,15 +142,22 @@ export async function POST(req: NextRequest) {
     const { data, error } = await write.select('*').single();
 
     if (error) {
+      const message =
+        error.code === '23505' ? `"${finalSlug}" is already used by another link.` : error.message;
+      await auditSave('failure', finalSlug, payload.name, upsertRow, message);
       if (error.code === '23505') {
-        return NextResponse.json(
-          { error: `"${finalSlug}" is already used by another link.` },
-          { status: 409 }
-        );
+        return NextResponse.json({ error: message }, { status: 409 });
       }
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error: message }, { status: 500 });
     }
 
+    const saved = (data ?? null) as { slug?: string; name?: string } | null;
+    await auditSave(
+      'success',
+      saved?.slug ?? finalSlug,
+      saved?.name ?? payload.name,
+      data ?? upsertRow
+    );
     revalidateTag('coalition-links', 'hours');
     revalidatePath('/links');
 
@@ -166,13 +195,27 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'slug parameter required' }, { status: 400 });
     }
 
-    const { error } = await auth.session.supabase
-      .from('coalition_links')
-      .delete()
-      .eq('slug', slug);
+    const auditDelete = (outcome: 'success' | 'failure', after: unknown, error?: string) =>
+      recordAdminAudit(auth.session.adminClient, {
+        actorUserId: auth.session.adminUserId,
+        actorEmail: auth.session.adminEmail,
+        action: 'coalition_link.delete',
+        targetType: 'coalition_link',
+        targetId: slug,
+        targetLabel: slug,
+        before: null,
+        after,
+        mfaLevel: auth.session.mfaLevel,
+        outcome,
+        error: error ?? null,
+      });
+
+    const { error } = await auth.session.supabase.from('coalition_links').delete().eq('slug', slug);
     if (error) {
+      await auditDelete('failure', null, error.message);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
+    await auditDelete('success', { deleted: true });
 
     revalidateTag('coalition-links', 'hours');
     revalidatePath('/links');

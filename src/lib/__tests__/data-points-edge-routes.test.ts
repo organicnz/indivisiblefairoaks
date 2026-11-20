@@ -11,14 +11,30 @@ vi.mock('@/lib/supabase-server', () => ({ createPublicClient }));
 vi.mock('@/lib/admin-api-auth', () => ({ requireAdminApi }));
 vi.mock('next/cache', () => ({ revalidateTag, revalidatePath }));
 
-function adminSession(supabase: unknown) {
+const audits: Record<string, unknown>[] = [];
+
+function adminSession(supabase: { from: (table: string) => unknown }) {
+  const client = {
+    from: (table: string) => {
+      if (table === 'admin_audit_log') {
+        return {
+          insert: async (row: Record<string, unknown>) => {
+            audits.push(row);
+            return { error: null };
+          },
+        };
+      }
+      return supabase.from(table);
+    },
+  };
   return {
     ok: true as const,
     session: {
-      supabase,
-      adminClient: supabase,
+      supabase: client,
+      adminClient: client,
       adminUserId: 'admin-1',
       adminEmail: 'admin@example.com',
+      mfaLevel: 'aal2' as const,
     },
   };
 }
@@ -32,6 +48,7 @@ const {
 describe('Data Points Edge API Route (/api/data-points)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    audits.length = 0;
   });
 
   it('GET returns mapped key-value pairs and row list', async () => {
@@ -125,6 +142,15 @@ describe('Data Points Edge API Route (/api/data-points)', () => {
     const json = await res.json();
     expect(json.success).toBe(true);
     expect(json.dataPoint.value).toBe('Updated Headline');
+    expect(audits[0]).toMatchObject({
+      actor_user_id: 'admin-1',
+      action: 'data_point.save',
+      target_type: 'data_point',
+      target_id: 'home.hero.headline',
+      target_label: 'Hero Headline',
+      mfa_level: 'aal2',
+      outcome: 'success',
+    });
   });
 
   it('DELETE deletes data point by key when user is admin', async () => {
@@ -149,5 +175,69 @@ describe('Data Points Edge API Route (/api/data-points)', () => {
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.success).toBe(true);
+    expect(audits[0]).toMatchObject({
+      action: 'data_point.delete',
+      target_type: 'data_point',
+      target_id: 'home.hero.headline',
+      outcome: 'success',
+      after: { deleted: true },
+    });
+  });
+
+  it('POST audits a failed data-point save', async () => {
+    requireAdminApi.mockResolvedValue(
+      adminSession({
+        from: () => ({
+          upsert: () => ({
+            select: () => ({
+              single: async () => ({
+                data: null,
+                error: { message: 'data points table is locked' },
+              }),
+            }),
+          }),
+        }),
+      })
+    );
+
+    const req = new Request('https://indivisiblefairoaks.org/api/data-points', {
+      method: 'POST',
+      body: JSON.stringify({ key: 'test.key', value: 'Hello' }),
+    }) as unknown as NextRequest;
+
+    const res = await postDataPoint(req);
+    expect(res.status).toBe(500);
+    expect(audits[0]).toMatchObject({
+      action: 'data_point.save',
+      target_id: 'test.key',
+      target_label: 'test.key',
+      outcome: 'failure',
+      error: 'data points table is locked',
+    });
+  });
+
+  it('DELETE audits a failed data-point delete', async () => {
+    requireAdminApi.mockResolvedValue(
+      adminSession({
+        from: () => ({
+          delete: () => ({
+            eq: async () => ({ error: { message: 'data point delete failed' } }),
+          }),
+        }),
+      })
+    );
+
+    const req = new Request('https://indivisiblefairoaks.org/api/data-points?key=test.key', {
+      method: 'DELETE',
+    }) as unknown as NextRequest;
+
+    const res = await deleteDataPoint(req);
+    expect(res.status).toBe(500);
+    expect(audits[0]).toMatchObject({
+      action: 'data_point.delete',
+      target_id: 'test.key',
+      outcome: 'failure',
+      error: 'data point delete failed',
+    });
   });
 });
