@@ -1,8 +1,9 @@
 #!/usr/bin/env bun
-// Derive Supabase project ref from the environment so a restore/fork only needs
-// secret rotation — no code change. Fail closed when neither the ref nor the
-// project URL is configured: generating against a stale hardcoded project would
-// silently produce types for the wrong schema.
+// Derive the Supabase project ref from the environment, or accept an explicit
+// `--project-ref` from the regeneration guard, which has already verified the
+// migration history against that exact ref. Fail closed when neither the ref nor
+// the project URL is configured: generating against a stale hardcoded project
+// would silently produce types for the wrong schema.
 //
 // NOTE: The Supabase project is shared and contains
 // tables from other applications. After generating, we filter to only the
@@ -10,29 +11,21 @@
 // type union with 60+ foreign tables that break type inference.
 import { resolve } from 'node:path';
 import { loadEnvLocal } from './load-env-local.mjs';
+import { resolveProjectRef } from './project-ref.mjs';
 import { APP_TABLES } from './schema-tables.mjs';
 
 const checkOnly = process.argv.includes('--check');
 
 await loadEnvLocal({ path: resolve('.env.local') });
 
-function projectRef() {
-  const explicit = Bun.env.SUPABASE_PROJECT_REF?.trim();
-  if (explicit) return explicit;
-
-  const url = Bun.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-  if (url) {
-    try {
-      return new URL(url).hostname.split('.')[0];
-    } catch {
-      // Fall through to the configuration error below.
-    }
-  }
-
-  return '';
+let ref;
+try {
+  ref = resolveProjectRef();
+} catch (error) {
+  console.error(`✖  ${error.message}`);
+  process.exit(1);
 }
 
-const ref = projectRef();
 if (!ref) {
   console.error('✖  SUPABASE_PROJECT_REF or NEXT_PUBLIC_SUPABASE_URL is required to generate types.');
   process.exit(1);

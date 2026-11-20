@@ -2,59 +2,66 @@
 /**
  * Regenerate TypeScript types when migrations are pulled via merge.
  *
- * Guard: only regenerate if the Supabase URL resolves to the correct
- * project ref. If .env.local points at a different project (e.g. a
- * personal workspace), skip silently to avoid clobbering committed types.
+ * Guarded: only runs if the merge actually brought in supabase/migrations/*.sql.
+ * It then reads the hosted project's migration history and regenerates only
+ * when every local migration — not just the pulled ones — is recorded as
+ * applied. The pull may arrive before the migration is applied; regenerating
+ * then would overwrite `src/types/supabase.ts` with the pre-migration schema.
+ *
+ * It also skips when SUPABASE_ACCESS_TOKEN is absent: a pull must not fail
+ * because a contributor does not hold the Management API credential.
+ *
+ * Generation is pinned to the verified project ref; it never re-derives the
+ * target from the shell environment after the history check.
  */
 import { lines, runInherit, runText } from '../bun-exec.mjs';
 import { resolveSupabaseAccessToken } from '../supabase-access-token.mjs';
-import { readEnvValue } from './_env-file.mjs';
 import { PROJECT_REF } from './_project-ref.mjs';
+import { regenerateTypesIfApplied, typeGenerationCommand } from './regen-types-guard.mjs';
 
-const changed = lines(
-  runText([
-    'git',
-    'diff-tree',
-    '-r',
-    '--name-only',
-    '--no-commit-id',
-    'ORIG_HEAD',
-    'HEAD',
-    '--',
-    'supabase/migrations/*.sql',
-  ])
-);
-
-if (changed.length === 0) process.exit(0);
-
-// Same no-token policy as post-commit: a pull must not fail because a
-// contributor does not hold the Management API credential. CI catches the
-// stale file once the migration has actually been applied.
-const accessToken = await resolveSupabaseAccessToken();
-if (!accessToken) {
-  console.log('');
-  console.log('ℹ️   SUPABASE_ACCESS_TOKEN is not set — skipping TypeScript type regeneration.');
-  console.log('    After the migration is applied, run: bun run types:generate');
-  process.exit(0);
+function changedMigrationFiles() {
+  return lines(
+    runText([
+      'git',
+      'diff-tree',
+      '-r',
+      '--name-only',
+      '--no-commit-id',
+      'ORIG_HEAD',
+      'HEAD',
+      '--',
+      'supabase/migrations/*.sql',
+    ])
+  );
 }
 
-const supabaseUrl = await readEnvValue('NEXT_PUBLIC_SUPABASE_URL', '.env.local');
+/**
+ * Exported with injectable inputs so the skip paths are tested without a live
+ * project, a token, or a real merge.
+ */
+export async function main({
+  changedFiles,
+  localVersions,
+  accessToken,
+  generate,
+  fetchImpl,
+  log,
+} = {}) {
+  const files = changedFiles ?? changedMigrationFiles();
+  const token = accessToken ?? (await resolveSupabaseAccessToken());
 
-if (supabaseUrl) {
-  const derived = supabaseUrl.replace(/^https:\/\//, '').split('.')[0];
-  if (derived !== PROJECT_REF) {
-    console.log(
-      `⚠️   Skipping type regen — .env.local points to a different project (${derived} ≠ ${PROJECT_REF}).`
-    );
-    console.log('    Run manually if needed: bun run types:generate');
-    process.exit(0);
-  }
+  return regenerateTypesIfApplied({
+    mode: 'merge',
+    changedFiles: files,
+    localVersions,
+    accessToken: token,
+    projectRef: PROJECT_REF,
+    generate: generate ?? ((ref) => runInherit(typeGenerationCommand(ref))),
+    fetchImpl,
+    log,
+  });
 }
 
-console.log('');
-console.log('🗄️   Migrations pulled — regenerating TypeScript types...');
-if (runInherit(['bun', 'run', 'types:generate']) === 0) {
-  console.log('✔   src/types/supabase.ts updated.');
-} else {
-  console.log('⚠️   Type generation failed. Run: bun run types:generate');
+if (process.argv[1]?.endsWith('post-merge-regen-types.mjs')) {
+  await main();
 }

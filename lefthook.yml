@@ -437,8 +437,8 @@ commit-msg:
       run: bun scripts/hooks/commit-msg.mjs {1}
 
 # ─── post-commit ──────────────────────────────────────────────────────────────
-# Auto-regenerate TypeScript types when a migration is committed.
-# Guarded: only runs if the commit actually touched supabase/migrations/*.sql.
+# Auto-regenerate TypeScript types after the committed migration is applied.
+# Guarded: only runs if the commit touched supabase/migrations/*.sql and every local migration is applied.
 post-commit:
   commands:
     regen-types-on-migration:

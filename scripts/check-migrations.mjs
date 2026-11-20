@@ -45,33 +45,11 @@
  */
 
 import { join } from 'node:path';
-
-const API = 'https://api.supabase.com';
+import { readAppliedMigrationVersions } from './migration-history.mjs';
 
 const notice = (m) => console.log(`::notice::${m}`);
 const error = (m) => console.log(`::error::${m}`);
 const warn = (m) => console.log(`::warning::${m}`);
-
-async function api(query, { ref, token }) {
-  const res = await fetch(`${API}/v1/projects/${ref}/database/query`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query }),
-  });
-  const text = await res.text();
-  if (!res.ok) throw new Error(`Management API HTTP ${res.status}: ${text.slice(0, 300)}`);
-  let parsed;
-  try {
-    parsed = JSON.parse(text);
-  } catch {
-    throw new Error('Management API returned non-JSON');
-  }
-  if (Array.isArray(parsed)) return parsed;
-  for (const key of ['result', 'data', 'rows', 'results']) {
-    if (Array.isArray(parsed?.[key])) return parsed[key];
-  }
-  throw new Error(`Unrecognized API response shape (keys: ${Object.keys(parsed ?? {}).join(',')})`);
-}
 
 async function localMigrations(dir) {
   // `Bun.Glob` rather than `node:fs`'s `readdir`: the pattern states the
@@ -150,8 +128,7 @@ export async function main(env = Bun.env) {
   let applied = new Set();
   let historyReadable = true;
   try {
-    const rows = await api('SELECT version FROM supabase_migrations.schema_migrations ORDER BY version;', { ref, token });
-    applied = new Set(rows.map((r) => String(r.version ?? r[0])));
+    applied = await readAppliedMigrationVersions({ ref, token });
   } catch (e) {
     const msg = String(e?.message ?? e);
     // A project without the history table has applied nothing. That is a real
