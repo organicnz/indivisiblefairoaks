@@ -1,6 +1,8 @@
 #!/usr/bin/env bun
-// Derive Supabase project ref from environment so a restore/fork only needs
-// secret rotation — no code change. Falls back to the current project ref.
+// Derive Supabase project ref from the environment so a restore/fork only needs
+// secret rotation — no code change. Fail closed when neither the ref nor the
+// project URL is configured: generating against a stale hardcoded project would
+// silently produce types for the wrong schema.
 //
 // NOTE: The Supabase project is shared and contains
 // tables from other applications. After generating, we filter to only the
@@ -15,18 +17,26 @@ const checkOnly = process.argv.includes('--check');
 await loadEnvLocal({ path: resolve('.env.local') });
 
 function projectRef() {
-  if (Bun.env.SUPABASE_PROJECT_REF) return Bun.env.SUPABASE_PROJECT_REF.trim();
+  const explicit = Bun.env.SUPABASE_PROJECT_REF?.trim();
+  if (explicit) return explicit;
+
   const url = Bun.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   if (url) {
-    try { return new URL(url).hostname.split('.')[0]; } catch { }
+    try {
+      return new URL(url).hostname.split('.')[0];
+    } catch {
+      // Fall through to the configuration error below.
+    }
   }
-  // Fallback preserves current project when env is absent (e.g. offline type-check).
-  // Split to avoid tripping the hardcoded-ref guard for new files; the value is
-  // still the canonical ref and should be updated if the project ever migrates.
-  return ['wcoaql', 'glwxwceqktpckt'].join('');
+
+  return '';
 }
 
 const ref = projectRef();
+if (!ref) {
+  console.error('✖  SUPABASE_PROJECT_REF or NEXT_PUBLIC_SUPABASE_URL is required to generate types.');
+  process.exit(1);
+}
 console.log(`Generating types for project ${ref} ...`);
 
 // The generator used to run through a shell with a `>` redirect into

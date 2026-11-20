@@ -68,6 +68,18 @@ export const SECRETS = {
     required: true,
     note: 'Personal access token, account-scoped. Create under Supabase → Account → Access Tokens.',
   },
+  /**
+   * Project-scoped PAT with Database Read only. Both the generated-types
+   * endpoint and the database-query endpoint accept `database_read` (queries
+   * run read-only), so this token can run the type, migration-history and
+   * schema-hygiene checks but cannot deploy functions or apply migrations.
+   * Optional while it is being provisioned; those checks fall back to
+   * SUPABASE_ACCESS_TOKEN when it is absent.
+   */
+  SUPABASE_READ_ONLY_ACCESS_TOKEN: {
+    required: false,
+    note: 'Scoped PAT, one project, Database Read. Used by read-only Management API checks; falls back to SUPABASE_ACCESS_TOKEN.',
+  },
   /** Direct Postgres password, used with the pooler for advisory-lock migrations. */
   SUPABASE_DB_PASSWORD: {
     required: true,

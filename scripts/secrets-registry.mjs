@@ -138,6 +138,7 @@ export const ROTATION_INTERVALS = {
   RESEND_WEBHOOK_SECRET: 180,
   SUPABASE_SECRET_KEY: 90,
   SUPABASE_ACCESS_TOKEN: 90,
+  SUPABASE_READ_ONLY_ACCESS_TOKEN: 90,
   SUPABASE_DB_PASSWORD: 90,
   VERCEL_TOKEN: 90,
   GH_AUDIT_TOKEN: 90,
@@ -321,6 +322,15 @@ export const REGISTRY = {
     note:
       'Account-scoped PAT: deploys edge functions and applies migrations. Needs ' +
       'the `secrets read` scope or the hosted-project assertion cannot run.',
+  },
+  SUPABASE_READ_ONLY_ACCESS_TOKEN: {
+    exposure: EXPOSURE.privileged,
+    owner: OWNERS.platform,
+    stores: ['github-secret'],
+    note:
+      'Project-scoped PAT with Database Read only. Used by read-only Management API ' +
+      'checks and falls back to SUPABASE_ACCESS_TOKEN when absent. Cannot deploy ' +
+      'functions or apply migrations.',
   },
   SUPABASE_DB_PASSWORD: {
     exposure: EXPOSURE.privileged,

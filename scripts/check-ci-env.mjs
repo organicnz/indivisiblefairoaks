@@ -117,7 +117,12 @@ for (const name of usedSecrets.keys()) {
 }
 
 // 4. Least privilege: a workflow holding credentials must declare permissions.
-const credentialed = ['RUNNERS_TOKEN', 'SUPABASE_SECRET_KEY', 'SUPABASE_ACCESS_TOKEN'];
+const credentialed = [
+  'RUNNERS_TOKEN',
+  'SUPABASE_SECRET_KEY',
+  'SUPABASE_ACCESS_TOKEN',
+  'SUPABASE_READ_ONLY_ACCESS_TOKEN',
+];
 for (const file of files) {
   const source = await Bun.file(`${WORKFLOW_DIR}/${file}`).text();
   const usesCredential = credentialed.some((s) => source.includes(`secrets.${s}`));

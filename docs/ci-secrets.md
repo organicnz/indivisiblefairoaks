@@ -25,7 +25,7 @@ bun scripts/check-ci-env.mjs --list   # print this page's content
 | `NEXT_PUBLIC_SITE_URL` | `https://test.indivisiblefairoaks.org` | `ci.yml` (build + health probe) |
 | `NEXT_PUBLIC_SUPABASE_URL` | `https://<project-ref>.supabase.co` | `ci.yml`, `supabase.yml`, `walle-refresh.yml` |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | `sb_publishable_…` | `ci.yml`, `supabase.yml` |
-| `SUPABASE_PROJECT_REF` | `<project-ref>` | `supabase.yml` |
+| `SUPABASE_PROJECT_REF` | `<project-ref>` | `ci.yml`, `supabase.yml`, `supabase-type-freshness.yml`, `secret-audit.yml` |
 
 ### Why these are variables and not secrets
 
@@ -69,12 +69,23 @@ Two things about that worth keeping:
 
 | Name | Scope | Used by |
 |---|---|---|
-| `SUPABASE_ACCESS_TOKEN` | Account PAT | `supabase.yml` — edge function deploys, migration apply, generated-type freshness check |
+| `SUPABASE_ACCESS_TOKEN` | Account PAT | `supabase.yml` — edge function deploys, migration apply; fallback for read-only Management API checks in `ci.yml`, `supabase.yml` and `supabase-type-freshness.yml` |
+| `SUPABASE_READ_ONLY_ACCESS_TOKEN` | Scoped PAT — one project, Database Read | `ci.yml` migration-history and schema-hygiene checks; `supabase.yml` types job; `supabase-type-freshness.yml`; optional, falls back to `SUPABASE_ACCESS_TOKEN` |
 | `SUPABASE_DB_PASSWORD` | Database role password | `supabase.yml` — advisory-lock migration path |
 | `SUPABASE_POOLER_URL` | Supavisor connection string | `supabase.yml` — pooled migration path |
 | `SUPABASE_SECRET_KEY` | Service-role key (**bypasses RLS**) | `walle-refresh.yml` |
 | `RUNNERS_TOKEN` | Fine-grained PAT | `runner-health.yml` (optional — falls back to `GITHUB_TOKEN`) |
 | `SENTRY_AUTH_TOKEN` | Sentry user token (`sntryu_`) | `ci.yml` build job — source-map upload only; never inlined, never read by runtime code. `next.config.ts` passes `undefined` for e2e builds so undeployed bundles never upload. Vercel builds read their own copy from Vercel env. |
+
+`SUPABASE_READ_ONLY_ACCESS_TOKEN` is for the read-only Management API checks
+only. The generated-types endpoint and the database-query endpoint both accept
+**Database Read** (queries run read-only), so a project-scoped PAT with that
+single permission is sufficient for `check-supabase-types`, `check-migrations`
+and `check-schema-hygiene`; it cannot deploy functions or apply migrations. It
+is optional while the repository transitions; the workflows fall back to
+`SUPABASE_ACCESS_TOKEN` until it is provisioned. Create it under
+[Account → Access Tokens](https://supabase.com/dashboard/account/tokens) with
+the canonical project selected and only **Database → Read** enabled.
 
 ### The one that will hurt you
 
