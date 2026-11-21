@@ -35,6 +35,9 @@ const HOSTED_CHECKS = ['scripts/check-migrations.mjs', 'scripts/check-schema-hyg
 const TOKEN_FREE_CHECKS = [
   'scripts/check-migration-immutability.mjs',
   'scripts/check-migration-sql.mjs',
+  'scripts/check-migration-types.mjs',
+  'scripts/check-audit-coverage.mjs',
+  'scripts/check-supabase-cli-pin.mjs',
 ];
 
 type Step = {
@@ -285,6 +288,10 @@ describe('schema-check conditions', () => {
       expect(step.if, `${script} must not be gated`).toBeUndefined();
       expect(blocking(step), `${script} must fail the job`).toBe(true);
     }
+  });
+
+  it('keeps migration/type consistency blocking rather than advisory', () => {
+    expect(stepRunning('scripts/check-migration-types.mjs').run).not.toContain('--advisory');
   });
 });
 

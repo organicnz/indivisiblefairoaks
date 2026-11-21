@@ -1,15 +1,15 @@
 /**
  * Detect `bun x` / `bunx` invocations that are not pinned to an exact version.
  *
- * `bun x supabase@latest` and `bunx supabase` resolve whatever the registry
+ * `bun x pkg@latest` and `bunx supabase` resolve whatever the registry
  * serves at run time. That is a second, unpinned dependency path next to
  * `bun.lock`: the same commit can run a different binary tomorrow, and no
  * lockfile records what it ran.
  *
  * An exact semver is the only accepted form:
  *
- *   bun x --bun supabase@3.2.0 gen types ...
- *   bunx --bun supabase@3.2.0 functions deploy
+ *   bun x --bun pkg@1.2.3 gen types ...
+ *   bunx --bun pkg@1.2.3 functions deploy
  *
  * The command can appear as shell words or as an argv array. The check reads
  * the token stream after normalising the quotes, commas and brackets both

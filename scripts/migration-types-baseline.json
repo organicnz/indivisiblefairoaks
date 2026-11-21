@@ -1,0 +1,19 @@
+{
+  "$comment": "Known migration-to-generated-type drift. This is a ratchet: a baselined finding does not fail the static guard, a NEW finding does, and a baselined finding that no longer applies also fails until its entry is deleted. Regenerate with `bun run types:generate` once SUPABASE_ACCESS_TOKEN is available, then delete every entry the regeneration fixes.",
+  "reason": "The migrations are applied, but src/types/supabase.ts could not be regenerated because SUPABASE_ACCESS_TOKEN is not available locally.",
+  "missingTypeColumns": [
+    "crm_broadcasts.source_newsletter_slug",
+    "crm_contacts.is_donor",
+    "crm_contacts.newsletter_confirm_expires_at",
+    "crm_contacts.newsletter_confirm_token",
+    "crm_contacts.newsletter_confirmation_sent_at",
+    "crm_contacts.newsletter_confirmed_at",
+    "data_points.content_type",
+    "events.external_id",
+    "events.external_url",
+    "events.is_hidden",
+    "events.last_synced_at",
+    "events.source",
+    "events.sync_locked"
+  ]
+}

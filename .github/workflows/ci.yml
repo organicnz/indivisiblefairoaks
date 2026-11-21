@@ -526,13 +526,27 @@ jobs:
 
       # Static migration ↔ generated-type consistency. No token and no install:
       # it parses the checked-in migrations and src/types/supabase.ts, so it also
-      # runs on fork PRs that receive no secrets. Advisory while existing drift
-      # is cleared — the script exits 0 in --advisory mode and emits a warning
-      # annotation for each run with findings. A script failure (as opposed to a
-      # finding) still fails this step, because that is a broken guard rather
-      # than a schema decision.
-      - name: Check migration/type consistency (advisory)
-        run: bun scripts/check-migration-types.mjs --advisory
+      # runs on fork PRs that receive no secrets. Blocking against
+      # scripts/migration-types-baseline.json: known drift is reported, a new
+      # finding fails, and a baselined finding that no longer applies fails until
+      # its entry is deleted. A script failure (as opposed to a finding) still
+      # fails this step, because that is a broken guard rather than a schema
+      # decision.
+      - name: Check migration/type consistency
+        run: bun scripts/check-migration-types.mjs
+
+      # Audit coverage: every write-capable server file either calls an audit
+      # recorder or is an explicit, reasoned exemption. Static and token-free,
+      # so it also runs on fork PRs; unlike the two checks above, a finding here
+      # is blocking because it is always actionable (add the call or the reason).
+      - name: Check audit coverage
+        run: bun scripts/check-audit-coverage.mjs
+
+      # The Supabase CLI version is single-sourced in scripts/supabase-cli.mjs.
+      # A second package literal in a script or workflow would drift from the
+      # one the release download and `bun x` command use. Static and token-free.
+      - name: Check Supabase CLI pin is single-sourced
+        run: bun scripts/check-supabase-cli-pin.mjs
 
   # ── 4. Build + E2E — E2E's fixture, NOT a merge gate ──────────────────────
   # DO NOT add this to branch protection's required checks.
