@@ -14,6 +14,10 @@ import {
 
 const SEND_LIMIT = { limit: 30, windowMs: 60_000 } as const;
 
+type DirectEmailAuditAfter =
+  | { email: string; subject: string; resend_id: string }
+  | { email: string; subject: string; provider_status: number };
+
 export async function sendCRMDirectEmail({
   contactId,
   subject,
@@ -71,18 +75,18 @@ export async function sendCRMDirectEmail({
   const cleanSubject = safeSubject(subject.trim());
   const auditDirectEmail = (
     outcome: 'success' | 'failure',
-    after: Record<string, unknown>,
+    after: DirectEmailAuditAfter,
     error?: string
   ) =>
     recordCRMAudit(admin, {
       action: 'crm.direct_email.send',
       targetType: 'crm_contact',
-      targetId: contactId,
+      targetId: contact.id,
       targetLabel: contact.email,
       before: null,
       after,
       outcome,
-      error: error ?? null,
+      error,
     });
   const recipientName =
     [contact.first_name, contact.last_name].filter(Boolean).join(' ') || 'Supporter';
@@ -136,7 +140,11 @@ export async function sendCRMDirectEmail({
 
   if (!sendResult.ok) {
     const error = `Email dispatch failed: ${sendResult.error}`;
-    await auditDirectEmail('failure', { email: contact.email, subject: cleanSubject }, error);
+    await auditDirectEmail(
+      'failure',
+      { email: contact.email, subject: cleanSubject, provider_status: sendResult.status },
+      error
+    );
     return { success: false, error };
   }
 

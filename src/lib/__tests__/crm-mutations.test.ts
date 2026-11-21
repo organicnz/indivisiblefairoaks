@@ -675,6 +675,100 @@ describe('CRM mutation failure paths', () => {
       expect(activities).toHaveLength(0);
     });
 
+    it('records a failed direct-email audit with the provider status', async () => {
+      freshAdmin();
+      tables.crm_contacts = {
+        rows: [{ id: 'c1', email: 'a@b.co', do_not_email: false, first_name: 'Robin' }],
+      };
+      tables.admin_audit_log = { rows: [] };
+      installFetchMock(
+        vi.fn().mockResolvedValue({
+          ok: false,
+          status: 422,
+          text: async () => '{"message":"domain not verified"}',
+          json: async () => ({ message: 'domain not verified' }),
+        })
+      );
+
+      const res = await sendCRMDirectEmail({ contactId: 'c1', subject: 'Hi', message: 'There' });
+
+      expect(res.success).toBe(false);
+      expect(tables.admin_audit_log.rows?.[0]).toMatchObject({
+        action: 'crm.direct_email.send',
+        target_type: 'crm_contact',
+        target_id: 'c1',
+        target_label: 'a@b.co',
+        outcome: 'failure',
+        error: expect.stringContaining('Email dispatch failed'),
+        after: {
+          email: 'a@b.co',
+          subject: 'Hi',
+          provider_status: 422,
+        },
+      });
+    });
+
+    it('does not warn when the email was sent and its audit record was queued for retry', async () => {
+      freshAdmin();
+      tables.crm_contacts = {
+        rows: [{ id: 'c1', email: 'a@b.co', do_not_email: false, first_name: 'Robin' }],
+      };
+      tables.crm_activities = { rows: [] };
+      tables.admin_audit_log = { rows: [], insertError: { message: 'audit log offline' } };
+      tables.admin_audit_outbox = { rows: [] };
+      installFetchMock(
+        vi.fn().mockResolvedValue({
+          ok: true,
+          status: 200,
+          json: async () => ({ id: 'e1' }),
+          text: async () => '{"id":"e1"}',
+        })
+      );
+
+      const res = await sendCRMDirectEmail({ contactId: 'c1', subject: 'Hi', message: 'There' });
+
+      expect(res.success).toBe(true);
+      expect(res.warning).toBeUndefined();
+      expect(tables.admin_audit_log.rows).toHaveLength(0);
+      expect(tables.admin_audit_outbox.rows).toHaveLength(1);
+      expect(tables.admin_audit_outbox.rows?.[0]?.payload).toMatchObject({
+        action: 'crm.direct_email.send',
+        target_id: 'c1',
+        outcome: 'success',
+        after: { email: 'a@b.co', subject: 'Hi', resend_id: 'e1' },
+      });
+    });
+
+    it('still reports success with the audit warning when neither the log nor the outbox accepts it', async () => {
+      freshAdmin();
+      tables.crm_contacts = {
+        rows: [{ id: 'c1', email: 'a@b.co', do_not_email: false, first_name: 'Robin' }],
+      };
+      tables.crm_activities = { rows: [] };
+      tables.admin_audit_log = { rows: [], insertError: { message: 'audit log offline' } };
+      tables.admin_audit_outbox = {
+        rows: [],
+        insertError: { message: 'outbox offline' },
+      };
+      installFetchMock(
+        vi.fn().mockResolvedValue({
+          ok: true,
+          status: 200,
+          json: async () => ({ id: 'e1' }),
+          text: async () => '{"id":"e1"}',
+        })
+      );
+
+      const res = await sendCRMDirectEmail({ contactId: 'c1', subject: 'Hi', message: 'There' });
+
+      expect(res).toEqual({
+        success: true,
+        warning: `The email was sent, but ${CRM_AUDIT_LOST_DETAIL}`,
+      });
+      expect(tables.admin_audit_log.rows).toHaveLength(0);
+      expect(tables.admin_audit_outbox.rows).toHaveLength(0);
+    });
+
     it('warns when the email was sent but its timeline entry failed', async () => {
       freshAdmin();
       tables.crm_contacts = {
