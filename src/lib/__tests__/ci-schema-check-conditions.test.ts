@@ -66,6 +66,9 @@ const PR_MIGRATIONS = 'pr/supabase/migrations';
 /** A path or command that names the untrusted PR checkout. */
 const PR_PATH = /(^|[/\s"'=(])(\.\/)?pr\//;
 
+/** A working directory that resolves into the untrusted PR checkout. */
+const PR_DIR = /(^|[/\\])pr([/\\]|$)/;
+
 type Trigger = {
   branches?: string[];
   types?: string[];
@@ -86,6 +89,7 @@ type Step = {
 type Job = {
   name?: string;
   if?: unknown;
+  'continue-on-error'?: unknown;
   steps?: Step[];
   defaults?: { run?: { 'working-directory'?: string } };
 };
@@ -177,6 +181,10 @@ describe('trusted schema workflow', () => {
     // condition: they run after a hosted failure, but only after a successful
     // copy. A missing token still fails inside the scripts (below).
     expect(trustedJob.if, 'the required job must not be conditionally skipped').toBeUndefined();
+    expect(
+      trustedJob['continue-on-error'],
+      'the required job must not be non-blocking'
+    ).toBeUndefined();
     for (const step of trustedSteps) {
       const script = TRUSTED_MIGRATION_CHECKS.find((candidate) =>
         (step.run ?? '').includes(candidate)
@@ -214,9 +222,9 @@ describe('trusted schema workflow', () => {
     const runSteps = trustedSteps.filter((step) => step.run !== undefined);
     for (const step of runSteps) {
       expect(
-        workingDirectory(step, trustedJob),
+        workingDirectory(step, trustedJob) ?? '',
         `${label(step)} must not run from the PR`
-      ).not.toBe('pr');
+      ).not.toMatch(PR_DIR);
     }
 
     const copy = migrationCopy();
@@ -337,6 +345,7 @@ describe('ci.yml', () => {
   it('keeps the token-free checks in a separate, clearly named job', () => {
     expect(ciJob.name).toBe('Schema checks (PR)');
     expect(ciJob.if).toBeUndefined();
+    expect(ciJob['continue-on-error'], 'the PR schema checks must be blocking').toBeUndefined();
 
     for (const script of TOKEN_FREE_PR_CHECKS) {
       const step = checkStep(ciSteps, script);
