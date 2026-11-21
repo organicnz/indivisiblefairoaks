@@ -398,9 +398,35 @@ jobs:
     name: Migration History
     runs-on: [self-hosted, linux, backend-runner]
     timeout-minutes: 10
+    # The PR tree is what the token-free checks inspect: they are facts about
+    # the code this PR proposes. The two hosted checks override this to
+    # `trusted`, because they are the only steps that see a credential.
+    defaults:
+      run:
+        working-directory: pr
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      # Two checkouts, and the split is the whole point.
+      #
+      # `pr/` is the PR's merge tree. It is data here: the token-free checks
+      # scan it, and the hosted checks read its migration files. Nothing in it
+      # is executed with a credential in scope.
+      - name: Checkout PR tree
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          path: pr
+          persist-credentials: false
+
+      # `trusted/` is the base commit — code that has already been reviewed and
+      # merged. Every step handed SUPABASE_ACCESS_TOKEN runs from here, so a PR
+      # cannot change what the token-bearing process executes: its version of
+      # the scripts is never on the path. The base SHA is explicit rather than
+      # whatever `checkout` defaults to, and falls back to `github.sha` on a
+      # push, where there is no pull request to take a base from.
+      - name: Checkout trusted base scripts
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.base.sha || github.sha }}
+          path: trusted
           persist-credentials: false
 
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
@@ -414,8 +440,10 @@ jobs:
       # check should cost.
       # Hosted checks need a token, and fork PRs do not receive repository
       # secrets by default. The detection step lets those PRs skip the two
-      # hosted checks; a same-repo PR or a push with no token still runs them
-      # and fails as a configuration fault.
+      # hosted checks here; `schema-check-fork.yml` runs them for a fork PR with
+      # the token, from this same trusted-base-plus-PR-migrations split. A
+      # same-repo PR or a push with no token still runs them and fails as a
+      # configuration fault.
       - name: Detect Supabase credentials
         id: supabase
         env:
@@ -431,13 +459,40 @@ jobs:
 
       - name: Skip hosted schema checks for a fork PR without credentials
         if: steps.supabase.outputs.available != 'true' && github.event.pull_request.head.repo.fork == true
-        run: echo "::notice::SUPABASE_ACCESS_TOKEN is unavailable for this fork PR; migration-history and schema-hygiene checks are skipped."
+        run: echo "::notice::SUPABASE_ACCESS_TOKEN is unavailable in this run; the hosted checks run in the Schema check (fork PR) workflow instead."
+
+      # Applied migrations are immutable, and a version check cannot see an
+      # edit: `schema_migrations` records a version, not the file. This compares
+      # the PR tree against `trusted/` byte-for-byte, so a modified, renamed or
+      # deleted merged migration fails before any token is spent. Token-free,
+      # so it also runs on a fork PR.
+      - name: Check applied migrations are immutable
+        env:
+          BASE_MIGRATIONS_DIR: ${{ github.workspace }}/trusted/supabase/migrations
+        run: bun scripts/check-migration-immutability.mjs
+
+      # Static SQL validation for the migrations this change adds or edits. No
+      # database: comments, strings and dollar-quoted bodies are stripped, then
+      # each statement is checked for structural breakage and for statements
+      # that destroy data. A migration that must destroy something opts out in
+      # the file with `-- allow-destructive: <reason>`, so the decision is in
+      # the diff rather than in a list somewhere else.
+      - name: Validate changed migration SQL
+        env:
+          BASE_MIGRATIONS_DIR: ${{ github.workspace }}/trusted/supabase/migrations
+        run: bun scripts/check-migration-sql.mjs
 
       # `head.repo.fork` is absent on push, so `!= true` deliberately treats a
       # push (and a same-repo PR) as non-fork. Only a fork PR can skip.
       - name: Check migration history consistency
         if: steps.supabase.outputs.available == 'true' || github.event.pull_request.head.repo.fork != true
+        working-directory: trusted
         env:
+          # The trusted script, but the PR's data: the merge tree holds exactly
+          # the migration set this PR would land. Reading it rather than
+          # executing anything from it is what keeps the token out of reach of
+          # unmerged code.
+          MIGRATIONS_DIR: ${{ github.workspace }}/pr/supabase/migrations
           SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
           # Read-only checks; prefer the project-scoped Database Read PAT when
           # provisioned, with the account PAT as the transition fallback.
@@ -459,6 +514,10 @@ jobs:
       # anything. It must be resolved before merge.
       - name: Check schema hygiene
         if: steps.supabase.outputs.available == 'true' || github.event.pull_request.head.repo.fork != true
+        # Hosted, so it runs from the trusted checkout. It reads no repository
+        # files — the catalogue is the input — but the rule is the same for
+        # every token-bearing step, without an exception to remember.
+        working-directory: trusted
         env:
           SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
           # Same read-only token policy as the migration-history check above.
