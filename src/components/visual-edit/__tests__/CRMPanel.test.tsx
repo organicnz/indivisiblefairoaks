@@ -5,11 +5,12 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CRMPanel } from '@/components/visual-edit/CRMPanel';
-import { CRM_AUDIT_WARNING } from '@/lib/actions/crm/shared';
 import {
   CRM_CONTACT_BULK_CONSENT_OPTIONS,
   CRM_CONTACT_BULK_STATUS_OPTIONS,
 } from '@/lib/crm-contact-options';
+
+const AUDIT_WARNING = 'The bulk change succeeded, but its audit record was lost.';
 
 const toast = vi.hoisted(() => ({
   success: vi.fn(),
@@ -407,6 +408,24 @@ describe('CRMPanel', () => {
       exportBtn?.click();
     });
     expect(exportCRMContacts).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the audit warning when an export succeeds but its audit row was lost', async () => {
+    exportCRMContacts.mockResolvedValueOnce({
+      csv: 'id,email\nc1,test@test.org',
+      count: 1,
+      matchedCount: 1,
+      truncated: false,
+      warning: AUDIT_WARNING,
+    });
+    const exportBtn = Array.from(document.body.querySelectorAll<HTMLButtonElement>('button')).find(
+      (b) => b.getAttribute('aria-label') === 'Export CSV' || b.textContent?.includes('Export')
+    );
+    expect(exportBtn).not.toBeUndefined();
+    await act(async () => {
+      exportBtn?.click();
+    });
+    expect(toast.warning).toHaveBeenCalledWith(AUDIT_WARNING);
   });
 
   it('filters constituents by status dropdown', async () => {
@@ -1042,7 +1061,7 @@ describe('CRMPanel', () => {
     bulkUpdateCRMContacts.mockResolvedValueOnce({
       success: true,
       updatedCount: 1,
-      warning: CRM_AUDIT_WARNING,
+      warning: AUDIT_WARNING,
     });
     await selectAllConstituents();
 
@@ -1058,7 +1077,7 @@ describe('CRMPanel', () => {
     });
     await confirmBulkPreflight();
 
-    expect(toast.warning).toHaveBeenCalledWith(CRM_AUDIT_WARNING);
+    expect(toast.warning).toHaveBeenCalledWith(AUDIT_WARNING);
   });
 
   it('performs bulk consent update for selected constituents', async () => {
@@ -1132,7 +1151,12 @@ describe('CRMPanel', () => {
     );
   });
 
-  it('performs bulk delete for selected constituents', async () => {
+  it('performs bulk delete for selected constituents and shows the audit warning', async () => {
+    bulkDeleteCRMContacts.mockResolvedValueOnce({
+      success: true,
+      deletedCount: 1,
+      warning: AUDIT_WARNING,
+    });
     const selectAllCheckbox = document.body.querySelector<HTMLInputElement>(
       'input[aria-label="Select all constituents on page"]'
     );
@@ -1150,6 +1174,7 @@ describe('CRMPanel', () => {
     });
 
     expect(bulkDeleteCRMContacts).toHaveBeenCalledWith(['c1']);
+    expect(toast.warning).toHaveBeenCalledWith(AUDIT_WARNING);
   });
 
   it('filters constituents by district input and clears filter', async () => {

@@ -56,6 +56,7 @@ import {
   setCRMTaskStatus,
 } from '@/lib/actions/crm';
 
+import { CRM_AUDIT_LOST_DETAIL } from '@/lib/actions/crm/shared';
 import {
   CRM_CONTACT_CONSENT_VALUES,
   CRM_CONTACT_DEFAULTS,
@@ -717,6 +718,44 @@ describe('Civic CRM Server Actions', () => {
           truncated: false,
         },
       });
+    });
+
+    it('warns when a successful export could not be audited', async () => {
+      tables.crm_contacts = {
+        rows: [
+          {
+            id: 'c1',
+            email: 'one@example.com',
+            first_name: 'One',
+            last_name: null,
+            phone: null,
+            address: null,
+            district: 'CA-06',
+            city: null,
+            zip_code: null,
+            status: 'supporter',
+            tags: [],
+            notes: null,
+            do_not_email: false,
+            total_donated_cents: 0,
+            source: null,
+            created_at: '2026-01-01T00:00:00Z',
+          },
+        ],
+      };
+      tables.admin_audit_log = {
+        rows: [],
+        insertError: { message: 'audit log offline' },
+      };
+      tables.admin_audit_outbox = {
+        rows: [],
+        insertError: { message: 'outbox offline' },
+      };
+
+      const res = await exportCRMContacts({});
+
+      expect(res.count).toBe(1);
+      expect(res.warning).toBe(`The export completed, but ${CRM_AUDIT_LOST_DETAIL}`);
     });
 
     it('returns a CSV covering the full filtered set', async () => {
@@ -2084,6 +2123,45 @@ describe('Civic CRM Server Actions', () => {
       });
     });
 
+    it('warns when a queued broadcast could not be audited', async () => {
+      const savedId = session.adminUserId;
+      session.adminUserId = 'admin-user-broadcast-audit-loss';
+      try {
+        tables.crm_contacts = {
+          rows: [
+            {
+              id: 'u1',
+              email: 'vol@example.com',
+              first_name: 'Alice',
+              last_name: 'Smith',
+              unsubscribe_token: 't1',
+              do_not_email: false,
+              status: 'supporter',
+            },
+          ],
+        };
+        tables.crm_broadcasts = { rows: [], insert: { id: 'b-audit-loss' } };
+        tables.crm_activities = { rows: [] };
+        tables.admin_audit_log = { rows: [], insertError: { message: 'audit log offline' } };
+        tables.admin_audit_outbox = { rows: [], insertError: { message: 'outbox offline' } };
+        installFetchMock(vi.fn().mockResolvedValue({ ok: true, status: 200 }));
+        mockEnv.CRM_BROADCAST_FUNCTION_URL =
+          'https://project.supabase.co/functions/v1/crm-broadcast-send';
+        mockEnv.SUPABASE_SECRET_KEY = 'service-key';
+
+        const res = await sendCRMBroadcast({ subject: 'Rally', body: 'Join us' });
+
+        expect(res).toEqual({
+          success: true,
+          recipientCount: 1,
+          broadcastId: 'b-audit-loss',
+          warning: `The broadcast was queued, but ${CRM_AUDIT_LOST_DETAIL}`,
+        });
+      } finally {
+        session.adminUserId = savedId;
+      }
+    });
+
     it('fails the broadcast visibly when the sender is not configured', async () => {
       // Without this, an unconfigured deployment would report a queued broadcast
       // that never goes anywhere. The audience resolves first, so there must be
@@ -2607,6 +2685,21 @@ describe('sendCRMBroadcastSelfTest', () => {
       test_recipient: 'organizer@indivisiblefairoaks.org',
       test_only: true,
       recipient_count: 1,
+    });
+  });
+
+  it('warns when a sent test could not be audited', async () => {
+    session.adminUserId = 'admin-user-selftest-audit-loss';
+    arrange();
+    tables.admin_audit_log = { rows: [], insertError: { message: 'audit log offline' } };
+    tables.admin_audit_outbox = { rows: [], insertError: { message: 'outbox offline' } };
+
+    const res = await sendCRMBroadcastSelfTest({ subject: 'Hi', body: 'There' });
+
+    expect(res).toEqual({
+      success: true,
+      recipient: 'organizer@indivisiblefairoaks.org',
+      warning: `The test email was sent, but ${CRM_AUDIT_LOST_DETAIL}`,
     });
   });
 

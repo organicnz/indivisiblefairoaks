@@ -1,4 +1,10 @@
-import { type CRMResult, recordCRMAudit, requireCRMAdmin, revalidateCRMRoutes } from './shared';
+import {
+  type CRMResult,
+  crmAuditLostWarning,
+  recordCRMAudit,
+  requireCRMAdmin,
+  revalidateCRMRoutes,
+} from './shared';
 
 /**
  * Backfill contacts from contact-form submissions, profiles and completed
@@ -26,7 +32,7 @@ export async function triggerHistoricalCRMSync(): Promise<CRMResult<{ syncedCoun
 
   const result = data as { contacts_synced?: number; activities_created?: number } | null;
 
-  await recordCRMAudit(admin, {
+  const auditResult = await recordCRMAudit(admin, {
     action: 'crm.sync.historical',
     targetType: 'crm_operation',
     targetId: 'historical-sync',
@@ -35,9 +41,11 @@ export async function triggerHistoricalCRMSync(): Promise<CRMResult<{ syncedCoun
     after: result,
     outcome: 'success',
   });
+  const warning = crmAuditLostWarning(auditResult, 'The historical sync completed');
   revalidateCRMRoutes();
   return {
     success: true,
     syncedCount: result?.contacts_synced ?? 0,
+    ...(warning ? { warning } : {}),
   };
 }

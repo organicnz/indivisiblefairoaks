@@ -9,6 +9,16 @@ vi.mock('next/cache', () => ({
 }));
 vi.mock('server-only', () => ({}));
 
+const recordAdminAudit = vi.hoisted(() =>
+  vi.fn(
+    async (): Promise<{ ok: boolean; error?: string; queued?: boolean }> => ({
+      ok: true,
+      queued: false,
+    })
+  )
+);
+vi.mock('@/lib/admin-audit', () => ({ recordAdminAudit }));
+
 // Note: the `.or()` query in mediaReferenceReason (folder 'products') is the one
 // filter the shared row mock does not model — per its documented contract
 // ("No .or(), .contains(), .textSearch(); if a test reaches one without declaring
@@ -33,6 +43,7 @@ vi.mock('@/lib/admin-auth', () => ({
     adminClient: mockAdminClient,
     adminUserId: 'admin-uuid-test',
     adminEmail: 'admin@indivisiblefairoaks.org',
+    mfaLevel: 'aal2' as const,
   })),
 }));
 
@@ -42,6 +53,7 @@ import {
   getCRMMediaFiles,
   uploadCRMMedia,
 } from '@/lib/actions/crm';
+import { CRM_AUDIT_LOST_DETAIL } from '@/lib/actions/crm/shared';
 import { env } from '@/lib/env';
 
 describe('CRM Supabase S3 Storage Media & Edge Function API', () => {
@@ -263,6 +275,43 @@ describe('CRM Supabase S3 Storage Media & Edge Function API', () => {
       expect(res.data?.folder).toBe('crm');
       expect(res.data?.mimeType).toBe('image/png');
       expect(res.data?.path).toMatch(/^crm\/banner-[a-z0-9]+\.png$/);
+      expect(recordAdminAudit).toHaveBeenCalledWith(
+        mockAdminClient,
+        expect.objectContaining({
+          action: 'media.upload',
+          targetType: 'media_asset',
+          targetId: expect.stringMatching(/^crm\/banner-[a-z0-9]+\.png$/),
+          targetLabel: 'banner.png',
+          outcome: 'success',
+          actorUserId: 'admin-uuid-test',
+          actorEmail: 'admin@indivisiblefairoaks.org',
+          mfaLevel: 'aal2',
+        })
+      );
+    });
+
+    it('warns when an uploaded file could not be audited', async () => {
+      recordAdminAudit.mockResolvedValueOnce({
+        ok: false,
+        error: 'audit log offline',
+        queued: false,
+      });
+      mockStorageFrom.upload.mockResolvedValueOnce({
+        data: { path: 'crm/banner-abc.png' },
+        error: null,
+      });
+
+      const fd = new FormData();
+      const validPng = new File([new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])], 'banner.png', {
+        type: 'image/png',
+      });
+      fd.append('file', validPng);
+
+      const res = await uploadCRMMedia(fd);
+
+      expect(res.success).toBe(true);
+      expect(res.data?.path).toMatch(/^crm\/banner-[a-z0-9]+\.png$/);
+      expect(res.warning).toBe(`The media file was uploaded, but ${CRM_AUDIT_LOST_DETAIL}`);
     });
 
     it('names a file whose name reduces to nothing', async () => {
@@ -298,6 +347,15 @@ describe('CRM Supabase S3 Storage Media & Edge Function API', () => {
       const res = await uploadCRMMedia(fd);
       expect(res.success).toBe(false);
       expect(res.error).toBe('Failed to upload media');
+      expect(recordAdminAudit).toHaveBeenCalledWith(
+        mockAdminClient,
+        expect.objectContaining({
+          action: 'media.upload',
+          targetType: 'media_asset',
+          outcome: 'failure',
+          error: 'Failed to upload media',
+        })
+      );
     });
 
     it('surfaces the message when the upload throws an Error', async () => {
@@ -315,6 +373,15 @@ describe('CRM Supabase S3 Storage Media & Edge Function API', () => {
       const res = await uploadCRMMedia(fd);
       expect(res.success).toBe(false);
       expect(res.error).toBe('bucket is read-only');
+      expect(recordAdminAudit).toHaveBeenCalledWith(
+        mockAdminClient,
+        expect.objectContaining({
+          action: 'media.upload',
+          targetType: 'media_asset',
+          outcome: 'failure',
+          error: 'bucket is read-only',
+        })
+      );
     });
 
     it('surfaces the storage error message when the upload is rejected', async () => {
@@ -332,6 +399,15 @@ describe('CRM Supabase S3 Storage Media & Edge Function API', () => {
       const res = await uploadCRMMedia(fd);
       expect(res.success).toBe(false);
       expect(res.error).toBe('bucket quota exceeded');
+      expect(recordAdminAudit).toHaveBeenCalledWith(
+        mockAdminClient,
+        expect.objectContaining({
+          action: 'media.upload',
+          targetType: 'media_asset',
+          outcome: 'failure',
+          error: 'bucket quota exceeded',
+        })
+      );
     });
   });
 
@@ -350,6 +426,16 @@ describe('CRM Supabase S3 Storage Media & Edge Function API', () => {
       expect(res.success).toBe(false);
       expect(res.error).toContain('restricted to the crm, content, gallery media folders');
       expect(mockStorageFrom.remove).not.toHaveBeenCalled();
+      expect(recordAdminAudit).toHaveBeenCalledWith(
+        mockAdminClient,
+        expect.objectContaining({
+          action: 'media.delete',
+          targetType: 'media_asset',
+          targetId: 'secret/crucial-page.jpg',
+          targetLabel: 'crucial-page.jpg',
+          outcome: 'denied',
+        })
+      );
     });
 
     it('refuses path traversal attempts', async () => {
@@ -378,6 +464,17 @@ describe('CRM Supabase S3 Storage Media & Edge Function API', () => {
       const res = await deleteCRMMedia('content/crucial-page.jpg');
       expect(res.success).toBe(true);
       expect(mockStorageFrom.remove).toHaveBeenCalledWith(['content/crucial-page.jpg']);
+      expect(recordAdminAudit).toHaveBeenCalledWith(
+        mockAdminClient,
+        expect.objectContaining({
+          action: 'media.delete',
+          targetType: 'media_asset',
+          targetId: 'content/crucial-page.jpg',
+          targetLabel: 'crucial-page.jpg',
+          outcome: 'success',
+          after: { deleted: true, folder: 'content' },
+        })
+      );
     });
 
     it('refuses a content/ asset a live page still references', async () => {
@@ -396,17 +493,28 @@ describe('CRM Supabase S3 Storage Media & Edge Function API', () => {
       expect(res.success).toBe(false);
       expect(res.error).toContain('still used by a page or one of its revisions');
       expect(mockStorageFrom.remove).not.toHaveBeenCalled();
+      expect(recordAdminAudit).toHaveBeenCalledWith(
+        mockAdminClient,
+        expect.objectContaining({
+          action: 'media.delete',
+          targetType: 'media_asset',
+          outcome: 'denied',
+          error: expect.stringContaining('still used by a page or one of its revisions'),
+        })
+      );
     });
 
     it('fails safely when a content reference check errors', async () => {
       mockAdminClient.from.mockImplementation((table: string) => ({
         select: vi.fn(() => ({
           like: vi.fn(() => ({
-            limit: vi.fn().mockResolvedValue(
-              table === 'content'
-                ? { data: null, error: { message: 'db down' } }
-                : { data: [], error: null }
-            ),
+            limit: vi
+              .fn()
+              .mockResolvedValue(
+                table === 'content'
+                  ? { data: null, error: { message: 'db down' } }
+                  : { data: [], error: null }
+              ),
           })),
           eq: vi.fn(() => ({
             limit: vi.fn().mockResolvedValue({ data: [], error: null }),
@@ -418,17 +526,26 @@ describe('CRM Supabase S3 Storage Media & Edge Function API', () => {
       expect(res.success).toBe(false);
       expect(res.error).toContain('Could not verify');
       expect(mockStorageFrom.remove).not.toHaveBeenCalled();
+      expect(recordAdminAudit).toHaveBeenCalledWith(
+        mockAdminClient,
+        expect.objectContaining({
+          action: 'media.delete',
+          targetType: 'media_asset',
+          outcome: 'failure',
+          error: expect.stringContaining('Could not verify'),
+        })
+      );
     });
 
     it('refuses a gallery/ asset a page still references', async () => {
       mockAdminClient.from.mockImplementation((table: string) => ({
         select: vi.fn(() => ({
           like: vi.fn(() => ({
-            limit: vi.fn().mockResolvedValue(
-              table === 'content'
-                ? { data: [{ id: 7 }], error: null }
-                : { data: [], error: null }
-            ),
+            limit: vi
+              .fn()
+              .mockResolvedValue(
+                table === 'content' ? { data: [{ id: 7 }], error: null } : { data: [], error: null }
+              ),
           })),
           eq: vi.fn(() => ({
             limit: vi.fn().mockResolvedValue({ data: [], error: null }),
@@ -462,6 +579,32 @@ describe('CRM Supabase S3 Storage Media & Edge Function API', () => {
       expect(mockStorageFrom.remove).toHaveBeenCalledWith(['crm/test.jpg']);
     });
 
+    it('warns when a deleted file could not be audited', async () => {
+      recordAdminAudit.mockResolvedValueOnce({
+        ok: false,
+        error: 'audit log offline',
+        queued: false,
+      });
+      // `mediaReferenceReason` checks broadcasts + content + revisions for a
+      // `crm/` path, so all three reads resolve empty here.
+      mockAdminClient.from.mockImplementation(() => ({
+        select: vi.fn(() => ({
+          like: vi.fn(() => ({
+            limit: vi.fn().mockResolvedValue({ data: [], error: null }),
+          })),
+        })),
+      }));
+      mockStorageFrom.remove.mockResolvedValueOnce({
+        data: [{ name: 'crm/test.jpg' }],
+        error: null,
+      });
+
+      const res = await deleteCRMMedia('crm/test.jpg');
+
+      expect(res.success).toBe(true);
+      expect(res.warning).toBe(`The media file was deleted, but ${CRM_AUDIT_LOST_DETAIL}`);
+    });
+
     it('surfaces the storage error message when the removal itself fails', async () => {
       mockAdminClient.from.mockImplementation(() => ({
         select: vi.fn(() => ({
@@ -478,6 +621,15 @@ describe('CRM Supabase S3 Storage Media & Edge Function API', () => {
       const res = await deleteCRMMedia('crm/test.jpg');
       expect(res.success).toBe(false);
       expect(res.error).toBe('storage backend unreachable');
+      expect(recordAdminAudit).toHaveBeenCalledWith(
+        mockAdminClient,
+        expect.objectContaining({
+          action: 'media.delete',
+          targetType: 'media_asset',
+          outcome: 'failure',
+          error: 'storage backend unreachable',
+        })
+      );
     });
 
     it('refuses deletion while a saved broadcast references the image', async () => {
@@ -518,6 +670,7 @@ describe('CRM Supabase S3 Storage Media & Edge Function API', () => {
       expect(res.success).toBe(false);
       expect(res.error).toBe('auth failed');
       expect(mockStorageFrom.remove).not.toHaveBeenCalled();
+      expect(recordAdminAudit).not.toHaveBeenCalled();
     });
   });
 

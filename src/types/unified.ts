@@ -220,6 +220,8 @@ export interface MediaItem {
 export interface MediaUploadResult {
   success: boolean;
   error?: string;
+  /** Set when the upload committed but its admin audit record did not. */
+  warning?: string;
   data?: MediaItem;
 }
 

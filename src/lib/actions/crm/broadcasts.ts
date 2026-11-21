@@ -27,6 +27,8 @@ import type {
 import {
   type AdminClient,
   type CRMResult,
+  combineCRMWarnings,
+  crmAuditLostWarning,
   recordCRMAudit,
   requireCRMAdmin,
   revalidateCRMRoutes,
@@ -567,13 +569,17 @@ export async function sendCRMBroadcast({
     };
   }
 
-  await audit('success', { ...auditAfter, status: 'queued' });
+  const auditResult = await audit('success', { ...auditAfter, status: 'queued' });
+  const warning = combineCRMWarnings(
+    dispatched.warning,
+    crmAuditLostWarning(auditResult, 'The broadcast was queued')
+  );
   revalidateCRMRoutes();
   return {
     success: true,
     recipientCount: recipients.length,
     broadcastId: broadcast.id,
-    warning: dispatched.warning,
+    ...(warning ? { warning } : {}),
   };
 }
 
@@ -697,9 +703,10 @@ export async function sendCRMBroadcastSelfTest({
     return { success: false, error: testFailure };
   }
 
-  await audit('success', { ...auditAfter, status: 'queued' });
+  const auditResult = await audit('success', { ...auditAfter, status: 'queued' });
+  const warning = crmAuditLostWarning(auditResult, 'The test email was sent');
   revalidateCRMRoutes();
-  return { success: true, recipient: adminEmail };
+  return { success: true, recipient: adminEmail, ...(warning ? { warning } : {}) };
 }
 
 /**

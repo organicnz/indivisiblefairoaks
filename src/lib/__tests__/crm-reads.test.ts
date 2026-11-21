@@ -63,6 +63,7 @@ import {
   setCRMEmailConsent,
   triggerHistoricalCRMSync,
 } from '@/lib/actions/crm';
+import { CRM_AUDIT_LOST_DETAIL } from '@/lib/actions/crm/shared';
 import { BROADCAST_HISTORY_PAGE_SIZE, TAG_SCAN_LIMIT } from '@/lib/crm-limits';
 import { env } from '@/lib/env';
 import { createMockAdminClient, type MockTableConfig } from './supabase-mock';
@@ -97,6 +98,12 @@ const mockEnv = env as unknown as Record<string, string | undefined>;
  * was called" is a property of the call.
  */
 let tables: Record<string, MockTableConfig>;
+
+/** Make both durable audit destinations reject the record. */
+function failAuditWrites() {
+  tables.admin_audit_log = { rows: [], insertError: { message: 'audit log offline' } };
+  tables.admin_audit_outbox = { rows: [], insertError: { message: 'outbox offline' } };
+}
 
 import type { UnmodelledFilterMethod } from './supabase-mock';
 
@@ -978,6 +985,47 @@ describe('CRM reads and bookkeeping', () => {
       });
     });
 
+    it('warns when a created segment could not be audited', async () => {
+      tables.crm_segments = {
+        rows: [],
+        insert: {
+          id: 's1',
+          query: '',
+          statuses: [],
+          districts: [],
+          tags: [],
+          created_at: '2026-09-30T00:00:00.000Z',
+        },
+      };
+      failAuditWrites();
+
+      const res = await saveCRMSegment({ name: 'Canvassers' });
+
+      expect(res).toEqual({
+        success: true,
+        segmentId: 's1',
+        warning: `The segment was saved, but ${CRM_AUDIT_LOST_DETAIL}`,
+      });
+      expect(tables.admin_audit_log.rows).toHaveLength(0);
+      expect(tables.admin_audit_outbox.rows).toHaveLength(0);
+    });
+
+    it('warns when an updated segment could not be audited', async () => {
+      const id = 'a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d';
+      tables.crm_segments = {
+        rows: [{ id, name: 'Old name', created_at: '2026-09-01T00:00:00.000Z' }],
+      };
+      failAuditWrites();
+
+      const res = await saveCRMSegment({ id, name: 'New name' });
+
+      expect(res).toEqual({
+        success: true,
+        segmentId: id,
+        warning: `The segment was saved, but ${CRM_AUDIT_LOST_DETAIL}`,
+      });
+    });
+
     it('turns a duplicate-name violation into a sentence a volunteer can act on', async () => {
       // 23505 is a Postgres error code, not an instruction. The raw text is
       // what a volunteer sees if this mapping is missing.
@@ -1028,6 +1076,24 @@ describe('CRM reads and bookkeeping', () => {
       };
 
       await expect(deleteCRMSegment('s1')).resolves.toEqual({ success: true });
+      expect(tables.crm_segments.rows?.map((s) => s.id)).toEqual(['s2']);
+    });
+
+    it('warns when a deleted segment could not be audited', async () => {
+      tables.crm_segments = {
+        rows: [
+          { id: 's1', name: 'Canvassers' },
+          { id: 's2', name: 'Choir' },
+        ],
+      };
+      failAuditWrites();
+
+      const res = await deleteCRMSegment('s1');
+
+      expect(res).toEqual({
+        success: true,
+        warning: `The segment was deleted, but ${CRM_AUDIT_LOST_DETAIL}`,
+      });
       expect(tables.crm_segments.rows?.map((s) => s.id)).toEqual(['s2']);
     });
 
@@ -1844,12 +1910,35 @@ describe('CRM reads and bookkeeping', () => {
       // An RPC is not a table, so there is no row set to declare here; what
       // makes the claim testable is that *no table was read at all*.
       mockAdminClient.rpc.mockResolvedValue({ data: { contacts_synced: 12 }, error: null });
+      tables.admin_audit_log = { rows: [] };
 
       const res = await triggerHistoricalCRMSync();
 
       expect(res).toEqual({ success: true, syncedCount: 12 });
       expect(mockAdminClient.rpc).toHaveBeenCalledWith('crm_sync_historical_records');
-      expect(mockAdminClient.from).not.toHaveBeenCalled();
+      expect(tableCalls()).toEqual(['admin_audit_log']);
+      expect(tables.admin_audit_log.rows?.[0]).toMatchObject({
+        action: 'crm.sync.historical',
+        target_type: 'crm_operation',
+        target_id: 'historical-sync',
+        outcome: 'success',
+        after: { contacts_synced: 12 },
+      });
+    });
+
+    it('warns when the completed sync could not be audited', async () => {
+      mockAdminClient.rpc.mockResolvedValue({ data: { contacts_synced: 12 }, error: null });
+      failAuditWrites();
+
+      const res = await triggerHistoricalCRMSync();
+
+      expect(res).toEqual({
+        success: true,
+        syncedCount: 12,
+        warning: `The historical sync completed, but ${CRM_AUDIT_LOST_DETAIL}`,
+      });
+      expect(tables.admin_audit_log.rows).toHaveLength(0);
+      expect(tables.admin_audit_outbox.rows).toHaveLength(0);
     });
 
     it('reports an RPC failure', async () => {

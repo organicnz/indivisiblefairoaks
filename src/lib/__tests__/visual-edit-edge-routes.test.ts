@@ -70,8 +70,7 @@ function failure(
   };
 }
 
-const aal1Failure = () =>
-  failure(403, 'MFA verification required. Please complete 2FA.', true);
+const aal1Failure = () => failure(403, 'MFA verification required. Please complete 2FA.', true);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -265,9 +264,7 @@ describe('Visual Edit Edge API Routes', () => {
         folders: ['crm'],
       });
 
-      const req = new Request(
-        'https://indivisiblefairoaks.org/api/visual-edit/media?folder=crm'
-      );
+      const req = new Request('https://indivisiblefairoaks.org/api/visual-edit/media?folder=crm');
       const res = await getMedia(req);
 
       expect(res.status).toBe(200);
@@ -297,6 +294,27 @@ describe('Visual Edit Edge API Routes', () => {
       expect(uploadCRMMedia).toHaveBeenCalledWith(expect.any(FormData));
     });
 
+    it('POST carries an audit warning back to the caller', async () => {
+      uploadCRMMedia.mockResolvedValueOnce({
+        success: true,
+        data: { path: 'crm/rally.jpg' },
+        warning: 'The media file was uploaded, but its audit record was lost.',
+      });
+      const req = new Request('https://indivisiblefairoaks.org/api/visual-edit/media', {
+        method: 'POST',
+        body: new FormData(),
+      });
+
+      const res = await postMedia(req);
+
+      expect(res.status).toBe(200);
+      await expect(res.json()).resolves.toEqual({
+        success: true,
+        media: { path: 'crm/rally.jpg' },
+        warning: 'The media file was uploaded, but its audit record was lost.',
+      });
+    });
+
     it('DELETE removes media for admin', async () => {
       const req = new Request(
         'https://indivisiblefairoaks.org/api/visual-edit/media?path=crm%2Fphoto.jpg',
@@ -307,6 +325,25 @@ describe('Visual Edit Edge API Routes', () => {
       expect(res.status).toBe(200);
       await expect(res.json()).resolves.toEqual({ success: true });
       expect(deleteCRMMedia).toHaveBeenCalledWith('crm/photo.jpg');
+    });
+
+    it('DELETE carries an audit warning back to the caller', async () => {
+      deleteCRMMedia.mockResolvedValueOnce({
+        success: true,
+        warning: 'The media file was deleted, but its audit record was lost.',
+      });
+      const req = new Request(
+        'https://indivisiblefairoaks.org/api/visual-edit/media?path=crm%2Fphoto.jpg',
+        { method: 'DELETE' }
+      );
+
+      const res = await deleteMedia(req);
+
+      expect(res.status).toBe(200);
+      await expect(res.json()).resolves.toEqual({
+        success: true,
+        warning: 'The media file was deleted, but its audit record was lost.',
+      });
     });
   });
 });

@@ -2,7 +2,13 @@ import { z } from 'zod';
 import { CRM_TASKS_MAX_PAGE_SIZE, CRM_TASKS_PAGE_SIZE } from '@/lib/crm-limits';
 import type { CRMTask, CRMTaskWithContact } from '@/types/crm';
 import type { Database } from '@/types/supabase';
-import { type CRMResult, recordCRMAudit, requireCRMAdmin, revalidateCRMRoutes } from './shared';
+import {
+  type CRMResult,
+  crmAuditLostWarning,
+  recordCRMAudit,
+  requireCRMAdmin,
+  revalidateCRMRoutes,
+} from './shared';
 
 export type TaskScope = 'open' | 'overdue' | 'upcoming' | 'done' | 'all';
 
@@ -134,9 +140,10 @@ export async function addCRMTask(
     return { success: false, error: error.message };
   }
 
-  await auditCreate('success', data.id, { ...insertPayload, id: data.id });
+  const auditResult = await auditCreate('success', data.id, { ...insertPayload, id: data.id });
+  const warning = crmAuditLostWarning(auditResult, 'The follow-up was created');
   revalidateCRMRoutes(contactId);
-  return { success: true, taskId: data.id };
+  return { success: true, taskId: data.id, ...(warning ? { warning } : {}) };
 }
 
 export async function setCRMTaskStatus({
@@ -182,7 +189,7 @@ export async function setCRMTaskStatus({
   // `.select()` returns the post-update row, so there is no honest `before`
   // state here; the payload records the change without relabelling the new
   // status as the old one.
-  await recordCRMAudit(admin, {
+  const auditResult = await recordCRMAudit(admin, {
     action: 'crm.task.status',
     targetType: 'crm_task',
     targetId: parsed.data.id,
@@ -192,8 +199,9 @@ export async function setCRMTaskStatus({
     outcome: 'success',
     metadata: { contact_id: data.contact_id ?? null },
   });
+  const warning = crmAuditLostWarning(auditResult, 'The follow-up status was updated');
   revalidateCRMRoutes(data.contact_id);
-  return { success: true };
+  return { success: true, ...(warning ? { warning } : {}) };
 }
 
 export async function deleteCRMTask(id: string): Promise<CRMResult> {
@@ -220,7 +228,7 @@ export async function deleteCRMTask(id: string): Promise<CRMResult> {
     });
     return { success: false, error: message };
   }
-  await recordCRMAudit(admin, {
+  const auditResult = await recordCRMAudit(admin, {
     action: 'crm.task.delete',
     targetType: 'crm_task',
     targetId: id,
@@ -230,8 +238,9 @@ export async function deleteCRMTask(id: string): Promise<CRMResult> {
     outcome: 'success',
     metadata: { contact_id: data.contact_id ?? null },
   });
+  const warning = crmAuditLostWarning(auditResult, 'The follow-up was deleted');
   revalidateCRMRoutes(data.contact_id);
-  return { success: true };
+  return { success: true, ...(warning ? { warning } : {}) };
 }
 
 export async function updateCRMTask(
@@ -278,7 +287,7 @@ export async function updateCRMTask(
     });
     return { success: false, error: message };
   }
-  await recordCRMAudit(admin, {
+  const auditResult = await recordCRMAudit(admin, {
     action: 'crm.task.update',
     targetType: 'crm_task',
     targetId: id,
@@ -288,8 +297,9 @@ export async function updateCRMTask(
     outcome: 'success',
     metadata: { contact_id: data.contact_id ?? contactId ?? null },
   });
+  const warning = crmAuditLostWarning(auditResult, 'The follow-up was updated');
   revalidateCRMRoutes(data.contact_id || contactId);
-  return { success: true };
+  return { success: true, ...(warning ? { warning } : {}) };
 }
 const taskSchema = z.object({
   // Optional: a follow-up can belong to the chapter rather than to a person

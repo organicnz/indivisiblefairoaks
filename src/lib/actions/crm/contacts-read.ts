@@ -10,7 +10,13 @@ import {
 } from '@/lib/crm-limits';
 import { type CRMTagScan, getCachedCRMTags } from '@/lib/crm-tag-scan';
 import type { ConsentDecision, CRMActivity, CRMContact, CRMTask } from '@/types/crm';
-import { type AdminClient, escapeIlikeOrValue, recordCRMAudit, requireCRMAdmin } from './shared';
+import {
+  type AdminClient,
+  crmAuditLostWarning,
+  escapeIlikeOrValue,
+  recordCRMAudit,
+  requireCRMAdmin,
+} from './shared';
 
 export interface GetCRMContactsParams {
   query?: string;
@@ -226,6 +232,8 @@ export async function exportCRMContacts(params: GetCRMContactsParams = {}): Prom
   /** True when the cap dropped rows. `matchedCount` then exceeds `count`. */
   truncated: boolean;
   error?: string;
+  /** Set when the CSV was produced but its audit record could not be kept. */
+  warning?: string;
 }> {
   const admin = await requireCRMAdmin();
   const { adminClient } = admin;
@@ -338,8 +346,9 @@ export async function exportCRMContacts(params: GetCRMContactsParams = {}): Prom
     // truncated, and only the mismatch knows the difference.
     truncated: result.contacts.length < matchedCount,
   };
-  await auditExport('success', counts);
-  return counts;
+  const auditResult = await auditExport('success', counts);
+  const warning = crmAuditLostWarning(auditResult, 'The export completed');
+  return { ...counts, ...(warning ? { warning } : {}) };
 }
 
 const CONTACT_TASK_LIMIT = 50;

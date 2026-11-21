@@ -186,6 +186,7 @@ export function CRMContactList({
       const res = await triggerHistoricalCRMSync();
       if (res.success) {
         toast.success(`Sync completed! ${res.syncedCount ?? 0} historical records updated.`);
+        if (res.warning) toast.warning(res.warning);
         router.refresh();
       } else {
         toast.error(`Sync error: ${res.error}`);
@@ -242,6 +243,7 @@ export function CRMContactList({
       } else {
         toast.success(`Exported ${res.count} constituents to CSV`);
       }
+      if (res.warning) toast.warning(res.warning);
     } catch {
       toast.error('Export failed');
     } finally {
@@ -266,6 +268,7 @@ export function CRMContactList({
 
       if (res.success) {
         toast.success(`Segment "${name}" saved`);
+        if (res.warning) toast.warning(res.warning);
         setSegmentName('');
         setShowSaveSegment(false);
         router.refresh();
@@ -292,6 +295,7 @@ export function CRMContactList({
       const res = await deleteCRMSegment(segment.id);
       if (res.success) {
         toast.success('Segment deleted');
+        if (res.warning) toast.warning(res.warning);
         router.refresh();
       } else {
         toast.error(res.error || 'Failed to delete segment');
@@ -318,6 +322,7 @@ export function CRMContactList({
       const res = await saveCRMSegment(renameSegmentInput(segment, name));
       if (res.success) {
         toast.success(`Segment renamed to "${name}"`);
+        if (res.warning) toast.warning(res.warning);
         setRenamingSegmentId(null);
         router.refresh();
       } else {
@@ -384,6 +389,7 @@ export function CRMContactList({
       const res = await deleteCRMContact(id);
       if (res.success) {
         toast.success(`Removed constituent ${name}`);
+        if (res.warning) toast.warning(res.warning);
         router.refresh();
       } else {
         toast.error(res.error || 'Failed to delete');
@@ -664,6 +670,7 @@ export function CRMContactList({
       const res = await saveCRMSegment(updateSegmentInput(segment, appliedFilters));
       if (res.success) {
         toast.success(`Segment "${segment.name}" updated to match current filters`);
+        if (res.warning) toast.warning(res.warning);
         router.refresh();
       } else {
         toast.error(res.error || 'Failed to update segment');

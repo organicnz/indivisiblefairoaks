@@ -147,10 +147,15 @@ export function CRMPanelContactTasks({
                                       type="button"
                                       onClick={async () => {
                                         if (!contactId) return;
-                                        await setCRMTaskStatus({
+                                        const res = await setCRMTaskStatus({
                                           id: task.id,
                                           status: task.status === 'done' ? 'open' : 'done',
                                         });
+                                        if (res.success) {
+                                          if (res.warning) toast.warning(res.warning);
+                                        } else {
+                                          toast.error(res.error || 'Failed to update follow-up');
+                                        }
                                         loadTasks(contactId);
                                       }}
                                       className="font-bold px-2 py-0.5 rounded bg-surface-muted hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
@@ -166,9 +171,14 @@ export function CRMPanelContactTasks({
                                       idleClassName="font-bold px-2 py-0.5 rounded hover:text-rose-600 text-muted-foreground hover:bg-rose-500/10 transition-colors"
                                       onConfirm={async () => {
                                         if (!contactId) return;
-                                        await deleteCRMTask(task.id);
+                                        const res = await deleteCRMTask(task.id);
+                                        if (res.success) {
+                                          if (res.warning) toast.warning(res.warning);
+                                          toast.success('Task deleted');
+                                        } else {
+                                          toast.error(res.error || 'Failed to delete task');
+                                        }
                                         loadTasks(contactId);
-                                        toast.success('Task deleted');
                                       }}
                                     >
                                       Del

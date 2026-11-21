@@ -2,6 +2,8 @@ import { brandShell, escapeHtml, safeSubject, sendEmail } from '@/lib/email';
 import { env } from '@/lib/env';
 import {
   type CRMResult,
+  combineCRMWarnings,
+  crmAuditLostWarning,
   recordCRMAudit,
   requireCRMAdmin,
   revalidateCRMRoutes,
@@ -162,28 +164,19 @@ export async function sendCRMDirectEmail({
     }),
   ]);
 
-  const postSendWarnings: string[] = [];
-  if (contactUpdate.error || !contactUpdate.data) {
+  const warning = combineCRMWarnings(
     // The email was accepted by the provider. If the contact vanished between
     // the read and this update, the send still happened, but claiming its
     // last-contacted stamp was recorded would be false.
-    postSendWarnings.push("the contact's last-contacted date could not be updated");
-  }
-  if (activityInsert.error) {
-    postSendWarnings.push('its CRM timeline entry could not be recorded');
-  }
-  if (!auditResult.ok) {
-    postSendWarnings.push(
-      auditResult.queued
-        ? 'its audit record could not be written immediately and was queued for automatic retry'
-        : 'its audit record could not be written or queued'
-    );
-  }
+    contactUpdate.error || !contactUpdate.data
+      ? "The contact's last-contacted date could not be updated."
+      : null,
+    activityInsert.error ? 'The CRM timeline entry could not be recorded.' : null,
+    crmAuditLostWarning(auditResult, 'The email was sent')
+  );
 
   revalidateCRMRoutes(contactId);
-  return postSendWarnings.length > 0
-    ? { success: true, warning: `The email was sent, but ${postSendWarnings.join(' and ')}.` }
-    : { success: true };
+  return warning ? { success: true, warning } : { success: true };
 }
 function listUnsubscribeHeaders(token: string | null | undefined): Record<string, string> {
   const mailto = env.ADMIN_ORDER_EMAIL || 'contact@indivisiblefairoaks.org';

@@ -1,7 +1,14 @@
+import type { AdminAuditEntry } from '@/lib/admin-audit';
 import { measureImageSize } from '@/lib/image-size';
 import { getStorageUrl } from '@/lib/supabase';
 import type { MediaItem, MediaListResult, MediaUploadResult } from '@/types/unified';
-import { type AdminClient, type CRMResult, requireCRMAdmin } from './shared';
+import {
+  type AdminClient,
+  type CRMResult,
+  crmAuditLostWarning,
+  recordCRMAudit,
+  requireCRMAdmin,
+} from './shared';
 
 // ---------------------------------------------------------------------------
 // Supabase S3 Media Storage for CRM & Visual Editor
@@ -37,6 +44,19 @@ type MediaFolder = (typeof MEDIA_FOLDERS)[number];
 
 function isMediaFolder(value: unknown): value is MediaFolder {
   return typeof value === 'string' && (MEDIA_FOLDERS as readonly string[]).includes(value);
+}
+
+type MediaAdmin = Awaited<ReturnType<typeof requireCRMAdmin>>;
+
+function recordMediaAudit(
+  admin: MediaAdmin,
+  entry: Omit<AdminAuditEntry, 'actorUserId' | 'actorEmail' | 'mfaLevel' | 'targetType' | 'before'>
+) {
+  return recordCRMAudit(admin, {
+    ...entry,
+    targetType: 'media_asset',
+    before: null,
+  });
 }
 
 /**
@@ -158,7 +178,8 @@ export async function uploadCRMMedia(formData: FormData): Promise<MediaUploadRes
     const requestedFolder = formData.get('folder');
     const folder: MediaFolder = isMediaFolder(requestedFolder) ? requestedFolder : 'crm';
 
-    const { adminClient } = await requireCRMAdmin();
+    const admin = await requireCRMAdmin();
+    const { adminClient } = admin;
 
     const ext = CRM_IMAGE_EXT[file.type] ?? 'png';
     const base =
@@ -169,14 +190,35 @@ export async function uploadCRMMedia(formData: FormData): Promise<MediaUploadRes
         .slice(0, 40) || 'media';
     const unique = crypto.randomUUID().slice(0, 8);
     const path = `${folder}/${base}-${unique}.${ext}`;
+    const auditTarget = { path, folder, size: file.size, mimeType: file.type };
+    const auditUpload = (outcome: 'success' | 'failure', error?: string) =>
+      recordMediaAudit(admin, {
+        action: 'media.upload',
+        targetId: path,
+        targetLabel: file.name,
+        after: auditTarget,
+        outcome,
+        error: error ?? null,
+      });
 
-    const { error: uploadError } = await adminClient.storage
-      .from('media')
-      .upload(path, file, { upsert: false, contentType: file.type });
+    let uploadError: { message: string } | null = null;
+    try {
+      const result = await adminClient.storage
+        .from('media')
+        .upload(path, file, { upsert: false, contentType: file.type });
+      uploadError = result.error;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to upload media';
+      await auditUpload('failure', message);
+      return { success: false, error: message };
+    }
 
     if (uploadError) {
+      await auditUpload('failure', uploadError.message);
       return { success: false, error: uploadError.message };
     }
+    const auditResult = await auditUpload('success');
+    const warning = crmAuditLostWarning(auditResult, 'The media file was uploaded');
 
     const head = new Uint8Array(await file.slice(0, HEADER_PROBE_BYTES).arrayBuffer());
     const measured = measureImageSize(head, file.type);
@@ -196,6 +238,7 @@ export async function uploadCRMMedia(formData: FormData): Promise<MediaUploadRes
         createdAt: new Date().toISOString(),
         folder,
       },
+      ...(warning ? { warning } : {}),
     };
   } catch (err) {
     return {
@@ -223,29 +266,66 @@ export async function uploadCRMMedia(formData: FormData): Promise<MediaUploadRes
  * garbage.
  */
 export async function deleteCRMMedia(path: string): Promise<CRMResult> {
+  let admin: MediaAdmin | null = null;
   try {
-    const { adminClient } = await requireCRMAdmin();
+    const session = await requireCRMAdmin();
+    admin = session;
+    const { adminClient } = session;
 
-    const folder = path.split('/')[0];
-    if (path.includes('..') || !isMediaFolder(folder)) {
-      return {
-        success: false,
-        error: `Deletions are restricted to the ${MEDIA_FOLDERS.join(', ')} media folders`,
-      };
+    const suppliedPath = typeof path === 'string' ? path : '';
+    const targetId = suppliedPath || 'invalid-media-path';
+    const targetLabel = targetId.split('/').pop() || targetId;
+    const auditDelete = (
+      outcome: 'success' | 'failure' | 'denied',
+      after: unknown,
+      error?: string
+    ) =>
+      recordMediaAudit(session, {
+        action: 'media.delete',
+        targetId,
+        targetLabel,
+        after,
+        outcome,
+        error: error ?? null,
+      });
+
+    const folder = suppliedPath.split('/')[0];
+    if (!suppliedPath || suppliedPath.includes('..') || !isMediaFolder(folder)) {
+      const error = `Deletions are restricted to the ${MEDIA_FOLDERS.join(', ')} media folders`;
+      await auditDelete('denied', null, error);
+      return { success: false, error };
     }
 
-    const reason = await mediaReferenceReason(adminClient, folder, path);
-    if (reason) return { success: false, error: reason };
+    const block = await mediaReferenceReason(adminClient, folder, suppliedPath);
+    if (block) {
+      await auditDelete(block.outcome, null, block.reason);
+      return { success: false, error: block.reason };
+    }
 
-    const { error } = await adminClient.storage.from('media').remove([path]);
-    if (error) return { success: false, error: error.message };
+    const { error } = await adminClient.storage.from('media').remove([suppliedPath]);
+    if (error) {
+      await auditDelete('failure', null, error.message);
+      return { success: false, error: error.message };
+    }
 
-    return { success: true };
+    const auditResult = await auditDelete('success', { deleted: true, folder });
+    const warning = crmAuditLostWarning(auditResult, 'The media file was deleted');
+    return { success: true, ...(warning ? { warning } : {}) };
   } catch (err) {
-    return {
-      success: false,
-      error: err instanceof Error ? err.message : 'Failed to delete media',
-    };
+    const message = err instanceof Error ? err.message : 'Failed to delete media';
+    if (admin) {
+      const targetId = typeof path === 'string' && path ? path : 'invalid-media-path';
+      const targetLabel = targetId.split('/').pop() || targetId;
+      await recordMediaAudit(admin, {
+        action: 'media.delete',
+        targetId,
+        targetLabel,
+        after: null,
+        outcome: 'failure',
+        error: message,
+      });
+    }
+    return { success: false, error: message };
   }
 }
 
@@ -262,11 +342,13 @@ export async function deleteCRMMedia(path: string): Promise<CRMResult> {
  * A read error returns a reason rather than null. The caller is about to remove
  * a file, and "I could not tell" must fail in the direction that keeps it.
  */
+type MediaReferenceBlock = { reason: string; outcome: 'denied' | 'failure' };
+
 async function mediaReferenceReason(
   adminClient: AdminClient,
   folder: MediaFolder,
   path: string
-): Promise<string | null> {
+): Promise<MediaReferenceBlock | null> {
   // Paths are slugified on upload, but LIKE treats `%`, `_` and `\` as
   // metacharacters — escape so the check matches the literal path. Chained
   // string replaces (not a replace callback) so no new function enters the
@@ -283,14 +365,17 @@ async function mediaReferenceReason(
       adminClient.from('content_revisions').select('id').like('body', `%${url}%`).limit(1),
     ]);
     if (broadcasts.error || contentBody.error || revisions.error) {
-      return 'Could not verify whether this image is still in use';
+      return { reason: 'Could not verify whether this image is still in use', outcome: 'failure' };
     }
     if (
       (broadcasts.data?.length ?? 0) > 0 ||
       (contentBody.data?.length ?? 0) > 0 ||
       (revisions.data?.length ?? 0) > 0
     ) {
-      return 'This image is still used in a saved broadcast or page and cannot be deleted yet.';
+      return {
+        reason: 'This image is still used in a saved broadcast or page and cannot be deleted yet.',
+        outcome: 'denied',
+      };
     }
     return null;
   }
@@ -304,17 +389,24 @@ async function mediaReferenceReason(
       adminClient.from('content_revisions').select('id').like('body', `%${path}%`).limit(1),
     ]);
     if (broadcasts.error || body.error || featured.error || revisions.error) {
-      return 'Could not verify whether this image is still in use';
+      return { reason: 'Could not verify whether this image is still in use', outcome: 'failure' };
     }
     const referencedByPage =
       (body.data?.length ?? 0) > 0 ||
       (featured.data?.length ?? 0) > 0 ||
       (revisions.data?.length ?? 0) > 0;
     if (referencedByPage) {
-      return 'This image is still used by a page or one of its revisions and cannot be deleted yet.';
+      return {
+        reason:
+          'This image is still used by a page or one of its revisions and cannot be deleted yet.',
+        outcome: 'denied',
+      };
     }
     if ((broadcasts.data?.length ?? 0) > 0) {
-      return 'This image is still used in a saved broadcast and cannot be deleted yet.';
+      return {
+        reason: 'This image is still used in a saved broadcast and cannot be deleted yet.',
+        outcome: 'denied',
+      };
     }
     return null;
   }

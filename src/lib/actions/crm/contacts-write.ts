@@ -28,7 +28,8 @@ import type { Database } from '@/types/supabase';
 import {
   type AdminClient,
   type CRMResult,
-  crmAuditWarning,
+  combineCRMWarnings,
+  crmAuditLostWarning,
   escapeIlike,
   recordCRMAudit,
   requireCRMAdmin,
@@ -497,7 +498,7 @@ export async function deleteCRMContact(id: string): Promise<CRMResult> {
     return { success: false, error: message };
   }
 
-  await recordCRMAudit(admin, {
+  const auditResult = await recordCRMAudit(admin, {
     action: 'crm.contact.delete',
     targetType: 'crm_contact',
     targetId: id,
@@ -506,9 +507,10 @@ export async function deleteCRMContact(id: string): Promise<CRMResult> {
     after: null,
     outcome: 'success',
   });
+  const warning = crmAuditLostWarning(auditResult, 'The contact was deleted');
 
   revalidateCRMRoutes();
-  return { success: true };
+  return { success: true, ...(warning ? { warning } : {}) };
 }
 
 /**
@@ -827,7 +829,7 @@ export async function bulkUpdateCRMContacts({
       changes,
       affectedIds
     );
-    const warning = crmAuditWarning(audit);
+    const warning = crmAuditLostWarning(audit, 'The bulk update succeeded');
     revalidateCRMRoutes();
     // A missing exact count is not zero. The update has already succeeded, so
     // omit the number rather than telling the organizer nothing changed.
@@ -919,7 +921,7 @@ export async function bulkUpdateCRMContacts({
   }
 
   const audit = await auditBulkUpdate('success', contacts.length, undefined, changes);
-  const warning = crmAuditWarning(audit);
+  const warning = crmAuditLostWarning(audit, 'The bulk update succeeded');
   revalidateCRMRoutes();
   return {
     success: true,
@@ -1013,7 +1015,7 @@ export async function bulkDeleteCRMContacts(
   const affectedIds =
     deletedRows.length > 0 ? deletedRows.map((row) => row.id) : count ? contactIds : [];
   const audit = await auditBulkDelete('success', count ?? undefined, undefined, affectedIds);
-  const warning = crmAuditWarning(audit);
+  const warning = crmAuditLostWarning(audit, 'The bulk delete succeeded');
   revalidateCRMRoutes();
   // Same rule as the update above: do not turn an unavailable count into a
   // claim that zero constituents were deleted.
@@ -1381,12 +1383,18 @@ export async function importCRMContacts({ csv }: { csv: string }): Promise<
       ? 'All inserts failed — no contacts were imported'
       : undefined;
 
-  await auditImport(success ? 'success' : 'failure', {
+  const auditResult = await auditImport(success ? 'success' : 'failure', {
     imported,
     skipped,
     errors: insertErrors,
     error,
   });
+  const warning = combineCRMWarnings(
+    activityFailed
+      ? 'Imported, but one or more CRM timeline entries could not be recorded. The activity log is incomplete.'
+      : null,
+    success ? crmAuditLostWarning(auditResult, 'The import completed') : null
+  );
 
   revalidateCRMRoutes();
   return {
@@ -1396,12 +1404,7 @@ export async function importCRMContacts({ csv }: { csv: string }): Promise<
     invalidRows: errors.length,
     errors: insertErrors.slice(0, 50),
     error,
-    ...(activityFailed
-      ? {
-          warning:
-            'Imported, but one or more CRM timeline entries could not be recorded. The activity log is incomplete.',
-        }
-      : {}),
+    ...(warning ? { warning } : {}),
   };
 }
 
@@ -1516,7 +1519,8 @@ export async function mergeCRMContacts({
     return { success: false, error: message };
   }
 
-  await auditMerge('success', undefined, beforeMerge);
+  const auditResult = await auditMerge('success', undefined, beforeMerge);
+  const warning = crmAuditLostWarning(auditResult, 'The contacts were merged');
   revalidateCRMRoutes(keepId);
-  return { success: true };
+  return { success: true, ...(warning ? { warning } : {}) };
 }

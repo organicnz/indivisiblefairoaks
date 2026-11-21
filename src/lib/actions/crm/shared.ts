@@ -11,9 +11,16 @@ import { rateLimit } from '@/lib/rate-limit';
 /**
  * The shared boundary for every CRM server action.
  *
- * Domain modules own their queries and validation. They all enter through the
- * same admin gate and write privileged audit records through the same wrapper,
- * so a new action cannot quietly skip either one.
+ * Domain modules own their queries and validation. Every CRM mutation is
+ * required to enter through the same admin gate and record its audit through
+ * `recordCRMAudit`; the wrapper supplies the actor and MFA fields so a new
+ * action cannot quietly omit them.
+ *
+ * That is the requirement, not a claim about current coverage. `health.ts`
+ * and `stats.ts` do not call it because both are read-only and have no
+ * mutation to record. That is not a precedent for a new write path, and it
+ * does not exempt storage-only mutations: `media.ts` audits its uploads and
+ * deletes through the wrapper even though they never touch a PostgREST table.
  */
 export type CRMAdminContext = AdminSession;
 export type AdminClient = AdminSession['adminClient'];
@@ -28,30 +35,42 @@ export type AdminClient = AdminSession['adminClient'];
 export type CRMResult<T extends object = object> = {
   success: boolean;
   error?: string;
+  /**
+   * Set when the mutation committed but a secondary record could not be
+   * written. The change stands; callers show this after the success message.
+   */
+  warning?: string;
 } & T;
 
-/**
- * The mutation committed and its audit payload is durable in the outbox, but
- * the append-only log has not accepted it yet. This is a delay, not a lost
- * record: pg_cron retries delivery. Bulk actions surface it after success so
- * the organizer knows the audit trail is temporarily behind.
- */
-export const CRM_AUDIT_QUEUED_WARNING =
-  'The bulk change succeeded. Its audit record could not be written immediately, so it has been queued for automatic retry.';
+export const CRM_AUDIT_LOST_DETAIL =
+  'its audit record could not be written or queued. The admin audit log is incomplete — do not retry the change.';
 
 /**
- * The mutation committed, so the organizer must not retry it, but neither the
- * audit log nor the durable outbox accepted the record. Bulk actions return this
- * instead of pretending the audit write cannot fail; the UI shows it after the
- * success message.
+ * The warning for a mutation whose audit record is neither in the log nor in
+ * the outbox. `successClause` names what committed, e.g. "The follow-up was
+ * created". A queued record is durable and retried, so it is not a loss; the
+ * outbox health page is where delivery delays are visible.
  */
-export const CRM_AUDIT_WARNING =
-  'The bulk change succeeded, but its audit record could not be written or queued. The admin audit log is incomplete — do not retry the change.';
+export function crmAuditLostWarning(audit: AdminAuditResult, successClause: string): string | null {
+  if (audit.ok || audit.queued) return null;
+  return `${successClause}, but ${CRM_AUDIT_LOST_DETAIL}`;
+}
 
-/** The operator-facing warning for an audit result, or null when delivered. */
-export function crmAuditWarning(audit: AdminAuditResult): string | null {
-  if (audit.ok) return null;
-  return audit.queued ? CRM_AUDIT_QUEUED_WARNING : CRM_AUDIT_WARNING;
+/** End each independent warning as its own sentence before joining them. */
+function asSentence(warning: string): string {
+  return /[.!?]$/.test(warning) ? warning : `${warning}.`;
+}
+
+/**
+ * Combine the independent warnings from one completed mutation. Callers show
+ * the result once, after the success message, rather than dropping one warning
+ * because another was also present.
+ */
+export function combineCRMWarnings(
+  ...warnings: Array<string | null | undefined>
+): string | undefined {
+  const present = warnings.filter((warning): warning is string => Boolean(warning));
+  return present.length > 0 ? present.map(asSentence).join(' ') : undefined;
 }
 
 /** The only way a CRM domain module should reach the admin client. */

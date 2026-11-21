@@ -4,6 +4,7 @@ import { MAX_TAGS_PER_CONTACT, normalizeTags } from '@/lib/crm-import';
 import type { CRMSegment } from '@/types/crm';
 import {
   type CRMResult,
+  crmAuditLostWarning,
   recordCRMAudit,
   requireCRMAdmin,
   revalidateCRMRoutes,
@@ -159,9 +160,10 @@ export async function saveCRMSegment(
       await auditSave('failure', id, { id }, row, message);
       return { success: false, error: message };
     }
-    await auditSave('success', data.id, { id }, { ...row, id: data.id });
+    const auditResult = await auditSave('success', data.id, { id }, { ...row, id: data.id });
+    const warning = crmAuditLostWarning(auditResult, 'The segment was saved');
     revalidateCRMRoutes();
-    return { success: true, segmentId: data.id };
+    return { success: true, segmentId: data.id, ...(warning ? { warning } : {}) };
   }
 
   const { data, error } = await segments.from('crm_segments').insert(row).select('id').single();
@@ -173,9 +175,10 @@ export async function saveCRMSegment(
     await auditSave('failure', name, null, row, message);
     return { success: false, error: message };
   }
-  await auditSave('success', data.id, null, { ...row, id: data.id });
+  const auditResult = await auditSave('success', data.id, null, { ...row, id: data.id });
+  const warning = crmAuditLostWarning(auditResult, 'The segment was saved');
   revalidateCRMRoutes();
-  return { success: true, segmentId: data.id };
+  return { success: true, segmentId: data.id, ...(warning ? { warning } : {}) };
 }
 
 export async function deleteCRMSegment(id: string): Promise<CRMResult> {
@@ -201,7 +204,7 @@ export async function deleteCRMSegment(id: string): Promise<CRMResult> {
     });
     return { success: false, error: message };
   }
-  await recordCRMAudit(admin, {
+  const auditResult = await recordCRMAudit(admin, {
     action: 'crm.segment.delete',
     targetType: 'crm_segment',
     targetId: data.id,
@@ -210,6 +213,7 @@ export async function deleteCRMSegment(id: string): Promise<CRMResult> {
     after: { deleted: true },
     outcome: 'success',
   });
+  const warning = crmAuditLostWarning(auditResult, 'The segment was deleted');
   revalidateCRMRoutes();
-  return { success: true };
+  return { success: true, ...(warning ? { warning } : {}) };
 }

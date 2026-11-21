@@ -236,6 +236,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({
       } else {
         toast.success(`Exported ${res.count} constituents to CSV`);
       }
+      if (res.warning) toast.warning(res.warning);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Export failed');
     } finally {
@@ -361,6 +362,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({
       const res = await deleteCRMContact(id);
       if (res.success) {
         toast.success('Contact deleted');
+        if (res.warning) toast.warning(res.warning);
         loadContacts();
         if (selectedContact?.id === id) setSelectedContact(null);
       } else {
@@ -752,6 +754,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({
             ? 'Deleted the selected constituents'
             : `Deleted ${res.deletedCount} constituents`
         );
+        if (res.warning) toast.warning(res.warning);
         if (selectedContact && ids.includes(selectedContact.id)) {
           setSelectedContact(null);
         }

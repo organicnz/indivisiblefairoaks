@@ -61,6 +61,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       success: true,
       media: res.data,
+      ...(res.warning ? { warning: res.warning } : {}),
     });
   } catch (error) {
     console.error('Failed to upload visual edit media:', error);
@@ -88,7 +89,7 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: res.error || 'Delete failed' }, { status: 400 });
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, ...(res.warning ? { warning: res.warning } : {}) });
   } catch (error) {
     console.error('Failed to delete visual edit media:', error);
     return NextResponse.json(

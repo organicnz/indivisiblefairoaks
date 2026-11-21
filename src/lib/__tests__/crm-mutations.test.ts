@@ -31,18 +31,21 @@ vi.mock('@/lib/admin-auth', () => ({
 
 import {
   addCRMNote,
+  addCRMTask,
   bulkDeleteCRMContacts,
   bulkUpdateCRMContacts,
   deleteCRMContact,
   deleteCRMNote,
+  deleteCRMTask,
   importCRMContacts,
   mergeCRMContacts,
   saveCRMContact,
   sendCRMDirectEmail,
+  setCRMTaskStatus,
   updateCRMNote,
   updateCRMTask,
 } from '@/lib/actions/crm';
-import { CRM_AUDIT_QUEUED_WARNING, CRM_AUDIT_WARNING } from '@/lib/actions/crm/shared';
+import { CRM_AUDIT_LOST_DETAIL } from '@/lib/actions/crm/shared';
 import { env } from '@/lib/env';
 import type { MockTableConfig } from './supabase-mock';
 import { createMockAdminClient } from './supabase-mock';
@@ -70,6 +73,12 @@ const mockEnv = env as unknown as Record<string, string | undefined>;
  * evaluates `.eq()` against real row data.
  */
 let tables: Record<string, MockTableConfig>;
+
+/** Make both durable audit destinations reject the record. */
+function failAuditWrites() {
+  tables.admin_audit_log = { rows: [], insertError: { message: 'audit log offline' } };
+  tables.admin_audit_outbox = { rows: [], insertError: { message: 'outbox offline' } };
+}
 
 describe('CRM mutation failure paths', () => {
   beforeEach(() => {
@@ -245,6 +254,25 @@ describe('CRM mutation failure paths', () => {
         mfa_level: 'aal2',
         outcome: 'success',
       });
+    });
+
+    it('warns when a deleted contact could not be audited', async () => {
+      tables.crm_contacts = {
+        rows: [{ id: '11111111-2222-4333-8444-555555555555', email: 'robin@example.org' }],
+      };
+      failAuditWrites();
+
+      const res = await deleteCRMContact('11111111-2222-4333-8444-555555555555');
+
+      // The delete committed, so the organizer must not retry it; the missing
+      // audit record is the only thing the warning is about.
+      expect(res).toEqual({
+        success: true,
+        warning: `The contact was deleted, but ${CRM_AUDIT_LOST_DETAIL}`,
+      });
+      expect(tables.crm_contacts.rows).toHaveLength(0);
+      expect(tables.admin_audit_log.rows).toHaveLength(0);
+      expect(tables.admin_audit_outbox.rows).toHaveLength(0);
     });
 
     it('reports when the contact was already gone', async () => {
@@ -426,6 +454,17 @@ describe('CRM mutation failure paths', () => {
       });
     });
 
+    it('warns when a completed import could not be audited', async () => {
+      tables.crm_contacts = { rows: [] };
+      failAuditWrites();
+
+      const res = await importCRMContacts({ csv });
+
+      expect(res.success).toBe(true);
+      expect(res.imported).toBe(2);
+      expect(res.warning).toBe(`The import completed, but ${CRM_AUDIT_LOST_DETAIL}`);
+    });
+
     it('audits a rejected import with its parse errors and outcome', async () => {
       tables.admin_audit_log = { rows: [] };
 
@@ -507,6 +546,26 @@ describe('CRM mutation failure paths', () => {
         error: 'Merge failed: the duplicate contact no longer exists',
         metadata: { requested_contact_count: 2, merged_contact_count: 0 },
       });
+    });
+
+    it('warns when merged contacts could not be audited', async () => {
+      tables.crm_contacts = {
+        rows: [
+          { id: 'keep-1', email: 'keep@example.org' },
+          { id: 'dup-1', email: 'dup@example.org' },
+        ],
+      };
+      mockAdminClient.rpc.mockResolvedValue({ error: null });
+      failAuditWrites();
+
+      const res = await mergeCRMContacts({ keepId: 'keep-1', removeId: 'dup-1' });
+
+      expect(res).toEqual({
+        success: true,
+        warning: `The contacts were merged, but ${CRM_AUDIT_LOST_DETAIL}`,
+      });
+      expect(tables.admin_audit_log.rows).toHaveLength(0);
+      expect(tables.admin_audit_outbox.rows).toHaveLength(0);
     });
 
     it('surfaces a read failure instead of claiming a contact is missing', async () => {
@@ -745,6 +804,61 @@ describe('CRM mutation failure paths', () => {
     });
   });
 
+  describe('task audit-loss warnings', () => {
+    const taskId = '11111111-2222-4333-8444-555555555555';
+
+    it('warns when a created follow-up could not be audited', async () => {
+      tables.crm_tasks = { rows: [], insert: { id: 'task-1' } };
+      failAuditWrites();
+
+      const res = await addCRMTask({ title: 'Call the clerk' });
+
+      expect(res).toEqual({
+        success: true,
+        taskId: 'task-1',
+        warning: `The follow-up was created, but ${CRM_AUDIT_LOST_DETAIL}`,
+      });
+    });
+
+    it('warns when a status change could not be audited', async () => {
+      tables.crm_tasks = {
+        rows: [{ id: taskId, contact_id: 'c-1', title: 'Call', status: 'open' }],
+      };
+      failAuditWrites();
+
+      const res = await setCRMTaskStatus({ id: taskId, status: 'done' });
+
+      expect(res).toEqual({
+        success: true,
+        warning: `The follow-up status was updated, but ${CRM_AUDIT_LOST_DETAIL}`,
+      });
+    });
+
+    it('warns when a deleted follow-up could not be audited', async () => {
+      tables.crm_tasks = { rows: [{ id: taskId, contact_id: 'c-1', title: 'Call' }] };
+      failAuditWrites();
+
+      const res = await deleteCRMTask(taskId);
+
+      expect(res).toEqual({
+        success: true,
+        warning: `The follow-up was deleted, but ${CRM_AUDIT_LOST_DETAIL}`,
+      });
+    });
+
+    it('warns when an updated follow-up could not be audited', async () => {
+      tables.crm_tasks = { rows: [{ id: taskId, title: 'Old', status: 'open' }] };
+      failAuditWrites();
+
+      const res = await updateCRMTask({ id: taskId, title: 'New' });
+
+      expect(res).toEqual({
+        success: true,
+        warning: `The follow-up was updated, but ${CRM_AUDIT_LOST_DETAIL}`,
+      });
+    });
+  });
+
   describe('updateCRMNote & deleteCRMNote', () => {
     it('refuses to update a note with an empty title', async () => {
       const res = await updateCRMNote({
@@ -913,7 +1027,7 @@ describe('CRM mutation failure paths', () => {
       });
     });
 
-    it('succeeds with a warning when the bulk update commits but its audit row cannot be written', async () => {
+    it('succeeds without a warning when the bulk update audit row is queued for retry', async () => {
       tables.crm_contacts = {
         rows: [
           { id: 'c1', status: 'supporter', tags: [] },
@@ -934,7 +1048,6 @@ describe('CRM mutation failure paths', () => {
       expect(res).toEqual({
         success: true,
         updatedCount: 2,
-        warning: CRM_AUDIT_QUEUED_WARNING,
       });
       expect(tables.crm_contacts.rows).toMatchObject([
         { id: 'c1', status: 'active_volunteer' },
@@ -979,12 +1092,12 @@ describe('CRM mutation failure paths', () => {
       expect(res).toEqual({
         success: true,
         updatedCount: 1,
-        warning: CRM_AUDIT_WARNING,
+        warning: `The bulk update succeeded, but ${CRM_AUDIT_LOST_DETAIL}`,
       });
       expect(tables.admin_audit_outbox.rows).toEqual([]);
     });
 
-    it('warns after a successful tag bulk update if its audit row cannot be written', async () => {
+    it('queues the audit after a successful tag bulk update without warning', async () => {
       tables.crm_contacts = {
         rows: [{ id: 'c1', status: 'supporter', tags: ['old'] }],
       };
@@ -1003,7 +1116,6 @@ describe('CRM mutation failure paths', () => {
       expect(res).toEqual({
         success: true,
         updatedCount: 1,
-        warning: CRM_AUDIT_QUEUED_WARNING,
       });
       expect(tables.crm_contacts.rows?.[0]?.tags).toEqual(['new-tag']);
       expect(tables.admin_audit_log.rows).toEqual([]);
@@ -1546,7 +1658,7 @@ describe('CRM mutation failure paths', () => {
       });
     });
 
-    it('succeeds with a warning when the bulk delete commits but its audit row cannot be written', async () => {
+    it('succeeds without a warning when the bulk delete audit row is queued for retry', async () => {
       tables.crm_contacts = {
         rows: [
           { id: 'c1', email: 'a@b.co' },
@@ -1564,7 +1676,6 @@ describe('CRM mutation failure paths', () => {
       expect(res).toEqual({
         success: true,
         deletedCount: 2,
-        warning: CRM_AUDIT_QUEUED_WARNING,
       });
       expect(tables.crm_contacts.rows).toEqual([]);
       expect(tables.admin_audit_log.rows).toEqual([]);
