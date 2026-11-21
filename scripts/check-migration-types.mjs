@@ -14,14 +14,18 @@
  *   - every column added by a migration to an `APP_TABLES` table must exist in
  *     that table's `Row` type;
  *   - columns that exist only in the generated types are reported too, which
- *     catches a stale file after a column is dropped or renamed.
+ *     catches a stale generated file.
  *
- * It starts advisory: findings are printed and annotated, but the caller gets
- * exit 0. `--strict` (the default for a direct run) turns them into a failure.
- * The hook and PR job pass `--advisory` until the drift is cleared.
+ * Known drift lives in `scripts/migration-types-baseline.json`, keyed by
+ * finding group. A baselined finding is printed but does not fail the run; a
+ * new finding fails, and a baselined finding that no longer applies also fails,
+ * so fixing one requires deleting its entry. The hook and PR job run this with
+ * no flag: the gate is blocking against that ratchet.
+ *
+ * `--advisory` remains as an explicit local escape hatch, not the gate default.
  *
  * Usage:
- *   bun scripts/check-migration-types.mjs             # strict
+ *   bun scripts/check-migration-types.mjs             # blocking
  *   bun scripts/check-migration-types.mjs --advisory  # never fails on drift
  */
 import path from 'node:path';
@@ -93,10 +97,9 @@ function splitTopLevel(text) {
  * DDL. Dollar-quoted bodies are replaced with a space so a semicolon inside a
  * plpgsql function cannot end the statement early.
  */
-export function splitSqlStatements(sql) {
+function splitSqlStatements(sql) {
   const statements = [];
   let current = '';
-  let depth = 0;
   let i = 0;
 
   while (i < sql.length) {
@@ -136,9 +139,7 @@ export function splitSqlStatements(sql) {
       }
     }
 
-    if (ch === '(') depth++;
-    else if (ch === ')') depth = Math.max(0, depth - 1);
-    else if (ch === ';' && depth === 0) {
+    if (ch === ';') {
       const statement = current.trim();
       if (statement) statements.push(statement);
       current = '';
@@ -155,40 +156,23 @@ export function splitSqlStatements(sql) {
   return statements;
 }
 
-/** Read a column or table identifier from the start of a SQL fragment. */
+/** Read an unquoted lower-case column or table identifier. */
 function readIdentifier(text) {
   const trimmed = text.trimStart();
   if (trimmed.startsWith('"')) {
-    let value = '';
-    let i = 1;
-    while (i < trimmed.length) {
-      if (trimmed[i] === '"') {
-        if (trimmed[i + 1] === '"') {
-          value += '"';
-          i += 2;
-          continue;
-        }
-        return value;
-      }
-      value += trimmed[i];
-      i++;
-    }
-    return value;
+    throw new Error(`Unsupported quoted identifier: ${trimmed.slice(0, 60)}`);
   }
-
   const match = /^[A-Za-z_][A-Za-z0-9_$]*/.exec(trimmed);
   return match ? match[0].toLowerCase() : null;
 }
 
-/** Resolve `public.foo`, `"public"."foo"` and unqualified `foo` to a table name. */
+/** Resolve an unquoted `public.<table>` token; other schemas are ignored. */
 function publicTableName(token) {
-  const parts = token.match(/"(?:[^"]|"")*"|[^.]+/g) ?? [];
-  const names = parts.map((part) =>
-    part.startsWith('"') ? part.slice(1, -1).replace(/""/g, '"') : part.toLowerCase()
-  );
-  if (names.length === 1) return names[0];
-  if (names.length === 2 && names[0] === 'public') return names[1];
-  return null;
+  const [schema, table, ...rest] = token.split('.');
+  if (!table || rest.length || token.includes('"')) {
+    throw new Error(`Unsupported table identifier: ${token}`);
+  }
+  return schema.toLowerCase() === 'public' ? table.toLowerCase() : null;
 }
 
 function createTableColumns(body) {
@@ -206,34 +190,23 @@ function createTableColumns(body) {
 }
 
 function applyAlterAction(action, columns) {
-  let match = action.match(/^ADD\s+(?:COLUMN\s+)?(?:IF\s+NOT\s+EXISTS\s+)?([\s\S]+)$/i);
-  if (match) {
-    const name = readIdentifier(match[1]);
-    if (
-      !name ||
-      /^(CONSTRAINT|PRIMARY|UNIQUE|CHECK|FOREIGN|EXCLUDE|TRIGGER|POLICY|RULE|GENERATED)$/i.test(
-        name
-      )
-    ) {
-      return;
-    }
-    columns.add(name);
-    return;
+  if (/^(?:DROP|RENAME)\s+COLUMN\b/i.test(action)) {
+    throw new Error(`Unsupported column-changing DDL: ${action.slice(0, 60)}`);
   }
 
-  match = action.match(/^DROP\s+COLUMN\s+(?:IF\s+EXISTS\s+)?([^\s,;]+)/i);
-  if (match) {
-    const name = readIdentifier(match[1]);
-    if (name) columns.delete(name);
+  const match = action.match(/^ADD\s+(?:COLUMN\s+)?(?:IF\s+NOT\s+EXISTS\s+)?([\s\S]+)$/i);
+  if (!match) return;
+
+  const name = readIdentifier(match[1]);
+  if (
+    !name ||
+    /^(CONSTRAINT|PRIMARY|UNIQUE|CHECK|FOREIGN|EXCLUDE|TRIGGER|POLICY|RULE|GENERATED)$/i.test(
+      name
+    )
+  ) {
     return;
   }
-
-  match = action.match(/^RENAME\s+COLUMN\s+([^\s]+)\s+TO\s+([^\s]+)/i);
-  if (match) {
-    const from = readIdentifier(match[1]);
-    const to = readIdentifier(match[2]);
-    if (from && to && columns.delete(from)) columns.add(to);
-  }
+  columns.add(name);
 }
 
 function applyStatement(statement, tables) {
@@ -244,9 +217,9 @@ function applyStatement(statement, tables) {
     const table = publicTableName(match[1]);
     if (!table) return;
     const open = statement.indexOf('(', match[0].length);
-    if (open === -1) return;
+    if (open === -1) throw new Error(`Unsupported CREATE TABLE form: ${table}`);
     const close = findClosing(statement, open, '(', ')');
-    if (close === -1) return;
+    if (close === -1) throw new Error(`Unclosed CREATE TABLE body: ${table}`);
     tables.set(table, createTableColumns(statement.slice(open + 1, close)));
     return;
   }
@@ -267,6 +240,9 @@ function applyStatement(statement, tables) {
   if (!match) return;
   const table = publicTableName(match[1]);
   if (!table) return;
+  if (/^(?:RENAME\s+TO|SET\s+SCHEMA)\b/i.test(match[2])) {
+    throw new Error(`Unsupported table rename: ${table}`);
+  }
   const columns = tables.get(table);
   if (!columns) return;
   for (const action of splitTopLevel(match[2])) {
@@ -290,7 +266,13 @@ export function parseMigrationSql(sources) {
   return tables;
 }
 
-/** Parse the generated `Database['public']['Tables']` block. */
+/**
+ * Parse the generated `Database['public']['Tables']` block.
+ *
+ * This is machine output from the Supabase CLI: table entries are indented six
+ * spaces, their `Row` opens at eight, and fields are at ten. Restricting the
+ * scan to the `Tables` block keeps views and functions out of the result.
+ */
 export function parseGeneratedTypes(source) {
   const tables = new Map();
   const tablesMatch = /\bTables:\s*\{/.exec(source);
@@ -300,36 +282,16 @@ export function parseGeneratedTypes(source) {
   const close = findClosing(source, open, '{', '}');
   if (close === -1) return tables;
   const body = source.slice(open + 1, close);
+  const tablePattern =
+    /^ {6}([A-Za-z_][A-Za-z0-9_$]*): \{\n {8}Row: \{\n([\s\S]*?)^ {8}\}/gm;
 
-  let i = 0;
-  while (i < body.length) {
-    while (i < body.length && /\s/.test(body[i])) i++;
-    const match = /^([A-Za-z_][A-Za-z0-9_]*)\s*:\s*\{/.exec(body.slice(i));
-    if (!match) {
-      const next = body.indexOf('\n', i);
-      if (next === -1) break;
-      i = next + 1;
-      continue;
-    }
-
-    const entryOpen = i + match[0].length - 1;
-    const entryClose = findClosing(body, entryOpen, '{', '}');
-    if (entryClose === -1) break;
-    const entryBody = body.slice(entryOpen + 1, entryClose);
-    const rowMatch = /\bRow:\s*\{/.exec(entryBody);
+  for (const match of body.matchAll(tablePattern)) {
     const columns = new Set();
-    if (rowMatch) {
-      const rowOpen = rowMatch.index + rowMatch[0].length - 1;
-      const rowClose = findClosing(entryBody, rowOpen, '{', '}');
-      if (rowClose !== -1) {
-        for (const line of entryBody.slice(rowOpen + 1, rowClose).split('\n')) {
-          const field = /^\s*([A-Za-z_][A-Za-z0-9_]*)\??\s*:/.exec(line);
-          if (field) columns.add(field[1]);
-        }
-      }
+    for (const line of match[2].split('\n')) {
+      const field = /^ {10}([A-Za-z_][A-Za-z0-9_]*)\??:/.exec(line);
+      if (field) columns.add(field[1]);
     }
     tables.set(match[1], columns);
-    i = entryClose + 1;
   }
 
   return tables;
@@ -396,6 +358,81 @@ function findingCount(findings) {
   return Object.values(findings).reduce((total, values) => total + values.length, 0);
 }
 
+const FINDING_LABELS = {
+  missingMigrations: 'APP_TABLES entries with no CREATE TABLE in migrations',
+  missingTypeTables: 'APP_TABLES entries missing from src/types/supabase.ts',
+  unclassifiedTables: 'Migration tables not classified in APP_TABLES or UNTYPED_TABLES',
+  extraTypeTables: 'Generated-type tables not in APP_TABLES',
+  missingTypeColumns: 'Columns in migrations missing from src/types/supabase.ts',
+  staleTypeColumns: 'Columns in src/types/supabase.ts but not in migrations',
+  staleUntypedTables: 'UNTYPED_TABLES entries with no migration',
+  overlappingTables: 'Tables in both APP_TABLES and UNTYPED_TABLES',
+};
+
+/**
+ * Split findings into accepted debt and new drift.
+ *
+ * The baseline is deliberately keyed by group and value, so a regenerated
+ * column cannot stay accepted after it appears in the types: the entry is then
+ * stale and fails the run until it is removed.
+ *
+ * @param {Record<string, string[]>} findings
+ * @param {Record<string, unknown>} [baseline]
+ * @returns {{ newFindings: Record<string, string[]>, knownFindings: Record<string, string[]>, staleBaseline: string[] }}
+ */
+export function applyBaseline(findings, baseline = {}) {
+  const newFindings = {};
+  const knownFindings = {};
+  const staleBaseline = [];
+
+  for (const [group, values] of Object.entries(findings)) {
+    const accepted = new Set(Array.isArray(baseline[group]) ? baseline[group] : []);
+    newFindings[group] = values.filter((value) => !accepted.has(value));
+    knownFindings[group] = values.filter((value) => accepted.has(value));
+    for (const value of accepted) {
+      if (!values.includes(value)) staleBaseline.push(`${group}: ${value}`);
+    }
+  }
+
+  for (const [group, values] of Object.entries(baseline)) {
+    if (group.startsWith('$') || group === 'reason' || !Array.isArray(values)) continue;
+    if (group in findings) continue;
+    for (const value of values) staleBaseline.push(`${group}: ${value}`);
+  }
+
+  return { newFindings, knownFindings, staleBaseline: staleBaseline.sort() };
+}
+
+async function readBaseline(root) {
+  const file = Bun.file(path.join(root, 'scripts/migration-types-baseline.json'));
+  if (!(await file.exists())) return {};
+  try {
+    return JSON.parse(await file.text());
+  } catch (cause) {
+    throw new Error(`Invalid scripts/migration-types-baseline.json: ${cause.message}`);
+  }
+}
+
+function printKnownFindings(findings, baseline, log) {
+  const total = findingCount(findings);
+  log('');
+  log(
+    `⚠  Migration ↔ type drift: ${total} baselined finding${total === 1 ? '' : 's'} (not blocking).`
+  );
+  if (typeof baseline.reason === 'string' && baseline.reason.trim()) {
+    log(`   ${baseline.reason}`);
+  }
+  for (const [group, label] of Object.entries(FINDING_LABELS)) {
+    const values = findings[group] ?? [];
+    if (values.length === 0) continue;
+    log(`  ${label}:`);
+    for (const value of values) log(`    ${value}`);
+  }
+  log('');
+  log('  Regenerate with `bun run types:generate` (needs SUPABASE_ACCESS_TOKEN),');
+  log('  then delete the fixed entries from scripts/migration-types-baseline.json.');
+}
+
 function printFindings(findings, advisory, log, error) {
   const total = findingCount(findings);
   if (total === 0) return;
@@ -408,23 +445,10 @@ function printFindings(findings, advisory, log, error) {
       : `✖  Migration ↔ type drift: ${total} finding${total === 1 ? '' : 's'}.`
   );
 
-  const groups = [
-    ['APP_TABLES entries with no CREATE TABLE in migrations:', findings.missingMigrations],
-    ['APP_TABLES entries missing from src/types/supabase.ts:', findings.missingTypeTables],
-    [
-      'Migration tables not classified in APP_TABLES or UNTYPED_TABLES:',
-      findings.unclassifiedTables,
-    ],
-    ['Generated-type tables not in APP_TABLES:', findings.extraTypeTables],
-    ['Columns in migrations missing from src/types/supabase.ts:', findings.missingTypeColumns],
-    ['Columns in src/types/supabase.ts but not in migrations:', findings.staleTypeColumns],
-    ['UNTYPED_TABLES entries with no migration:', findings.staleUntypedTables],
-    ['Tables in both APP_TABLES and UNTYPED_TABLES:', findings.overlappingTables],
-  ];
-
-  for (const [label, values] of groups) {
+  for (const [group, label] of Object.entries(FINDING_LABELS)) {
+    const values = findings[group] ?? [];
     if (values.length === 0) continue;
-    out(`  ${label}`);
+    out(`  ${label}:`);
     for (const value of values) out(`    ${value}`);
   }
 
@@ -486,16 +510,34 @@ export async function main({
       untypedTables,
     });
 
-    if (findingCount(findings) === 0) {
-      log(
-        `✔  Static schema/types guard: ${appTables.size} app tables, ` +
-          `${untypedTables.size} explicit untyped tables and ${sources.length} migrations agree.`
-      );
+    const baseline = await readBaseline(root);
+    const { newFindings, knownFindings, staleBaseline } = applyBaseline(findings, baseline);
+
+    if (staleBaseline.length > 0) {
+      error('');
+      error(`✖  Migration/type baseline is stale: ${staleBaseline.length} entr${staleBaseline.length === 1 ? 'y' : 'ies'}.`);
+      for (const entry of staleBaseline) error(`    ${entry}`);
+      error('');
+      error('   That drift is fixed. Delete its entry from');
+      error('   scripts/migration-types-baseline.json so the ratchet records the improvement.');
+      return advisory ? 0 : 1;
+    }
+
+    if (findingCount(newFindings) > 0) {
+      printFindings(newFindings, advisory, log, error);
+      return advisory ? 0 : 1;
+    }
+
+    if (findingCount(knownFindings) > 0) {
+      printKnownFindings(knownFindings, baseline, log);
       return 0;
     }
 
-    printFindings(findings, advisory, log, error);
-    return advisory ? 0 : 1;
+    log(
+      `✔  Static schema/types guard: ${appTables.size} app tables, ` +
+        `${untypedTables.size} explicit untyped tables and ${sources.length} migrations agree.`
+    );
+    return 0;
   } catch (cause) {
     error(`✖  Static schema/types guard could not run: ${cause.message}`);
     error('   This is a check failure, not a clean result.');

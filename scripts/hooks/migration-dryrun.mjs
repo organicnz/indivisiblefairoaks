@@ -7,6 +7,7 @@
  * token (CI covers it there).
  */
 import { runInherit } from '../bun-exec.mjs';
+import { SUPABASE_CLI } from '../supabase-cli.mjs';
 
 if (!(await Bun.file('supabase/.temp/linked-project.json').exists())) {
   console.log('ℹ️   No linked Supabase project — skipping migration dry-run.');
@@ -27,20 +28,7 @@ if (!/^SUPABASE_ACCESS_TOKEN=.{5,}$/m.test(envLocal)) {
 }
 
 console.log('🗄️   Migrations changed — dry-running local → remote diff...');
-// Keep this CLI pin in step with scripts/gen-types.mjs.
-if (
-  runInherit([
-    'bun',
-    'x',
-    '--bun',
-    'supabase@3.2.0',
-    'db',
-    'push',
-    '--linked',
-    '--dry-run',
-    '--yes',
-  ]) !== 0
-) {
+if (runInherit([...SUPABASE_CLI, 'db', 'push', '--linked', '--dry-run', '--yes']) !== 0) {
   console.log('');
   console.log('✖  Migration dry-run failed (see output above).');
   console.log('   Fix before pushing — CI will fail otherwise.');

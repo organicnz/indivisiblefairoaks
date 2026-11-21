@@ -25,7 +25,7 @@ bun scripts/check-ci-env.mjs --list   # print this page's content
 | `NEXT_PUBLIC_SITE_URL` | `https://test.indivisiblefairoaks.org` | `ci.yml` (build + health probe) |
 | `NEXT_PUBLIC_SUPABASE_URL` | `https://<project-ref>.supabase.co` | `ci.yml`, `supabase.yml`, `walle-refresh.yml` |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | `sb_publishable_…` | `ci.yml`, `supabase.yml` |
-| `SUPABASE_PROJECT_REF` | `<project-ref>` | `ci.yml`, `supabase.yml`, `supabase-type-freshness.yml`, `secret-audit.yml` |
+| `SUPABASE_PROJECT_REF` | `<project-ref>` | `schema-check-trusted.yml`, `supabase.yml`, `supabase-type-freshness.yml`, `secret-audit.yml` |
 
 ### Why these are variables and not secrets
 
@@ -69,8 +69,8 @@ Two things about that worth keeping:
 
 | Name | Scope | Used by |
 |---|---|---|
-| `SUPABASE_ACCESS_TOKEN` | Account PAT | `supabase.yml` — edge function deploys, migration apply; fallback for read-only Management API checks in `ci.yml` and `supabase.yml` |
-| `SUPABASE_READ_ONLY_ACCESS_TOKEN` | Scoped PAT — one project, Database Read | `ci.yml` migration-history and schema-hygiene checks; `supabase.yml` types job; `supabase-type-freshness.yml` (required there); optional fallback elsewhere while provisioning |
+| `SUPABASE_ACCESS_TOKEN` | Account PAT | `supabase.yml` — edge function deploys, migration apply; fallback for read-only Management API checks in `schema-check-trusted.yml` and `supabase.yml` |
+| `SUPABASE_READ_ONLY_ACCESS_TOKEN` | Scoped PAT — one project, Database Read | `schema-check-trusted.yml` migration-history and schema-hygiene checks; `supabase.yml` types job; `supabase-type-freshness.yml` (required there); optional fallback elsewhere while provisioning |
 | `SUPABASE_DB_PASSWORD` | Database role password | `supabase.yml` — advisory-lock migration path |
 | `SUPABASE_POOLER_URL` | Supavisor connection string | `supabase.yml` — pooled migration path |
 | `SUPABASE_SECRET_KEY` | Service-role key (**bypasses RLS**) | `walle-refresh.yml` |
@@ -82,8 +82,9 @@ only. The generated-types endpoint and the database-query endpoint both accept
 **Database Read** (queries run read-only), so a project-scoped PAT with that
 single permission is sufficient for `check-supabase-types`, `check-migrations`
 and `check-schema-hygiene`; it cannot deploy functions or apply migrations. It
-is optional while the repository transitions: `ci.yml` and the `supabase.yml`
-types job fall back to `SUPABASE_ACCESS_TOKEN` until it is provisioned. The
+is optional while the repository transitions: `schema-check-trusted.yml` and the
+`supabase.yml` types job fall back to `SUPABASE_ACCESS_TOKEN` until it is
+provisioned. The
 scheduled freshness workflow requires it and fails closed without it. Create
 it under [Account → Access Tokens](https://supabase.com/dashboard/account/tokens) with
 the canonical project selected and only **Database → Read** enabled.

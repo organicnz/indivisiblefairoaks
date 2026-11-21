@@ -73,9 +73,9 @@ export const SECRETS = {
    * endpoint and the database-query endpoint accept `database_read` (queries
    * run read-only), so this token can run the type, migration-history and
    * schema-hygiene checks but cannot deploy functions or apply migrations.
-   * Optional while it is being provisioned: `ci.yml` and the `supabase.yml`
-   * types job fall back to SUPABASE_ACCESS_TOKEN, while the scheduled freshness
-   * workflow requires it and fails closed.
+   * Optional while it is being provisioned: `schema-check-trusted.yml` and the
+   * `supabase.yml` types job fall back to SUPABASE_ACCESS_TOKEN, while the
+   * scheduled freshness workflow requires it and fails closed.
    */
   SUPABASE_READ_ONLY_ACCESS_TOKEN: {
     required: false,

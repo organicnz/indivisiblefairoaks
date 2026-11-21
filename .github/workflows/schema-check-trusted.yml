@@ -1,0 +1,168 @@
+name: Schema checks (trusted)
+
+# The authoritative hosted migration gate.
+#
+# This workflow uses `pull_request_target` because a fork PR's `pull_request`
+# run receives no repository secrets. It executes **this file as it exists on
+# the base branch**, checks out the base commit for every script, and checks out
+# only the merge ref's `supabase/migrations` directory as data:
+#
+#   - `trusted/` is the base commit. Every step that runs a script runs
+#     `trusted/scripts/…` from here. A PR cannot rewrite the checker.
+#   - `pr/` is a sparse checkout of `refs/pull/<n>/merge` (or `github.sha` on a
+#     push). Only its migration files are copied into `trusted/pr-migrations`;
+#     the trusted history, immutability and SQL checks read that copy. No
+#     command references the PR checkout from a token-bearing step, and no PR
+#     code is executed at all.
+#
+# There is no tokenless skip and no fork-only condition. A fork PR, a same-repo
+# PR and a push to main all run the same hosted checks. A missing token therefore
+# becomes a configuration failure, not a green "Migration History" result.
+#
+# The token-free checks that inspect PR source (`check-migration-types`,
+# `check-supabase-cli-pin`) stay in `ci.yml` under
+# "Schema checks (PR)". They need no secret and must not run in this privileged
+# workflow.
+#
+# `src/lib/__tests__/ci-schema-check-conditions.test.ts` pins this split, the
+# event coverage, the merged-migration copy, and the absence of a green skip.
+on:
+  push:
+    branches: [main]
+  pull_request_target:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: schema-trusted-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request_target' }}
+
+env:
+  BUN_VERSION: "canary"
+
+jobs:
+  schema:
+    name: Migration History
+    runs-on: [self-hosted, linux, backend-runner]
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: trusted
+    steps:
+      # The merge tree's migrations: base tip plus the PR head. On a push there
+      # is no pull request, so the same checkout is `github.sha`. The sparse
+      # checkout keeps the fork's source, workflows and scripts off the disk
+      # entirely; this directory is data for the copy step and nothing else.
+      - name: Checkout merge migrations
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event_name == 'pull_request_target' && format('refs/pull/{0}/merge', github.event.pull_request.number) || github.sha }}
+          path: pr
+          sparse-checkout: supabase/migrations
+          persist-credentials: false
+          # Required for a fork's merge ref under `pull_request_target`.
+          # The checkout is data-only: sparse migrations, no PR script run.
+          allow-unsafe-pr-checkout: true
+
+      # The base commit: the exact code already reviewed and merged. Every
+      # process runs from here. The base SHA is explicit rather than whatever
+      # `checkout` defaults to, and falls back to `github.sha` on a push, where
+      # there is no pull request to take a base from.
+      - name: Checkout trusted base scripts
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.base.sha || github.sha }}
+          path: trusted
+          persist-credentials: false
+
+      # Copy only the migration directory into the trusted checkout. The source
+      # and destination are fixed workspace paths; this step executes no PR
+      # code and receives no token. Base migrations stay untouched so the
+      # immutability and SQL checks still compare against a real base.
+      - name: Copy only migrations into trusted checkout
+        working-directory: .
+        run: |
+          SOURCE="$GITHUB_WORKSPACE/pr/supabase/migrations"
+          DEST="$GITHUB_WORKSPACE/trusted/pr-migrations"
+          # A symlink here could make a trusted checker read a file outside the
+          # migration set (for example, the process environment later in this
+          # job). Migrations are regular files; refuse anything else before any
+          # token-bearing script runs.
+          if [ -L "$SOURCE" ] || [ ! -d "$SOURCE" ]; then
+            echo "::error::PR migrations are not a real directory; refusing to read them."
+            exit 1
+          fi
+          if [ -n "$(find "$SOURCE" -mindepth 1 ! -type f -print -quit)" ]; then
+            echo "::error::PR migrations contain a symbolic link or special file; refusing to read it."
+            exit 1
+          fi
+          rm -rf "$DEST"
+          cp -R "$SOURCE" "$DEST"
+          if [ -L "$DEST" ] || [ ! -d "$DEST" ]; then
+            echo "::error::Copied migrations are not a real directory; refusing to read them."
+            exit 1
+          fi
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+          no-cache: true
+
+      # Deliberately no `bun install`: these scripts are stdlib imports and the
+      # Management API. Installing the full tree would make this the slowest gate
+      # on the fleet, the opposite of what a pre-merge check should cost.
+      #
+      # A missing token is not a skip: both scripts report it as a configuration
+      # fault and exit 1, so a green check cannot mean "the secret was empty".
+      # `MIGRATIONS_DIR` is the copied merge set, never the PR checkout.
+      - name: Check migration history consistency
+        env:
+          MIGRATIONS_DIR: ${{ github.workspace }}/trusted/pr-migrations
+          SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+          # Read-only checks; prefer the project-scoped Database Read PAT when
+          # provisioned, with the account PAT as the transition fallback.
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_READ_ONLY_ACCESS_TOKEN || secrets.SUPABASE_ACCESS_TOKEN }}
+        run: bun scripts/check-migrations.mjs
+
+      # The catalogue counterpart to the history check above. History asks "is
+      # this migration recorded"; hygiene asks "is the schema still shaped the
+      # way we agreed" — RLS present on every table, no index duplicating a
+      # sibling, every foreign key indexed, and no service-only table still
+      # granting the public roles. A finding is still a question rather than a
+      # mechanical verdict — read the definitions before dropping or revoking
+      # anything. It must be resolved before merge.
+      - name: Check schema hygiene
+        env:
+          SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+          # Same read-only token policy as the migration-history check above.
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_READ_ONLY_ACCESS_TOKEN || secrets.SUPABASE_ACCESS_TOKEN }}
+        run: bun scripts/check-schema-hygiene.mjs
+
+      # These run from the trusted base script, against the copied merge set.
+      # That is the point of the reconciliation: even if a fork changes the PR
+      # copy of a checker, this copy is the one that decides.
+      #
+      # Applied migrations are immutable, and a version check cannot see an
+      # edit: `schema_migrations` records a version, not the file. This compares
+      # the merged migration set against the trusted base byte-for-byte, so a
+      # modified, renamed or deleted merged migration fails.
+      - name: Check applied migrations are immutable
+        env:
+          MIGRATIONS_DIR: ${{ github.workspace }}/trusted/pr-migrations
+          BASE_MIGRATIONS_DIR: ${{ github.workspace }}/trusted/supabase/migrations
+        run: bun scripts/check-migration-immutability.mjs
+
+      # Static SQL validation for the migrations this change adds or edits. No
+      # database: comments, strings and dollar-quoted bodies are stripped, then
+      # each statement is checked for structural breakage and for statements
+      # that destroy data. A migration that must destroy something opts out in
+      # the file with `-- allow-destructive: <reason>`, so the decision is in
+      # the diff rather than in a list somewhere else.
+      - name: Validate changed migration SQL
+        env:
+          MIGRATIONS_DIR: ${{ github.workspace }}/trusted/pr-migrations
+          BASE_MIGRATIONS_DIR: ${{ github.workspace }}/trusted/supabase/migrations
+        run: bun scripts/check-migration-sql.mjs

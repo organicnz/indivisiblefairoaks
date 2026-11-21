@@ -20,8 +20,6 @@
  *
  * ## What this catches
  *
- *   - a local migration whose version is already applied but whose file changed
- *     (history divergence — `db push` will refuse, and the refusal is opaque)
  *   - an applied version with no local file (a deleted migration)
  *   - a new migration numbered *behind* the highest applied version, which
  *     makes the ordering non-monotonic
@@ -31,6 +29,10 @@
  *
  *   - **SQL that is wrong.** Nothing here executes a statement. A migration that
  *     references a non-existent column passes this check and fails on push.
+ *   - **A changed applied migration.** `schema_migrations` records a version,
+ *     not the file, so an edit to the contents of an applied migration is
+ *     invisible here. `check-migration-immutability.mjs` compares the tree
+ *     against the base commit byte-for-byte and is the check for that.
  *   - **The app/schema race.** The application and its migrations ship in the
  *     same commit, so nothing in CI can distinguish "app deployed, schema
  *     behind" from "both deployed". Ordering them is a merge-order discipline,
