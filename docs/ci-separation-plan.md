@@ -131,7 +131,11 @@ with a job named **`Migration History`**:
   reported green `Migration History`; that check no longer exists;
 - **no `bun install`** — two stdlib imports. Installing the whole tree would
   make this the slowest gate on the fleet, the opposite of what a pre-merge
-  check should cost.
+  check should cost;
+- **token-free checks still run after a hosted failure** — the migration
+  immutability and SQL checks use `if: always()`, so a failed history or
+  hygiene check cannot hide their result. The job still fails if either side
+  fails.
 
 Catches: an applied version with no local file, a new migration numbered
 *below* the highest applied version (non-monotonic ordering, which `db push`

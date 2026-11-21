@@ -19,6 +19,8 @@ name: Schema checks (trusted)
 # PR and a push to main all run the same hosted checks. A missing token therefore
 # becomes a configuration failure, not a green "Migration History" result.
 #
+# The token-free reconciliation checks use `if: always()`: a hosted failure
+# must not hide their result. The job still fails if either side fails.
 # The token-free checks that inspect PR source (`check-migration-types`,
 # `check-supabase-cli-pin`) stay in `ci.yml` under
 # "Schema checks (PR)". They need no secret and must not run in this privileged
@@ -149,7 +151,11 @@ jobs:
       # edit: `schema_migrations` records a version, not the file. This compares
       # the merged migration set against the trusted base byte-for-byte, so a
       # modified, renamed or deleted merged migration fails.
+      #
+      # Run even if a hosted check failed: this result is independent, and a
+      # hosted failure must not hide a broken migration.
       - name: Check applied migrations are immutable
+        if: always()
         env:
           MIGRATIONS_DIR: ${{ github.workspace }}/trusted/pr-migrations
           BASE_MIGRATIONS_DIR: ${{ github.workspace }}/trusted/supabase/migrations
@@ -161,7 +167,11 @@ jobs:
       # that destroy data. A migration that must destroy something opts out in
       # the file with `-- allow-destructive: <reason>`, so the decision is in
       # the diff rather than in a list somewhere else.
+      #
+      # Run even if a hosted check failed: the SQL result is independent of the
+      # hosted reconciliation and must still be visible.
       - name: Validate changed migration SQL
+        if: always()
         env:
           MIGRATIONS_DIR: ${{ github.workspace }}/trusted/pr-migrations
           BASE_MIGRATIONS_DIR: ${{ github.workspace }}/trusted/supabase/migrations
