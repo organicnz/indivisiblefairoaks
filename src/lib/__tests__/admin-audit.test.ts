@@ -1,6 +1,12 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+const markAdminAuditLoss = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
+vi.mock('@/lib/admin-audit-alert', () => ({ markAdminAuditLoss }));
+
+const captureMessage = vi.hoisted(() => vi.fn());
+vi.mock('@sentry/nextjs', () => ({ captureMessage }));
+
 const { recordAdminAudit } = await import('@/lib/admin-audit');
 
 const entry = {
@@ -32,6 +38,9 @@ function clientWith(
 describe('recordAdminAudit', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    markAdminAuditLoss.mockClear();
+    markAdminAuditLoss.mockResolvedValue(undefined);
+    captureMessage.mockClear();
   });
 
   it('writes the actor, target, before/after values, MFA level and outcome', async () => {
@@ -169,6 +178,10 @@ describe('recordAdminAudit', () => {
       '[admin-audit] write failed',
       expect.objectContaining({ queued: true, attempts: 3 })
     );
+    // A queued record is durable; only a completely lost record raises the
+    // persistent admin-wide warning and the operator alert.
+    expect(markAdminAuditLoss).not.toHaveBeenCalled();
+    expect(captureMessage).not.toHaveBeenCalled();
   });
 
   it('retries a transient outbox failure before declaring the record lost', async () => {
@@ -187,7 +200,7 @@ describe('recordAdminAudit', () => {
     expect(outboxInsert).toHaveBeenCalledTimes(2);
   });
 
-  it('reports queued:false when the outbox also rejects the record', async () => {
+  it('reports queued:false and alerts operators when the outbox also rejects the record', async () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
     const insert = vi.fn().mockResolvedValue({ error: { message: 'audit table offline' } });
     const outboxInsert = vi.fn().mockResolvedValue({ error: { message: 'outbox offline' } });
@@ -206,6 +219,34 @@ describe('recordAdminAudit', () => {
       '[admin-audit] write failed',
       expect.objectContaining({ queued: false, attempts: 3 })
     );
+    expect(markAdminAuditLoss).toHaveBeenCalledTimes(1);
+    expect(captureMessage).toHaveBeenCalledTimes(1);
+    expect(captureMessage).toHaveBeenCalledWith(
+      'Admin audit record lost',
+      expect.objectContaining({
+        level: 'error',
+        tags: expect.objectContaining({
+          area: 'admin-audit',
+          event_type: 'audit.record.lost',
+          reason: 'write-and-queue-failed',
+          action: 'crm.contact.delete',
+          target_type: 'crm_contact',
+        }),
+        extra: expect.objectContaining({
+          auditId: expect.any(String),
+          targetId: 'contact-456',
+          error: 'audit table offline',
+          attempts: 3,
+          lastFailure: 'error',
+        }),
+      })
+    );
+
+    // The alert must not carry constituent data from the log payload.
+    const event = captureMessage.mock.calls[0]?.[1];
+    expect(JSON.stringify(event)).not.toContain('organizer@example.org');
+    expect(JSON.stringify(event)).not.toContain('robin@example.org');
+    expect(JSON.stringify(event)).not.toContain('choir');
   });
 
   it('treats a duplicate outbox id as already queued', async () => {
@@ -235,6 +276,7 @@ describe('recordAdminAudit', () => {
       '[admin-audit] refusing incomplete entry',
       expect.objectContaining({ action: 'crm.contact.delete' })
     );
+    expect(markAdminAuditLoss).toHaveBeenCalledTimes(1);
   });
 
   it('normalises absent optional JSON values to null', async () => {

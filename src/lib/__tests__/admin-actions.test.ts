@@ -6,9 +6,11 @@ const mocks = vi.hoisted(() => ({
   createAdminClient: vi.fn(),
   revalidatePath: vi.fn(),
   assertMfaVerified: vi.fn(),
+  clearAdminAuditLoss: vi.fn(),
 }));
 
 vi.mock('next/cache', () => ({ revalidatePath: mocks.revalidatePath }));
+vi.mock('@/lib/admin-audit-alert', () => ({ clearAdminAuditLoss: mocks.clearAdminAuditLoss }));
 vi.mock('@/lib/supabase-server', () => ({
   createServerClient: mocks.createServerClient,
   createAdminClient: mocks.createAdminClient,
@@ -23,7 +25,7 @@ vi.mock('@/lib/mfa-guard', () => ({
   MFA_ENROLLMENT_ERROR: 'MFA_ENROLLMENT',
 }));
 
-const { markAdminUser } = await import('@/app/admin/actions');
+const { acknowledgeAdminAuditLoss, markAdminUser } = await import('@/app/admin/actions');
 
 function adminClientWithProfile(
   profileResult: { data: unknown; error: unknown },
@@ -60,6 +62,30 @@ describe('admin authorization', () => {
       },
     });
     mocks.assertMfaVerified.mockResolvedValue({ ok: true });
+  });
+
+  it('requires an AAL2 admin before clearing the audit-loss marker', async () => {
+    const { client } = adminClientWithProfile({
+      data: { is_admin: true },
+      error: null,
+    });
+    mocks.createAdminClient.mockResolvedValue(client);
+
+    await acknowledgeAdminAuditLoss();
+
+    expect(mocks.clearAdminAuditLoss).toHaveBeenCalledTimes(1);
+    expect(mocks.revalidatePath).toHaveBeenCalledWith('/admin', 'layout');
+  });
+
+  it('does not clear the audit-loss marker for a non-admin', async () => {
+    const { client } = adminClientWithProfile({
+      data: { is_admin: false },
+      error: null,
+    });
+    mocks.createAdminClient.mockResolvedValue(client);
+
+    await expect(acknowledgeAdminAuditLoss()).rejects.toThrow('Not authorised');
+    expect(mocks.clearAdminAuditLoss).not.toHaveBeenCalled();
   });
 
   it('rejects non-boolean role values before touching the database', async () => {

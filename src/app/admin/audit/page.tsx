@@ -1,8 +1,11 @@
-import { History } from 'lucide-react';
+import { Activity, History } from 'lucide-react';
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { AdminNotice } from '@/components/admin/AdminNotice';
 import { AdminAuditFilters } from '@/components/admin/audit/AdminAuditFilters';
+import { AdminAuditOutboxAlert } from '@/components/admin/audit/AdminAuditOutboxAlert';
 import { AdminAuditTable } from '@/components/admin/audit/AdminAuditTable';
+import { type AdminAuditOutboxHealth, getAdminAuditOutboxHealth } from '@/lib/admin-audit-outbox';
 import {
   ADMIN_AUDIT_PAGE_SIZE,
   type AdminAuditPage,
@@ -31,13 +34,20 @@ export default async function AdminAuditLogPage({
   const filters = parseAdminAuditFilters(params);
   const page = parseAdminAuditPage(params.page);
 
-  let result: AdminAuditPage = { rows: [], totalCount: 0 };
-  let loadError = false;
-  try {
-    result = await getAdminAuditPage(adminClient, filters, page);
-  } catch {
-    loadError = true;
-  }
+  // The audit page and the outbox are independent reads; run them together so
+  // the slower one does not add its latency to the other.
+  const [auditResult, outboxResult] = await Promise.all([
+    getAdminAuditPage(adminClient, filters, page)
+      .then((value) => ({ value, error: false }))
+      .catch(() => ({ value: { rows: [], totalCount: 0 } as AdminAuditPage, error: true })),
+    getAdminAuditOutboxHealth(adminClient)
+      .then((value) => ({ value, error: false }))
+      .catch(() => ({ value: null as AdminAuditOutboxHealth | null, error: true })),
+  ]);
+  const result = auditResult.value;
+  const loadError = auditResult.error;
+  const outboxHealth = outboxResult.value;
+  const outboxHealthError = outboxResult.error;
 
   return (
     <div className="space-y-6">
@@ -59,6 +69,15 @@ export default async function AdminAuditLogPage({
           MFA level of the session, and whether the operation succeeded. Use the filters to
           reconstruct an operation or export the matching rows for an external review.
         </p>
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <Link
+            href="/admin/audit/outbox"
+            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-border bg-surface-card px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-foreground transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          >
+            <Activity size={13} aria-hidden="true" />
+            Outbox health
+          </Link>
+        </div>
       </header>
 
       <AdminNotice>
@@ -66,6 +85,8 @@ export default async function AdminAuditLogPage({
         deleted from this explorer or by the service role. Bulk CRM audit writes that could not
         reach this log are delivered from the durable outbox automatically.
       </AdminNotice>
+
+      <AdminAuditOutboxAlert health={outboxHealth} error={outboxHealthError} />
 
       <AdminAuditFilters filters={filters} />
 

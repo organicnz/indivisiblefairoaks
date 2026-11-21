@@ -1,6 +1,7 @@
 // @vitest-environment node
-import { renderToStaticMarkup } from 'react-dom/server';
+
 import type { ReactNode } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMockAdminClient } from '@/lib/__tests__/supabase-mock';
 
@@ -79,17 +80,15 @@ function createEventsBuilder(rows: EventRow[]) {
       );
       return builder;
     }),
-    order: vi.fn(
-      (column: 'starts_at', options?: { ascending?: boolean; nullsFirst?: boolean }) => {
-        filtered = [...filtered].sort((a, b) => {
-          if (a[column] === null) return 1;
-          if (b[column] === null) return -1;
-          const delta = Date.parse(a[column]) - Date.parse(b[column]);
-          return options?.ascending === false ? -delta : delta;
-        });
-        return builder;
-      }
-    ),
+    order: vi.fn((column: 'starts_at', options?: { ascending?: boolean; nullsFirst?: boolean }) => {
+      filtered = [...filtered].sort((a, b) => {
+        if (a[column] === null) return 1;
+        if (b[column] === null) return -1;
+        const delta = Date.parse(a[column]) - Date.parse(b[column]);
+        return options?.ascending === false ? -delta : delta;
+      });
+      return builder;
+    }),
     limit: vi.fn(async (count: number) => ({
       data: filtered.slice(0, count),
       error: null,
@@ -99,7 +98,11 @@ function createEventsBuilder(rows: EventRow[]) {
   return builder;
 }
 
-async function renderDashboard(events: EventRow[]) {
+async function renderDashboard(
+  events: EventRow[],
+  outboxRows: Record<string, unknown>[] = [],
+  outboxError: { message: string } | null = null
+) {
   const eventsBuilder = createEventsBuilder(events);
   const base = createMockAdminClient({
     content: {
@@ -115,6 +118,7 @@ async function renderDashboard(events: EventRow[]) {
       ],
     },
     profiles: { rows: [] },
+    admin_audit_outbox: outboxError ? { rows: [], error: outboxError } : { rows: outboxRows },
   });
 
   requireAdmin.mockResolvedValue({
@@ -139,6 +143,42 @@ describe('AdminDashboardPage upcoming events', () => {
 
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  it('surfaces a failing audit outbox on the admin landing page', async () => {
+    const { html } = await renderDashboard(
+      [],
+      [
+        {
+          id: '11111111-1111-4111-8111-111111111111',
+          created_at: '2026-11-17T10:00:00.000Z',
+          attempts: 3,
+          next_attempt_at: '2026-11-17T11:00:00.000Z',
+          last_error: 'audit log offline',
+          payload: { action: 'crm.contact.delete', outcome: 'success' },
+        },
+      ]
+    );
+
+    expect(html).toContain('Audit outbox delivery is failing');
+    expect(html).toContain('Review outbox health');
+  });
+
+  it('links to outbox health even when the outbox is healthy', async () => {
+    const { html } = await renderDashboard([]);
+
+    expect(html).toContain('href="/admin/audit/outbox"');
+    expect(html).toContain('Audit outbox health');
+    expect(html).not.toContain('Audit outbox is overdue');
+    expect(html).not.toContain('Audit outbox delivery is failing');
+    expect(html).not.toContain('Audit outbox health could not be checked');
+  });
+
+  it('warns when outbox health itself cannot be read', async () => {
+    const { html } = await renderDashboard([], [], { message: 'outbox offline' });
+
+    expect(html).toContain('Audit outbox health could not be checked');
+    expect(html).toContain('The audit log may be behind');
   });
 
   it('excludes hidden and past rows while keeping future and recurring rows', async () => {

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { recordAdminAudit } from '@/lib/admin-audit';
+import { clearAdminAuditLoss } from '@/lib/admin-audit-alert';
 import {
   assertMfaVerified,
   isMfaEnrollmentRequired,
@@ -44,6 +45,15 @@ async function requireAdminClient() {
     adminEmail: user.email || '',
     mfaLevel: 'aal2' as const,
   };
+}
+
+export async function acknowledgeAdminAuditLoss() {
+  // The banner is only rendered inside the admin shell, but this action is a
+  // public mutation endpoint like any other. Re-run the full admin gate before
+  // clearing the marker so a signed-out request cannot silence it.
+  await requireAdminClient();
+  await clearAdminAuditLoss();
+  revalidatePath('/admin', 'layout');
 }
 
 export async function markAdminUser(profileId: string, isAdmin: boolean) {

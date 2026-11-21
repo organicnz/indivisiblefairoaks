@@ -161,6 +161,71 @@ function errorMessage(err: unknown): string {
 }
 
 /**
+ * Metadata for the operator alert. Deliberately excludes actor email, target
+ * label, and the before/after payload: Sentry is a third-party processor and
+ * the audit payload can contain constituent data. Action, target type/id,
+ * audit id and the database error are enough to investigate the missing row.
+ */
+interface AdminAuditLossContext {
+  reason: 'incomplete-entry' | 'write-and-queue-failed';
+  action: string;
+  targetType: string;
+  targetId?: string;
+  auditId?: string;
+  error?: string;
+  attempts?: number;
+  lastFailure?: 'error' | 'threw';
+}
+
+/**
+ * Send a server-side alert even when the acting admin closes the tab. The
+ * cookie marker below only reaches that admin's browser; Sentry is the
+ * operational channel for everyone else. A missing DSN makes the SDK a no-op,
+ * and neither this report nor the cookie may turn the original mutation into
+ * a thrown failure.
+ */
+async function reportAdminAuditLossToSentry(context: AdminAuditLossContext): Promise<void> {
+  try {
+    const Sentry = await import('@sentry/nextjs');
+    const extra: Record<string, unknown> = {};
+    if (context.auditId) extra.auditId = context.auditId;
+    if (context.targetId) extra.targetId = context.targetId;
+    if (context.error) extra.error = context.error.slice(0, 1000);
+    if (context.attempts !== undefined) extra.attempts = context.attempts;
+    if (context.lastFailure) extra.lastFailure = context.lastFailure;
+
+    Sentry.captureMessage('Admin audit record lost', {
+      level: 'error',
+      tags: {
+        area: 'admin-audit',
+        event_type: 'audit.record.lost',
+        reason: context.reason,
+        action: context.action,
+        target_type: context.targetType,
+      },
+      extra,
+      fingerprint: ['admin-audit-loss', context.action, context.targetType],
+    });
+  } catch {
+    // The console error at the call site remains the fallback record.
+  }
+}
+
+/**
+ * Leave the persistent admin marker and notify operators. Both channels are
+ * best-effort and independent: a failure in one must not suppress the other.
+ */
+async function flagAuditLoss(context: AdminAuditLossContext): Promise<void> {
+  await Promise.allSettled([
+    (async () => {
+      const { markAdminAuditLoss } = await import('@/lib/admin-audit-alert');
+      await markAdminAuditLoss();
+    })(),
+    reportAdminAuditLossToSentry(context),
+  ]);
+}
+
+/**
  * Persist the exact payload that failed to reach the append-only log. The
  * outbox row and payload share the audit id, so a later delivery can use
  * `on conflict (id) do nothing` and remove the row safely even if the original
@@ -237,6 +302,13 @@ export async function recordAdminAudit(
       hasActor: Boolean(entry.actorUserId),
       hasTarget: Boolean(entry.targetId),
     });
+    await flagAuditLoss({
+      reason: 'incomplete-entry',
+      action: entry.action || 'unknown',
+      targetType: entry.targetType || 'unknown',
+      targetId: entry.targetId || undefined,
+      error,
+    });
     return { ok: false, error, queued: false };
   }
 
@@ -297,5 +369,17 @@ export async function recordAdminAudit(
       queued,
     }
   );
+  if (!queued) {
+    await flagAuditLoss({
+      reason: 'write-and-queue-failed',
+      action: entry.action,
+      targetType: entry.targetType,
+      targetId: entry.targetId,
+      auditId: payload.id,
+      error: lastError,
+      attempts: AUDIT_WRITE_ATTEMPTS,
+      lastFailure,
+    });
+  }
   return { ok: false, error: lastError, queued };
 }

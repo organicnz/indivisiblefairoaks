@@ -8,16 +8,19 @@ import { describe, expect, it } from 'vitest';
  * The app tests exercise the writer through a fake client. These checks guard
  * the database properties the fake cannot prove: the outbox is service-role
  * only, delivery is idempotent, failed deliveries stay queued with a backoff,
- * and pg_cron actually calls the delivery function.
+ * and pg_cron actually calls the delivery function. The follow-up migration is
+ * read with the original so the checks cover the effective schema history.
  */
-const MIGRATION = resolve(
-  process.cwd(),
-  'supabase/migrations/20261119210000_admin_audit_outbox.sql'
+const MIGRATIONS = [
+  resolve(process.cwd(), 'supabase/migrations/20261119210000_admin_audit_outbox.sql'),
+  resolve(process.cwd(), 'supabase/migrations/20261121120000_admin_audit_outbox_health.sql'),
+];
+const SQL = (await Promise.all(MIGRATIONS.map((migration) => Bun.file(migration).text()))).join(
+  '\n'
 );
-const SQL = await Bun.file(MIGRATION).text();
 const CODE = SQL.replace(/--[^\n]*/g, '');
 
-describe('admin audit outbox migration', () => {
+describe('admin audit outbox migrations', () => {
   it('retains the complete audit payload and retry state', () => {
     expect(CODE).toMatch(/create table if not exists public\.admin_audit_outbox/i);
     for (const column of [
@@ -32,6 +35,12 @@ describe('admin audit outbox migration', () => {
     }
     expect(CODE).toMatch(
       /constraint admin_audit_outbox_payload_id[\s\S]*?\(payload ->> 'id'\)::uuid = id/i
+    );
+  });
+
+  it('indexes the health view’s attempts-first order', () => {
+    expect(CODE).toMatch(
+      /create index if not exists admin_audit_outbox_attempts_idx[\s\S]*?\(attempts desc, next_attempt_at, created_at\)/i
     );
   });
 
@@ -63,7 +72,7 @@ describe('admin audit outbox migration', () => {
     expect(CODE).toMatch(/attempts = attempts \+ 1/i);
     expect(CODE).toMatch(/last_error = left\(sqlerrm, 2000\)/i);
     expect(CODE).toMatch(/next_attempt_at = now\(\) \+ make_interval/i);
-    expect(CODE).toMatch(/least\(\s*3600,\s*30 \* power\(2, least\(item\.attempts, 6\)\)/i);
+    expect(CODE).toMatch(/least\(\s*3600,\s*30 \* power\(2, least\(item\.attempts, 7\)\)/i);
   });
 
   it('schedules the drain every minute and grants execution only to service_role', () => {

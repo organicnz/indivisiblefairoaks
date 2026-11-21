@@ -124,6 +124,8 @@ export interface MockTableConfig {
   error?: { message: string; code?: string } | null;
   /** Fail only the delete, after reads against the same table have succeeded. */
   deleteError?: { message: string; code?: string } | null;
+  /** Fail only the update, after reads against the same table have succeeded. */
+  updateError?: { message: string; code?: string } | null;
   /**
    * Override the exact count reported by a read. `null` models a successful
    * response that omitted the count, which callers must not treat as zero.
@@ -135,6 +137,12 @@ export interface MockTableConfig {
    * turn into zero or a false “none exist” error.
    */
   writeCount?: number | null;
+  /**
+   * Omit these ids from an update's returned representation while still
+   * applying the update to `rows`. Models a successful write whose
+   * `return=representation` response is partial.
+   */
+  omitUpdateResponseIds?: string[];
   /**
    * Errors keyed on the *filter* that triggers them.
    *
@@ -457,7 +465,7 @@ export class MockQueryBuilder {
     return this;
   }
 
-  contains(_column: string, _values: readonly unknown[]): this {
+  contains(_column: string, _value: unknown): this {
     this.unmodelledFilter = true;
     return this;
   }
@@ -610,7 +618,10 @@ export class MockQueryBuilder {
     // search narrowed to one contact must still honour the `.eq('id', …)` the
     // code put in front of it, or the test would pass a query that returns
     // every row.
-    if (this.mode === 'update') config.beforeUpdate?.();
+    if (this.mode === 'update') {
+      if (config.updateError) return { error: config.updateError, count: null, data: null };
+      config.beforeUpdate?.();
+    }
     const base = this.unmodelledFilter ? config.filterRows : config.rows;
 
     if (this.mode === 'update') {
@@ -624,10 +635,16 @@ export class MockQueryBuilder {
       // ask for the row back.
       const affectedCount = config.writeCount === undefined ? affected.length : config.writeCount;
       if (this.columns === null) return { error: null, count: affectedCount, data: null };
+      // `return=representation` answers with an array, exactly as insert does.
+      // `.single()` / `.maybeSingle()` unwrap it; a bulk update reads every
+      // affected row from it.
+      const returned = affected.filter(
+        (row) => !config.omitUpdateResponseIds?.includes(String(row.id))
+      );
       return {
         error: null,
         count: affectedCount,
-        data: affected.length === 0 ? null : this.#project(affected[0] as Record<string, unknown>),
+        data: returned.length === 0 ? null : returned.map((row) => this.#project(row)),
       };
     }
 
@@ -671,7 +688,28 @@ export class MockQueryBuilder {
       .map((c) => c.trim())
       .filter(Boolean);
     const out: Record<string, unknown> = {};
-    for (const column of wanted) out[column] = row[column];
+    for (const column of wanted) {
+      // PostgREST extracts a JSON field (`payload->>action`) and names the
+      // result after the key. The audit-outbox health reader relies on this so
+      // it does not have to ship every record's whole before/after payload;
+      // without modelling it here the mock would return no labels and make
+      // that query look broken.
+      const match = column.match(/^(\w+)->>(\w+)$/);
+      if (!match) {
+        out[column] = row[column];
+        continue;
+      }
+      const [, source, key] = match;
+      if (!source || !key) {
+        out[column] = row[column];
+        continue;
+      }
+      const value = row[source];
+      out[key] =
+        value && typeof value === 'object' && !Array.isArray(value)
+          ? (value as Record<string, unknown>)[key]
+          : null;
+    }
     return out;
   }
 

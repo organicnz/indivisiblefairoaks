@@ -1,10 +1,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { AdminAuditOutboxAlert } from '@/components/admin/audit/AdminAuditOutboxAlert';
 import { DashboardHeader } from '@/components/admin/dashboard/DashboardHeader';
+import type { ContentRow, EventRow } from '@/components/admin/dashboard/dashboard-types';
 import { KpiCards } from '@/components/admin/dashboard/KpiCards';
 import { QuickActions } from '@/components/admin/dashboard/QuickActions';
 import { RecentContent } from '@/components/admin/dashboard/RecentContent';
 import { UpcomingActions } from '@/components/admin/dashboard/UpcomingActions';
-import type { ContentRow, EventRow } from '@/components/admin/dashboard/dashboard-types';
+import { getAdminAuditOutboxHealth } from '@/lib/admin-audit-outbox';
 import { requireAdminPage } from '@/lib/admin-auth';
 import { getDataPoints } from '@/lib/queries/civic';
 
@@ -12,7 +14,10 @@ import { getDataPoints } from '@/lib/queries/civic';
 export const instant = false;
 
 export const metadata = {
-  title: 'Dashboard — Admin · Indivisible Fair Oaks',
+  // `/admin` shares its segment with the admin layout, so the layout's title
+  // template does not apply here. Stay bare and let the root template append
+  // the site name once.
+  title: 'Dashboard · Admin',
   robots: { index: false, follow: false },
 };
 
@@ -36,6 +41,7 @@ export default async function AdminDashboardPage() {
     { count: memberCount },
     { data: upcomingEvents },
     dataPoints,
+    outboxHealthResult,
   ] = await Promise.all([
     adminClient.from('events').select('slug', { count: 'exact', head: true }),
     adminClient.from('content').select('id', { count: 'exact', head: true }),
@@ -63,6 +69,9 @@ export default async function AdminDashboardPage() {
       .order('starts_at', { ascending: true, nullsFirst: false })
       .limit(5),
     getDataPoints('admin'),
+    getAdminAuditOutboxHealth(adminClient)
+      .then((health) => ({ health, error: false }))
+      .catch(() => ({ health: null, error: true })),
   ]);
 
   const eventRows = (upcomingEvents || []) as EventRow[];
@@ -77,6 +86,7 @@ export default async function AdminDashboardPage() {
   return (
     <div>
       <DashboardHeader dataPoints={dataPoints} />
+      <AdminAuditOutboxAlert health={outboxHealthResult.health} error={outboxHealthResult.error} />
       <QuickActions />
       <KpiCards
         dataPoints={dataPoints}
