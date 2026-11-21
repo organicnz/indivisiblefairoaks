@@ -60,7 +60,10 @@ describe('check-migration-sql', () => {
   it('passes a benign new migration', async () => {
     const out = captureOutput();
     const exit = await main(
-      trees({ [OLD]: 'select 1;\n' }, { [OLD]: 'select 1;\n', [NEW]: 'create table widgets (id int);\n' })
+      trees(
+        { [OLD]: 'select 1;\n' },
+        { [OLD]: 'select 1;\n', [NEW]: 'create table widgets (id int);\n' }
+      )
     );
 
     expect(exit).toBe(0);
@@ -74,7 +77,7 @@ describe('check-migration-sql', () => {
       '-- DROP TABLE widgets;',
       '/* TRUNCATE widgets; */',
       "COMMENT ON TABLE widgets IS 'DROP TABLE widgets';",
-      "SELECT 'DELETE FROM widgets', \"drop table\" FROM widgets;",
+      'SELECT \'DELETE FROM widgets\', "drop table" FROM widgets;',
       '',
     ].join('\n');
 
@@ -170,7 +173,10 @@ describe('check-migration-sql', () => {
 
     expect(
       await main(
-        trees({ [OLD]: 'select 1;\n' }, { [NEW]: 'CREATE FUNCTION f() RETURNS void AS $$ BEGIN SELECT 1;\n' })
+        trees(
+          { [OLD]: 'select 1;\n' },
+          { [NEW]: 'CREATE FUNCTION f() RETURNS void AS $$ BEGIN SELECT 1;\n' }
+        )
       )
     ).toBe(1);
     expect(out.all()).toContain('unterminated dollar-quoted string');
@@ -189,7 +195,9 @@ describe('check-migration-sql', () => {
 
   it('validates nothing when every file matches the base', async () => {
     const out = captureOutput();
-    const exit = await main(trees({ [OLD]: 'DROP TABLE widgets;\n' }, { [OLD]: 'DROP TABLE widgets;\n' }));
+    const exit = await main(
+      trees({ [OLD]: 'DROP TABLE widgets;\n' }, { [OLD]: 'DROP TABLE widgets;\n' })
+    );
 
     expect(exit).toBe(0);
     expect(out.all()).toContain('No changed migrations to validate.');
@@ -215,6 +223,28 @@ describe('check-migration-sql', () => {
 
     expect(await main(trees({ [OLD]: 'select 1;\n' }, { [NEW]: sql }))).toBe(1);
     expect(out.all()).toContain('DROP TABLE destroys');
+    out.restore();
+  });
+
+  it('ignores an allow-destructive marker inside a string literal or dollar-quoted body', async () => {
+    const out = captureOutput();
+    // The DROP is the only real statement. The two markers are SQL data: one in
+    // a string, one in a function body. Neither is a comment, so neither may
+    // turn the finding into a warning.
+    const sql = [
+      "SELECT '-- allow-destructive: hidden in a string';",
+      'DROP TABLE widgets;',
+      'CREATE FUNCTION wipe() RETURNS void AS $$',
+      '  -- allow-destructive: hidden in a function body',
+      '  DELETE FROM widgets;',
+      '$$ LANGUAGE plpgsql;',
+      '',
+    ].join('\n');
+
+    expect(await main(trees({ [OLD]: 'select 1;\n' }, { [NEW]: sql }))).toBe(1);
+    const said = out.all();
+    expect(said).toContain(`${NEW}:2: DROP TABLE destroys`);
+    expect(said).not.toContain('allowed:');
     out.restore();
   });
 

@@ -35,9 +35,11 @@
  *
  * Comments, string literals and dollar-quoted bodies are blanked before the
  * statements are split, so `COMMENT ON … IS 'DROP TABLE x'` and a `-- TRUNCATE`
- * note are not findings. That also means **SQL inside a dollar-quoted function
- * body is not analysed** — the trade is fewer false positives on the bodies
- * that legitimately contain dynamic SQL.
+ * note are not findings. The text of real comments is returned alongside the
+ * blanked SQL, so the opt-out below is read from a comment and nowhere else.
+ * That also means **SQL inside a dollar-quoted function body is not analysed**
+ * — the trade is fewer false positives on the bodies that legitimately contain
+ * dynamic SQL.
  *
  * ## Intentional destruction
  *
@@ -46,8 +48,10 @@
  *     -- allow-destructive: dropping the abandoned staging table (see #123)
  *
  * The marker turns this file's destructive findings into warnings; structural
- * faults still fail. It lives in the file, so the decision is visible in the
- * diff and in review, rather than in a list somewhere else.
+ * faults still fail. It is read from real SQL comments only: the same text
+ * inside a string literal, a quoted identifier or a dollar-quoted function
+ * body does not opt the file out. It lives in the file, so the decision is
+ * visible in the diff and in review, rather than in a list somewhere else.
  *
  * ## What it deliberately does NOT catch
  *
@@ -68,8 +72,14 @@ const notice = (m) => console.log(`::notice::${m}`);
 const error = (m) => console.log(`::error::${m}`);
 const warn = (m) => console.log(`::warning::${m}`);
 
-/** Per-file opt-out. The reason is required; an empty marker does not count. */
-const ALLOW_DESTRUCTIVE = /^[ \t]*--[ \t]*allow-destructive:[ \t]*(\S.*)$/im;
+/**
+ * Per-file opt-out, matched against a real comment's own text.
+ *
+ * The marker must begin a comment line, so prose that merely mentions it does
+ * not opt the file out; the optional `*` accepts a block comment's decoration.
+ * The reason is required.
+ */
+const ALLOW_DESTRUCTIVE = /^[ \t]*\*?[ \t]*allow-destructive:[ \t]*(\S[^\n]*)/im;
 
 /**
  * Statements that destroy data, with the claim each one makes.
@@ -111,12 +121,20 @@ export function lineAt(text, index) {
  * data are gone, `drop table` in the remaining text is a statement, not a
  * sentence.
  *
+ * Real comments are collected separately, so a caller can read a directive
+ * from them without mistaking text that was blanked inside a string or body.
+ *
  * @param {string} sql
- * @returns {{ sanitized: string, problems: { line: number, message: string }[] }}
+ * @returns {{
+ *   sanitized: string,
+ *   problems: { line: number, message: string }[],
+ *   comments: string[],
+ * }}
  */
 export function sanitizeSql(sql) {
   const out = [];
   const problems = [];
+  const comments = [];
   let i = 0;
 
   const copy = (ch) => out.push(ch);
@@ -127,10 +145,12 @@ export function sanitizeSql(sql) {
 
     // Line comment.
     if (ch === '-' && sql[i + 1] === '-') {
+      const start = i + 2;
       while (i < sql.length && sql[i] !== '\n') {
         blank(sql[i]);
         i++;
       }
+      comments.push(sql.slice(start, i));
       continue;
     }
 
@@ -160,6 +180,8 @@ export function sanitizeSql(sql) {
       }
       if (depth > 0) {
         problems.push({ line: lineAt(sql, start), message: 'unterminated block comment' });
+      } else {
+        comments.push(sql.slice(start + 2, i - 2));
       }
       continue;
     }
@@ -231,7 +253,26 @@ export function sanitizeSql(sql) {
     i++;
   }
 
-  return { sanitized: out.join(''), problems };
+  return { sanitized: out.join(''), problems, comments };
+}
+
+/**
+ * The reason from the first real comment that opts this migration out, or
+ * `null` when no comment carries one.
+ *
+ * Only comments reach this function: text inside strings, quoted identifiers
+ * and dollar-quoted bodies was blanked and is not collected, so copying the
+ * marker into SQL data cannot disable the check.
+ *
+ * @param {string[]} comments
+ * @returns {string | null}
+ */
+function allowDestructiveReason(comments) {
+  for (const comment of comments) {
+    const match = ALLOW_DESTRUCTIVE.exec(comment);
+    if (match) return match[1].trim();
+  }
+  return null;
 }
 
 /**
@@ -350,8 +391,8 @@ export async function main(env = Bun.env) {
   let failures = 0;
   for (const file of changed) {
     const sql = await Bun.file(join(currentDir, file)).text();
-    const allow = ALLOW_DESTRUCTIVE.exec(sql);
-    const { sanitized, problems } = sanitizeSql(sql);
+    const { sanitized, problems, comments } = sanitizeSql(sql);
+    const allow = allowDestructiveReason(comments);
 
     for (const problem of problems) {
       error(`${file}:${problem.line}: ${problem.message}`);
@@ -368,8 +409,8 @@ export async function main(env = Bun.env) {
       const leading = statement.text.length - statement.text.trimStart().length;
       for (const finding of findDestructive(statement.text)) {
         const line = lineAt(sanitized, statement.offset + leading + finding.index);
-        if (allow) {
-          warn(`${file}:${line}: ${finding.message} — allowed: ${allow[1]}`);
+        if (allow !== null) {
+          warn(`${file}:${line}: ${finding.message} — allowed: ${allow}`);
         } else {
           error(
             `${file}:${line}: ${finding.message}. If this is intentional, add ` +
