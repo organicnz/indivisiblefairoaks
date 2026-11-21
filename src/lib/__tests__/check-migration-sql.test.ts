@@ -88,12 +88,14 @@ describe('check-migration-sql', () => {
     out.restore();
   });
 
-  it('flags DROP TABLE, DROP COLUMN and TRUNCATE with their lines', async () => {
+  it('flags every destructive verb with its line', async () => {
     const out = captureOutput();
     const sql = [
       'DROP TABLE widgets;',
       'ALTER TABLE gadgets DROP COLUMN name;',
       'TRUNCATE events;',
+      'DROP SCHEMA private;',
+      'DROP DATABASE prod;',
       '',
     ].join('\n');
 
@@ -101,6 +103,8 @@ describe('check-migration-sql', () => {
     expect(out.all()).toContain(`${NEW}:1: DROP TABLE destroys`);
     expect(out.all()).toContain(`${NEW}:2: DROP COLUMN destroys`);
     expect(out.all()).toContain(`${NEW}:3: TRUNCATE removes`);
+    expect(out.all()).toContain(`${NEW}:4: DROP SCHEMA destroys`);
+    expect(out.all()).toContain(`${NEW}:5: DROP DATABASE is not`);
     out.restore();
   });
 
@@ -120,12 +124,117 @@ describe('check-migration-sql', () => {
     out.restore();
   });
 
+  it('finds an unfiltered DELETE behind a WITH clause', async () => {
+    const out = captureOutput();
+    const sql = [
+      'WITH doomed AS (',
+      '  DELETE FROM widgets RETURNING *',
+      ')',
+      'SELECT * FROM doomed;',
+      '',
+    ].join('\n');
+
+    expect(await main(trees({ [OLD]: 'select 1;\n' }, { [NEW]: sql }))).toBe(1);
+    expect(out.all()).toContain(`${NEW}:2: DELETE without WHERE`);
+    out.restore();
+  });
+
+  it('finds an unfiltered UPDATE behind a WITH clause', async () => {
+    const out = captureOutput();
+    const sql = [
+      'WITH changed AS (',
+      '  UPDATE widgets SET archived = true RETURNING *',
+      ')',
+      'SELECT * FROM changed;',
+      '',
+    ].join('\n');
+
+    expect(await main(trees({ [OLD]: 'select 1;\n' }, { [NEW]: sql }))).toBe(1);
+    expect(out.all()).toContain(`${NEW}:2: UPDATE without WHERE`);
+    out.restore();
+  });
+
+  it('respects a WHERE inside a data-modifying CTE', async () => {
+    const out = captureOutput();
+    const sql = [
+      'WITH changed AS (',
+      '  UPDATE widgets SET archived = true WHERE id = 1 RETURNING *',
+      ')',
+      'SELECT * FROM changed;',
+      '',
+    ].join('\n');
+
+    expect(await main(trees({ [OLD]: 'select 1;\n' }, { [NEW]: sql }))).toBe(0);
+    expect(out.all()).not.toContain('UPDATE without WHERE');
+    out.restore();
+  });
+
+  it('does not let a sibling CTE WHERE filter an earlier CTE DELETE', async () => {
+    const out = captureOutput();
+    const sql = [
+      'WITH first AS (',
+      '  DELETE FROM widgets RETURNING *',
+      '),',
+      'second AS (',
+      '  DELETE FROM gadgets WHERE id = 1 RETURNING *',
+      ')',
+      'SELECT * FROM first, second;',
+      '',
+    ].join('\n');
+
+    expect(await main(trees({ [OLD]: 'select 1;\n' }, { [NEW]: sql }))).toBe(1);
+    expect(out.all().match(/DELETE without WHERE/g)).toHaveLength(1);
+    expect(out.all()).toContain(`${NEW}:2: DELETE without WHERE`);
+    out.restore();
+  });
+
+  it('does not treat a WHERE inside a subquery as a filter on the outer UPDATE', async () => {
+    const out = captureOutput();
+    const sql = 'UPDATE widgets SET archived = (SELECT true WHERE 1 = 1);\n';
+
+    expect(await main(trees({ [OLD]: 'select 1;\n' }, { [NEW]: sql }))).toBe(1);
+    expect(out.all()).toContain(`${NEW}:1: UPDATE without WHERE`);
+    out.restore();
+  });
+
   it('does not misread INSERT ... ON CONFLICT DO UPDATE as an unfiltered UPDATE', async () => {
     const out = captureOutput();
     const sql = 'INSERT INTO widgets (id) VALUES (1) ON CONFLICT (id) DO UPDATE SET seen = true;\n';
 
     expect(await main(trees({ [OLD]: 'select 1;\n' }, { [NEW]: sql }))).toBe(0);
     out.restore();
+  });
+
+  it('does not misread DO UPDATE inside a WITH statement', async () => {
+    const out = captureOutput();
+    const sql =
+      'WITH source AS (SELECT 1 AS id) ' +
+      'INSERT INTO widgets (id) SELECT id FROM source ' +
+      'ON CONFLICT (id) DO UPDATE SET seen = true;\n';
+
+    expect(await main(trees({ [OLD]: 'select 1;\n' }, { [NEW]: sql }))).toBe(0);
+    expect(out.all()).not.toContain('UPDATE without WHERE');
+    out.restore();
+  });
+
+  it('does not misread FOR UPDATE inside a WITH statement', async () => {
+    for (const lock of ['FOR UPDATE', 'FOR NO KEY UPDATE']) {
+      const out = captureOutput();
+      const sql = [
+        'WITH locked AS (',
+        `  SELECT * FROM widgets ${lock}`,
+        '),',
+        'changed AS (',
+        '  UPDATE gadgets SET archived = true WHERE id = 1 RETURNING *',
+        ')',
+        'SELECT * FROM locked, changed;',
+        '',
+      ].join('\n');
+
+      expect(await main(trees({ [OLD]: 'select 1;\n' }, { [NEW]: sql }))).toBe(0);
+      expect(out.all()).not.toContain('UPDATE without WHERE');
+      out.restore();
+    }
   });
 
   it('does not flag TRUNCATE as a trigger event or a revoked privilege', async () => {
@@ -157,6 +266,37 @@ describe('check-migration-sql', () => {
     ].join('\n');
 
     expect(await main(trees({ [OLD]: 'select 1;\n' }, { [NEW]: sql }))).toBe(0);
+    out.restore();
+  });
+
+  it('does not treat a dollar tag inside an identifier as a dollar-quoted string', async () => {
+    const out = captureOutput();
+    // `foo$q$` is a valid identifier. If its tag opened a dollar-quoted
+    // string, the scanner would blank through the next `$q$` and hide the
+    // DROP in between.
+    const sql = ['SELECT foo$q$;', 'DROP TABLE widgets;', 'SELECT $q$ harmless $q$;', ''].join(
+      '\n'
+    );
+
+    expect(await main(trees({ [OLD]: 'select 1;\n' }, { [NEW]: sql }))).toBe(1);
+    const said = out.all();
+    expect(said).toContain(`${NEW}:2: DROP TABLE destroys`);
+    expect(said).not.toContain('unterminated dollar-quoted');
+    out.restore();
+  });
+
+  it('does not treat a dollar tag after a Unicode identifier character as a string', async () => {
+    const out = captureOutput();
+    // `café$q$` is one identifier in Postgres; the `$q$` must not open a
+    // dollar-quoted string and hide the DROP.
+    const sql = ['SELECT café$q$;', 'DROP TABLE widgets;', 'SELECT $q$ harmless $q$;', ''].join(
+      '\n'
+    );
+
+    expect(await main(trees({ [OLD]: 'select 1;\n' }, { [NEW]: sql }))).toBe(1);
+    const said = out.all();
+    expect(said).toContain(`${NEW}:2: DROP TABLE destroys`);
+    expect(said).not.toContain('unterminated dollar-quoted');
     out.restore();
   });
 
@@ -193,6 +333,15 @@ describe('check-migration-sql', () => {
     out.restore();
   });
 
+  it('checks parentheses per statement', async () => {
+    const out = captureOutput();
+    const sql = ['CREATE TABLE t (id int;', 'SELECT 1);', ''].join('\n');
+
+    expect(await main(trees({ [OLD]: 'select 1;\n' }, { [NEW]: sql }))).toBe(1);
+    expect(out.all().match(/unbalanced parentheses/g)).toHaveLength(2);
+    out.restore();
+  });
+
   it('validates nothing when every file matches the base', async () => {
     const out = captureOutput();
     const exit = await main(
@@ -214,6 +363,21 @@ describe('check-migration-sql', () => {
 
     expect(await main(trees({ [OLD]: 'select 1;\n' }, { [NEW]: sql }))).toBe(0);
     expect(out.all()).toContain('allowed: dropping the abandoned staging table (#123)');
+    out.restore();
+  });
+
+  it('honours allow-destructive in a block comment', async () => {
+    const out = captureOutput();
+    const sql = [
+      '/*',
+      ' * allow-destructive: dropping the abandoned staging table',
+      ' */',
+      'DROP TABLE staging_old;',
+      '',
+    ].join('\n');
+
+    expect(await main(trees({ [OLD]: 'select 1;\n' }, { [NEW]: sql }))).toBe(0);
+    expect(out.all()).toContain('allowed: dropping the abandoned staging table');
     out.restore();
   });
 

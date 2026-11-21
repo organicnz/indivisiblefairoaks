@@ -23,11 +23,14 @@
  *
  *   - **Destructive statements**: `DROP TABLE`, `DROP COLUMN`, `DROP SCHEMA`,
  *     `DROP DATABASE`, `TRUNCATE`, `DELETE FROM` with no `WHERE`, and `UPDATE`
- *     with no `WHERE`. The verb rules are anchored to the start of a statement,
- *     because the same words appear harmlessly mid-statement: a `BEFORE
- *     TRUNCATE` trigger event, a `REVOKE TRUNCATE` privilege list, and an
- *     `INSERT … ON CONFLICT DO UPDATE` all read like destruction to a
- *     substring match and none of them is.
+ *     with no `WHERE`. The statement-level rules are anchored to the start of a
+ *     statement, because the same words appear harmlessly mid-statement: a
+ *     `BEFORE TRUNCATE` trigger event and a `REVOKE TRUNCATE` privilege list
+ *     both read like destruction to a substring match. `DROP COLUMN` is matched
+ *     in place because it only appears inside `ALTER TABLE`. The DML rules also
+ *     read `WITH` statements, where a data-modifying CTE can put an unfiltered
+ *     `DELETE` or `UPDATE` behind the CTE definitions; `DO UPDATE` (an upsert
+ *     clause) and `FOR UPDATE` (a row lock) are excluded.
  *   - **Structure**: unterminated string, quoted identifier, block comment or
  *     dollar-quoted block, and unbalanced parentheses. These are the faults
  *     that make a migration fail at apply time with an error no history check
@@ -48,18 +51,21 @@
  *     -- allow-destructive: dropping the abandoned staging table (see #123)
  *
  * The marker turns this file's destructive findings into warnings; structural
- * faults still fail. It is read from real SQL comments only: the same text
- * inside a string literal, a quoted identifier or a dollar-quoted function
- * body does not opt the file out. It lives in the file, so the decision is
- * visible in the diff and in review, rather than in a list somewhere else.
+ * faults still fail. It is read from real SQL comments only (a `--` comment or
+ * a block comment): the same text inside a string literal, a quoted identifier
+ * or a dollar-quoted function body does not opt the file out. It lives in the
+ * file, so the decision is visible in the diff and in review, rather than in a
+ * list somewhere else.
  *
  * ## What it deliberately does NOT catch
  *
  *   - **Whether the SQL is right for this schema.** No catalogue is read; a
  *     reference to a missing column still passes here and fails on apply.
  *   - **Data-dependent danger.** `UPDATE … WHERE old_column IS NULL` may touch
- *     every row; this cannot know that, and a WHERE clause is the only line a
- *     static check can draw.
+ *     every row, and `DELETE FROM t USING u WHERE …` can still remove every row
+ *     of `t`. A `WHERE` in the statement's own scope is the only line a static
+ *     check can draw; a `WHERE` inside a subquery is not a filter on the outer
+ *     verb's rows.
  *   - **SQL inside dollar-quoted function bodies**, as above.
  *   - **Lock and runtime cost.** `ALTER TABLE … SET NOT NULL` on a large table
  *     can be an outage; that is a planning question, not a text one.
@@ -71,6 +77,13 @@ import { contentHash, listMigrations } from './check-migration-immutability.mjs'
 const notice = (m) => console.log(`::notice::${m}`);
 const error = (m) => console.log(`::error::${m}`);
 const warn = (m) => console.log(`::warning::${m}`);
+
+/**
+ * Characters that can continue a PostgreSQL identifier. Unicode letters and
+ * marks matter here: `café$tag$` is one identifier, not an identifier followed
+ * by a dollar-quoted string.
+ */
+const IDENTIFIER_CHAR = /[A-Za-z0-9_$\p{L}\p{M}\p{N}]/u;
 
 /**
  * Per-file opt-out, matched against a real comment's own text.
@@ -86,7 +99,15 @@ const ALLOW_DESTRUCTIVE = /^[ \t]*\*?[ \t]*allow-destructive:[ \t]*(\S[^\n]*)/im
  *
  * `requiresWhere` is for the two DML forms, where the difference between safe
  * and catastrophic is one clause. `requiresSet` keeps `UPDATE` from matching a
- * statement that merely contains the word.
+ * statement that merely mentions it (`FOR UPDATE`, `GRANT UPDATE`), and
+ * `notAfter` excludes the upsert and row-lock forms that put `UPDATE` behind
+ * `DO` or `FOR`.
+ *
+ * The DML rules have a second form for statements that start with `WITH`: a
+ * data-modifying CTE is valid SQL and can put several verbs behind the CTE
+ * definitions. Matching only at the start would skip them; matching the plain
+ * pattern everywhere would fire on DML words in unrelated statements. The
+ * `ctePattern` is used only for a `WITH` statement.
  */
 const DESTRUCTIVE_RULES = [
   { pattern: /^drop\s+table\b/i, message: 'DROP TABLE destroys a table and every row in it' },
@@ -97,14 +118,20 @@ const DESTRUCTIVE_RULES = [
   { pattern: /^truncate\b/i, message: 'TRUNCATE removes every row' },
   {
     pattern: /^delete\s+from\b/i,
+    ctePattern: /\bdelete\s+from\b/i,
     message: 'DELETE without WHERE removes every row',
     requiresWhere: true,
   },
   {
     pattern: /^update\b/i,
+    ctePattern: /\bupdate\b/i,
     message: 'UPDATE without WHERE rewrites every row',
     requiresWhere: true,
     requiresSet: true,
+    // `… DO UPDATE SET` is an upsert clause and `… FOR UPDATE` / `… FOR NO KEY
+    // UPDATE` are row locks; none of them updates the table the way a top-level
+    // UPDATE does.
+    notAfter: /\b(?:do|for(?:\s+no\s+key)?)$/i,
   },
 ];
 
@@ -193,7 +220,7 @@ export function sanitizeSql(sql) {
       const quote = ch;
       const start = i;
       const escapeString =
-        quote === "'" && /[eE]/.test(sql[i - 1] ?? '') && !/[\w$]/.test(sql[i - 2] ?? '');
+        quote === "'" && /[eE]/.test(sql[i - 1] ?? '') && !IDENTIFIER_CHAR.test(sql[i - 2] ?? '');
       blank(ch);
       i++;
       let closed = false;
@@ -232,9 +259,15 @@ export function sanitizeSql(sql) {
     }
 
     // Dollar-quoted body. Positional parameters (`$1`) do not match: the tag
-    // must be followed by a closing `$`.
+    // must be followed by a closing `$`. A tag immediately after an identifier
+    // character belongs to that identifier (`foo$bar$`); treating it as an
+    // opening tag would blank everything up to the next matching tag and hide
+    // any statement in between.
     if (ch === '$') {
-      const opening = /^\$([A-Za-z_][A-Za-z0-9_]*)?\$/.exec(sql.slice(i));
+      const previous = sql[i - 1] ?? '';
+      const opening = IDENTIFIER_CHAR.test(previous)
+        ? null
+        : /^\$([A-Za-z_][A-Za-z0-9_]*)?\$/.exec(sql.slice(i));
       if (opening) {
         const start = i;
         const tag = opening[0];
@@ -296,8 +329,44 @@ export function splitStatements(sanitized) {
 }
 
 /**
+ * Whether the matched verb has a `WHERE` in its own scope.
+ *
+ * A `WHERE` inside a subquery filters that subquery, not the rows the outer
+ * verb touches. A data-modifying CTE's verb sits at a deeper parenthesis depth
+ * than the statement, and its scope ends at the `)` that closes that CTE; a
+ * sibling CTE's `WHERE` must not count. The verb's depth is measured from the
+ * start of the statement, then the scan stops when the scope closes.
+ *
+ * @param {string} statement
+ * @param {number} verbIndex
+ * @returns {boolean}
+ */
+function hasFilteringWhere(statement, verbIndex) {
+  let depth = 0;
+  for (let i = 0; i < verbIndex; i++) {
+    if (statement[i] === '(') depth++;
+    else if (statement[i] === ')') depth--;
+  }
+
+  const scope = depth;
+  for (let i = verbIndex; i < statement.length; i++) {
+    const ch = statement[i];
+    if (ch === '(') {
+      depth++;
+    } else if (ch === ')') {
+      depth--;
+      if (depth < scope) return false;
+    } else if (depth === scope && /^where\b/i.test(statement.slice(i, i + 6))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Destructive findings in one sanitized statement, each with the offset of the
- * matched keyword within the statement.
+ * matched keyword within the statement. A data-modifying CTE can put several
+ * verbs in one statement, so a rule can produce more than one finding.
  *
  * @param {string} statement
  * @returns {{ index: number, message: string }[]}
@@ -305,32 +374,42 @@ export function splitStatements(sanitized) {
 export function findDestructive(statement) {
   const trimmed = statement.replace(/^\s+/, '');
   const findings = [];
+  const isWith = /^with\b/i.test(trimmed);
 
   for (const rule of DESTRUCTIVE_RULES) {
-    const match = rule.pattern.exec(trimmed);
-    if (!match) continue;
-    if (rule.requiresSet && !/\bset\b/i.test(trimmed)) continue;
-    if (rule.requiresWhere && /\bwhere\b/i.test(trimmed)) continue;
-    findings.push({ index: match.index, message: rule.message });
+    const pattern = isWith && rule.ctePattern ? rule.ctePattern : rule.pattern;
+    const flags = pattern.flags.includes('g') ? pattern.flags : `${pattern.flags}g`;
+    for (const match of trimmed.matchAll(new RegExp(pattern.source, flags))) {
+      if (rule.notAfter) {
+        const before = trimmed.slice(0, match.index).trimEnd();
+        if (rule.notAfter.test(before)) continue;
+      }
+      if (rule.requiresSet && !/\bset\b/i.test(trimmed)) continue;
+      if (rule.requiresWhere && hasFilteringWhere(trimmed, match.index)) continue;
+      findings.push({ index: match.index, message: rule.message });
+    }
   }
 
   return findings;
 }
 
 /**
- * The first unbalanced parenthesis, or `null`.
+ * The first unbalanced parenthesis in one sanitized statement, or `null`.
  *
- * @param {string} sanitized
+ * It is checked per statement: one statement's stray `(` must not be balanced
+ * by another statement's stray `)`, which would let both through.
+ *
+ * @param {string} statement
  * @returns {{ index: number } | null}
  */
-export function unbalancedParenthesis(sanitized) {
+export function unbalancedParenthesis(statement) {
   let depth = 0;
   let opening = -1;
-  for (let i = 0; i < sanitized.length; i++) {
-    if (sanitized[i] === '(') {
+  for (let i = 0; i < statement.length; i++) {
+    if (statement[i] === '(') {
       if (depth === 0) opening = i;
       depth++;
-    } else if (sanitized[i] === ')') {
+    } else if (statement[i] === ')') {
       depth--;
       if (depth < 0) return { index: i };
     }
@@ -399,13 +478,15 @@ export async function main(env = Bun.env) {
       failures++;
     }
 
-    const paren = unbalancedParenthesis(sanitized);
-    if (paren) {
-      error(`${file}:${lineAt(sanitized, paren.index)}: unbalanced parentheses`);
-      failures++;
-    }
-
     for (const statement of splitStatements(sanitized)) {
+      const paren = unbalancedParenthesis(statement.text);
+      if (paren) {
+        error(
+          `${file}:${lineAt(sanitized, statement.offset + paren.index)}: unbalanced parentheses`
+        );
+        failures++;
+      }
+
       const leading = statement.text.length - statement.text.trimStart().length;
       for (const finding of findDestructive(statement.text)) {
         const line = lineAt(sanitized, statement.offset + leading + finding.index);

@@ -325,6 +325,21 @@ describe('hosted path: trusted scripts, PR data', () => {
       );
     }
   });
+
+  it('does not let the immutability check compare the PR against itself', () => {
+    const step = stepRunning('scripts/check-migration-immutability.mjs');
+    const trustedPath = String(checkoutAt(steps, 'trusted').with?.path ?? '');
+    const prPath = String(checkoutAt(steps, 'pr').with?.path ?? '');
+    const base = String(step.env?.BASE_MIGRATIONS_DIR ?? '');
+
+    // The step runs from `pr/` (the test above), so a relative or PR-relative
+    // base would hash every file against itself and pass. It must name the
+    // trusted checkout explicitly.
+    expect(base, 'the base must be the trusted checkout').toBe(
+      `\${{ github.workspace }}/${trustedPath}/supabase/migrations`
+    );
+    expect(base, 'the base must not be the PR checkout').not.toContain(`/${prPath}/`);
+  });
 });
 
 describe('fork companion workflow', () => {
