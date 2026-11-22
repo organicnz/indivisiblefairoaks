@@ -142,7 +142,11 @@ jobs:
       # granting the public roles. A finding is still a question rather than a
       # mechanical verdict — read the definitions before dropping or revoking
       # anything. It must be resolved before merge.
+      #
+      # Run even when migration history fails: the catalogue result is
+      # independent, and a history error must not hide a hygiene finding.
       - name: Check schema hygiene
+        if: always()
         env:
           SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
           # Same read-only token policy as the migration-history check above.

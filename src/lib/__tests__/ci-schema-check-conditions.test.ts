@@ -29,7 +29,8 @@ import { main as checkSchemaHygiene } from '../../../scripts/check-schema-hygien
  *   3. the token-free checks in `ci.yml` receive no credential and are not
  *      presented as the hosted check;
  *   4. the token-free trusted reconciliation checks run after a successful
- *      copy, even when a hosted check fails, while the job still fails.
+ *      copy, even when a hosted check fails, while the job still fails; the
+ *      hosted schema-hygiene check runs even when migration history fails.
  */
 
 const CI_WORKFLOW = `${process.cwd()}/.github/workflows/ci.yml`;
@@ -56,6 +57,9 @@ const TRUSTED_CHECKS = [...HOSTED_CHECKS, ...TRUSTED_MIGRATION_CHECKS];
 
 /** Run after a hosted failure, but never against a failed migration copy. */
 const RUN_AFTER_COPY = "always() && steps.copy_migrations.outcome == 'success'";
+
+/** Run even when the preceding hosted migration-history check failed. */
+const RUN_ALWAYS = 'always()';
 
 /** Where the PR migration data is copied inside the trusted checkout. */
 const COPIED_MIGRATIONS = 'trusted/pr-migrations';
@@ -177,9 +181,11 @@ describe('trusted schema workflow', () => {
   it('has no level at which an unverified run can skip and stay green', () => {
     // A job-level skip would remove the required check entirely; a step-level
     // skip on the hosted pair would recreate the old fork-PR hole. Both are
-    // forbidden. The token-free reconciliation steps are the one allowed
+    // forbidden. The token-free reconciliation steps are one allowed
     // condition: they run after a hosted failure, but only after a successful
-    // copy. A missing token still fails inside the scripts (below).
+    // copy. Schema hygiene's `always()` is the other: it cannot suppress a
+    // result, only add the hygiene outcome after a history failure. A missing
+    // token still fails inside the scripts (below).
     expect(trustedJob.if, 'the required job must not be conditionally skipped').toBeUndefined();
     expect(
       trustedJob['continue-on-error'],
@@ -191,6 +197,8 @@ describe('trusted schema workflow', () => {
       );
       if (script) {
         expect(step.if, `${script} must run after a hosted failure`).toBe(RUN_AFTER_COPY);
+      } else if ((step.run ?? '').includes('scripts/check-schema-hygiene.mjs')) {
+        expect(step.if, 'schema hygiene must run after a history failure').toBe(RUN_ALWAYS);
       } else {
         expect(step.if, `${label(step)} must be unconditional`).toBeUndefined();
       }
@@ -297,7 +305,13 @@ describe('trusted schema workflow', () => {
       const step = checkStep(trustedSteps, script);
       expect(workingDirectory(step, trustedJob), `${script} must run from trusted`).toBe('trusted');
       expect(blocking(step), `${script} must fail the job`).toBe(true);
-      expect(step.if, `${script} must not be gated`).toBeUndefined();
+      if (script === 'scripts/check-schema-hygiene.mjs') {
+        expect(step.if, 'schema hygiene must run after a migration-history failure').toBe(
+          RUN_ALWAYS
+        );
+      } else {
+        expect(step.if, `${script} must not be gated`).toBeUndefined();
+      }
       expect(step.run, `${script} must not execute from the PR`).not.toMatch(PR_PATH);
       expect(
         String(step.env?.MIGRATIONS_DIR ?? ''),
@@ -310,6 +324,19 @@ describe('trusted schema workflow', () => {
 
     const history = checkStep(trustedSteps, 'scripts/check-migrations.mjs');
     expect(String(history.env?.MIGRATIONS_DIR)).toContain(`/${COPIED_MIGRATIONS}`);
+  });
+
+  it('runs schema hygiene even when migration history fails', () => {
+    const history = checkStep(trustedSteps, 'scripts/check-migrations.mjs');
+    const hygiene = checkStep(trustedSteps, 'scripts/check-schema-hygiene.mjs');
+
+    expect(history.if, 'migration history must remain unconditional').toBeUndefined();
+    expect(hygiene.if, 'schema hygiene must not be skipped after a history failure').toBe(
+      RUN_ALWAYS
+    );
+    expect(trustedSteps.indexOf(hygiene)).toBeGreaterThan(trustedSteps.indexOf(history));
+    expect(blocking(history), 'migration history must fail the job').toBe(true);
+    expect(blocking(hygiene), 'schema hygiene must fail the job').toBe(true);
   });
 
   it('runs the migration immutability and SQL checks from trusted base code', () => {
