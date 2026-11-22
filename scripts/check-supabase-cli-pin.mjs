@@ -11,7 +11,7 @@
  * because fixtures legitimately need arbitrary versions, and prose is excluded
  * because a command in a document is not a command the repository runs.
  */
-import { readdirSync, readFileSync } from 'node:fs';
+import { readdirSync } from 'node:fs';
 import path from 'node:path';
 
 const PROJECT_ROOT = path.resolve(import.meta.dirname, '..');
@@ -65,7 +65,13 @@ function isTestFile(file) {
   );
 }
 
-/** Executable/configuration files eligible for the scan, relative to `root`. */
+/**
+ * Executable/configuration files eligible for the scan, relative to `root`.
+ *
+ * `readdirSync` is one of the five sanctioned `node:fs` uses: it reports entry
+ * types, which `Bun.Glob` cannot. The file contents are read with `Bun.file`
+ * below, so a scan of the whole tree does not block the event loop.
+ */
 function collectFiles(root) {
   const files = [];
 
@@ -142,10 +148,12 @@ export async function main({
   error = console.error,
 } = {}) {
   try {
-    const files = collectFiles(root).map((file) => ({
-      path: file,
-      source: readFileSync(path.join(root, file), 'utf8'),
-    }));
+    const files = await Promise.all(
+      collectFiles(root).map(async (file) => ({
+        path: file,
+        source: await Bun.file(path.join(root, file)).text(),
+      }))
+    );
     const { outside, canonicalPins } = classifySupabaseCliPins(files);
     let failed = false;
 

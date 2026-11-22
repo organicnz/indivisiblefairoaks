@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -42,26 +42,26 @@ function captureOutput() {
 describe('check-migration-immutability', () => {
   let root: string;
 
-  beforeEach(() => {
-    root = mkdtempSync(join(tmpdir(), 'migration-immutability-'));
+  beforeEach(async () => {
+    root = await mkdtemp(join(tmpdir(), 'migration-immutability-'));
   });
 
-  afterEach(() => {
-    rmSync(root, { recursive: true, force: true });
+  afterEach(async () => {
+    await rm(root, { recursive: true, force: true });
     vi.restoreAllMocks();
   });
 
   /** The two checkouts the workflow materialises: trusted base and PR tree. */
-  function trees(base: Record<string, string>, current: Record<string, string>) {
+  async function trees(base: Record<string, string>, current: Record<string, string>) {
     const baseDir = join(root, 'trusted/supabase/migrations');
     const currentDir = join(root, 'pr/supabase/migrations');
-    mkdirSync(baseDir, { recursive: true });
-    mkdirSync(currentDir, { recursive: true });
+    await mkdir(baseDir, { recursive: true });
+    await mkdir(currentDir, { recursive: true });
     for (const [name, contents] of Object.entries(base)) {
-      writeFileSync(join(baseDir, name), contents);
+      await Bun.write(join(baseDir, name), contents);
     }
     for (const [name, contents] of Object.entries(current)) {
-      writeFileSync(join(currentDir, name), contents);
+      await Bun.write(join(currentDir, name), contents);
     }
     return { BASE_MIGRATIONS_DIR: baseDir, MIGRATIONS_DIR: currentDir };
   }
@@ -70,7 +70,7 @@ describe('check-migration-immutability', () => {
     const out = captureOutput();
 
     const exit = await main(
-      trees({ [APPLIED]: 'select 1;\n' }, { [APPLIED]: 'select 1;\n', [NEW]: 'select 2;\n' })
+      await trees({ [APPLIED]: 'select 1;\n' }, { [APPLIED]: 'select 1;\n', [NEW]: 'select 2;\n' })
     );
 
     expect(exit).toBe(0);
@@ -82,7 +82,7 @@ describe('check-migration-immutability', () => {
     const out = captureOutput();
 
     expect(
-      await main(trees({ [APPLIED]: 'select 1;\n' }, { [APPLIED]: 'select 1; -- edited\n' }))
+      await main(await trees({ [APPLIED]: 'select 1;\n' }, { [APPLIED]: 'select 1; -- edited\n' }))
     ).toBe(1);
     expect(out.all()).toContain('Applied migration modified');
     expect(out.all()).toContain(APPLIED);
@@ -93,9 +93,9 @@ describe('check-migration-immutability', () => {
   it('fails on a whitespace-only edit, because the comparison is byte-exact', async () => {
     const out = captureOutput();
 
-    expect(await main(trees({ [APPLIED]: 'select 1;\n' }, { [APPLIED]: 'select 1;   \n' }))).toBe(
-      1
-    );
+    expect(
+      await main(await trees({ [APPLIED]: 'select 1;\n' }, { [APPLIED]: 'select 1;   \n' }))
+    ).toBe(1);
     expect(out.all()).toContain('content hash changed');
     out.restore();
   });
@@ -103,7 +103,7 @@ describe('check-migration-immutability', () => {
   it('fails when an applied migration is deleted', async () => {
     const out = captureOutput();
 
-    expect(await main(trees({ [APPLIED]: 'select 1;\n' }, {}))).toBe(1);
+    expect(await main(await trees({ [APPLIED]: 'select 1;\n' }, {}))).toBe(1);
     expect(out.all()).toContain('Applied migration deleted');
     expect(out.all()).toContain(APPLIED);
     out.restore();
@@ -113,7 +113,9 @@ describe('check-migration-immutability', () => {
     const out = captureOutput();
     const renamed = '20260101000000_add_widgets_v2.sql';
 
-    expect(await main(trees({ [APPLIED]: 'select 1;\n' }, { [renamed]: 'select 1;\n' }))).toBe(1);
+    expect(
+      await main(await trees({ [APPLIED]: 'select 1;\n' }, { [renamed]: 'select 1;\n' }))
+    ).toBe(1);
     expect(out.all()).toContain('Applied migration renamed');
     expect(out.all()).toContain(renamed);
     out.restore();
@@ -143,16 +145,16 @@ describe('check-migration-immutability', () => {
   it('refuses a vacuous pass when the base has no migrations', async () => {
     const out = captureOutput();
 
-    expect(await main(trees({}, { [APPLIED]: 'select 1;\n' }))).toBe(1);
+    expect(await main(await trees({}, { [APPLIED]: 'select 1;\n' }))).toBe(1);
     expect(out.all()).toContain('Refusing a vacuous pass');
     out.restore();
   });
 
   it('lists only SQL files, sorted', async () => {
-    const { MIGRATIONS_DIR } = trees({}, {});
-    writeFileSync(join(MIGRATIONS_DIR, 'b.sql'), '');
-    writeFileSync(join(MIGRATIONS_DIR, 'a.sql'), '');
-    writeFileSync(join(MIGRATIONS_DIR, 'notes.txt'), '');
+    const { MIGRATIONS_DIR } = await trees({}, {});
+    await Bun.write(join(MIGRATIONS_DIR, 'b.sql'), '');
+    await Bun.write(join(MIGRATIONS_DIR, 'a.sql'), '');
+    await Bun.write(join(MIGRATIONS_DIR, 'notes.txt'), '');
 
     expect(await listMigrations(MIGRATIONS_DIR)).toEqual(['a.sql', 'b.sql']);
   });

@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -37,30 +37,30 @@ function captureOutput() {
 describe('check-migration-sql', () => {
   let root: string;
 
-  beforeEach(() => {
-    root = mkdtempSync(join(tmpdir(), 'migration-sql-'));
+  beforeEach(async () => {
+    root = await mkdtemp(join(tmpdir(), 'migration-sql-'));
   });
 
-  afterEach(() => {
-    rmSync(root, { recursive: true, force: true });
+  afterEach(async () => {
+    await rm(root, { recursive: true, force: true });
     vi.restoreAllMocks();
   });
 
   /** The two checkouts the workflow materialises: trusted base and PR tree. */
-  function trees(base: Record<string, string>, current: Record<string, string>) {
+  async function trees(base: Record<string, string>, current: Record<string, string>) {
     const baseDir = join(root, 'trusted/supabase/migrations');
     const currentDir = join(root, 'pr/supabase/migrations');
-    mkdirSync(baseDir, { recursive: true });
-    mkdirSync(currentDir, { recursive: true });
-    for (const [name, sql] of Object.entries(base)) writeFileSync(join(baseDir, name), sql);
-    for (const [name, sql] of Object.entries(current)) writeFileSync(join(currentDir, name), sql);
+    await mkdir(baseDir, { recursive: true });
+    await mkdir(currentDir, { recursive: true });
+    for (const [name, sql] of Object.entries(base)) await Bun.write(join(baseDir, name), sql);
+    for (const [name, sql] of Object.entries(current)) await Bun.write(join(currentDir, name), sql);
     return { BASE_MIGRATIONS_DIR: baseDir, MIGRATIONS_DIR: currentDir };
   }
 
   it('passes a benign new migration', async () => {
     const out = captureOutput();
     const exit = await main(
-      trees(
+      await trees(
         { [OLD]: 'select 1;\n' },
         { [OLD]: 'select 1;\n', [NEW]: 'create table widgets (id int);\n' }
       )
@@ -81,7 +81,7 @@ describe('check-migration-sql', () => {
       '',
     ].join('\n');
 
-    const exit = await main(trees({ [OLD]: 'select 1;\n' }, { [NEW]: sql }));
+    const exit = await main(await trees({ [OLD]: 'select 1;\n' }, { [NEW]: sql }));
 
     expect(exit).toBe(0);
     expect(out.all()).not.toContain('DROP TABLE destroys');
@@ -99,7 +99,7 @@ describe('check-migration-sql', () => {
       '',
     ].join('\n');
 
-    expect(await main(trees({ [OLD]: 'select 1;\n' }, { [NEW]: sql }))).toBe(1);
+    expect(await main(await trees({ [OLD]: 'select 1;\n' }, { [NEW]: sql }))).toBe(1);
     expect(out.all()).toContain(`${NEW}:1: DROP TABLE destroys`);
     expect(out.all()).toContain(`${NEW}:2: DROP COLUMN destroys`);
     expect(out.all()).toContain(`${NEW}:3: TRUNCATE removes`);
@@ -118,7 +118,7 @@ describe('check-migration-sql', () => {
       '',
     ].join('\n');
 
-    expect(await main(trees({ [OLD]: 'select 1;\n' }, { [NEW]: sql }))).toBe(1);
+    expect(await main(await trees({ [OLD]: 'select 1;\n' }, { [NEW]: sql }))).toBe(1);
     expect(out.all().match(/DELETE without WHERE/g)).toHaveLength(1);
     expect(out.all().match(/UPDATE without WHERE/g)).toHaveLength(1);
     out.restore();
@@ -134,7 +134,7 @@ describe('check-migration-sql', () => {
       '',
     ].join('\n');
 
-    expect(await main(trees({ [OLD]: 'select 1;\n' }, { [NEW]: sql }))).toBe(1);
+    expect(await main(await trees({ [OLD]: 'select 1;\n' }, { [NEW]: sql }))).toBe(1);
     expect(out.all()).toContain(`${NEW}:2: DELETE without WHERE`);
     out.restore();
   });
@@ -149,7 +149,7 @@ describe('check-migration-sql', () => {
       '',
     ].join('\n');
 
-    expect(await main(trees({ [OLD]: 'select 1;\n' }, { [NEW]: sql }))).toBe(1);
+    expect(await main(await trees({ [OLD]: 'select 1;\n' }, { [NEW]: sql }))).toBe(1);
     expect(out.all()).toContain(`${NEW}:2: UPDATE without WHERE`);
     out.restore();
   });
@@ -164,7 +164,7 @@ describe('check-migration-sql', () => {
       '',
     ].join('\n');
 
-    expect(await main(trees({ [OLD]: 'select 1;\n' }, { [NEW]: sql }))).toBe(0);
+    expect(await main(await trees({ [OLD]: 'select 1;\n' }, { [NEW]: sql }))).toBe(0);
     expect(out.all()).not.toContain('UPDATE without WHERE');
     out.restore();
   });
@@ -182,7 +182,7 @@ describe('check-migration-sql', () => {
       '',
     ].join('\n');
 
-    expect(await main(trees({ [OLD]: 'select 1;\n' }, { [NEW]: sql }))).toBe(1);
+    expect(await main(await trees({ [OLD]: 'select 1;\n' }, { [NEW]: sql }))).toBe(1);
     expect(out.all().match(/DELETE without WHERE/g)).toHaveLength(1);
     expect(out.all()).toContain(`${NEW}:2: DELETE without WHERE`);
     out.restore();
@@ -192,7 +192,7 @@ describe('check-migration-sql', () => {
     const out = captureOutput();
     const sql = 'UPDATE widgets SET archived = (SELECT true WHERE 1 = 1);\n';
 
-    expect(await main(trees({ [OLD]: 'select 1;\n' }, { [NEW]: sql }))).toBe(1);
+    expect(await main(await trees({ [OLD]: 'select 1;\n' }, { [NEW]: sql }))).toBe(1);
     expect(out.all()).toContain(`${NEW}:1: UPDATE without WHERE`);
     out.restore();
   });
@@ -201,7 +201,7 @@ describe('check-migration-sql', () => {
     const out = captureOutput();
     const sql = 'INSERT INTO widgets (id) VALUES (1) ON CONFLICT (id) DO UPDATE SET seen = true;\n';
 
-    expect(await main(trees({ [OLD]: 'select 1;\n' }, { [NEW]: sql }))).toBe(0);
+    expect(await main(await trees({ [OLD]: 'select 1;\n' }, { [NEW]: sql }))).toBe(0);
     out.restore();
   });
 
@@ -212,7 +212,7 @@ describe('check-migration-sql', () => {
       'INSERT INTO widgets (id) SELECT id FROM source ' +
       'ON CONFLICT (id) DO UPDATE SET seen = true;\n';
 
-    expect(await main(trees({ [OLD]: 'select 1;\n' }, { [NEW]: sql }))).toBe(0);
+    expect(await main(await trees({ [OLD]: 'select 1;\n' }, { [NEW]: sql }))).toBe(0);
     expect(out.all()).not.toContain('UPDATE without WHERE');
     out.restore();
   });
@@ -231,7 +231,7 @@ describe('check-migration-sql', () => {
         '',
       ].join('\n');
 
-      expect(await main(trees({ [OLD]: 'select 1;\n' }, { [NEW]: sql }))).toBe(0);
+      expect(await main(await trees({ [OLD]: 'select 1;\n' }, { [NEW]: sql }))).toBe(0);
       expect(out.all()).not.toContain('UPDATE without WHERE');
       out.restore();
     }
@@ -248,7 +248,7 @@ describe('check-migration-sql', () => {
       '',
     ].join('\n');
 
-    expect(await main(trees({ [OLD]: 'select 1;\n' }, { [NEW]: sql }))).toBe(0);
+    expect(await main(await trees({ [OLD]: 'select 1;\n' }, { [NEW]: sql }))).toBe(0);
     expect(out.all()).not.toContain('TRUNCATE removes');
     out.restore();
   });
@@ -265,7 +265,7 @@ describe('check-migration-sql', () => {
       '',
     ].join('\n');
 
-    expect(await main(trees({ [OLD]: 'select 1;\n' }, { [NEW]: sql }))).toBe(0);
+    expect(await main(await trees({ [OLD]: 'select 1;\n' }, { [NEW]: sql }))).toBe(0);
     out.restore();
   });
 
@@ -278,7 +278,7 @@ describe('check-migration-sql', () => {
       '\n'
     );
 
-    expect(await main(trees({ [OLD]: 'select 1;\n' }, { [NEW]: sql }))).toBe(1);
+    expect(await main(await trees({ [OLD]: 'select 1;\n' }, { [NEW]: sql }))).toBe(1);
     const said = out.all();
     expect(said).toContain(`${NEW}:2: DROP TABLE destroys`);
     expect(said).not.toContain('unterminated dollar-quoted');
@@ -293,7 +293,7 @@ describe('check-migration-sql', () => {
       '\n'
     );
 
-    expect(await main(trees({ [OLD]: 'select 1;\n' }, { [NEW]: sql }))).toBe(1);
+    expect(await main(await trees({ [OLD]: 'select 1;\n' }, { [NEW]: sql }))).toBe(1);
     const said = out.all();
     expect(said).toContain(`${NEW}:2: DROP TABLE destroys`);
     expect(said).not.toContain('unterminated dollar-quoted');
@@ -303,7 +303,7 @@ describe('check-migration-sql', () => {
   it('flags an unterminated string literal', async () => {
     const out = captureOutput();
 
-    expect(await main(trees({ [OLD]: 'select 1;\n' }, { [NEW]: "SELECT 'oops;\n" }))).toBe(1);
+    expect(await main(await trees({ [OLD]: 'select 1;\n' }, { [NEW]: "SELECT 'oops;\n" }))).toBe(1);
     expect(out.all()).toContain('unterminated string literal');
     out.restore();
   });
@@ -313,7 +313,7 @@ describe('check-migration-sql', () => {
 
     expect(
       await main(
-        trees(
+        await trees(
           { [OLD]: 'select 1;\n' },
           { [NEW]: 'CREATE FUNCTION f() RETURNS void AS $$ BEGIN SELECT 1;\n' }
         )
@@ -327,7 +327,7 @@ describe('check-migration-sql', () => {
     const out = captureOutput();
 
     expect(
-      await main(trees({ [OLD]: 'select 1;\n' }, { [NEW]: 'CREATE TABLE t (id int;\n' }))
+      await main(await trees({ [OLD]: 'select 1;\n' }, { [NEW]: 'CREATE TABLE t (id int;\n' }))
     ).toBe(1);
     expect(out.all()).toContain('unbalanced parentheses');
     out.restore();
@@ -337,7 +337,7 @@ describe('check-migration-sql', () => {
     const out = captureOutput();
     const sql = ['CREATE TABLE t (id int;', 'SELECT 1);', ''].join('\n');
 
-    expect(await main(trees({ [OLD]: 'select 1;\n' }, { [NEW]: sql }))).toBe(1);
+    expect(await main(await trees({ [OLD]: 'select 1;\n' }, { [NEW]: sql }))).toBe(1);
     expect(out.all().match(/unbalanced parentheses/g)).toHaveLength(2);
     out.restore();
   });
@@ -345,7 +345,7 @@ describe('check-migration-sql', () => {
   it('validates nothing when every file matches the base', async () => {
     const out = captureOutput();
     const exit = await main(
-      trees({ [OLD]: 'DROP TABLE widgets;\n' }, { [OLD]: 'DROP TABLE widgets;\n' })
+      await trees({ [OLD]: 'DROP TABLE widgets;\n' }, { [OLD]: 'DROP TABLE widgets;\n' })
     );
 
     expect(exit).toBe(0);
@@ -361,7 +361,7 @@ describe('check-migration-sql', () => {
       '',
     ].join('\n');
 
-    expect(await main(trees({ [OLD]: 'select 1;\n' }, { [NEW]: sql }))).toBe(0);
+    expect(await main(await trees({ [OLD]: 'select 1;\n' }, { [NEW]: sql }))).toBe(0);
     expect(out.all()).toContain('allowed: dropping the abandoned staging table (#123)');
     out.restore();
   });
@@ -376,7 +376,7 @@ describe('check-migration-sql', () => {
       '',
     ].join('\n');
 
-    expect(await main(trees({ [OLD]: 'select 1;\n' }, { [NEW]: sql }))).toBe(0);
+    expect(await main(await trees({ [OLD]: 'select 1;\n' }, { [NEW]: sql }))).toBe(0);
     expect(out.all()).toContain('allowed: dropping the abandoned staging table');
     out.restore();
   });
@@ -385,7 +385,7 @@ describe('check-migration-sql', () => {
     const out = captureOutput();
     const sql = ['-- allow-destructive:', 'DROP TABLE staging_old;', ''].join('\n');
 
-    expect(await main(trees({ [OLD]: 'select 1;\n' }, { [NEW]: sql }))).toBe(1);
+    expect(await main(await trees({ [OLD]: 'select 1;\n' }, { [NEW]: sql }))).toBe(1);
     expect(out.all()).toContain('DROP TABLE destroys');
     out.restore();
   });
@@ -405,7 +405,7 @@ describe('check-migration-sql', () => {
       '',
     ].join('\n');
 
-    expect(await main(trees({ [OLD]: 'select 1;\n' }, { [NEW]: sql }))).toBe(1);
+    expect(await main(await trees({ [OLD]: 'select 1;\n' }, { [NEW]: sql }))).toBe(1);
     const said = out.all();
     expect(said).toContain(`${NEW}:2: DROP TABLE destroys`);
     expect(said).not.toContain('allowed:');

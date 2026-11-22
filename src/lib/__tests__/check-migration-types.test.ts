@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -14,19 +14,19 @@ import { APP_TABLES, UNTYPED_TABLES } from '../../../scripts/schema-tables.mjs';
 
 let dir: string;
 
-beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), 'migration-types-'));
+beforeEach(async () => {
+  dir = await mkdtemp(join(tmpdir(), 'migration-types-'));
 });
 
-afterEach(() => {
-  rmSync(dir, { recursive: true, force: true });
+afterEach(async () => {
+  await rm(dir, { recursive: true, force: true });
 });
 
-function writeProject(migration: string, types: string) {
-  mkdirSync(join(dir, 'supabase/migrations'), { recursive: true });
-  mkdirSync(join(dir, 'src/types'), { recursive: true });
-  writeFileSync(join(dir, 'supabase/migrations/20260101000000_test.sql'), migration);
-  writeFileSync(join(dir, 'src/types/supabase.ts'), types);
+async function writeProject(migration: string, types: string) {
+  await mkdir(join(dir, 'supabase/migrations'), { recursive: true });
+  await mkdir(join(dir, 'src/types'), { recursive: true });
+  await Bun.write(join(dir, 'supabase/migrations/20260101000000_test.sql'), migration);
+  await Bun.write(join(dir, 'src/types/supabase.ts'), types);
 }
 
 function capture() {
@@ -200,7 +200,7 @@ describe('applyBaseline', () => {
 
 describe('main', () => {
   it('returns 0 with findings in advisory mode and 1 in strict mode', async () => {
-    writeProject('CREATE TABLE public.alpha (id uuid, new_column text);', TYPES_WITH_ALPHA);
+    await writeProject('CREATE TABLE public.alpha (id uuid, new_column text);', TYPES_WITH_ALPHA);
 
     const advisory = capture();
     expect(
@@ -229,7 +229,7 @@ describe('main', () => {
   });
 
   it('returns 0 when migrations and generated types agree', async () => {
-    writeProject('CREATE TABLE public.alpha (id uuid, tags text[]);', TYPES_WITH_ALPHA);
+    await writeProject('CREATE TABLE public.alpha (id uuid, tags text[]);', TYPES_WITH_ALPHA);
 
     const output = capture();
     expect(
