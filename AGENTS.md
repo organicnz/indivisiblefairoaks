@@ -1383,9 +1383,12 @@ pre-commit gate, so drift fails at commit time rather than at 3am.
   `persist-credentials: false` everywhere, which matters because
   `checkout@v6` changed *where* credentials are persisted when they are
   persisted at all. And `checkout@v7` blocks fork checkouts for
-  `pull_request_target` and `workflow_run` — neither of which this
-  repository's workflows use, since they trigger on `pull_request` and
-  `push`.
+  `pull_request_target` and `workflow_run` by default. Ordinary workflows
+  trigger on `pull_request` and `push`; the one exception is
+  `schema-check-trusted.yml`, which opts in with
+  `allow-unsafe-pr-checkout: true` because it checks out only the merge
+  ref's `supabase/migrations` as data and executes only base-branch scripts.
+  See [`docs/ci-separation-plan.md`](./docs/ci-separation-plan.md) §2.
 
   The deprecation warnings are gone from the job logs, and the last Node 20
   in the toolchain went with them.
@@ -1418,6 +1421,14 @@ pre-commit gate, so drift fails at commit time rather than at 3am.
   are withheld from `pull_request` runs from forks, and `env.ts`'s `.default()`
   absorbed the empty value, so a fork PR built successfully against placeholder
   credentials.
+- **The hosted schema gate is the one deliberate `pull_request_target`
+  workflow.** `schema-check-trusted.yml` runs the base branch's scripts,
+  checks out only the merge ref's `supabase/migrations` as data, and copies it
+  into the trusted checkout; no PR code executes. Fork PRs therefore receive
+  the read-only Supabase token through that event, and a missing token fails
+  the job rather than skipping it. The token-free checks that inspect PR
+  source stay in `ci.yml` under `Schema checks (PR)`. See
+  [`docs/ci-separation-plan.md`](./docs/ci-separation-plan.md) §2.
 - **CI waits forever when no runner can take the job, and that is not always a label
   problem.** `runs-on: [self-hosted, linux, <frontend|backend>-runner]` is
   arch-neutral on purpose (2026-10-05): both registered runners carry those
