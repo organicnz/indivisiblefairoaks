@@ -408,7 +408,7 @@ pre-commit:
       priority: 31
       run: bun scripts/hooks/vitest-environment.mjs
 
-    # ── 35. Migration ↔ generated types (advisory) ──────────────────────────
+    # ── 35. Migration ↔ generated types (blocking ratchet) ──────────────────
     # Body: scripts/check-migration-types.mjs
     #
     # The live freshness check needs SUPABASE_ACCESS_TOKEN and network access,
@@ -418,8 +418,10 @@ pre-commit:
     # explicit UNTYPED_TABLES list from scripts/schema-tables.mjs. No token, no
     # network and no install.
     #
-    # Advisory while the existing drift is cleared: findings are printed and
-    # annotated, but the hook exits 0. Remove --advisory to make it blocking.
+    # Known drift lives in scripts/migration-types-baseline.json. A baselined
+    # finding is printed but does not fail, a new finding fails, and a
+    # baselined finding that no longer applies fails until its entry is
+    # deleted. Same ratchet as CI, so this runs with no flag.
     migration-types:
       priority: 32
       glob:
@@ -428,7 +430,7 @@ pre-commit:
         - "scripts/schema-tables.mjs"
         - "scripts/check-migration-types.mjs"
         - "scripts/gen-types.mjs"
-      run: bun scripts/check-migration-types.mjs --advisory
+      run: bun scripts/check-migration-types.mjs
 
 # ─── commit-msg ───────────────────────────────────────────────────────────────
 commit-msg:
