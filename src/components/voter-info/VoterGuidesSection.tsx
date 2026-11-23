@@ -476,7 +476,7 @@ export function VoterGuidesSection({ dataPoints, legacyHref }: VoterGuidesSectio
                 </DataPoint>
                 <div className="pt-2">
                   <a
-                    href="https://www.sos.ca.gov/elections/voting-resources/voting-california/who-can-vote-california"
+                    href="https://elections.cdn.sos.ca.gov/statewide-elections/2025-special/trusted-info-homelessness.pdf"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-muted dark:bg-white/10 hover:bg-primary hover:text-white dark:hover:bg-primary-bright dark:hover:text-white text-primary-ink dark:text-white text-xs font-bold transition-colors"

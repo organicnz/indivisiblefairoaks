@@ -108,8 +108,12 @@ describe('VoterInfoPage & 2026 Voter Guides', () => {
     const voterBillOfRightsLink = links.find((a) => a.href === 'https://www.sos.ca.gov/elections/voter-bill-rights');
     expect(voterBillOfRightsLink).toBeDefined();
 
-    const whoCanVoteLink = links.find((a) => a.href === 'https://www.sos.ca.gov/elections/voting-resources/voting-california/who-can-vote-california');
-    expect(whoCanVoteLink).toBeDefined();
+    const unhousedVoterLink = links.find(
+      (a) =>
+        a.href ===
+        'https://elections.cdn.sos.ca.gov/statewide-elections/2025-special/trusted-info-homelessness.pdf'
+    );
+    expect(unhousedVoterLink).toBeDefined();
 
     const archiveLink = links.find((a) => a.getAttribute('href') === '/archive#voter-information');
     expect(archiveLink).toBeDefined();

@@ -101,7 +101,7 @@ export const CAMPAIGN_TEMPLATES: ComposerTemplate[] = [
         id: 'tmpl_2_txt1',
         type: 'text',
         content:
-          'Here is your 60-second calling script:\n\n"Hello, my name is {{first_name}} and I am a registered constituent living in district {{district}}. I am calling to urge the Representative to vote YES on the Democracy Defense Act. Our community needs strong federal voting rights protections now."\n\n• Rep. Ami Bera (CA-06): (916) 635-0505\n• Sen. Laphonza Butler: (202) 224-3841\n• Sen. Alex Padilla: (202) 224-3553',
+          'Here is your 60-second calling script:\n\n"Hello, my name is {{first_name}} and I am a registered constituent living in district {{district}}. I am calling to urge the Representative to vote YES on the Democracy Defense Act. Our community needs strong federal voting rights protections now."\n\n• Rep. Ami Bera (CA-06): (916) 635-0505\n• Sen. Adam Schiff: (202) 224-3841\n• Sen. Alex Padilla: (202) 224-3553',
       },
       {
         id: 'tmpl_2_btn',

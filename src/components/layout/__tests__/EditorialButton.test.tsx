@@ -449,13 +449,8 @@ describe('EditorialButton component', () => {
       root.render(<EditorialDrawerRow onNavigate={() => {}} />);
     });
 
-    // `/about` is mocked as the pathname and registers four regions.
-    for (const label of [
-      'Mission Statement',
-      'Who We Are',
-      'Nonviolence Commitment',
-      'Join Our Next Gathering',
-    ]) {
+    // `/about` is mocked as the pathname and registers three regions.
+    for (const label of ['Mission Statement', 'Who We Are', 'Nonviolence Commitment']) {
       expect(container.textContent).toContain(label);
     }
 

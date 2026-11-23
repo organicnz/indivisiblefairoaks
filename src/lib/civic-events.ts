@@ -91,8 +91,8 @@ export const DEFAULT_UPCOMING_MEETING: CardEvent = {
   locationName: "St. Michael's Episcopal Church",
   address: '2140 Mission Avenue, Carmichael, CA 95608',
   description:
-    'Our next monthly community gathering. Bring a can or box of non-perishable food for our neighborhood pantry; agenda and updates will be shared at the meeting.',
-  rsvpUrl: 'https://www.mobilize.us/indivisible/',
+    'Our next monthly community gathering, held on the first Tuesday of each month. Bring a can or box of non-perishable food for the Carmichael Food Pantry, and diaper donations for Opening Doors, a local refugee resettlement program. Agenda and updates will be shared at the meeting.',
+  rsvpUrl: 'https://www.mobilize.us/indivisible/event/967302/',
   highlight: true,
 };
 

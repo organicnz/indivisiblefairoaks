@@ -33,7 +33,7 @@ describe('SacramentoRepresentativeFinder', () => {
     expect(container.textContent).toContain('5 Calls App');
     expect(container.textContent).toContain('Rep. Ami Bera, M.D.');
     expect(container.textContent).toContain('Sen. Alex Padilla');
-    expect(container.textContent).toContain('Sen. Laphonza Butler');
+    expect(container.textContent).toContain('Sen. Adam Schiff');
     expect(container.textContent).toContain('Asm. Josh Hoover');
     expect(container.textContent).toContain('Supervisor Rich Desmond');
 

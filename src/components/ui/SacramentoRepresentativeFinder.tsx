@@ -50,11 +50,11 @@ const DISTRICT_DATABASE: Record<string, DistrictInfo> = {
       },
       {
         title: 'U.S. Senator',
-        name: 'Sen. Laphonza Butler',
+        name: 'Sen. Adam Schiff',
         party: 'Democrat',
-        office: 'San Francisco: (415) 808-0400 • D.C.: (202) 224-3841',
+        office: 'San Francisco: (415) 393-0707 • D.C.: (202) 224-3841',
         phone: '(202) 224-3841',
-        website: 'https://butler.senate.gov',
+        website: 'https://schiff.senate.gov',
       },
       {
         title: 'CA State Assembly (District 7)',
@@ -108,11 +108,11 @@ const DISTRICT_DATABASE: Record<string, DistrictInfo> = {
       },
       {
         title: 'U.S. Senator',
-        name: 'Sen. Laphonza Butler',
+        name: 'Sen. Adam Schiff',
         party: 'Democrat',
         office: 'D.C. Office: (202) 224-3841',
         phone: '(202) 224-3841',
-        website: 'https://butler.senate.gov',
+        website: 'https://schiff.senate.gov',
       },
       {
         title: 'CA State Assembly (District 7)',
@@ -157,11 +157,11 @@ const DISTRICT_DATABASE: Record<string, DistrictInfo> = {
       },
       {
         title: 'U.S. Senator',
-        name: 'Sen. Laphonza Butler',
+        name: 'Sen. Adam Schiff',
         party: 'Democrat',
         office: 'D.C. Office: (202) 224-3841',
         phone: '(202) 224-3841',
-        website: 'https://butler.senate.gov',
+        website: 'https://schiff.senate.gov',
       },
       {
         title: 'CA State Assembly (District 7)',

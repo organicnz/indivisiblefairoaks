@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import { CopyRegion } from '@/components/cms/CopyRegion';
 import { DataPoint } from '@/components/ui/DataPoint';
 
 type AboutSectionProps = {
@@ -15,19 +14,8 @@ export function AboutJoinSection({ dataPoints }: AboutSectionProps) {
             initialData={dataPoints}
             className="font-display text-3xl font-semibold tracking-[-0.03em]"
           >
-            Join Our Next Gathering
+            Ready to get involved?
           </DataPoint>
-          <CopyRegion id="about-join">
-            <DataPoint
-              name="about.join.body"
-              as="p"
-              initialData={dataPoints}
-              className="text-muted-foreground dark:text-ink-on-dark text-sm max-w-xl mx-auto"
-            >
-              Ready to get involved? Join our mailing list, attend our next monthly meeting, or sing
-              with the Carmichael Resistance Choir.
-            </DataPoint>
-          </CopyRegion>
           <div className="flex flex-wrap justify-center gap-4">
             <Link
               href="/events"
