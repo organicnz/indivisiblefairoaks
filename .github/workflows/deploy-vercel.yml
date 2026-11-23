@@ -115,10 +115,36 @@ jobs:
             --out=vercel-logs \
             --site-url=${{ vars.NEXT_PUBLIC_SITE_URL }}
 
+      - name: List production environment variable names
+        if: always()
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: team_G8IMZRRSHw7ti3HLUs3aWmPS
+          VERCEL_PROJECT_ID: prj_8RtMjuARvtBuUnepj9oEVyovXyb5
+        run: |
+          curl -sS -H "Authorization: Bearer $VERCEL_TOKEN" \
+            "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID/env?teamId=$VERCEL_ORG_ID" -o env.json
+          bun -e 'const r=JSON.parse(await Bun.file("env.json").text()); for (const e of r.envs??[]) console.log([e.key,(e.target||[]).join(","),e.type].join("\t"))'
+
       - name: Show the production health response
         if: always()
         run: |
-          curl -sS -D - --max-time 20 https://test.indivisiblefairoaks.org/api/health | head -40
+          for p in / /robots.txt /manifest.webmanifest /api/health; do
+            printf "%s " "$p"
+            curl -sS -o /dev/null -w "%{http_code}\n" --max-time 20 "https://test.indivisiblefairoaks.org$p"
+          done
+          curl -sS -D - --max-time 20 https://test.indivisiblefairoaks.org/api/health | head -30
+
+      - name: Show runtime errors for the new deployment
+        if: always() && steps.deploy.outputs.url != ''
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          bun --bun node_modules/.bin/vercel logs \
+            --deployment "${{ steps.deploy.outputs.url }}" \
+            --since 20m --limit 50 --json --non-interactive \
+            --scope organicnz2222 --token="$VERCEL_TOKEN" > runtime-logs.txt 2>&1 || true
+          head -c 20000 runtime-logs.txt
 
       - name: Assert the build did not restore a cache
         if: always()
