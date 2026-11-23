@@ -69,6 +69,7 @@ jobs:
       # cache, so it is deliberately absent: the whole point of this workflow is
       # that the build cannot restore the poisoned Turbopack cache.
       - name: Deploy production without the build cache
+        id: deploy
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
@@ -82,6 +83,26 @@ jobs:
             --meta githubCommitSha="${{ steps.commit.outputs.sha }}" \
             --meta githubCommitRef=main \
             2>&1 | tee vercel-deploy.log
+          url=$(grep -oE 'https://[a-z0-9-]+\.vercel\.app' vercel-deploy.log | tail -1)
+          test -n "$url"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      # `--prod` assigns the project's production domains, and this project's
+      # apex is proxied by Cloudflare to Google Sites. The app itself is served
+      # from the test host, so point that host at the exact deployment we just
+      # built rather than assuming the production aliasing reached it.
+      - name: Point the app host at the new deployment
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+        run: |
+          bun --bun node_modules/.bin/vercel alias set \
+            "${{ steps.deploy.outputs.url }}" \
+            test.indivisiblefairoaks.org \
+            --scope organicnz2222 \
+            --yes \
+            --token="$VERCEL_TOKEN"
 
       - name: Confirm READY, cache-free build, and healthy production
         env:
