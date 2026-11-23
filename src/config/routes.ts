@@ -75,15 +75,10 @@ export const ROUTES: readonly NavLink[] = [
     href: '/voter-info',
     // First entry is the overview page itself so every existing link to
     // `/voter-info` keeps working; anchors below match `id`s in the page.
+    // The three quick actions live on the overview page; keeping them here
+    // repeated the same destinations in the dropdown.
     children: [
       { label: 'Voter Overview', href: '/voter-info' },
-      { label: 'Register to Vote', href: 'https://registertovote.ca.gov', external: true },
-      { label: 'Track Your Ballot', href: 'https://wheresmyballot.sos.ca.gov', external: true },
-      {
-        label: 'Sacramento Elections',
-        href: 'https://elections.saccounty.gov',
-        external: true,
-      },
       { label: 'Find Your Representatives', href: '/voter-info#representatives' },
       { label: 'Voter Guides', href: '/voter-info#guides' },
       { label: 'Election Hotlines', href: '/voter-info#hotlines' },
@@ -160,9 +155,7 @@ export type HeaderNavigation = {
  * deliberate: the ICE Alert entry is safety-critical, and a missing or
  * duplicated placement must never silently remove it from the header.
  */
-export function getHeaderNavigation(
-  routes: readonly NavLink[] = ROUTES
-): HeaderNavigation {
+export function getHeaderNavigation(routes: readonly NavLink[] = ROUTES): HeaderNavigation {
   const alertRoutes = routes.filter((route) => route.placement === 'alert');
   const [alertRoute, ...extraAlertRoutes] = alertRoutes;
 
