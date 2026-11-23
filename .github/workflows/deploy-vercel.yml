@@ -101,7 +101,7 @@ jobs:
             "${{ steps.deploy.outputs.url }}" \
             test.indivisiblefairoaks.org \
             --scope organicnz2222 \
-            --yes \
+            --non-interactive \
             --token="$VERCEL_TOKEN"
 
       - name: Confirm READY, cache-free build, and healthy production
@@ -114,6 +114,11 @@ jobs:
             --sha=${{ steps.commit.outputs.sha }} \
             --out=vercel-logs \
             --site-url=${{ vars.NEXT_PUBLIC_SITE_URL }}
+
+      - name: Show the production health response
+        if: always()
+        run: |
+          curl -sS -D - --max-time 20 https://test.indivisiblefairoaks.org/api/health | head -40
 
       - name: Assert the build did not restore a cache
         if: always()
