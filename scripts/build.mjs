@@ -110,7 +110,7 @@ await Promise.all([forward(proc.stdout, process.stdout), forward(proc.stderr, pr
  */
 async function materializeHashedServerAliases() {
   const targetRoot = '.next/node_modules';
-  const aliasPattern = /["']((?:@[^/"']+\/)?[^/"']+)-[a-f0-9]{16}["']/g;
+  const aliasPattern = /["']((?:@[^/"']+\/)?[^/"']+-[a-f0-9]{16})["']/g;
   const aliases = new Set();
 
   async function walk(dir) {
