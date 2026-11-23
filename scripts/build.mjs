@@ -26,6 +26,8 @@
  * apply when the build is run directly.
  */
 
+import { cp, lstat, mkdir, readdir, readFile, rm } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
 import { loadEnvLocal } from './load-env-local.mjs';
 import { findPrerenderWarnings } from './prerender-warnings.mjs';
 
@@ -96,6 +98,59 @@ const proc = Bun.spawn([process.execPath, '--bun', 'next', 'build'], {
 
 await Promise.all([forward(proc.stdout, process.stdout), forward(proc.stderr, process.stderr)]);
 
+/**
+ * Turbopack emits hashed aliases for server externals — for example
+ * `@sentry/nextjs-c6ef459ddbd6c254` — and stores them in `.next/node_modules`
+ * as symlinks. Vercel's function packaging drops those symlinks, so the
+ * deployed chunk fails at runtime with "Failed to load external module".
+ *
+ * Replace each hashed alias in `.next/server` with a real copy of its package
+ * after the build, so the reference is resolvable inside the deployment
+ * artifact. See vercel/next.js#87737 and #93901.
+ */
+async function materializeHashedServerAliases() {
+  const targetRoot = '.next/node_modules';
+  const aliasPattern = /["']((?:@[^/"']+\/)?[^/"']+)-[a-f0-9]{16}["']/g;
+  const aliases = new Set();
+
+  async function walk(dir) {
+    let entries;
+    try {
+      entries = await readdir(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+
+    for (const entry of entries) {
+      const path = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        await walk(path);
+      } else if (entry.isFile() && entry.name.endsWith('.js')) {
+        const source = await readFile(path, 'utf8');
+        for (const match of source.matchAll(aliasPattern)) aliases.add(match[1]);
+      }
+    }
+  }
+
+  await walk('.next/server');
+
+  for (const alias of aliases) {
+    const base = alias.replace(/-[a-f0-9]{16}$/, '');
+    const source = join('node_modules', base);
+    try {
+      await lstat(source);
+    } catch {
+      continue;
+    }
+
+    const target = join(targetRoot, alias);
+    await mkdir(dirname(target), { recursive: true });
+    await rm(target, { recursive: true, force: true });
+    await cp(source, target, { recursive: true, dereference: true });
+    console.log(`✔ materialized ${alias} -> ${base}`);
+  }
+}
+
 const exitCode = await proc.exited;
 const warnings = findPrerenderWarnings(output.join(''));
 
@@ -116,6 +171,15 @@ if (warnings.length > 0) {
   process.exitCode = 1;
 } else {
   process.exitCode = exitCode ?? 1;
+}
+
+if (process.exitCode === 0) {
+  try {
+    await materializeHashedServerAliases();
+  } catch (error) {
+    console.error('✖ Could not materialize Turbopack hashed server externals:', error);
+    process.exitCode = 1;
+  }
 }
 
 // The suite is about to test this exact build; hand it the same port the build
