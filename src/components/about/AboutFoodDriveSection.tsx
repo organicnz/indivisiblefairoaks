@@ -25,7 +25,8 @@ export function AboutFoodDriveSection({ dataPoints }: AboutSectionProps) {
           >
             We believe that civic justice begins with community care. At every in-person monthly
             gathering, our members bring non-perishable canned goods and staple foods to donate to
-            local Carmichael and Fair Oaks food pantries.
+            the Carmichael Food Pantry. Diaper donations are also collected and go to Opening Doors,
+            a local refugee resettlement program.
           </DataPoint>
         </section>
   );

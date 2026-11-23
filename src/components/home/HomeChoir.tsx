@@ -92,7 +92,7 @@ export function HomeChoir({ dataPoints }: { dataPoints: Record<string, string> }
                 <ArrowRight size={14} aria-hidden="true" />
               </Link>
               <a
-                href="https://www.mobilize.us/indivisible/"
+                href="https://www.mobilize.us/indivisible/event/1072857/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex min-h-11 max-w-full items-center gap-2 border border-foreground/30 px-5 py-3 text-[11px] font-bold uppercase tracking-[0.12em] text-foreground transition-colors hover:border-primary hover:text-primary-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"

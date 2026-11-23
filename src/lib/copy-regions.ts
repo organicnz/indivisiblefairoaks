@@ -79,7 +79,6 @@ export const PAGE_COPY_REGIONS: Readonly<Record<string, readonly CopyRegionDefin
     { id: 'about-mission', label: 'Mission Statement' },
     { id: 'about-who', label: 'Who We Are' },
     { id: 'about-nonviolence', label: 'Nonviolence Commitment' },
-    { id: 'about-join', label: 'Join Our Next Gathering' },
   ],
   '/voter-info': [
     { id: 'voter-guides', label: 'Voter Rights & Guides' },

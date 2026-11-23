@@ -32,9 +32,7 @@ export function AboutWhoSection({ dataPoints }: AboutSectionProps) {
               </DataPoint>
               <DataPoint name="about.who.p2" as="p" initialData={dataPoints}>
                 Our monthly gatherings provide a welcoming space for dialogue, education, and
-                coordinated action. Whether writing postcards, attending town halls, rallying on
-                street corners, or lifting our voices in song, we turn concern into constructive,
-                democratic action.
+                coordinated action.
               </DataPoint>
             </div>
           </CopyRegion>
