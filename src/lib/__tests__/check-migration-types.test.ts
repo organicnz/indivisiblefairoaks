@@ -1,32 +1,32 @@
 // @vitest-environment node
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
+  applyBaseline,
   compareMigrationTypes,
   main,
   parseGeneratedTypes,
   parseMigrationSql,
-  splitSqlStatements,
 } from '../../../scripts/check-migration-types.mjs';
 import { APP_TABLES, UNTYPED_TABLES } from '../../../scripts/schema-tables.mjs';
 
 let dir: string;
 
-beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), 'migration-types-'));
+beforeEach(async () => {
+  dir = await mkdtemp(join(tmpdir(), 'migration-types-'));
 });
 
-afterEach(() => {
-  rmSync(dir, { recursive: true, force: true });
+afterEach(async () => {
+  await rm(dir, { recursive: true, force: true });
 });
 
-function writeProject(migration: string, types: string) {
-  mkdirSync(join(dir, 'supabase/migrations'), { recursive: true });
-  mkdirSync(join(dir, 'src/types'), { recursive: true });
-  writeFileSync(join(dir, 'supabase/migrations/20260101000000_test.sql'), migration);
-  writeFileSync(join(dir, 'src/types/supabase.ts'), types);
+async function writeProject(migration: string, types: string) {
+  await mkdir(join(dir, 'supabase/migrations'), { recursive: true });
+  await mkdir(join(dir, 'src/types'), { recursive: true });
+  await Bun.write(join(dir, 'supabase/migrations/20260101000000_test.sql'), migration);
+  await Bun.write(join(dir, 'src/types/supabase.ts'), types);
 }
 
 function capture() {
@@ -52,10 +52,29 @@ export type Database = {
         Insert: {
           id?: string
           tags?: string[]
+          insert_only: string
         }
         Update: {
           id?: string
           tags?: string[]
+          update_only: number
+        }
+        Relationships: []
+      }
+    }
+    Views: {
+      alpha_view: {
+        Row: {
+          id: string
+          view_only: string | null
+        }
+        Insert: {
+          id?: string
+          view_only?: string | null
+        }
+        Update: {
+          id?: string
+          view_only?: string | null
         }
         Relationships: []
       }
@@ -64,94 +83,78 @@ export type Database = {
 }
 `;
 
-describe('splitSqlStatements', () => {
-  it('keeps quoted semicolons and skips comments and dollar-quoted bodies', () => {
-    const statements = splitSqlStatements(`
-      -- CREATE TABLE ignored (id uuid);
-      CREATE TABLE public.alpha (
-        id uuid,
-        note text DEFAULT 'a;b'
-      );
-      CREATE FUNCTION public.noop() RETURNS void AS $$
-        BEGIN
-          -- this semicolon does not end the statement
-          PERFORM 1;
-        END;
-      $$ LANGUAGE plpgsql;
-      ALTER TABLE public.alpha ADD COLUMN tags text[];
-    `);
-
-    expect(statements).toHaveLength(3);
-    expect(statements[0]).toContain("DEFAULT 'a;b'");
-    expect(statements[2]).toMatch(/ADD COLUMN tags/);
-  });
-});
-
 describe('parseMigrationSql', () => {
-  it('tracks create, add, drop and rename without treating constraints as columns', () => {
+  it('tracks creates and added columns while ignoring comments, functions and drops', () => {
     const tables = parseMigrationSql([
       {
         sql: `
+          -- CREATE TABLE ignored (id uuid);
           CREATE TABLE IF NOT EXISTS public.alpha (
             id uuid PRIMARY KEY,
-            name text NOT NULL CHECK (name <> ''),
+            note text DEFAULT 'a;b',
             tags text[] NOT NULL DEFAULT '{}'::text[],
-            CONSTRAINT alpha_name_key UNIQUE (name)
+            CONSTRAINT alpha_note_key UNIQUE (note)
           );
           ALTER TABLE public.alpha
             ADD COLUMN IF NOT EXISTS age integer,
-            ADD COLUMN "nick.name" text;
-          ALTER TABLE public.alpha DROP COLUMN name;
-          ALTER TABLE public.alpha RENAME COLUMN age TO years;
+            ADD COLUMN last_name text;
+          CREATE TABLE public.old_table (id uuid);
+          DROP TABLE IF EXISTS public.old_table CASCADE;
           CREATE TABLE auth.ignored (id uuid);
+          CREATE FUNCTION public.noop() RETURNS void AS $$
+            BEGIN
+              CREATE TABLE public.from_function (id uuid);
+            END;
+          $$ LANGUAGE plpgsql;
         `,
       },
     ]);
 
     expect([...tables.keys()]).toEqual(['alpha']);
-    expect([...(tables.get('alpha') ?? [])].sort()).toEqual(['id', 'nick.name', 'tags', 'years']);
+    expect([...(tables.get('alpha') ?? [])].sort()).toEqual([
+      'age',
+      'id',
+      'last_name',
+      'note',
+      'tags',
+    ]);
   });
 
-  it('applies DROP TABLE so a retired table does not stay in the schema', () => {
-    const tables = parseMigrationSql([
-      {
-        sql: `
-          CREATE TABLE public.old_table (id uuid);
-          DROP TABLE IF EXISTS public.old_table CASCADE;
-        `,
-      },
-    ]);
-
-    expect(tables.has('old_table')).toBe(false);
+  it('fails closed on unsupported column or table changes', () => {
+    const before = 'CREATE TABLE public.alpha (name text);\n';
+    for (const sql of [
+      'ALTER TABLE public.alpha DROP COLUMN name;',
+      'ALTER TABLE public.alpha RENAME COLUMN name TO title;',
+      'ALTER TABLE public.alpha RENAME TO beta;',
+      'CREATE TABLE public.alpha AS SELECT 1;',
+      'CREATE TABLE public."alpha" (name text);',
+      'CREATE TABLE "alpha" (name text);',
+      'ALTER TABLE public."alpha" ADD COLUMN quoted text;',
+      'DROP TABLE public."alpha";',
+    ]) {
+      expect(() => parseMigrationSql([{ sql: before + sql }])).toThrow(/Unsupported/);
+    }
   });
 });
 
 describe('parseGeneratedTypes', () => {
-  it('extracts table names and Row columns, not Insert or Update fields', () => {
+  it('extracts table names and Row columns, not Insert, Update, or Views entries', () => {
     const types = parseGeneratedTypes(TYPES_WITH_ALPHA);
+    const columns = [...(types.get('alpha') ?? [])];
 
     expect([...types.keys()]).toEqual(['alpha']);
-    expect([...(types.get('alpha') ?? [])].sort()).toEqual(['id', 'tags']);
+    expect(columns.sort()).toEqual(['id', 'tags']);
+    expect(columns).not.toContain('insert_only');
+    expect(columns).not.toContain('update_only');
+    expect(types.has('alpha_view')).toBe(false);
   });
 });
 
 describe('compareMigrationTypes', () => {
-  it('reports a migrated column missing from the generated Row type', () => {
-    const findings = compareMigrationTypes({
-      migrationTables: new Map([['alpha', new Set(['id', 'tags', 'new_column'])]]),
-      typeTables: new Map([['alpha', new Set(['id', 'tags'])]]),
-      appTables: new Set(['alpha']),
-      untypedTables: new Set(),
-    });
-
-    expect(findings.missingTypeColumns).toEqual(['alpha.new_column']);
-    expect(findings.staleTypeColumns).toEqual([]);
-  });
-
-  it('reports stale type columns, missing tables, and unclassified migration tables', () => {
+  it('reports missing and stale tables, columns, and classifications', () => {
     const findings = compareMigrationTypes({
       migrationTables: new Map([
-        ['alpha', new Set(['id'])],
+        ['alpha', new Set(['id', 'new_column'])],
         ['missing_from_types', new Set(['id'])],
         ['new_table', new Set(['id'])],
       ]),
@@ -166,17 +169,38 @@ describe('compareMigrationTypes', () => {
 
     expect(findings.missingMigrations).toEqual(['missing_from_migration']);
     expect(findings.missingTypeTables).toEqual(['missing_from_types']);
+    expect(findings.missingTypeColumns).toEqual(['alpha.new_column']);
+    expect(findings.staleTypeColumns).toEqual(['alpha.removed']);
     expect(findings.unclassifiedTables).toEqual(['new_table']);
     expect(findings.extraTypeTables).toEqual(['not_in_app']);
-    expect(findings.staleTypeColumns).toEqual(['alpha.removed']);
     expect(findings.staleUntypedTables).toEqual(['retired_manual_table']);
     expect(findings.overlappingTables).toEqual(['alpha']);
   });
 });
 
+describe('applyBaseline', () => {
+  it('separates accepted drift from new drift and flags stale entries', () => {
+    const findings = {
+      missingTypeColumns: ['alpha.old', 'alpha.new'],
+      missingMigrations: [],
+    };
+    const split = applyBaseline(findings, {
+      missingTypeColumns: ['alpha.old', 'alpha.gone'],
+      missingMigrations: ['retired'],
+    });
+
+    expect(split.newFindings.missingTypeColumns).toEqual(['alpha.new']);
+    expect(split.knownFindings.missingTypeColumns).toEqual(['alpha.old']);
+    expect(split.staleBaseline).toEqual([
+      'missingMigrations: retired',
+      'missingTypeColumns: alpha.gone',
+    ]);
+  });
+});
+
 describe('main', () => {
   it('returns 0 with findings in advisory mode and 1 in strict mode', async () => {
-    writeProject('CREATE TABLE public.alpha (id uuid, new_column text);', TYPES_WITH_ALPHA);
+    await writeProject('CREATE TABLE public.alpha (id uuid, new_column text);', TYPES_WITH_ALPHA);
 
     const advisory = capture();
     expect(
@@ -205,7 +229,7 @@ describe('main', () => {
   });
 
   it('returns 0 when migrations and generated types agree', async () => {
-    writeProject('CREATE TABLE public.alpha (id uuid, tags text[]);', TYPES_WITH_ALPHA);
+    await writeProject('CREATE TABLE public.alpha (id uuid, tags text[]);', TYPES_WITH_ALPHA);
 
     const output = capture();
     expect(

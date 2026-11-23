@@ -30,7 +30,7 @@
  *     chain attack.
  *   - unpinned `bun x` / `bunx` invocations — the package is resolved outside
  *     `bun.lock`, so `latest` makes the same commit run different code over
- *     time. Pin the exact version, e.g. `bun x --bun supabase@3.2.0`.
+ *     time. Pin the exact version, e.g. `bun x --bun pkg@1.2.3`.
  *   - `setup-node` in a workflow — the same, in CI, where it is invisible
  *     until the runner is replaced.
  *   - `engines.node` in package.json — declaring a Node engine tells a
@@ -302,7 +302,7 @@ const RULES = [
     name: 'unpinned package runner',
     why:
       'registry tools invoked through Bun\'s package runner sit outside bun.lock; a tag or missing version means the same commit can run different code. ' +
-      'Pin an exact version, e.g. `supabase@3.2.0`.',
+      'Pin an exact version, e.g. `pkg@1.2.3`.',
     test: (line) => findUnpinnedBunx(line) !== null,
     // The npx shim forwards arbitrary user arguments to Bun by design. It is
     // the one place where the package name is not known at edit time.

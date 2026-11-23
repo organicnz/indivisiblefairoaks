@@ -13,6 +13,7 @@ import { resolve } from 'node:path';
 import { loadEnvLocal } from './load-env-local.mjs';
 import { resolveProjectRef } from './project-ref.mjs';
 import { APP_TABLES } from './schema-tables.mjs';
+import { SUPABASE_CLI } from './supabase-cli.mjs';
 
 const checkOnly = process.argv.includes('--check');
 
@@ -40,11 +41,10 @@ console.log(`Generating types for project ${ref} ...`);
 // stderr is inherited so the Supabase CLI's own progress output still streams
 // to the terminal while stdout is captured.
 //
-// The CLI is pinned to an exact version: a floating tag would make the committed
-// types a function of whatever the registry served that day. `--bun` selects
-// Bun's runtime, matching the rest of the repository.
+// The command prefix comes from scripts/supabase-cli.mjs, which pins the exact
+// CLI version and selects Bun's runtime.
 const proc = Bun.spawn(
-  ['bun', 'x', '--bun', 'supabase@3.2.0', 'gen', 'types', 'typescript', `--remote=${ref}`],
+  [...SUPABASE_CLI, 'gen', 'types', 'typescript', `--remote=${ref}`],
   {
     env: { ...process.env, ...Bun.env },
     stdout: 'pipe',

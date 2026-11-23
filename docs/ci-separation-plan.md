@@ -100,7 +100,7 @@ repository shares one explanation of why the CLI is not an option.
 
 ---
 
-## 2. Pre-merge migration gate — `schema-check`
+## 2. Pre-merge migration gate — trusted `schema-check`
 
 **`supabase.yml`'s `migrate` cannot be a required check.** It triggers on push
 to `main` **with a `supabase/**` path filter**, so on a pull request it does not
@@ -111,22 +111,38 @@ touch that path — enabling it would wedge the repository.
 (`supabase.yml:203-206`): *"function delivery must be verified even when
 migration push is blocked… Each job reports its own signal."* Not changed.
 
-So the gate is a new job, **`schema-check`** in `ci.yml`:
+So the gate is **`schema-check-trusted.yml`**, a `pull_request_target` workflow
+with a job named **`Migration History`**:
 
-- runs on **every** pull request, **no path filter** — the only property a
-  required check needs;
+- runs on **every** pull request, including forks, and on pushes to `main`,
+  **no path filter** — the only property a required check needs;
+- executes **base-branch copies** of the hosted checks. Only the merge tree's
+  migration directory is checked out, and it is copied into the trusted
+  checkout as data. No PR code is executed in this privileged workflow. The
+  token-free checks that need PR source stay in `ci.yml` as `Schema checks
+  (PR)`; they receive no credential and are not the hosted check;
 - **read-only**: compares repository migration filenames against
   `supabase_migrations.schema_migrations` on the hosted project, over the
   Management API that `scripts/apply-migrations.mjs` already proves works on
   this fleet. No CLI, no database connection, no writes;
+- **no tokenless skip**: a fork PR gets the repository secrets through
+  `pull_request_target`, and a missing token is a configuration failure. The
+  old `ci.yml` job skipped its hosted steps on a tokenless fork PR and still
+  reported green `Migration History`; that check no longer exists;
 - **no `bun install`** — two stdlib imports. Installing the whole tree would
   make this the slowest gate on the fleet, the opposite of what a pre-merge
-  check should cost.
+  check should cost;
+- **token-free checks still run after a hosted failure** — the migration
+  immutability and SQL checks use `if: always() && steps.copy_migrations.outcome == 'success'`,
+  so a failed history or hygiene check cannot hide their result, while a failed
+  or partial migration copy cannot run them against stale data. The job still
+  fails if either side fails.
 
-Catches: an applied version whose file changed or vanished; a new migration
-numbered *below* the highest applied version (non-monotonic ordering, which
-`db push` reports as an opaque version error); duplicate versions; malformed
-filenames; empty files.
+Catches: an applied version with no local file, a new migration numbered
+*below* the highest applied version (non-monotonic ordering, which `db push`
+reports as an opaque version error), duplicate versions, malformed filenames,
+and empty files. The trusted copy also runs the immutability comparison against
+the base tree and the static destructive-SQL check against the merged set.
 
 ### What it does not catch — stated in the script header too
 
@@ -209,7 +225,8 @@ merges.
 
 - `Lint & Types` (`ci.yml` → `lint`)
 - `Tests & Coverage` (`ci.yml` → `test`)
-- `Migration History` (`ci.yml` → `schema-check`)
+- `Schema checks (PR)` (`ci.yml` → `schema-pr-checks`)
+- `Migration History` (`schema-check-trusted.yml` → `schema`)
 
 **Not** `Next.js Build` — see §3.
 
@@ -230,7 +247,10 @@ merges.
 ## 8. Resulting shape
 
 ```
-PR          →  ci.yml         [ours]  lint · typecheck · unit+coverage     ← REQUIRED →  schema-check                                                       ← REQUIRED →  build · e2e                             ← fixture, not a gate
+PR          →  ci.yml         [ours]  lint · typecheck · unit+coverage
+                              →  schema-pr-checks (token-free)             ← REQUIRED
+           →  schema-check-trusted.yml [ours]  Migration History      ← REQUIRED
+           →  build · e2e                             ← fixture, not a gate
 
 merge main  →  Vercel         [theirs] compile + deploy                   ← untouched
            →  supabase.yml   [ours]  edge fns · migrate · verify

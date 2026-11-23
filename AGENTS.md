@@ -1383,9 +1383,12 @@ pre-commit gate, so drift fails at commit time rather than at 3am.
   `persist-credentials: false` everywhere, which matters because
   `checkout@v6` changed *where* credentials are persisted when they are
   persisted at all. And `checkout@v7` blocks fork checkouts for
-  `pull_request_target` and `workflow_run` — neither of which this
-  repository's workflows use, since they trigger on `pull_request` and
-  `push`.
+  `pull_request_target` and `workflow_run` by default. Ordinary workflows
+  trigger on `pull_request` and `push`; the one exception is
+  `schema-check-trusted.yml`, which opts in with
+  `allow-unsafe-pr-checkout: true` because it checks out only the merge
+  ref's `supabase/migrations` as data and executes only base-branch scripts.
+  See [`docs/ci-separation-plan.md`](./docs/ci-separation-plan.md) §2.
 
   The deprecation warnings are gone from the job logs, and the last Node 20
   in the toolchain went with them.
@@ -1418,6 +1421,14 @@ pre-commit gate, so drift fails at commit time rather than at 3am.
   are withheld from `pull_request` runs from forks, and `env.ts`'s `.default()`
   absorbed the empty value, so a fork PR built successfully against placeholder
   credentials.
+- **The hosted schema gate is the one deliberate `pull_request_target`
+  workflow.** `schema-check-trusted.yml` runs the base branch's scripts,
+  checks out only the merge ref's `supabase/migrations` as data, and copies it
+  into the trusted checkout; no PR code executes. Fork PRs therefore receive
+  the read-only Supabase token through that event, and a missing token fails
+  the job rather than skipping it. The token-free checks that inspect PR
+  source stay in `ci.yml` under `Schema checks (PR)`. See
+  [`docs/ci-separation-plan.md`](./docs/ci-separation-plan.md) §2.
 - **CI waits forever when no runner can take the job, and that is not always a label
   problem.** `runs-on: [self-hosted, linux, <frontend|backend>-runner]` is
   arch-neutral on purpose (2026-10-05): both registered runners carry those
@@ -1618,7 +1629,7 @@ deployed green and broke silently.
 ## Delivery Gates (lefthook)
 
 - **pre-commit**: secrets, migration guards, RLS/SECURITY DEFINER, Biome, oxlint, typecheck, env contracts (local `.env`, the GitHub Actions inventory, and the secrets registry in `--offline` mode — no network, because a hook that needs a token is a hook that gets bypassed), lockfile pairing, data-points seed↔reader↔fallback consistency (`scripts/check-data-points.mjs` — a seed nobody reads, a read nobody seeds, and a wired fallback that disagrees with its seed all fail, with accepted findings annotated in `scripts/data-points-baseline.json`, and that ratchet only shrinks), documentation numeric claims (`scripts/check-doc-claims.mjs` re-derives guard counts, the suppression baseline, `lefthook.yml`'s length, spec totals and the two coverage floors from their sources of truth), the no-Node-runtime guard (`scripts/hooks/no-node-runtime.mjs` — a Node shebang, a second package manager or a `setup-node` step works on a laptop with Node installed and breaks on every runner this project has; and a local binary invoked as `bun <bin>` rather than `bun --bun <bin>`, which hands the program to Node.js wherever Node.js is installed and to Bun only where it is not — the same divergence, wearing a different hat. The rule reads the local bin set out of `node_modules/.bin`, so a dependency that arrives tomorrow is covered without the guard being edited. CI runs it over the **whole tree** with `--all`, not just the staged subset, so a violation that arrived by a merge is caught too), the test-environment guard (`scripts/hooks/vitest-environment.mjs` — **every** test file must declare its Vitest environment on its first line, because Vitest constructs an environment per file and jsdom's construction was 63% of the unit suite's time; the guard also requires the `node` environment on any test that reaches for `Bun.*`, directly or through an imported script, because Vitest's `jsdom` environment replaces the worker's global with the jsdom window's and the `Bun` global does not survive that swap on every platform), and `playwright test --list` when `e2e/**` changes (spec parse only — no browser launch).
-- **`lefthook.yml` is 666 lines of wiring; the logic is in `scripts/hooks/*.mjs`.** Every
+- **`lefthook.yml` is 668 lines of wiring; the logic is in `scripts/hooks/*.mjs`.** Every
   guard that was a `run: |` bash block is now a `bun scripts/hooks/<name>.mjs` call, and
   its rationale comment moved into that file's header — where it sits beside the code it
   explains rather than four hundred lines above it. `lefthook.yml` keeps what only it can
