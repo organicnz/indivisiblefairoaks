@@ -99,13 +99,7 @@ const securityHeaders = [
 // and the URL is retained as a bare search result). These surfaces are marked
 // noindex via the header below and a page-level `robots` directive, which is the
 // combination that actually works.
-const noIndexPaths = [
-  '/login',
-  '/search',
-  '/account/:path*',
-  '/admin/:path*',
-  '/auth/:path*',
-];
+const noIndexPaths = ['/login', '/search', '/account/:path*', '/admin/:path*', '/auth/:path*'];
 
 const routeHeaders = [
   { source: '/(.*)', headers: securityHeaders },
@@ -147,6 +141,18 @@ const isE2EBuild = process.env.NEXT_E2E_BUILD === 'true';
 
 const nextConfig: NextConfig = {
   cacheComponents: true,
+  // Bundle the Sentry SDK instead of leaving it as a server external.
+  //
+  // The SDK externalizes itself when the build runs under Bun (see
+  // `getServerExternalPackagesPatch` in @sentry/nextjs): Next resolves bundled
+  // packages without the `bun` export condition, so the SDK asks Bun to resolve
+  // its own entry at run time instead. On Vercel that external is emitted as
+  // `externalRequire("@sentry/nextjs")`, which the file tracer cannot follow —
+  // the package is left out of the function and every request fails with
+  // "Failed to load external module @sentry/nextjs". The SDK skips the
+  // externalization when the package is in `transpilePackages`, which is the
+  // documented escape hatch for exactly this case.
+  transpilePackages: ['@sentry/nextjs'],
   partialPrefetching: true,
   // Fingerprinting aid, and one less header on every cached response.
   poweredByHeader: false,
@@ -292,6 +298,13 @@ export default isE2EBuild
       authToken: process.env.SENTRY_AUTH_TOKEN,
       // Only print upload logs where someone reads CI output.
       silent: !process.env.CI,
+      // Build-time instrumentation keeps `@sentry/server-runtime-injection`
+      // external so its `Module.register()` hook can resolve from its real
+      // node_modules location. Vercel's tracer does not include that external
+      // either, so it would fail the same way the SDK itself did. Nothing in
+      // this app relies on the instrumented database drivers; the runtime
+      // hooks that remain are enough.
+      buildTimeInstrumentation: false,
       // Readable stack traces for minified client code.
       widenClientFileUpload: true,
     });
