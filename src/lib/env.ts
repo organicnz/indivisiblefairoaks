@@ -37,6 +37,12 @@ const publicSchema = z.object({
 });
 
 const serverSchema = publicSchema.extend({
+  // Build identity, inlined by `next.config.ts`'s `env` block. These are not
+  // runtime variables — nothing by these names exists in the deployment's
+  // environment — so the spread below has to name them to have Next replace
+  // them with the build-time values.
+  DEPLOYMENT_COMMIT_SHA: z.string().min(1).default('unknown'),
+  DEPLOYMENT_BUILT_AT: z.string().min(1).default('unknown'),
   SUPABASE_SECRET_KEY: z.string().min(1).optional(),
   // Contact notifications: test/ops overrides (defaults are derived in-code).
   CONTACT_FUNCTION_URL: z.string().url().optional(),
@@ -89,7 +95,15 @@ const rawEnv: Record<string, string | undefined> = isClient
       NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN,
       NEXT_PUBLIC_VAPID_PUBLIC_KEY: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
     }
-  : { ...process.env };
+  : {
+      ...process.env,
+      // Named explicitly because the build-time `env` block in `next.config.ts`
+      // inlines these two member expressions; a spread is opaque to that
+      // replacement, so without these lines the health route would always
+      // report the schema defaults.
+      DEPLOYMENT_COMMIT_SHA: process.env.DEPLOYMENT_COMMIT_SHA,
+      DEPLOYMENT_BUILT_AT: process.env.DEPLOYMENT_BUILT_AT,
+    };
 
 export const env: EnvValue = skipValidation
   ? (rawEnv as unknown as EnvValue)

@@ -30,6 +30,24 @@
  */
 
 export const VARS = {
+  // Build identity for `/api/health`. Neither is set anywhere: `next.config.ts`
+  // computes both when it is evaluated at build time and inlines them into the
+  // server bundle. Declared here so the contract check knows the reads are
+  // intentional, with `required: false` so nobody is told to configure them and
+  // a note that says what a value in Vercel would (not) do.
+  DEPLOYMENT_COMMIT_SHA: {
+    required: false,
+    note:
+      'Computed by next.config.ts at build (VERCEL_GIT_COMMIT_SHA, falling back ' +
+      'to GITHUB_SHA). Do not set in Vercel — the build value wins and a value ' +
+      'there would be ignored.',
+  },
+  DEPLOYMENT_BUILT_AT: {
+    required: false,
+    note:
+      'The build clock, inlined by next.config.ts. Do not set in Vercel — it ' +
+      'describes when the artifact was built, not when a request arrived.',
+  },
   NEXT_PUBLIC_SITE_URL: {
     required: true,
     example: 'https://test.indivisiblefairoaks.org',

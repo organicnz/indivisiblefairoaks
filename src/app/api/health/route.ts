@@ -34,6 +34,13 @@ export async function GET() {
       checks: { database: db },
       latencyMs,
       timestamp: new Date().toISOString(),
+      // Which artifact answered, in one request: the commit Vercel built and
+      // when it built it, both inlined at build time. Checking the live SHA
+      // used to mean the GitHub deployments API plus reading page copy.
+      deployment: {
+        commit: env.DEPLOYMENT_COMMIT_SHA,
+        builtAt: env.DEPLOYMENT_BUILT_AT,
+      },
     },
     {
       status: status === 'ok' ? 200 : 503,

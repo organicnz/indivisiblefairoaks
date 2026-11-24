@@ -166,6 +166,23 @@ export const REGISTRY = {
   // publish — the prefix is the mechanism, and the audit enforces that any
   // `NEXT_PUBLIC_*` name is classified `public` and lives in a vars store.
 
+  // Build identity, inlined by `next.config.ts` and served publicly by
+  // `/api/health`. Declared in `vercel-env.mjs` so the contract check knows the
+  // reads are intentional, but in no store: every store's value would be
+  // ignored, and a stale one there would look authoritative.
+  DEPLOYMENT_COMMIT_SHA: {
+    exposure: EXPOSURE.public,
+    owner: OWNERS['app-runtime'],
+    stores: [],
+    note: 'Computed at build; set in no store. The commit Vercel built.',
+  },
+  DEPLOYMENT_BUILT_AT: {
+    exposure: EXPOSURE.public,
+    owner: OWNERS['app-runtime'],
+    stores: [],
+    note: 'Computed at build; set in no store. The build clock, not request time.',
+  },
+
   NEXT_PUBLIC_SITE_URL: {
     exposure: EXPOSURE.public,
     owner: OWNERS['app-runtime'],

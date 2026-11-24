@@ -22,6 +22,7 @@ test.describe('GET /api/health', () => {
       checks?: { database?: unknown };
       latencyMs?: unknown;
       timestamp?: unknown;
+      deployment?: { commit?: unknown; builtAt?: unknown };
     };
     expect(typeof body.status).toBe('string');
     expect(['ok', 'degraded']).toContain(body.status);
@@ -29,6 +30,19 @@ test.describe('GET /api/health', () => {
     expect(['up', 'degraded', 'down']).toContain(body.checks?.database);
     expect(typeof body.latencyMs).toBe('number');
     expect(typeof body.timestamp).toBe('string');
+
+    // Which artifact is live, from the same request. CI builds inject
+    // GITHUB_SHA; a local build honestly reports `unknown` instead of a SHA.
+    expect(typeof body.deployment?.commit).toBe('string');
+    expect(typeof body.deployment?.builtAt).toBe('string');
+    const commit = body.deployment?.commit;
+    if (typeof commit === 'string' && commit !== 'unknown') {
+      expect(commit).toMatch(/^[0-9a-f]{7,40}$/);
+    }
+    const builtAt = body.deployment?.builtAt;
+    if (typeof builtAt === 'string' && builtAt !== 'unknown') {
+      expect(Number.isNaN(Date.parse(builtAt))).toBe(false);
+    }
   });
 });
 

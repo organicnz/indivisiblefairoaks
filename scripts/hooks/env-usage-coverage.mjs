@@ -11,6 +11,16 @@
  * by no-raw-env-access; this closes the NEXT_PUBLIC + declaration gap.
  */
 
+/**
+ * Names that are not configuration and belong in no `.env.example`.
+ *
+ * `next.config.ts` computes these when it is evaluated at build time and Next
+ * inlines the values into the server bundle, so a value in an environment file
+ * would be ignored — documenting them as settings would invite someone to set
+ * one and wonder why it changed nothing.
+ */
+const BUILD_DERIVED = new Set(['DEPLOYMENT_COMMIT_SHA', 'DEPLOYMENT_BUILT_AT']);
+
 const files = process.argv.slice(2);
 const violations = [];
 
@@ -52,7 +62,8 @@ for (const file of files) {
     if (
       varName.startsWith('NEXT_PUBLIC_') ||
       varName === 'NODE_ENV' ||
-      varName === 'NEXT_SKIP_ENV_VALIDATION'
+      varName === 'NEXT_SKIP_ENV_VALIDATION' ||
+      BUILD_DERIVED.has(varName)
     ) {
       continue;
     }

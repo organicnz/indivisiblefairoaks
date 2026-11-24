@@ -144,6 +144,16 @@ const isE2EBuild = process.env.NEXT_E2E_BUILD === 'true';
 
 const nextConfig: NextConfig = {
   cacheComponents: true,
+  // What `/api/health` reports as the running artifact. Both are computed when
+  // this config is evaluated at build time and inlined into the server bundle,
+  // so they describe the build that is serving rather than the process that
+  // happens to answer the request. `VERCEL_GIT_COMMIT_SHA` is a Vercel system
+  // variable; `GITHUB_SHA` covers the CI/e2e bundle. A local build says
+  // `unknown`, which is the honest answer.
+  env: {
+    DEPLOYMENT_COMMIT_SHA: process.env.VERCEL_GIT_COMMIT_SHA ?? process.env.GITHUB_SHA ?? 'unknown',
+    DEPLOYMENT_BUILT_AT: new Date().toISOString(),
+  },
   // Bundle the Sentry SDK instead of leaving it as a server external.
   //
   // The SDK externalizes itself when the build runs under Bun (see
