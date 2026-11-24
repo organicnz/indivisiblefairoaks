@@ -30,6 +30,22 @@ vi.mock('@/lib/env', () => ({
     NEXT_PUBLIC_SITE_URL: 'https://indivisiblefairoaks.org',
   },
 }));
+// `src/config/site.ts` does not read `@/lib/env` — it reads `@/lib/public-env`,
+// which is a separate module precisely so the client bundle stays free of Zod.
+// Without this mock the test inherits the runner's real `NEXT_PUBLIC_SITE_URL`:
+// CI sets it to the staging host, `IS_PRODUCTION_SITE` turns false, and the
+// foreign-host rejection is never exercised. That passed locally only because
+// this machine's `.env.local` happens to name the apex.
+vi.mock('@/lib/public-env', () => ({
+  publicEnv: {
+    NEXT_PUBLIC_SUPABASE_URL: 'https://project.supabase.co',
+    NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: 'test-key',
+    NEXT_PUBLIC_SITE_URL: 'https://indivisiblefairoaks.org',
+    NEXT_PUBLIC_SENTRY_DSN: undefined,
+    NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: undefined,
+    NEXT_PUBLIC_VAPID_PUBLIC_KEY: undefined,
+  },
+}));
 
 process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://project.supabase.co';
 process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = 'test-key';
