@@ -1432,14 +1432,18 @@ pre-commit gate, so drift fails at commit time rather than at 3am.
   cannot race. A missing token still fails the job rather than skipping it.
   The token-free checks that inspect PR source also stay in `ci.yml` under
   `Schema checks (PR)`. See [`docs/ci-separation-plan.md`](./docs/ci-separation-plan.md) §2.
-- **CI waits forever when no runner can take the job, and that is not always a label
-  problem.** `runs-on: [self-hosted, linux, <frontend|backend>-runner]` is
-  arch-neutral on purpose (2026-10-05): both registered runners carry those
-  labels, so either can serve. Do not re-add an `X64`/`ARM64` token to pin jobs
-  to one runner. The real runner is `indivisiblefairoaks-runner-1`, a Quadlet container on
-  the **ghrunner** host (an x86_64 Linux box over Tailscale) whose labels are
-  `self-hosted, Linux, X64, ghrunner, personal, personal-organicnz,
-  frontend-runner, backend-runner` — matching its native x86_64 architecture.
+- **CI waits on queue depth, not on a missing label.** `runs-on: [self-hosted,
+  linux]` is the whole selector. Three ghrunner hosts (`ghrunner-1`, `-2`, `-3`)
+  each register one runner, and every one of them carries both
+  `frontend-runner` and `backend-runner`, so the role split never separated
+  capacity — it only implied a distinction that did not exist. The role labels
+  were dropped from `runs-on` on 2026-11-24; the hosts keep them, so either
+  spelling matches. Do not re-add an `X64`/`ARM64` token to pin jobs to one
+  runner: that is a single point of failure, and it is what took the pipeline
+  down on 2026-10-05. `ci.yml` carries a concurrency group with
+  `cancel-in-progress: true`, so a newer push to `main` cancels the older
+  six-job run instead of stacking it in front of the newest commit;
+  `deploy-vercel.yml` and `supabase.yml` are separate and never cancel.
 
   Every job here sat `queued` for weeks because that container never registered.
   Its entrypoint mints a registration token from `api.github.com` before

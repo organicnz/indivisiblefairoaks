@@ -51,7 +51,7 @@ jobs:
   schema-pr:
     name: Schema checks (PR, trusted)
     if: github.event_name == 'pull_request_target'
-    runs-on: [self-hosted, linux, backend-runner]
+    runs-on: [self-hosted, linux]
     timeout-minutes: 10
     defaults:
       run:
@@ -160,7 +160,7 @@ jobs:
   schema:
     name: Migration History
     if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success'
-    runs-on: [self-hosted, linux, backend-runner]
+    runs-on: [self-hosted, linux]
     timeout-minutes: 10
     steps:
       - name: Checkout migrated commit

@@ -52,7 +52,7 @@ jobs:
   # ── 1. Deploy all edge functions ─────────────────────────────────────────
   deploy:
     name: Deploy edge functions
-    runs-on: [self-hosted, linux, backend-runner]
+    runs-on: [self-hosted, linux]
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -330,7 +330,7 @@ jobs:
   # and vice versa. Each job reports its own signal.
   migrate:
     name: Push database migrations
-    runs-on: [self-hosted, linux, backend-runner]
+    runs-on: [self-hosted, linux]
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -507,7 +507,7 @@ jobs:
   # what makes this workflow run again for the fix.
   types:
     name: Generated types freshness
-    runs-on: [self-hosted, linux, backend-runner]
+    runs-on: [self-hosted, linux]
     needs: [migrate]
     timeout-minutes: 10
     steps:
@@ -533,7 +533,7 @@ jobs:
   # ── 4. Post-deploy verification (fail loudly if a function is missing) ─────
   verify:
     name: Verify live edge functions
-    runs-on: [self-hosted, linux, backend-runner]
+    runs-on: [self-hosted, linux]
     needs: [deploy]
     timeout-minutes: 10
     steps:

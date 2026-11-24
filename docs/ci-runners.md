@@ -5,35 +5,44 @@
 
 ## The short version
 
-**`runs-on: [self-hosted, linux, <frontend|backend>-runner]` is arch-neutral on
-purpose: it matches both registered runners, and GitHub routes each job to
-whichever is idle. Do not re-add an arch token (`X64` or `ARM64`)** — a pinned
-selector is a single point of failure, and one took the whole pipeline down on
-2026-10-05 when `indivisiblefairoaks-runner-1` went offline mid-`tsc`.
+**`runs-on: [self-hosted, linux]` is the whole selector.** Three ghrunner hosts
+each register one runner, and every one of them carries both
+`frontend-runner` and `backend-runner`, so the role split never separated
+capacity — it only implied a distinction that did not exist. The role labels
+were retired from `runs-on` on 2026-11-24; the hosts still carry them, so
+asking for a role would have matched the same three machines. **Do not re-add
+an arch token (`X64` or `ARM64`) either** — a pinned selector is a single
+point of failure, and one took the whole pipeline down on 2026-10-05 when the
+only runner went offline mid-`tsc`.
 
-| Runner | Distinguishing labels |
-|---|---|
-| `indivisiblefairoaks-runner-1` | `X64, ghrunner` (Quadlet container on the ghrunner host) |
-| `personal-organicnz` | `ARM64` (hand-registered Mac) |
+| Runner | Host | Slots |
+|---|---|---|
+| `pool-ghrunner-1` | `ghrunner-1` (Quadlet container over Tailscale) | 1 |
+| `pool-ghrunner-2` | `ghrunner-2` | 1 |
+| `pool-ghrunner-3` | `ghrunner-3` | 1 |
 
-Both carry `self-hosted, linux, frontend-runner, backend-runner, personal,
-personal-organicnz`. The `frontend-runner` / `backend-runner` role split is
-what keeps frontend jobs off the deploy path and vice versa — that split
-stays; the arch token is what went.
+All three carry `self-hosted, Linux, X64, ghrunner, personal,
+personal-organicnz, frontend-runner, backend-runner`. The distinction between
+`frontend-runner` and `backend-runner` was already collapsed on the host side,
+so it is collapsed here too.
 
-The real runner is **`indivisiblefairoaks-runner-1`**, a Quadlet container
-(`ghrunner-personal-indivisiblefairoaks.service`) on the **ghrunner** host — an
-x86_64 Linux box reached over Tailscale. Its labels are:
+**The wait is queue depth against three slots, not a label.** `ci.yml` now
+carries a concurrency group with `cancel-in-progress: true`, so a newer push to
+`main` cancels the older run instead of leaving its six jobs queued in front of
+the newest commit. Deployments are separate workflows and are never cancelled
+by it.
+
+The host is **`ghrunner-1`**, an x86_64 Linux box reached over Tailscale. Its
+labels are:
 
 ```
 self-hosted, Linux, X64, ghrunner, personal, personal-organicnz, frontend-runner, backend-runner
 ```
 
-The labels match the hardware (`uname -m` says `x86_64`). Since 2026-10-05
-the `runs-on` selector is arch-neutral so both runners can serve (`self-hosted,
-Linux, <role>`). Rewriting the selector to `ARM64` would exclude the container
-runner just as surely as `X64` excludes the Mac — either pin reintroduces the
-single point of failure.
+The labels match the hardware (`uname -m` says `x86_64`). The `runs-on`
+selector names no role and no architecture, so all three hosts' runners serve
+every job. Adding either back reintroduces the single point of failure that
+this history is about.
 
 ### What actually went wrong, for weeks
 

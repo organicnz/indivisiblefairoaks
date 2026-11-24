@@ -10,7 +10,7 @@ permissions:
 jobs:
   auto-assign:
     name: Assign issue to @organicnz
-    runs-on: [self-hosted, linux, backend-runner]
+    runs-on: [self-hosted, linux]
     steps:
       - name: Add assignee
         env:

@@ -9,8 +9,22 @@ on:
   pull_request:
     branches: [main]
 
+# Verification only, so a newer run supersedes an older one for the same ref:
+# the new commit already contains the old one's work, and on a three-slot fleet
+# every stacked run is a full six-job backlog in front of the newest merge.
+# Deployments live in their own workflows (`deploy-vercel.yml`, `supabase.yml`),
+# which do not share this group — nothing here can cancel a delivery.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 # ── Why every job here waited forever, and what actually fixed it ───────────
-# `runs-on: [self-hosted, linux, <role>, …]` serves BOTH registered runners.
+# `runs-on: [self-hosted, linux]` is the whole selector. Three ghrunner hosts
+# each register one runner, and every one of them carries both
+# `frontend-runner` and `backend-runner`, so the role split never separated
+# capacity — it only implied a distinction that did not exist. The role labels
+# were dropped from `runs-on` on 2026-11-24; the hosts still carry them, so
+# either spelling matches. The wait is queue depth against three slots.
 # The `X64` token used to be in that list; it was dropped 2026-10-05 so that
 # `personal-organicnz` (ARM64 Mac, idle) can take jobs while
 # `indivisiblefairoaks-runner-1` (X64 labels on ARM64 hardware, offline since
@@ -134,7 +148,7 @@ jobs:
   # Fail-open: if the diff cannot be computed, runtime=true runs everything.
   changes:
     name: Change scope
-    runs-on: [self-hosted, linux, backend-runner]
+    runs-on: [self-hosted, linux]
     timeout-minutes: 15
     outputs:
       runtime: ${{ steps.scope.outputs.runtime }}
@@ -187,7 +201,7 @@ jobs:
   # ── 1. Lint & Types ──────────────────────────────────────────────────────────
   lint:
     name: Lint & Types
-    runs-on: [self-hosted, linux, frontend-runner]
+    runs-on: [self-hosted, linux]
     needs: [changes]
     if: needs.changes.outputs.runtime == 'true'
     # 120, not 15. Setup (checkout + bun + cache hit + install) costs ~2 min, so a
@@ -342,7 +356,7 @@ jobs:
   # ── 2. Unit Tests + Coverage ─────────────────────────────────────────────────
   test:
     name: Tests & Coverage
-    runs-on: [self-hosted, linux, frontend-runner]
+    runs-on: [self-hosted, linux]
     needs: [changes]
     if: needs.changes.outputs.runtime == 'true'
     timeout-minutes: 60
@@ -385,7 +399,7 @@ jobs:
   # a green result here must not be mistaken for the hosted check having run.
   schema-pr-checks:
     name: Schema checks (PR)
-    runs-on: [self-hosted, linux, backend-runner]
+    runs-on: [self-hosted, linux]
     timeout-minutes: 10
     # The PR tree is what these checks inspect. The immutability and SQL checks
     # compare it against the trusted base checkout.
@@ -487,7 +501,7 @@ jobs:
   #     it is the most memory-hungry job in the pipeline.
   build-e2e:
     name: Build + E2E
-    runs-on: [self-hosted, linux, frontend-runner]
+    runs-on: [self-hosted, linux]
     needs: [changes, lint]
     if: needs.changes.outputs.runtime == 'true'
     timeout-minutes: 60
@@ -666,7 +680,7 @@ jobs:
   # Push-only, because a pull request has not shipped anything.
   vercel-deploy:
     name: Vercel Deployment
-    runs-on: [self-hosted, linux, backend-runner]
+    runs-on: [self-hosted, linux]
     # Deliberately NOT `needs: [build]`. This observes Vercel's deploy, which
     # has its own lifecycle; waiting on our build only gave it a reason to be
     # stale. Push-only, because a pull request has not shipped anything.

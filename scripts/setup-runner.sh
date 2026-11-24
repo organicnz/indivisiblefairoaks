@@ -6,16 +6,11 @@
 #
 # Usage (run as the user who will own the runner — NOT root):
 #
-#   # Backend VPS (100.92.38.119):
+#   # Any fleet host — all of them are interchangeable, which is why the
+#   # selector is just `self-hosted, linux` (see docs/ci-runners.md):
 #   bash setup-runner.sh \
-#     --name     backend-runner \
-#     --labels   "self-hosted,linux,ARM64,backend-runner" \
-#     --token    <registration-token>
-#
-#   # Frontend VPS (100.99.241.23):
-#   bash setup-runner.sh \
-#     --name     frontend-runner \
-#     --labels   "self-hosted,linux,ARM64,frontend-runner" \
+#     --name     pool-ghrunner-4 \
+#     --labels   "self-hosted,linux,X64" \
 #     --token    <registration-token>
 #
 # Get a fresh token (valid 1 hour) with:
