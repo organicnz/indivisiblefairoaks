@@ -135,15 +135,41 @@ begin
     $job$
   );
 
-  -- Crawl approved public sources once a day. The route respects each source's
-  -- page limit and records partial runs instead of silently truncating them.
+  -- Crawl one approved public source every ten minutes. A 60-second function
+  -- budget only fits a bounded tick; mode=sources skips nationwide discovery
+  -- (which has its own job) and limit=1 keeps the run inside that budget.
+  -- Ordering by last_crawled_at rotates the set, so every enabled source is
+  -- refreshed roughly every (sources x 10) minutes, and a new source goes first.
   perform cron.schedule(
     'ice-source-crawl',
-    '47 4 * * *',
+    '*/10 * * * *',
     $job$
     select net.http_post(
       url := (select decrypted_secret from vault.decrypted_secrets where name = 'ice_alert_app_url')
-             || '/api/ice-crawl/run',
+             || '/api/ice-crawl/run?mode=sources&limit=1',
+      headers := jsonb_build_object(
+        'Content-Type', 'application/json',
+        'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'ice_alert_cron_secret')
+      ),
+      body := '{}'::jsonb,
+      timeout_milliseconds := 55000
+    )
+    where exists (
+      select 1 from vault.decrypted_secrets where name = 'ice_alert_cron_secret'
+    );
+    $job$
+  );
+
+  -- Nationwide discovery runs hourly on its own route, so the ten-minute crawl
+  -- tick no longer pays for it. Candidates land in the ice_crawl_discoveries
+  -- table for admin review; discovery never publishes a story on its own.
+  perform cron.schedule(
+    'ice-nationwide-discovery',
+    '23 * * * *',
+    $job$
+    select net.http_post(
+      url := (select decrypted_secret from vault.decrypted_secrets where name = 'ice_alert_app_url')
+             || '/api/ice-crawl/discover',
       headers := jsonb_build_object(
         'Content-Type', 'application/json',
         'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'ice_alert_cron_secret')

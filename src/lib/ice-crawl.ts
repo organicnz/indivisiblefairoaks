@@ -1187,10 +1187,30 @@ export async function crawlIceSourceById(id: string) {
   return crawlIceSource(source, cities);
 }
 
-export async function crawlAllIceSources() {
+/**
+ * The bounded slice of sources a scheduled tick should crawl.
+ *
+ * A tick has a function-time budget, so it crawls a few sources rather than
+ * all of them. Ordering by `last_crawled_at` (never-crawled first) makes the
+ * bound rotate: every source is reached within a few ticks instead of the same
+ * first row being re-crawled while the rest go stale. An absent or non-positive
+ * limit means "all", which is the manual and legacy behaviour.
+ */
+export function selectCrawlRotation<T extends { last_crawled_at: string | null }>(
+  sources: readonly T[],
+  limit?: number
+): T[] {
+  if (!limit || !Number.isFinite(limit) || limit <= 0) return [...sources];
+  return [...sources]
+    .sort((a, b) => (a.last_crawled_at ?? '').localeCompare(b.last_crawled_at ?? ''))
+    .slice(0, Math.max(1, Math.floor(limit)));
+}
+
+export async function crawlAllIceSources(options: { limit?: number } = {}) {
   const store = getIceCrawlStore();
   if (!store) throw new Error('Crawler storage is not configured.');
-  const sources = (await listIceCrawlSources(store)).filter((source) => source.enabled);
+  const allSources = (await listIceCrawlSources(store)).filter((source) => source.enabled);
+  const sources = selectCrawlRotation(allSources, options.limit);
   const cities = await loadCrawlCities(store);
   const results: Array<{ source: string; summary: IceCrawlSummary | { error: string } }> = [];
 

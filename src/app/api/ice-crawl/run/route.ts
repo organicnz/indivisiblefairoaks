@@ -1,12 +1,9 @@
 import { NextResponse } from 'next/server';
-import { crawlAllIceSources } from '@/lib/ice-crawl';
-import { discoverNationwideIceCandidates } from '@/lib/ice-crawl-discovery';
-import {
-  getIceCrawlStore,
-  insertIceCrawlDiscoveries,
-} from '@/lib/ice-crawl-store';
 import { isE2EMode } from '@/lib/e2e-mode';
 import { env } from '@/lib/env';
+import { crawlAllIceSources } from '@/lib/ice-crawl';
+import { discoverNationwideIceCandidates } from '@/lib/ice-crawl-discovery';
+import { getIceCrawlStore, insertIceCrawlDiscoveries } from '@/lib/ice-crawl-store';
 
 export const maxDuration = 60;
 
@@ -31,6 +28,18 @@ export async function POST(req: Request) {
     return json({ ok: true, skipped: 'test-build', sources: 0 });
   }
 
+  // A cron tick can ask for the approved-source crawl alone, bounded to a few
+  // sources, so a 60-second function budget covers it. The default (no query)
+  // keeps the original full run — discovery plus every source — for manual and
+  // legacy jobs.
+  const params = new URL(req.url).searchParams;
+  const sourcesOnly = params.get('mode') === 'sources';
+  const requestedLimit = Number(params.get('limit') ?? '');
+  const limit =
+    Number.isFinite(requestedLimit) && requestedLimit > 0
+      ? Math.min(10, Math.floor(requestedLimit))
+      : undefined;
+
   let discovery: {
     provider: string;
     providers: string[];
@@ -39,7 +48,7 @@ export async function POST(req: Request) {
     errors: string[];
   } | null = null;
   try {
-    const store = getIceCrawlStore();
+    const store = sourcesOnly ? null : getIceCrawlStore();
     if (store) {
       const candidates = await discoverNationwideIceCandidates({ forceGkg: true });
       discovery = {
@@ -62,8 +71,15 @@ export async function POST(req: Request) {
   }
 
   try {
-    const results = await crawlAllIceSources();
-    return json({ ok: true, discovery, sources: results.length, results });
+    const results = await crawlAllIceSources({ limit });
+    return json({
+      ok: true,
+      mode: sourcesOnly ? 'sources' : 'all',
+      limit: limit ?? null,
+      discovery,
+      sources: results.length,
+      results,
+    });
   } catch {
     return json({ ok: false, code: 'crawler-not-configured' }, 503);
   }
