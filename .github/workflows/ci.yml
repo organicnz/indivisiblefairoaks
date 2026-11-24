@@ -9,15 +9,6 @@ on:
   pull_request:
     branches: [main]
 
-# Verification only, so a newer run supersedes an older one for the same ref:
-# the new commit already contains the old one's work, and on a three-slot fleet
-# every stacked run is a full six-job backlog in front of the newest merge.
-# Deployments live in their own workflows (`deploy-vercel.yml`, `supabase.yml`),
-# which do not share this group — nothing here can cancel a delivery.
-concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
-
 # ── Why every job here waited forever, and what actually fixed it ───────────
 # `runs-on: [self-hosted, linux]` is the whole selector. Three ghrunner hosts
 # each register one runner, and every one of them carries both
@@ -98,9 +89,15 @@ concurrency:
 # shared `ci-refs/heads/main` group can silently drop pushes. Key every
 # non-PR run by its unique run id; PRs keep their branch-scoped group and
 # still cancel.
+# A newer run supersedes an older one for the same ref: a push to main already
+# contains the previous commit's work, and on a three-slot fleet every stacked
+# run is a full six-job backlog in front of the newest merge. Per-run groups on
+# push were the 50-minute wait. Deployments (`deploy-vercel.yml`, `supabase.yml`)
+# are separate workflows and never share this group, so nothing here can cancel
+# a delivery.
 concurrency:
-  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
