@@ -19,8 +19,11 @@ name: Schema checks (trusted)
 # PR and a push to main all run the same hosted checks. A missing token therefore
 # becomes a configuration failure, not a green "Migration History" result.
 #
+# The token-free reconciliation checks use `if: always() && steps.copy_migrations.outcome == 'success'`:
+# they run after a hosted failure, but never against a failed or partial copy.
+# The job still fails if either side fails.
 # The token-free checks that inspect PR source (`check-migration-types`,
-# `check-audit-coverage`, `check-supabase-cli-pin`) stay in `ci.yml` under
+# `check-supabase-cli-pin`) stay in `ci.yml` under
 # "Schema checks (PR)". They need no secret and must not run in this privileged
 # workflow.
 #
@@ -83,6 +86,7 @@ jobs:
       # code and receives no token. Base migrations stay untouched so the
       # immutability and SQL checks still compare against a real base.
       - name: Copy only migrations into trusted checkout
+        id: copy_migrations
         working-directory: .
         run: |
           SOURCE="$GITHUB_WORKSPACE/pr/supabase/migrations"
@@ -95,7 +99,11 @@ jobs:
             echo "::error::PR migrations are not a real directory; refusing to read them."
             exit 1
           fi
-          if [ -n "$(find "$SOURCE" -mindepth 1 ! -type f -print -quit)" ]; then
+          NON_FILES="$(find "$SOURCE" -mindepth 1 ! -type f -print -quit)" || {
+            echo "::error::Could not inspect PR migrations; refusing to read them."
+            exit 1
+          }
+          if [ -n "$NON_FILES" ]; then
             echo "::error::PR migrations contain a symbolic link or special file; refusing to read it."
             exit 1
           fi
@@ -134,7 +142,11 @@ jobs:
       # granting the public roles. A finding is still a question rather than a
       # mechanical verdict — read the definitions before dropping or revoking
       # anything. It must be resolved before merge.
+      #
+      # Run even when migration history fails: the catalogue result is
+      # independent, and a history error must not hide a hygiene finding.
       - name: Check schema hygiene
+        if: always()
         env:
           SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
           # Same read-only token policy as the migration-history check above.
@@ -149,7 +161,11 @@ jobs:
       # edit: `schema_migrations` records a version, not the file. This compares
       # the merged migration set against the trusted base byte-for-byte, so a
       # modified, renamed or deleted merged migration fails.
+      #
+      # Run even if a hosted check failed: this result is independent, and a
+      # hosted failure must not hide a broken migration.
       - name: Check applied migrations are immutable
+        if: always() && steps.copy_migrations.outcome == 'success'
         env:
           MIGRATIONS_DIR: ${{ github.workspace }}/trusted/pr-migrations
           BASE_MIGRATIONS_DIR: ${{ github.workspace }}/trusted/supabase/migrations
@@ -161,7 +177,11 @@ jobs:
       # that destroy data. A migration that must destroy something opts out in
       # the file with `-- allow-destructive: <reason>`, so the decision is in
       # the diff rather than in a list somewhere else.
+      #
+      # Run even if a hosted check failed: the SQL result is independent of the
+      # hosted reconciliation and must still be visible.
       - name: Validate changed migration SQL
+        if: always() && steps.copy_migrations.outcome == 'success'
         env:
           MIGRATIONS_DIR: ${{ github.workspace }}/trusted/pr-migrations
           BASE_MIGRATIONS_DIR: ${{ github.workspace }}/trusted/supabase/migrations

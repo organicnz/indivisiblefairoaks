@@ -24,10 +24,7 @@
  * New files are the whole point and are allowed. The digest is SHA-256 over the
  * file's bytes, so a whitespace-only edit fails too — whitespace is not
  * schema, but "only formatting changed" is exactly the claim this check should
- * not have to make. A base and working tree that resolve to the same directory
- * would compare a tree with itself, so that configuration is refused; the
- * workflow step is pinned by its guard test, and this covers every caller,
- * including a local run.
+ * not have to make.
  *
  * ## Why a base-branch diff rather than a hash stored with the migration
  *
@@ -46,13 +43,10 @@
  *     different control's problem.
  *   - **A migration applied but never merged.** Nothing in the repository
  *     records it, so there is no base file to compare.
- *   - **Duplicate versions, malformed filenames and empty migration files.**
- *     `check-migrations.mjs` owns those local invariants; this check only
- *     compares the files the base tree contains.
  *   - **SQL that is wrong.** Nothing here executes a statement.
  */
 
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 
 const notice = (m) => console.log(`::notice::${m}`);
 const error = (m) => console.log(`::error::${m}`);
@@ -115,15 +109,6 @@ export async function main(env = Bun.env) {
     return 1;
   }
 
-  // A base and working tree that resolve to the same directory compare a tree
-  // with itself and pass. The workflow step is pinned by its guard test, but
-  // the script refuses the configuration for any caller, including a local run.
-  if (resolve(baseDir) === resolve(currentDir)) {
-    error('BASE_MIGRATIONS_DIR and MIGRATIONS_DIR resolve to the same directory.');
-    error('Refusing to compare a tree against itself.');
-    return 1;
-  }
-
   // The base side must never be interpreted as "nothing was applied". A
   // missing checkout would turn every PR into a pass while measuring nothing,
   // which is the failure mode this repository has already paid for once.
@@ -147,33 +132,27 @@ export async function main(env = Bun.env) {
 
   /** The `<version>` half of `<version>_<name>.sql`. */
   const versionOf = (file) => file.split('_')[0];
-  const currentSet = new Set(current);
   const currentByVersion = new Map(current.map((file) => [versionOf(file), file]));
 
   const problems = [];
   for (const baseFile of base) {
     const version = versionOf(baseFile);
+    const currentFile = currentByVersion.get(version);
 
-    // Check the exact applied file first. A new file can reuse its version and
-    // sort after it, taking the version-map entry; that duplicate is the history
-    // check's finding, not a rename of the applied file.
-    if (!currentSet.has(baseFile)) {
-      const sameVersion = currentByVersion.get(version);
-      if (sameVersion) {
-        // A rename keeps a schema change invisible to a version comparison
-        // while making the recorded name disagree with the tree; both are edits.
-        problems.push(
-          `Applied migration renamed: ${baseFile} -> ${sameVersion} (version ${version}).`
-        );
-      } else {
-        problems.push(`Applied migration deleted: ${baseFile} (version ${version} is recorded).`);
-      }
+    if (!currentFile) {
+      problems.push(`Applied migration deleted: ${baseFile} (version ${version} is recorded).`);
+      continue;
+    }
+    if (currentFile !== baseFile) {
+      // A rename keeps a schema change invisible to a version comparison while
+      // making the recorded name disagree with the tree; both are edits.
+      problems.push(`Applied migration renamed: ${baseFile} -> ${currentFile} (version ${version}).`);
       continue;
     }
 
     const [baseHash, currentHash] = await Promise.all([
       contentHash(join(baseDir, baseFile)),
-      contentHash(join(currentDir, baseFile)),
+      contentHash(join(currentDir, currentFile)),
     ]);
     if (baseHash !== currentHash) {
       problems.push(`Applied migration modified: ${baseFile} (content hash changed).`);

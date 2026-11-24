@@ -17,9 +17,9 @@ checker, not for Playwright, not for the scripts.
 |---|---|---|
 | Package manager | Bun | `bun install --frozen-lockfile` |
 | Next.js dev/build/start | Bun | `bun --bun next dev\|build\|start` |
-| Type checking | `tsrs` — TypeScript 7 in Rust | `bun --bun tsrs --noEmit` |
+| Type checking | `tsrs` — TypeScript 7 in Rust | `bun tsrs --noEmit` |
 | Build's own type check | `tsrs`, via Next's CLI mode — through `tools/typescript-shim/` | part of `bun --bun next build` |
-| Unit tests | Vitest **on Bun's runtime** | `bun --bun vitest run --coverage` |
+| Unit tests | Vitest **on Bun's runtime** | `bun vitest run --coverage` |
 | E2E tests | Playwright **on Bun's runtime** | `bun node_modules/@playwright/test/cli.js test` |
 | Project scripts | Bun | `bun scripts/<name>.mjs` |
 | Edge Functions | Deno | `deno check` / `supabase functions deploy` |
@@ -61,14 +61,14 @@ positions.
 
 **`tsrs` is the sole type checker across the entire project.** Builds, CI
 workflows, pre-commit hooks, and npm scripts exclusively run `tsrs`
-(`bun --bun tsrs --noEmit`). Cloudflare and VoidZero's native Rust port eliminates
+(`bun tsrs --noEmit`). Cloudflare and VoidZero's native Rust port eliminates
 compiler divergence, provides sub-second diagnostics with 70% lower memory,
 and runs identically in local development and CI runners.
 
-**`tsrs` is pinned exactly, and it is the newest release.** `7.1.0-beta.tsrs4`
-was verified against the npm `latest` dist-tag and the publish-time-sorted
-version list, because there is **no canary or beta dist-tag for `tsrs`**, only
-`latest` and a 2024 `snapshot`. The channel
+**`tsrs` is pinned exactly, and it is the newest release.** `7.1.0-beta.tsrs3`
+was verified three ways — the npm `latest` dist-tag, the publish-time-sorted
+version list, and the GitHub release list — because there is **no canary or
+beta dist-tag for `tsrs`**, only `latest` and a 2024 `snapshot`. The channel
 is not available to pin here, so the version is. The exact pin (rather than
 the `^` most dependencies use) is deliberate: `tsrs` gates the type check, and
 it moves fast, so a caret range would let a release change a gate's output
@@ -106,26 +106,36 @@ const tscBin = typeof packageJson.bin === 'string'
     Object.entries(packageJson.bin ?? {}).find(([name]) => /^tsc\d+$/.test(name))?.[1])
 ```
 
-It then runs that binary **twice**, and in `tsrs` 7.1.0-beta.tsrs4 both calls
-are native:
+It then runs that binary **twice**, and the second call is not the one that
+is hard:
 
 | Call | Purpose | Answered by |
 |---|---|---|
-| `tsc --showConfig --project <tsconfig> --pretty false` | parsed as **JSON**, to read `compilerOptions.incremental` and `.composite` | `tsrs`, natively |
+| `tsc --showConfig --project <tsconfig> --pretty false` | parsed as **JSON**, to read `compilerOptions.incremental` and `.composite` | the shim |
 | `tsc --project <tsconfig> --noEmit --declarationMap false --emitDeclarationOnly false` | the actual type check | `tsrs`, natively |
 
-`tsrs` implements both calls. The shim is therefore a **thin launcher**: it
-resolves the platform-specific native binary through `tsrs`'s own resolver
-(it knows the platform, distinguishes musl from glibc on Linux, and honours a
-`TSRS_BINARY` override) and forwards every argument unchanged. It deliberately
-contains no JSONC parser or tsconfig merger; `--showConfig` reports the
-computed configuration, including defaults and the expanded file list, exactly
-as the compiler sees it.
+`tsrs` implements the second call natively. It does **not** implement the
+first — it exits 5 with `error: --showConfig is not supported by tsrs.` — and
+Next.js treats a non-zero exit from that call as a hard failure:
 
-Older `tsrs` releases (through `7.1.0-beta.tsrs3`) did not implement
-`--showConfig`, and the shim answered that call itself. That workaround was
-deleted when native support landed. If a future release changes its internal
-resolver layout, `resolveTsrsBinary()` is the only thing that needs updating.
+```ts
+if (result.exitCode !== 0) {
+  throw new Error(/* ... */)
+}
+```
+
+So the shim answers `--showConfig` itself and forwards everything else to the
+native Rust binary, which `tsrs`'s own resolver locates (it knows the platform,
+distinguishes musl from glibc on Linux, and honours a `TSRS_BINARY` override).
+The shim deliberately reuses that resolver rather than carrying a second copy
+of the platform table, so the two cannot drift.
+
+**The `--showConfig` answer is not `tsc --showConfig`, and it says so.**
+`tsc` reports the *computed* configuration: the merged chain, the compiler's
+defaults filled in, and the `files`/`include` globs expanded. The shim reports
+the merged tsconfig chain **as declared**. Next.js reads two booleans out of
+it and both are answered faithfully; the output carries a `_tsrsShim` marker
+so that a human reading the JSON is not misled.
 
 **The shim has no `exports` field, on purpose.** Next.js resolves
 `typescript/package.json` with `resolveFrom`, and a package whose `exports`
@@ -147,10 +157,10 @@ Node.js, so this is toolchain consolidation rather than runtime removal — the
 compiler instead of two, a build-time check at Rust speed, and one fewer
 implementation to keep in step with the language.
 
-**A `tsrs` upgrade is a type-check change.** The pin is exact for that reason;
-when a release changes the CLI contract, rerun `bun run typecheck` and
-`bun run build` — the build exercises the shim's two-call path — before
-landing the bump.
+**One thing to know if `tsrs` ever implements `--showConfig`:** the shim
+should delegate to it and lose the JSONC parsing. That is the shape of the
+debt, and it is the reason the shim is small and marked as a shim rather
+than presented as a compiler.
 
 **`bunfig.toml` runs package.json scripts on Bun's own shell**, not the
 system `sh`. Bun's shell is a real shell with its own parser — cross-platform
@@ -630,9 +640,9 @@ password is byte-identical to what it was before.
 
 **A guard keeps it done.** `scripts/hooks/no-node-runtime.mjs` blocks Node
 shebangs, `node:child_process`, a second package manager (`npm`, `npx`,
-`yarn`, `pnpm`), a `bun x` / `bunx` invocation that is unpinned or missing
-`--bun`, the `actions/setup-node` workflow step, an `engines.node` declaration,
-and imports of `node-fetch` or `dotenv`. Without it the failure
+`yarn`, `pnpm`), an unpinned `bun x` / `bunx` invocation, the
+`actions/setup-node` workflow step, an `engines.node` declaration, and imports
+of `node-fetch` or `dotenv`. Without it the failure
 mode is not a red build — it is a green local machine and a red runner,
 because a `#!/usr/bin/env node` shebang works perfectly on a laptop that
 still has Node and breaks on every machine this project actually runs on.
@@ -656,7 +666,7 @@ string for a `sensitive` variable, and as a `deploy` step that runs at all.
 
 The tree walk also skips what is not this repository's runtime: the vendored
 `.agents/skills/` and `agent/skills/` trees (pinned in `skills-lock.json` and
-rewritten by `bunx --bun skills update`), the gitignored `.kiro/` and `scratch/`
+rewritten by `bunx skills update`), the gitignored `.kiro/` and `scratch/`
 directories, and Markdown — because prose mentioning `npm install -g vercel` is
 a sentence about the past, not a command. A guard that fires on prose teaches
 people to reach for the bypass.
@@ -760,7 +770,7 @@ there and a raw `pg`/socket client would not be.
 
 ### `npx` exists, and it is Bun
 
-`bin/npx` in this repository is a shim that runs `bun x --bun`. It is installed to
+`bin/npx` in this repository is a shim that runs `bun x`. It is installed to
 `~/.local/bin/npx` (which is on PATH here) and it exists because **Next.js
 does not know about Bun.**
 
@@ -771,11 +781,11 @@ and finally reports `npm` — and `get-npx-command.js` then returns the literal
 `npx --yes`. On a machine with no Node.js that is a dead end:
 
 ```
-$ bun x --bun next@16.4.2 upgrade --agent latest
+$ bun x next@16.4.2 upgrade --agent latest
 ⨯ Could not prepare the upgrade: Executable not found in $PATH: "npx"
 ```
 
-`npx <pkg> [args]` and `bun x --bun <pkg> [args]` are the same operation, so the
+`npx <pkg> [args]` and `bun x <pkg> [args]` are the same operation, so the
 shim maps one onto the other. That is what makes `next upgrade --agent`,
 `next dev`'s agent hooks, and the `@next/codemod` runs work here at all.
 
@@ -868,7 +878,7 @@ rather than reaching for the global directly.
 
 ### App Router structure
 - **Server Components** handle all data fetching via `createClient` from `@supabase/ssr`.
-- **Client Components** are scoped to interactive leaves: command palette, maps, galleries, and the visual composer.
+- **Client Components** are scoped to interactive leaves: Cart, Wishlist, command palette, Stripe checkout.
 - Dynamic pages use `[slug]` routing; `generateMetadata` is mandatory on every dynamic route.
 - `cacheLife` profiles are set to `"hours"` across all catalog and content fetches — do not change to `"minutes"` until the project moves to Vercel Pro (see Conservation Mode below).
 - **The `/products` sidebar categories query is cached, and that is the end of it.** An uncached inline fetch here used to log a prerender warning on every build; `0e65c6a` lifted it out of the page into `getCategories()` with `'use cache'`, `cacheLife('hours')` and `cacheTag('categories')`, and a clean build is now silent. A follow-up once asked for it to move inside a Suspense boundary, and that half is moot: `/products` sets `export const instant = false` — a deliberate Block opt-out, because per-category SEO titles require awaiting `searchParams` in `generateMetadata` — so there is no prerender pass to warn about, and the segment's boundary is `src/app/products/loading.tsx`, which already covers the whole page. Adding a second boundary would trade a warning that no longer exists for a flash of an empty sidebar. Re-verified 2026-09-30 with `rm -rf .next && NEXT_E2E_BUILD=true NEXT_SKIP_ENV_VALIDATION=1 bun run build`: `/products` prerenders as `◐`, build silent.
@@ -917,26 +927,24 @@ canonical URL, every `og:url`, `sitemap.xml`, `robots.txt`, and all JSON-LD
 
 ### Supabase backend
 - PostgreSQL with RLS on every user-facing table. Anon key = read-only + insert on allowlisted tables only.
-- Auth includes MFA support. Middleware enforces session checks on `/account`, `/admin`, `/login` and `/auth/mfa` **only** — do not expand middleware scope without checking Fluid CPU budget. `/auth/mfa` is included because an unauthenticated visitor has no factor to answer with, and leaving it ungated let a stale AAL claim survive until the next protected page load.
-- Edge Functions: `notify-contact`, `search`, `health`, `wall-e-chat`,
-  `ice-case-brief`, `ice-source-refine`, `walle-refresh`,
-  `crm-broadcast-send`, `data-points`, `sync-mobilize-events`. All are
-  deployed by `.github/workflows/supabase.yml`; `crm-broadcast-send` joined
-  that list only recently, and until it did, `CRM_BROADCAST_FUNCTION_URL`
-  pointed production at a route no pipeline shipped. Invoked directly from
-  Server Actions; never call Edge Functions from Client Components.
-  **JWT verification is on unless a step says `--no-verify-jwt`.** Four functions
-  are deliberately public (`notify-contact`, `search`, `health`, `data-points`);
-  `wall-e-chat`, `ice-case-brief`, `ice-source-refine`, `walle-refresh`,
-  `crm-broadcast-send` and `sync-mobilize-events` require a key. A step that
-  silently loses the flag turns a credentialed endpoint into a public one; one
-  that silently gains it makes an internal endpoint unreachable.
+- Auth includes MFA support. Middleware enforces session checks on `/account`, `/admin`, `/login` **only** — do not expand middleware scope without checking Fluid CPU budget.
+- Edge Functions: `notify-contact`, `checkout`, `search`, `webhook`, `health`,
+  `wall-e-chat`, `walle-refresh`, `crm-broadcast-send`, `data-points`,
+  `sync-mobilize-events`. All are deployed by
+  `.github/workflows/supabase.yml`; `crm-broadcast-send` joined that list only
+  recently, and until it did, `CRM_BROADCAST_FUNCTION_URL` pointed production at
+  a route no pipeline shipped. Invoked directly from Server Actions; never call
+  Edge Functions from Client Components.
+  **JWT verification is on unless a step says `--no-verify-jwt`.** Five functions
+  are deliberately public (`notify-contact`, `search`, `webhook`, `health`, `data-points`);
+  `checkout`, `wall-e-chat`, `walle-refresh`, `crm-broadcast-send` and
+  `sync-mobilize-events` require a
+  key. A step that silently loses the flag turns a credentialed endpoint into a
+  public one; one that silently gains it makes an internal endpoint unreachable.
   The `verify` job probes each function and asserts the specific expected code —
-  400 for `notify-contact` and `search`, 401 for `crm-broadcast-send` and
-  `sync-mobilize-events`, 405 for the GET-only `wall-e-chat`, `ice-case-brief`,
-  `ice-source-refine` and `walle-refresh`, and 200 for `health` and
-  `data-points` — so neither direction passes silently. **A config var and a
-  deploy step have to land together.**
+  400, 400|401, 405, 401 for `crm-broadcast-send` and `sync-mobilize-events`, or
+  200 for `health` and `data-points` — so neither direction passes
+  silently. **A config var and a deploy step have to land together.**
 - **The Mobilize sync is the one place the service key lives in Postgres.**
   `sync-mobilize-events` is scheduled by `pg_cron` → `pg_net`, and the job reads
   its URL and key from **Vault at run time** rather than embedding them in
@@ -1375,9 +1383,12 @@ pre-commit gate, so drift fails at commit time rather than at 3am.
   `persist-credentials: false` everywhere, which matters because
   `checkout@v6` changed *where* credentials are persisted when they are
   persisted at all. And `checkout@v7` blocks fork checkouts for
-  `pull_request_target` and `workflow_run` — neither of which this
-  repository's workflows use, since they trigger on `pull_request` and
-  `push`.
+  `pull_request_target` and `workflow_run` by default. Ordinary workflows
+  trigger on `pull_request` and `push`; the one exception is
+  `schema-check-trusted.yml`, which opts in with
+  `allow-unsafe-pr-checkout: true` because it checks out only the merge
+  ref's `supabase/migrations` as data and executes only base-branch scripts.
+  See [`docs/ci-separation-plan.md`](./docs/ci-separation-plan.md) §2.
 
   The deprecation warnings are gone from the job logs, and the last Node 20
   in the toolchain went with them.
@@ -1410,6 +1421,14 @@ pre-commit gate, so drift fails at commit time rather than at 3am.
   are withheld from `pull_request` runs from forks, and `env.ts`'s `.default()`
   absorbed the empty value, so a fork PR built successfully against placeholder
   credentials.
+- **The hosted schema gate is the one deliberate `pull_request_target`
+  workflow.** `schema-check-trusted.yml` runs the base branch's scripts,
+  checks out only the merge ref's `supabase/migrations` as data, and copies it
+  into the trusted checkout; no PR code executes. Fork PRs therefore receive
+  the read-only Supabase token through that event, and a missing token fails
+  the job rather than skipping it. The token-free checks that inspect PR
+  source stay in `ci.yml` under `Schema checks (PR)`. See
+  [`docs/ci-separation-plan.md`](./docs/ci-separation-plan.md) §2.
 - **CI waits forever when no runner can take the job, and that is not always a label
   problem.** `runs-on: [self-hosted, linux, <frontend|backend>-runner]` is
   arch-neutral on purpose (2026-10-05): both registered runners carry those
@@ -1461,7 +1480,7 @@ pre-commit gate, so drift fails at commit time rather than at 3am.
      `workers: 1` in CI) to prevent multiple concurrent Chromium instances from fighting
      against Next.js (`next start`) and the mock server for memory.
 - **The local lefthook gates are therefore the real gates**, and they do run on
-  every push: 39 pre-commit guards, then lint → unit → coverage → types → build →
+  every push: 36 pre-commit guards, then lint → unit → coverage → types → build →
   peer-deps → 135 Playwright specs (135 + no running tests). Migrations and Edge Functions are **not**
   deployed by hand: `supabase.yml` is the only delivery path and a push touching
   `supabase/**` is its trigger, so the fix and the deploy are one action. It pushed
@@ -1610,7 +1629,7 @@ deployed green and broke silently.
 ## Delivery Gates (lefthook)
 
 - **pre-commit**: secrets, migration guards, RLS/SECURITY DEFINER, Biome, oxlint, typecheck, env contracts (local `.env`, the GitHub Actions inventory, and the secrets registry in `--offline` mode — no network, because a hook that needs a token is a hook that gets bypassed), lockfile pairing, data-points seed↔reader↔fallback consistency (`scripts/check-data-points.mjs` — a seed nobody reads, a read nobody seeds, and a wired fallback that disagrees with its seed all fail, with accepted findings annotated in `scripts/data-points-baseline.json`, and that ratchet only shrinks), documentation numeric claims (`scripts/check-doc-claims.mjs` re-derives guard counts, the suppression baseline, `lefthook.yml`'s length, spec totals and the two coverage floors from their sources of truth), the no-Node-runtime guard (`scripts/hooks/no-node-runtime.mjs` — a Node shebang, a second package manager or a `setup-node` step works on a laptop with Node installed and breaks on every runner this project has; and a local binary invoked as `bun <bin>` rather than `bun --bun <bin>`, which hands the program to Node.js wherever Node.js is installed and to Bun only where it is not — the same divergence, wearing a different hat. The rule reads the local bin set out of `node_modules/.bin`, so a dependency that arrives tomorrow is covered without the guard being edited. CI runs it over the **whole tree** with `--all`, not just the staged subset, so a violation that arrived by a merge is caught too), the test-environment guard (`scripts/hooks/vitest-environment.mjs` — **every** test file must declare its Vitest environment on its first line, because Vitest constructs an environment per file and jsdom's construction was 63% of the unit suite's time; the guard also requires the `node` environment on any test that reaches for `Bun.*`, directly or through an imported script, because Vitest's `jsdom` environment replaces the worker's global with the jsdom window's and the `Bun` global does not survive that swap on every platform), and `playwright test --list` when `e2e/**` changes (spec parse only — no browser launch).
-- **`lefthook.yml` is 706 lines of wiring; the logic is in `scripts/hooks/*.mjs`.** Every
+- **`lefthook.yml` is 668 lines of wiring; the logic is in `scripts/hooks/*.mjs`.** Every
   guard that was a `run: |` bash block is now a `bun scripts/hooks/<name>.mjs` call, and
   its rationale comment moved into that file's header — where it sits beside the code it
   explains rather than four hundred lines above it. `lefthook.yml` keeps what only it can
@@ -1814,9 +1833,9 @@ removed that file — TS 7 is the native (Go) compiler and ships a `tsc`
 **Next.js 16.4 enabled the shim architecture.** It ships `experimental.useTypeScriptCli`,
 which runs the `tsc` binary instead of the API, resolving that binary from
 the `typescript` package's `bin` metadata. Through `tools/typescript-shim/`,
-this `tsc` binary delegates directly to native `tsrs` (the Rust port of TypeScript 7),
-including the `--showConfig` query Next.js uses to decide whether the project is
-incremental. `next.config.ts` sets it, with the reasoning inline.
+this `tsc` binary delegates directly to native `tsrs` (the Rust port of TypeScript 7)
+while answering `--showConfig` locally. `next.config.ts` sets it, with the
+reasoning inline.
 
 The spawn uses `process.execPath`, which under `bun --bun next build` is the bun
 binary. So the type check that runs inside the build runs on **Bun** through
@@ -1971,7 +1990,7 @@ Quick trigger table:
 | `vgpu` | WebGPU / shader work (`vgpu` package) |
 | `vercel-react-native-skills` | Not applicable — web-only project |
 
-Update: `bunx --bun skills update` · Restore: `bunx --bun skills experimental_install`
+Update: `bunx skills update` · Restore: `bunx skills experimental_install`
 
 ---
 

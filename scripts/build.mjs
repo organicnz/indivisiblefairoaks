@@ -26,6 +26,8 @@
  * apply when the build is run directly.
  */
 
+import { lstat, readdir, readFile, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { loadEnvLocal } from './load-env-local.mjs';
 import { findPrerenderWarnings } from './prerender-warnings.mjs';
 
@@ -96,6 +98,92 @@ const proc = Bun.spawn([process.execPath, '--bun', 'next', 'build'], {
 
 await Promise.all([forward(proc.stdout, process.stdout), forward(proc.stderr, process.stderr)]);
 
+/**
+ * Turbopack emits hashed aliases for server externals — for example
+ * `@sentry/nextjs-c6ef459ddbd6c254` — and points `.next/node_modules` at the
+ * real packages through symlinks. Vercel's function packaging drops those
+ * symlinks, so the deployed chunk fails at runtime with:
+ *
+ *   Failed to load external module @sentry/nextjs-c6ef459ddbd6c254:
+ *   ResolveMessage: Cannot find module '@sentry/nextjs-c6ef459ddbd6c254'
+ *
+ * Copying the package into `.next/node_modules` does not help, because that
+ * directory is not part of the packaged function. Rewrite the quoted
+ * specifiers in `.next/server` to the real package name instead, and only when
+ * that package exists on disk, so a string that merely looks hashed is left
+ * untouched. See vercel/next.js#87737 and #93901.
+ */
+async function dehashServerExternals() {
+  const aliasPattern = /(["'])((?:@[^/"']+\/)?[^/"']+-[a-f0-9]{16})(\/[^"']*)?\1/g;
+  const files = [];
+
+  async function walk(dir) {
+    let entries;
+    try {
+      entries = await readdir(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+
+    for (const entry of entries) {
+      const path = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        await walk(path);
+      } else if (entry.isFile() && /\.m?js$/.test(entry.name)) {
+        files.push(path);
+      }
+    }
+  }
+
+  await walk('.next/server');
+
+  const aliases = new Set();
+  for (const file of files) {
+    const source = await readFile(file, 'utf8');
+    for (const match of source.matchAll(aliasPattern)) aliases.add(match[2]);
+  }
+
+  // alias -> real package name, but only for packages that actually exist.
+  const resolvable = new Map();
+  for (const alias of aliases) {
+    const base = alias.replace(/-[a-f0-9]{16}$/, '');
+    try {
+      await lstat(join('node_modules', base));
+      resolvable.set(alias, base);
+    } catch {
+      // Not a real package; leave the emitted string exactly as it is.
+    }
+  }
+
+  if (resolvable.size === 0) {
+    console.log('✔ no Turbopack hashed server externals to rewrite');
+    return;
+  }
+
+  const counts = new Map();
+  for (const file of files) {
+    const source = await readFile(file, 'utf8');
+    let changed = false;
+    const next = source.replace(aliasPattern, (match, quote, alias, subpath = '') => {
+      const base = resolvable.get(alias);
+      if (!base) return match;
+      changed = true;
+      counts.set(alias, (counts.get(alias) ?? 0) + 1);
+      return `${quote}${base}${subpath}${quote}`;
+    });
+    if (changed) await writeFile(file, next);
+  }
+
+  for (const [alias, base] of resolvable) {
+    const count = counts.get(alias) ?? 0;
+    console.log(
+      count > 0
+        ? `✔ rewrote ${alias} -> ${base} (${count} reference${count === 1 ? '' : 's'})`
+        : `… ${alias} -> ${base}: no live reference in .next/server`
+    );
+  }
+}
+
 const exitCode = await proc.exited;
 const warnings = findPrerenderWarnings(output.join(''));
 
@@ -116,6 +204,15 @@ if (warnings.length > 0) {
   process.exitCode = 1;
 } else {
   process.exitCode = exitCode ?? 1;
+}
+
+if (process.exitCode === 0) {
+  try {
+    await dehashServerExternals();
+  } catch (error) {
+    console.error('✖ Could not dehash Turbopack server externals:', error);
+    process.exitCode = 1;
+  }
 }
 
 // The suite is about to test this exact build; hand it the same port the build

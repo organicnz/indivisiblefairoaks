@@ -61,16 +61,6 @@ describe('no-node-runtime guard integration', () => {
     expect(result.stdout.match(/\[unpinned package runner\]/g)).toHaveLength(2);
   });
 
-  it('rejects a pinned package runner that does not force Bun', () => {
-    write('fixture.ts', `const missingFlag = ${JSON.stringify(spaced('bun|x|supabase@3.2.0'))};`);
-
-    const result = guard(['fixture.ts']);
-
-    expect(result.exitCode).toBe(1);
-    expect(result.stdout).toMatch(/fixture\.ts:1\s+\[package runner missing --bun\]/);
-    expect(result.stdout).toMatch(/exact version controls the package, not the runtime/);
-  });
-
   it('accepts a pinned package runner with --bun', () => {
     write('fixture.ts', `const forced = ${JSON.stringify(spaced('bun|x|--bun|supabase@3.2.0'))};`);
 

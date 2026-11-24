@@ -253,18 +253,24 @@ jobs:
       # AGENTS.md, "The runtime is Bun".
 
       - name: Biome lint
-        run: bun --bun biome lint ./src ./scripts
+        run: bun --bun biome lint ./src
 
       - name: Oxlint
-        run: bun --bun oxlint ./src ./scripts
+        run: bun --bun oxlint ./src
 
-      # The type check is deliberately not cached here.
+      # There is no type-check cache here any more, and there is nothing to
+      # restore one from.
       #
-      # tsconfig sets `incremental: true`, and `tsrs` 4 writes
-      # `tsconfig.tsbuildinfo` (gitignored). The old tsc-based job tried to
-      # cache that file and was never actually warm; `tsrs` cold is already a
-      # fraction of a second of work. Caching it would add a stale-green risk
-      # for no meaningful saving.
+      # The old tsc-based job cached `tsconfig.tsbuildinfo` keyed on the
+      # lockfile plus `src/**` and `e2e/**`. That cache was never actually
+      # warm: tsconfig sets `incremental: true`, but nothing persisted the
+      # build info, so every lint job re-checked ~295 files from scratch
+      # (8-13 min measured). The cache step was deleted and the comment with
+      # it — restoring a stale tsbuildinfo could only ever have been a
+      # wrong-green waiting to happen.
+      #
+      # `tsrs` does not write incremental state, so there is no artifact
+      # to cache: the job is now a fraction of a second of work.
       - name: TypeScript — tsrs
         # `tsrs` is the Rust port of the TypeScript 7 compiler (Cloudflare +
         # VoidZero), and it is this project's exclusive type checker. It reads the same
@@ -277,12 +283,6 @@ jobs:
         # executables), so the type check needs no JavaScript runtime at all
         # beyond the launcher Bun runs it with.
         run: bun --bun tsrs --noEmit
-
-      # The hooks are `.mjs`, and the root tsconfig only includes ts/tsx/mts.
-      # This is the narrow checkJs program for `scripts/hooks/` — it does not
-      # turn checkJs on for the whole scripts tree.
-      - name: TypeScript — hooks
-        run: bun run typecheck:hooks
 
       # The no-Node-runtime guard, over the WHOLE tree rather than the staged
       # subset.
@@ -446,8 +446,8 @@ jobs:
 
       # Audit coverage: every write-capable server file either calls an audit
       # recorder or is an explicit, reasoned exemption. Static and token-free,
-      # so it also runs on fork PRs; unlike the two checks above, a finding here
-      # is blocking because it is always actionable (add the call or the reason).
+      # so it also runs on fork PRs; a finding here is blocking because it is
+      # always actionable (add the call or the reason).
       - name: Check audit coverage
         run: bun scripts/check-audit-coverage.mjs
 

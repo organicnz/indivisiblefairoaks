@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -74,21 +74,21 @@ describe('Supabase CLI pin on this repository', () => {
   describe('in a temporary repository', () => {
     let root: string;
 
-    beforeEach(() => {
-      root = mkdtempSync(join(tmpdir(), 'supabase-cli-pin-'));
-      mkdirSync(join(root, 'scripts'), { recursive: true });
+    beforeEach(async () => {
+      root = await mkdtemp(join(tmpdir(), 'supabase-cli-pin-'));
+      await mkdir(join(root, 'scripts'), { recursive: true });
     });
 
-    afterEach(() => {
-      rmSync(root, { recursive: true, force: true });
+    afterEach(async () => {
+      await rm(root, { recursive: true, force: true });
     });
 
     it('fails when another script writes the pin', async () => {
-      writeFileSync(
+      await Bun.write(
         join(root, CANONICAL_FILE),
         `export const SUPABASE_CLI = ['${pin('3.2.0')}'];\n`
       );
-      writeFileSync(join(root, 'scripts/other.mjs'), `const cmd = '${pin('3.1.0')}';\n`);
+      await Bun.write(join(root, 'scripts/other.mjs'), `const cmd = '${pin('3.1.0')}';\n`);
 
       const logs: string[] = [];
       const errors: string[] = [];

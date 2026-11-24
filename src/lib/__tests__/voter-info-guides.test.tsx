@@ -70,6 +70,14 @@ describe('VoterInfoPage & 2026 Voter Guides', () => {
 
     const links = Array.from(container.querySelectorAll<HTMLAnchorElement>('a'));
 
+    for (const href of [
+      'https://registertovote.ca.gov',
+      'https://wheresmyballot.sos.ca.gov',
+      'https://elections.saccounty.gov',
+    ]) {
+      expect(links.some((a) => a.getAttribute('href') === href)).toBe(true);
+    }
+
     const voterGuideLink = links.find((a) => a.href.includes('10XEUyMoyGUI_UktPVwB0RJo-6w3lN0Uy'));
     expect(voterGuideLink).toBeDefined();
     expect(voterGuideLink?.target).toBe('_blank');

@@ -1,0 +1,178 @@
+name: Deploy Vercel production
+
+# A manual, cache-safe production deploy. The git integration owns the normal
+# path, but it restores the project build cache, and a poisoned Turbopack cache
+# can survive a redeploy. `vercel deploy --force` without `--with-cache` starts
+# a clean build; this workflow exists so that path uses the VERCEL_TOKEN the
+# repository already owns instead of a developer's local CLI session.
+#
+# Dispatch with the commit that should be live. The checkout is that commit, so
+# the uploaded source is exactly the requested tree — not the workflow commit.
+
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: Full commit SHA to deploy
+        required: true
+        default: cab3c59cfc332cd37e399f96826325aadfb17f4e
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-vercel-${{ inputs.sha }}
+  cancel-in-progress: false
+
+env:
+  BUN_VERSION: "canary"
+
+jobs:
+  deploy:
+    name: Deploy ${{ inputs.sha }} without build cache
+    runs-on: [self-hosted, linux, backend-runner]
+    timeout-minutes: 30
+    steps:
+      - name: Check out the requested commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+          no-cache: true
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Resolve the full commit SHA
+        id: commit
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      # The CLI reads VERCEL_ORG_ID and VERCEL_PROJECT_ID from the environment,
+      # but it also looks for link state. Writing the same two IDs to the
+      # gitignored project file makes the link explicit and avoids a prompt on
+      # a fresh checkout.
+      - name: Link the Vercel project
+        env:
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+        run: |
+          mkdir -p .vercel
+          printf '{"orgId":"%s","projectId":"%s"}\n' "$VERCEL_ORG_ID" "$VERCEL_PROJECT_ID" > .vercel/project.json
+
+      # `--force` starts a fresh build. `--with-cache` is what would retain the
+      # cache, so it is deliberately absent: the whole point of this workflow is
+      # that the build cannot restore the poisoned Turbopack cache.
+      - name: Deploy production without the build cache
+        id: deploy
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+        run: |
+          set -o pipefail
+          bun --bun node_modules/.bin/vercel deploy \
+            --prod \
+            --force \
+            --yes \
+            --meta githubCommitSha="${{ steps.commit.outputs.sha }}" \
+            --meta githubCommitRef=main \
+            2>&1 | tee vercel-deploy.log
+          url=$(grep -oE 'https://[a-z0-9-]+\.vercel\.app' vercel-deploy.log | tail -1)
+          test -n "$url"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      # `--prod` assigns the project's production domains, and this project's
+      # apex is proxied by Cloudflare to Google Sites. The app itself is served
+      # from the test host, so point that host at the exact deployment we just
+      # built rather than assuming the production aliasing reached it.
+      - name: Point the app host at the new deployment
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+        run: |
+          bun --bun node_modules/.bin/vercel alias set \
+            "${{ steps.deploy.outputs.url }}" \
+            test.indivisiblefairoaks.org \
+            --scope organicnz2222 \
+            --non-interactive \
+            --token="$VERCEL_TOKEN"
+
+      - name: Confirm READY, cache-free build, and healthy production
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+        run: |
+          bun scripts/check-vercel-deploy.mjs \
+            --sha=${{ steps.commit.outputs.sha }} \
+            --out=vercel-logs \
+            --site-url=${{ vars.NEXT_PUBLIC_SITE_URL }}
+
+      - name: List production environment variable names
+        if: always()
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: team_G8IMZRRSHw7ti3HLUs3aWmPS
+          VERCEL_PROJECT_ID: prj_8RtMjuARvtBuUnepj9oEVyovXyb5
+        run: |
+          curl -sS -H "Authorization: Bearer $VERCEL_TOKEN" \
+            "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID/env?teamId=$VERCEL_ORG_ID" -o env.json
+          bun -e 'const r=JSON.parse(await Bun.file("env.json").text()); for (const e of r.envs??[]) console.log([e.key,(e.target||[]).join(","),e.type].join("\t"))'
+
+      - name: Show the production health response
+        if: always()
+        run: |
+          for p in / /robots.txt /manifest.webmanifest /api/health; do
+            printf "%s " "$p"
+            curl -sS -o /dev/null -w "%{http_code}\n" --max-time 20 "https://test.indivisiblefairoaks.org$p"
+          done
+          curl -sS -D - --max-time 20 https://test.indivisiblefairoaks.org/api/health | head -30
+
+      - name: Show runtime errors for the new deployment
+        if: always() && steps.deploy.outputs.url != ''
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          bun --bun node_modules/.bin/vercel logs \
+            --deployment "${{ steps.deploy.outputs.url }}" \
+            --since 20m --limit 50 --json --non-interactive \
+            --scope organicnz2222 --token="$VERCEL_TOKEN" > runtime-logs.txt 2>&1 || true
+          head -c 20000 runtime-logs.txt
+
+      - name: Assert the build did not restore a cache
+        if: always()
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          logs=(vercel-logs/*.log)
+          if [ "${#logs[@]}" -eq 0 ]; then
+            echo "::error::No Vercel build log was captured; cannot prove the cache was skipped."
+            exit 1
+          fi
+          if grep -qi "Restored build cache" "${logs[@]}"; then
+            echo "::error::Vercel restored a build cache; the deploy was not cache-safe."
+            exit 1
+          fi
+          if grep -qiE "CssSyntaxError.*instrumentation\.ts" "${logs[@]}"; then
+            echo "::error::Turbopack still failed on src/instrumentation.ts."
+            exit 1
+          fi
+
+      - name: Upload deploy evidence
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: vercel-deploy-${{ steps.commit.outputs.sha }}
+          path: |
+            vercel-deploy.log
+            vercel-logs/
+          if-no-files-found: warn
+          retention-days: 7
