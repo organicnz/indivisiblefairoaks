@@ -12,8 +12,34 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.1"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
+
       coalition_links: {
         Row: {
           badge: string | null
@@ -287,80 +313,6 @@ export type Database = {
           },
         ]
       }
-      crm_broadcasts: {
-        Row: {
-          body: string
-          created_at: string
-          created_by: string | null
-          dispatched_at: string | null
-          failed_count: number
-          id: string
-          marked_failed_at: string | null
-          marked_failed_by: string | null
-          recipient_count: number
-          sent_at: string | null
-          sent_count: number
-          status: string
-          subject: string
-          target_districts: string[]
-          target_status: string[]
-          target_tags: string[]
-          test_only: boolean
-          test_recipient: string | null
-          updated_at: string
-        }
-        Insert: {
-          body: string
-          created_at?: string
-          created_by?: string | null
-          dispatched_at?: string | null
-          failed_count?: number
-          id?: string
-          marked_failed_at?: string | null
-          marked_failed_by?: string | null
-          recipient_count?: number
-          sent_at?: string | null
-          sent_count?: number
-          status?: string
-          subject: string
-          target_districts?: string[]
-          target_status?: string[]
-          target_tags?: string[]
-          test_only?: boolean
-          test_recipient?: string | null
-          updated_at?: string
-        }
-        Update: {
-          body?: string
-          created_at?: string
-          created_by?: string | null
-          dispatched_at?: string | null
-          failed_count?: number
-          id?: string
-          marked_failed_at?: string | null
-          marked_failed_by?: string | null
-          recipient_count?: number
-          sent_at?: string | null
-          sent_count?: number
-          status?: string
-          subject?: string
-          target_districts?: string[]
-          target_status?: string[]
-          target_tags?: string[]
-          test_only?: boolean
-          test_recipient?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "crm_broadcasts_marked_failed_actor_fk"
-            columns: ["marked_failed_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       crm_broadcast_recipients: {
         Row: {
           accepted_at: string | null
@@ -424,6 +376,83 @@ export type Database = {
           },
         ]
       }
+      crm_broadcasts: {
+        Row: {
+          body: string
+          created_at: string
+          created_by: string | null
+          dispatched_at: string | null
+          failed_count: number
+          id: string
+          marked_failed_at: string | null
+          marked_failed_by: string | null
+          recipient_count: number
+          sent_at: string | null
+          sent_count: number
+          source_newsletter_slug: string | null
+          status: string
+          subject: string
+          target_districts: string[]
+          target_status: string[]
+          target_tags: string[]
+          test_only: boolean
+          test_recipient: string | null
+          updated_at: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          created_by?: string | null
+          dispatched_at?: string | null
+          failed_count?: number
+          id?: string
+          marked_failed_at?: string | null
+          marked_failed_by?: string | null
+          recipient_count?: number
+          sent_at?: string | null
+          sent_count?: number
+          source_newsletter_slug?: string | null
+          status?: string
+          subject: string
+          target_districts?: string[]
+          target_status?: string[]
+          target_tags?: string[]
+          test_only?: boolean
+          test_recipient?: string | null
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          created_by?: string | null
+          dispatched_at?: string | null
+          failed_count?: number
+          id?: string
+          marked_failed_at?: string | null
+          marked_failed_by?: string | null
+          recipient_count?: number
+          sent_at?: string | null
+          sent_count?: number
+          source_newsletter_slug?: string | null
+          status?: string
+          subject?: string
+          target_districts?: string[]
+          target_status?: string[]
+          target_tags?: string[]
+          test_only?: boolean
+          test_recipient?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_broadcasts_marked_failed_actor_fk"
+            columns: ["marked_failed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       crm_contacts: {
         Row: {
           address: string | null
@@ -434,11 +463,16 @@ export type Database = {
           email: string
           first_name: string | null
           id: string
+          is_donor: boolean | null
           last_contacted_at: string | null
           last_engaged_at: string | null
           last_inbound_at: string | null
           last_name: string | null
           last_outbound_at: string | null
+          newsletter_confirm_expires_at: string | null
+          newsletter_confirm_token: string | null
+          newsletter_confirmation_sent_at: string | null
+          newsletter_confirmed_at: string | null
           notes: string | null
           phone: string | null
           search_vector: unknown
@@ -460,10 +494,16 @@ export type Database = {
           email: string
           first_name?: string | null
           id?: string
+          is_donor?: boolean | null
           last_contacted_at?: string | null
+          last_engaged_at?: string | null
           last_inbound_at?: string | null
           last_name?: string | null
           last_outbound_at?: string | null
+          newsletter_confirm_expires_at?: string | null
+          newsletter_confirm_token?: string | null
+          newsletter_confirmation_sent_at?: string | null
+          newsletter_confirmed_at?: string | null
           notes?: string | null
           phone?: string | null
           search_vector?: unknown
@@ -485,10 +525,16 @@ export type Database = {
           email?: string
           first_name?: string | null
           id?: string
+          is_donor?: boolean | null
           last_contacted_at?: string | null
+          last_engaged_at?: string | null
           last_inbound_at?: string | null
           last_name?: string | null
           last_outbound_at?: string | null
+          newsletter_confirm_expires_at?: string | null
+          newsletter_confirm_token?: string | null
+          newsletter_confirmation_sent_at?: string | null
+          newsletter_confirmed_at?: string | null
           notes?: string | null
           phone?: string | null
           search_vector?: unknown
@@ -636,6 +682,7 @@ export type Database = {
       }
       data_points: {
         Row: {
+          content_type: string
           created_at: string
           group_name: string
           key: string
@@ -644,6 +691,7 @@ export type Database = {
           value: string
         }
         Insert: {
+          content_type?: string
           created_at?: string
           group_name?: string
           key: string
@@ -652,6 +700,7 @@ export type Database = {
           value: string
         }
         Update: {
+          content_type?: string
           created_at?: string
           group_name?: string
           key?: string
@@ -708,12 +757,18 @@ export type Database = {
           date_label: string
           description: string
           ends_at: string | null
+          external_id: string | null
+          external_url: string | null
           highlight: boolean
+          is_hidden: boolean
+          last_synced_at: string | null
           location_name: string
           rsvp_url: string
           slug: string
           sort_order: number
+          source: string
           starts_at: string | null
+          sync_locked: boolean
           time_label: string
           title: string
           updated_at: string
@@ -725,12 +780,18 @@ export type Database = {
           date_label: string
           description?: string
           ends_at?: string | null
+          external_id?: string | null
+          external_url?: string | null
           highlight?: boolean
+          is_hidden?: boolean
+          last_synced_at?: string | null
           location_name?: string
           rsvp_url?: string
           slug: string
           sort_order?: number
+          source?: string
           starts_at?: string | null
+          sync_locked?: boolean
           time_label: string
           title: string
           updated_at?: string
@@ -742,12 +803,18 @@ export type Database = {
           date_label?: string
           description?: string
           ends_at?: string | null
+          external_id?: string | null
+          external_url?: string | null
           highlight?: boolean
+          is_hidden?: boolean
+          last_synced_at?: string | null
           location_name?: string
           rsvp_url?: string
           slug?: string
           sort_order?: number
+          source?: string
           starts_at?: string | null
+          sync_locked?: boolean
           time_label?: string
           title?: string
           updated_at?: string
@@ -1002,20 +1069,187 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      legacy_public_assets: {
+        Row: {
+          alt_text: string | null
+          byte_size: number | null
+          caption: string | null
+          drive_id: string | null
+          external_url: string | null
+          filename: string | null
+          height: number | null
+          id: string | null
+          kind: string | null
+          mime_type: string | null
+          public_path: string | null
+          public_url: string | null
+          rights: string | null
+          sort_order: number | null
+          source_page_path: string | null
+          source_url: string | null
+          status: string | null
+          width: number | null
+          youtube_id: string | null
+        }
+        Insert: {
+          alt_text?: string | null
+          byte_size?: number | null
+          caption?: string | null
+          drive_id?: string | null
+          external_url?: string | null
+          filename?: string | null
+          height?: number | null
+          id?: string | null
+          kind?: string | null
+          mime_type?: string | null
+          public_path?: string | null
+          public_url?: string | null
+          rights?: string | null
+          sort_order?: number | null
+          source_page_path?: string | null
+          source_url?: string | null
+          status?: string | null
+          width?: number | null
+          youtube_id?: string | null
+        }
+        Update: {
+          alt_text?: string | null
+          byte_size?: number | null
+          caption?: string | null
+          drive_id?: string | null
+          external_url?: string | null
+          filename?: string | null
+          height?: number | null
+          id?: string | null
+          kind?: string | null
+          mime_type?: string | null
+          public_path?: string | null
+          public_url?: string | null
+          rights?: string | null
+          sort_order?: number | null
+          source_page_path?: string | null
+          source_url?: string | null
+          status?: string | null
+          width?: number | null
+          youtube_id?: string | null
+        }
+        Relationships: []
+      }
+      legacy_public_documents: {
+        Row: {
+          byte_size: number | null
+          category: string | null
+          description: string | null
+          drive_id: string | null
+          external_url: string | null
+          file_path: string | null
+          id: string | null
+          mime_type: string | null
+          public_url: string | null
+          published_at: string | null
+          rights: string | null
+          slug: string | null
+          sort_order: number | null
+          source_page_path: string | null
+          title: string | null
+          youtube_id: string | null
+        }
+        Relationships: []
+      }
+      legacy_public_page_links: {
+        Row: {
+          asset_id: string | null
+          href: string | null
+          id: string | null
+          is_external: boolean | null
+          kind: string | null
+          label: string | null
+          page_id: string | null
+          sort_order: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "legacy_page_links_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "legacy_assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legacy_page_links_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "legacy_public_assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legacy_page_links_page_id_fkey"
+            columns: ["page_id"]
+            isOneToOne: false
+            referencedRelation: "legacy_pages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legacy_page_links_page_id_fkey"
+            columns: ["page_id"]
+            isOneToOne: false
+            referencedRelation: "legacy_public_pages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      legacy_public_pages: {
+        Row: {
+          body_text: string | null
+          captured_at: string | null
+          destination: string | null
+          id: string | null
+          page_kind: string | null
+          sort_order: number | null
+          source_path: string | null
+          source_url: string | null
+          summary: string | null
+          title: string | null
+        }
+        Insert: {
+          body_text?: string | null
+          captured_at?: string | null
+          destination?: string | null
+          id?: string | null
+          page_kind?: string | null
+          sort_order?: number | null
+          source_path?: string | null
+          source_url?: string | null
+          summary?: string | null
+          title?: string | null
+        }
+        Update: {
+          body_text?: string | null
+          captured_at?: string | null
+          destination?: string | null
+          id?: string | null
+          page_kind?: string | null
+          sort_order?: number | null
+          source_path?: string | null
+          source_url?: string | null
+          summary?: string | null
+          title?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       crm_broadcast_followups: {
         Args: { p_broadcast_id: string; p_limit?: number; p_offset?: number }
         Returns: {
-          contact_id: string | null
+          contact_id: string
           email: string
-          failed_at: string | null
-          provider_id: string | null
-          reason: string | null
-          recipient_name: string | null
+          failed_at: string
+          provider_id: string
+          reason: string
+          recipient_name: string
           status: string
-          suppressed_at: string | null
+          suppressed_at: string
           total_count: number
           updated_at: string
         }[]
@@ -1037,8 +1271,53 @@ export type Database = {
         Args: { p_broadcast_id: string; p_results: Json }
         Returns: number
       }
+      crm_stamp_outbound_contacts: {
+        Args: { p_at: string; p_contact_ids: string[] }
+        Returns: undefined
+      }
       crm_stats: { Args: never; Returns: Json }
       crm_sync_historical_records: { Args: never; Returns: Json }
+      deliver_admin_audit_outbox: {
+        Args: { batch_size?: number }
+        Returns: number
+      }
+      ice_alert_consume_rate_limits: {
+        Args: {
+          p_email_hash: string
+          p_email_limit: number
+          p_endpoint_hash: string
+          p_endpoint_limit: number
+          p_global_limit: number
+          p_ip_hash: string
+          p_ip_limit: number
+          p_window_seconds: number
+        }
+        Returns: {
+          allowed: boolean
+          limited_scope: string
+          retry_after_seconds: number
+        }[]
+      }
+      ice_auto_publish_report: {
+        Args: {
+          p_lat: number
+          p_lng: number
+          p_merge_public_id?: string
+          p_public_summary: string
+          p_report_id: string
+        }
+        Returns: string
+      }
+      ice_publish_report: {
+        Args: {
+          p_lat: number
+          p_lng: number
+          p_report_id: string
+          p_reviewer_id: string
+        }
+        Returns: string
+      }
+      insert_ice_crawl_discoveries: { Args: { p_rows: Json }; Returns: number }
       is_admin: { Args: never; Returns: boolean }
       log_audit: {
         Args: {
@@ -1055,6 +1334,14 @@ export type Database = {
       merge_crm_contacts: {
         Args: { p_actor_id?: string; p_keep_id: string; p_remove_id: string }
         Returns: string
+      }
+      merge_crm_contacts_legacy: {
+        Args: { p_actor_id?: string; p_keep_id: string; p_remove_id: string }
+        Returns: string
+      }
+      replace_mfa_recovery_codes: {
+        Args: { p_code_hashes: string[]; p_user_id: string }
+        Returns: undefined
       }
       search_content: {
         Args: { max_rows?: number; search_query: string }
@@ -1205,6 +1492,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {},
   },

@@ -275,10 +275,18 @@ export function parseMigrationSql(sources) {
  */
 export function parseGeneratedTypes(source) {
   const tables = new Map();
-  const tablesMatch = /\bTables:\s*\{/.exec(source);
+
+  // Scan from the `public` schema, not from the top of the file. The CLI emits a
+  // `graphql_public` schema first, and its empty `Tables: {}` would be the first
+  // match — which made every app table look missing the moment that schema
+  // appeared in the generated output.
+  const publicMatch = /\n  public: \{\n/.exec(source);
+  const searchFrom = publicMatch ? publicMatch.index : 0;
+
+  const tablesMatch = /\bTables:\s*\{/.exec(source.slice(searchFrom));
   if (!tablesMatch) return tables;
 
-  const open = tablesMatch.index + tablesMatch[0].length - 1;
+  const open = searchFrom + tablesMatch.index + tablesMatch[0].length - 1;
   const close = findClosing(source, open, '{', '}');
   if (close === -1) return tables;
   const body = source.slice(open + 1, close);

@@ -148,6 +148,36 @@ describe('parseGeneratedTypes', () => {
     expect(columns).not.toContain('update_only');
     expect(types.has('alpha_view')).toBe(false);
   });
+
+  it('reads the public schema when graphql_public comes first', () => {
+    // The CLI emits a `graphql_public` schema ahead of `public`, and it carries
+    // its own empty `Tables: {}`. Matching the first `Tables:` in the file made
+    // every app table look missing the first time that schema appeared.
+    const source = `
+export type Database = {
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+  }
+  public: {
+    Tables: {
+      alpha: {
+        Row: {
+          id: string
+        }
+      }
+    }
+  }
+}`;
+
+    const types = parseGeneratedTypes(source);
+
+    expect([...types.keys()]).toEqual(['alpha']);
+  });
 });
 
 describe('compareMigrationTypes', () => {

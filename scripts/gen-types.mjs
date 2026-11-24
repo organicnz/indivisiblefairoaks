@@ -114,11 +114,22 @@ function normalizeGeneratedTypes(source) {
  * not in the allowlist. Uses brace-depth tracking to find exact block spans.
  */
 function filterTables(src, allowlist) {
-  // Find the Tables: { block inside the public: { section
-  const tablesMatch = src.match(/(\s+Tables:\s*\{)/);
+  // Find the Tables: { block inside the public: { section.
+  //
+  // It has to be *this* section: the CLI also emits a `graphql_public` schema,
+  // and that block appears first and has its own `Tables: {}` entry. Matching
+  // the first `Tables:` in the file therefore filtered nothing at all, quietly
+  // leaving every foreign table in the committed union.
+  const publicMatch = src.match(/\n  public: \{\n/);
+  if (!publicMatch) return src; // no public schema — return as-is
+  const publicStart = publicMatch.index + publicMatch[0].length;
+
+  // No leading `\n` here: the slice starts immediately after `public: {\n`, so
+  // the `Tables:` line is the first thing in it.
+  const tablesMatch = /^    Tables: \{\n/m.exec(src.slice(publicStart));
   if (!tablesMatch) return src; // no Tables block found — return as-is
 
-  const tablesStart = src.indexOf(tablesMatch[0]) + tablesMatch[0].length;
+  const tablesStart = publicStart + tablesMatch.index + tablesMatch[0].length;
   let depth = 1;
   let i = tablesStart;
 
