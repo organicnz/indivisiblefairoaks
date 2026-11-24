@@ -396,10 +396,10 @@ export function RapidResponseGuide({
                 name="ice.rapid.sources.community.body"
                 className="mt-1 text-[11px] leading-relaxed text-muted-foreground"
               >
-                Public nightly export. We use city centroids and a short source memo built from the
-                report&apos;s city, type, status, and timestamp. The original export includes street
-                addresses and vehicle details that we do not republish. Source-confirmed is the
-                network&apos;s label.
+                Public nightly export. We use city centroids and a short, generalized description
+                built from the report&apos;s public text, type, status, and timestamp. Street
+                addresses, vehicle plates, contact details, and identities are never republished.
+                Source-confirmed is the network&apos;s label.
               </DataPoint>
               <div className="mt-2 flex flex-wrap gap-3">
                 <a
