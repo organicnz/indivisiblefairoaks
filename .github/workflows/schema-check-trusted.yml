@@ -140,6 +140,18 @@ jobs:
           BASE_MIGRATIONS_DIR: ${{ github.workspace }}/trusted/supabase/migrations
         run: bun scripts/check-migration-sql.mjs
 
+      # The live hygiene check's catalogue invariants, decided from the merged
+      # migration set: a redundant index, a foreign key no index leads, and a
+      # grant that RLS cannot govern. They are the findings the hosted check can
+      # only report after the migration is applied, and they are token-free, so
+      # they belong on this side of the gate.
+      - name: Check migration schema invariants
+        if: always() && steps.copy_migrations.outcome == 'success'
+        env:
+          MIGRATIONS_DIR: ${{ github.workspace }}/trusted/pr-migrations
+          BASE_MIGRATIONS_DIR: ${{ github.workspace }}/trusted/supabase/migrations
+        run: bun scripts/check-migration-schema-invariants.mjs
+
   # ── After the migrations land: hosted ─────────────────────────────────────
   # Runs only when the `Supabase` workflow finished successfully on `main`,
   # against the exact commit it migrated. This is what makes the gate

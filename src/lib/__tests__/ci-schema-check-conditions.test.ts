@@ -47,12 +47,14 @@ const HOSTED_CHECKS = ['scripts/check-migrations.mjs', 'scripts/check-schema-hyg
 const TRUSTED_MIGRATION_CHECKS = [
   'scripts/check-migration-immutability.mjs',
   'scripts/check-migration-sql.mjs',
+  'scripts/check-migration-schema-invariants.mjs',
 ];
 
 /** Token-free checks that need the PR tree. They stay in `ci.yml`. */
 const TOKEN_FREE_PR_CHECKS = [
   'scripts/check-migration-immutability.mjs',
   'scripts/check-migration-sql.mjs',
+  'scripts/check-migration-schema-invariants.mjs',
   'scripts/check-migration-types.mjs',
   'scripts/check-supabase-cli-pin.mjs',
 ];

@@ -433,6 +433,17 @@ jobs:
           BASE_MIGRATIONS_DIR: ${{ github.workspace }}/trusted/supabase/migrations
         run: bun scripts/check-migration-sql.mjs
 
+      # The live hygiene check's three catalogue invariants, decided from the
+      # merged migration set instead of `pg_catalog`: a redundant index, a
+      # foreign key no index leads, and a grant that RLS cannot govern. The live
+      # check can only see these after the migration is applied; this one sees
+      # them on the PR that introduces them. Token-free, so it also runs on a
+      # fork PR.
+      - name: Check migration schema invariants
+        env:
+          BASE_MIGRATIONS_DIR: ${{ github.workspace }}/trusted/supabase/migrations
+        run: bun scripts/check-migration-schema-invariants.mjs
+
       # Static migration ↔ generated-type consistency. No token and no install:
       # it parses the checked-in migrations and src/types/supabase.ts, so it also
       # runs on fork PRs that receive no secrets. Blocking against
