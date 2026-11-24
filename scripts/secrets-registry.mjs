@@ -303,11 +303,15 @@ export const REGISTRY = {
   CRON_SECRET: {
     exposure: EXPOSURE.server,
     owner: OWNERS['app-runtime'],
-    stores: ['vercel-secret', 'vault'],
+    // GitHub carries it so the dispatch-only ops workflow can write it to
+    // Vercel while the self-hosted fleet is unavailable; Vercel serves the
+    // routes and Vault lets pg_cron send the same bearer token.
+    stores: ['vercel-secret', 'vault', 'github-secret'],
     note:
-      'Bearer token for the five-minute surge notification call. It authorizes ' +
-      'sending to confirmed subscribers, so rotate it if exposed and re-run ' +
-      'scripts/seed-ice-alert-cron.mjs.',
+      'Bearer token for the five-minute surge notification and ICE crawl ' +
+      'routes. It authorizes sending to confirmed subscribers and starting ' +
+      'crawls, so rotate it if exposed and re-run scripts/seed-ice-alert-cron.mjs ' +
+      'plus the ops workflow.',
   },
 
   /**

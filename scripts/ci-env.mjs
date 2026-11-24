@@ -63,6 +63,16 @@ export const VARIABLES = {
 };
 
 export const SECRETS = {
+  /**
+   * Bearer secret for the tokenless cron routes. The same value must exist in
+   * Vercel Production: the route compares the header against it, and pg_cron
+   * reads it from Vault to call those routes. It lives here so the break-glass
+   * ops workflow can write it to Vercel when the self-hosted fleet is down.
+   */
+  CRON_SECRET: {
+    required: true,
+    note: 'Must equal Vercel Production CRON_SECRET; pg_cron stores the same value in Vault for the ICE crawl and alert jobs.',
+  },
   /** Supabase Management API PAT — deploys edge functions, applies migrations. */
   SUPABASE_ACCESS_TOKEN: {
     required: true,

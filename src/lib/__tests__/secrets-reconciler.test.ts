@@ -333,7 +333,13 @@ describe('reconcile: full declared contract', () => {
       [
         'vercel-secret',
         'ok',
-        ['SUPABASE_SECRET_KEY', 'RESEND_API_KEY', 'RESEND_WEBHOOK_SECRET', 'SENTRY_AUTH_TOKEN'],
+        [
+          'SUPABASE_SECRET_KEY',
+          'RESEND_API_KEY',
+          'RESEND_WEBHOOK_SECRET',
+          'SENTRY_AUTH_TOKEN',
+          'CRON_SECRET',
+        ],
       ],
       [
         'github-var',
@@ -359,6 +365,7 @@ describe('reconcile: full declared contract', () => {
           'VERCEL_TOKEN',
           'GH_AUDIT_TOKEN',
           'SENTRY_AUTH_TOKEN',
+          'CRON_SECRET',
         ],
       ],
       [

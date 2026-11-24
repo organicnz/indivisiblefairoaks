@@ -1,0 +1,162 @@
+name: Ops - Vercel production env and deploy
+
+# Break-glass operations path, dispatch-only.
+#
+# The Vercel token exists only as `secrets.VERCEL_TOKEN`, so when the
+# self-hosted fleet is at zero there is no way from a developer machine to set
+# a Production environment variable or deploy a commit. This workflow uses the
+# token exactly where it already lives.
+#
+# It is deliberately separate from `deploy-vercel.yml` and changes no other
+# workflow's `runs-on`: the fleet's self-hosted choice stays the normal path,
+# and this job runs on GitHub's runner only because it must not wait behind a
+# queue that is empty. It performs the same deployment shape (force, no cache,
+# explicit commit metadata, alias, SHA assertion) so the two cannot diverge in
+# what "deployed" means.
+#
+# The order matters: the environment variable is written before the deployment
+# so the new build never serves a route that reads a missing secret.
+
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: Full commit SHA to deploy
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ops-vercel-${{ inputs.sha }}
+  cancel-in-progress: false
+
+env:
+  BUN_VERSION: "canary"
+
+jobs:
+  deploy:
+    name: Set CRON_SECRET and deploy ${{ inputs.sha }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out the requested commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+          no-cache: true
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Resolve the full commit SHA
+        id: commit
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Link the Vercel project
+        env:
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+        run: |
+          mkdir -p .vercel
+          printf '{"orgId":"%s","projectId":"%s"}\n' "$VERCEL_ORG_ID" "$VERCEL_PROJECT_ID" > .vercel/project.json
+
+      # Writes the secret through the API rather than `vercel env add`, whose
+      # prompts differ between CLI versions on a non-interactive runner. The
+      # value is never echoed: it goes into a JSON file through `jq --arg` and
+      # the file is removed afterwards. Vercel masks secret values in its own
+      # UI; GitHub masks them in logs.
+      - name: Write CRON_SECRET to Production
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CRON_SECRET:-}" ]; then
+            echo "::error::secrets.CRON_SECRET is not set."
+            exit 1
+          fi
+          umask 077
+          payload=$(mktemp)
+          jq -n --arg v "$CRON_SECRET" \
+            '{key:"CRON_SECRET", value:$v, type:"encrypted", target:["production"]}' > "$payload"
+          env_json=$(mktemp)
+          curl -sS -o "$env_json" \
+            -H "Authorization: Bearer $VERCEL_TOKEN" \
+            "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID/env?teamId=$VERCEL_ORG_ID"
+          env_id=$(jq -r '[.envs[]? | select(.key == "CRON_SECRET") | select((.target // []) | index("production"))][0].id // empty' "$env_json")
+          if [ -n "$env_id" ]; then
+            status=$(curl -sS -o /tmp/env-result.json -w '%{http_code}' -X PATCH \
+              -H "Authorization: Bearer $VERCEL_TOKEN" \
+              -H "Content-Type: application/json" \
+              --data @"$payload" \
+              "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID/env/$env_id?teamId=$VERCEL_ORG_ID")
+          else
+            status=$(curl -sS -o /tmp/env-result.json -w '%{http_code}' -X POST \
+              -H "Authorization: Bearer $VERCEL_TOKEN" \
+              -H "Content-Type: application/json" \
+              --data @"$payload" \
+              "https://api.vercel.com/v10/projects/$VERCEL_PROJECT_ID/env?teamId=$VERCEL_ORG_ID")
+          fi
+          rm -f "$payload" "$env_json"
+          echo "Vercel env write: HTTP $status"
+          if [ "$status" -ge 300 ]; then
+            jq -r '.error?.message // "unknown error"' /tmp/env-result.json || true
+            exit 1
+          fi
+
+      - name: Deploy production without the build cache
+        id: deploy
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+        run: |
+          set -o pipefail
+          bun --bun node_modules/.bin/vercel deploy \
+            --prod \
+            --force \
+            --yes \
+            --meta githubCommitSha="${{ steps.commit.outputs.sha }}" \
+            --meta githubCommitRef=main \
+            2>&1 | tee vercel-deploy.log
+          url=$(grep -oE 'https://[a-z0-9-]+\.vercel\.app' vercel-deploy.log | tail -1)
+          test -n "$url"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      - name: Point the app host at the new deployment
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+        run: |
+          bun --bun node_modules/.bin/vercel alias set \
+            "${{ steps.deploy.outputs.url }}" \
+            test.indivisiblefairoaks.org \
+            --scope organicnz2222 \
+            --non-interactive \
+            --token="$VERCEL_TOKEN"
+
+      - name: Assert the live build is the deployed commit
+        env:
+          EXPECTED_SHA: ${{ steps.commit.outputs.sha }}
+        run: |
+          live=""
+          for attempt in $(seq 1 18); do
+            body="$(curl -sS --max-time 10 https://test.indivisiblefairoaks.org/api/health || true)"
+            live="$(printf '%s' "$body" | bun -e 'const t = await Bun.stdin.text(); try { console.log(JSON.parse(t)?.deployment?.commit ?? "") } catch { console.log("") }')"
+            printf 'attempt %s/18: live=%s expected=%s\n' "$attempt" "${live:-none}" "$EXPECTED_SHA"
+            if [ "$live" = "$EXPECTED_SHA" ]; then exit 0; fi
+            sleep 10
+          done
+          echo "::error::/api/health reports '${live:-nothing}', not the deployed $EXPECTED_SHA."
+          exit 1
