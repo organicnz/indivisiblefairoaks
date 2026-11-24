@@ -26,11 +26,18 @@ personal-organicnz, frontend-runner, backend-runner`. The distinction between
 `frontend-runner` and `backend-runner` was already collapsed on the host side,
 so it is collapsed here too.
 
-**The wait is queue depth against three slots, not a label.** `ci.yml` now
+**The wait is queue depth against the slots, not a label.** `ci.yml` now
 carries a concurrency group with `cancel-in-progress: true`, so a newer push to
 `main` cancels the older run instead of leaving its six jobs queued in front of
 the newest commit. Deployments are separate workflows and are never cancelled
 by it.
+
+**Measured 2026-11-24, queue drained to a single run:** `Change scope`,
+`Schema checks (PR)`, `Tests & Coverage` and `Lint & Types` ran at the same
+time on `pool-ghrunner-1`, `pool-ghrunner-2` and `pool-backend` — the slots are
+real and the fleet serves jobs concurrently. Before the concurrency group,
+three runs (six jobs each) were queued at once and the newest commit waited
+behind all of them; cancelling the stale ones is what shortened the wait.
 
 The host is **`ghrunner-1`**, an x86_64 Linux box reached over Tailscale. Its
 labels are:
