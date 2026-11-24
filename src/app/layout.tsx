@@ -11,7 +11,7 @@ import { Footer } from '@/components/layout/Footer';
 import { Header } from '@/components/layout/Header';
 import { ThemeAwareToaster } from '@/components/layout/ThemeAwareToaster';
 import { ThemeHud } from '@/components/layout/ThemeHud';
-import { VgpuThemeCanvas } from '@/components/layout/VgpuThemeCanvas';
+import { VgpuThemeCanvasLazy } from '@/components/layout/VgpuThemeCanvasLazy';
 import { ClientOnly } from '@/components/ui/ClientOnly';
 import { DataPointsProvider } from '@/components/ui/DataPointsProvider';
 import { WallEChatWidget } from '@/components/ui/WallEChatWidget';
@@ -34,7 +34,6 @@ import type { UserSettings } from '@/lib/store/settings';
 import { getSettings } from '@/lib/supabase-server';
 import { themeBootstrapScript } from '@/lib/theme';
 import { serializeJsonLd } from '@/lib/utils';
-import Providers from './providers';
 
 const inter = localFont({
   src: './fonts/Inter-Variable.woff2',
@@ -212,47 +211,43 @@ export default async function RootLayout({
         />
       </head>
       <body className="min-h-full flex flex-col bg-background text-foreground font-sans selection:bg-primary selection:text-white">
-        <Providers>
-          <DataPointsProvider dataPoints={dataPoints}>
-            <a
-              href="#main-content"
-              className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[200] focus:rounded-sm focus:bg-primary focus:px-4 focus:py-2 focus:text-xs focus:font-bold focus:uppercase focus:tracking-[0.12em] focus:text-white"
-            >
-              Skip to content
-            </a>
-            <Suspense fallback={null}>
-              <SettingsLoader />
-            </Suspense>
-            <Header />
-            <main id="main-content" className="flex-grow flex flex-col">
-              {children}
-            </main>
-            <Footer />
-            <WallEChatWidget />
-            <ClientOnly>
-              <VisualEditErrorBoundary>
-                <VisualEditLazyMount />
-              </VisualEditErrorBoundary>
-            </ClientOnly>
-          </DataPointsProvider>
-        </Providers>
+        <DataPointsProvider dataPoints={dataPoints}>
+          <a
+            href="#main-content"
+            className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[200] focus:rounded-sm focus:bg-primary focus:px-4 focus:py-2 focus:text-xs focus:font-bold focus:uppercase focus:tracking-[0.12em] focus:text-white"
+          >
+            Skip to content
+          </a>
+          <Suspense fallback={null}>
+            <SettingsLoader />
+          </Suspense>
+          <Header />
+          <main id="main-content" className="flex-grow flex flex-col">
+            {children}
+          </main>
+          <Footer />
+          <WallEChatWidget />
+          <ClientOnly>
+            <VisualEditErrorBoundary>
+              <VisualEditLazyMount />
+            </VisualEditErrorBoundary>
+          </ClientOnly>
+        </DataPointsProvider>
         <ClientOnly>
           <ThemeAwareToaster />
         </ClientOnly>
         <ThemeHud />
-        <VgpuThemeCanvas />
+        <VgpuThemeCanvasLazy />
         {env.NEXT_E2E_BUILD !== 'true' && (
-          <>
-            <ClientOnly>
-              <Analytics />
-              <SpeedInsights />
-              {/* Session replay, consent-aware and masked. Renders nothing;
-                  the rules it applies live in src/lib/posthog.ts. In the e2e
-                  guard for the same reason as the two above: a throwaway test
-                  bundle must not file replays against the production project. */}
-              <PostHogAnalytics />
-            </ClientOnly>
-          </>
+          <ClientOnly>
+            <Analytics />
+            <SpeedInsights />
+            {/* PostHog event analytics; no session replay. Renders nothing;
+                the rules it applies live in src/lib/posthog.ts. In the e2e
+                guard for the same reason as the two above: a throwaway test
+                bundle must not file events against the production project. */}
+            <PostHogAnalytics />
+          </ClientOnly>
         )}
       </body>
     </html>

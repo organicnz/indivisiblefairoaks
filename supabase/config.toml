@@ -168,7 +168,7 @@ additional_redirect_urls = [
   "https://indivisiblefairoaks.org",
   "https://www.indivisiblefairoaks.org",
   "https://test.indivisiblefairoaks.org",
-  "http://localhost:3000",
+  "http://localhost:3031",
 ]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
@@ -201,7 +201,7 @@ password_requirements = ""
 # [auth.webauthn]
 # rp_display_name = "Supabase"
 # rp_id = "localhost"
-# rp_origins = ["http://127.0.0.1:3000"]
+# rp_origins = ["http://127.0.0.1:3031"]
 
 [auth.rate_limit]
 # Number of emails that can be sent per hour. Requires auth.email.smtp to be enabled.

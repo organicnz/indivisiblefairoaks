@@ -21,6 +21,12 @@ export interface SendEmailInput {
    * Passed straight to the Resend API.
    */
   headers?: Record<string, string>;
+  /**
+   * Resend's HTTP `Idempotency-Key`, not an RFC 5322 message header. A retry
+   * with the same key returns the original message id instead of sending a
+   * second copy.
+   */
+  idempotencyKey?: string;
 }
 
 export type SendEmailResult =
@@ -67,6 +73,7 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
       headers: {
         Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
+        ...(input.idempotencyKey ? { 'Idempotency-Key': stripControls(input.idempotencyKey) } : {}),
       },
       body: JSON.stringify({
         from,

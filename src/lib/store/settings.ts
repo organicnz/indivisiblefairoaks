@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import type { MfaFailureReason } from '@/lib/mfa-guard';
-import { createClient } from '@/lib/supabase';
+import { hasSupabaseAuthCookie } from '@/lib/supabase-auth-cookie';
 import { updateUserSettingsAction } from '../actions/settings';
 
 export interface UserSettings {
@@ -52,9 +52,15 @@ export const useSettingsStore = create<SettingsState>()(
 
       fetchSettings: async () => {
         set({ isLoading: true, error: null, errorReason: undefined });
-        const supabase = createClient();
+
+        if (!hasSupabaseAuthCookie()) {
+          set({ isLoading: false });
+          return;
+        }
 
         try {
+          const { createClient } = await import('@/lib/supabase');
+          const supabase = createClient();
           const {
             data: { user },
           } = await supabase.auth.getUser();

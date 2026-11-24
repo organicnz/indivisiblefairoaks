@@ -12,10 +12,10 @@
 #
 # On a machine with no Node.js that is a dead end:
 #
-#   $ bun x next@16.4.2 upgrade --agent latest
+#   $ bun x --bun next@16.4.2 upgrade --agent latest
 #   ⨯ Could not prepare the upgrade: Executable not found in $PATH: "npx"
 #
-# `npx <pkg> [args]` and `bun x <pkg> [args]` are the same operation, so this
+# `npx <pkg> [args]` and `bun x --bun <pkg> [args]` are the same operation, so this
 # shim maps one onto the other. It is what makes `next upgrade --agent`,
 # `next dev`'s agent hooks, and the `@next/codemod` runs work here.
 #

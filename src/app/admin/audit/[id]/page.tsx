@@ -3,6 +3,8 @@ import { notFound } from 'next/navigation';
 import { AdminAuditDetail } from '@/components/admin/audit/AdminAuditDetail';
 import { type AdminAuditOperation, getAdminAuditOperation } from '@/lib/admin-audit-read';
 import { requireAdminPage } from '@/lib/admin-auth';
+import { getDirectEmailDelivery, resendIdFromSnapshot } from '@/lib/crm-direct-email-delivery';
+import type { DirectEmailDelivery } from '@/types/crm';
 
 // Deliberate Cache Components opt-out: private audit data behind requireAdmin().
 export const instant = false;
@@ -37,5 +39,22 @@ export default async function AdminAuditOperationPage({
 
   if (!operation) notFound();
 
-  return <AdminAuditDetail operation={operation} />;
+  let delivery: DirectEmailDelivery | null = null;
+  if (operation.action === 'crm.direct_email.send' && operation.outcome === 'success') {
+    const providerId = resendIdFromSnapshot(operation.after);
+    if (providerId) {
+      try {
+        delivery = await getDirectEmailDelivery(adminClient, {
+          contactId: operation.target_id,
+          providerId,
+          acceptedAt: operation.created_at,
+        });
+      } catch {
+        // The audit record is complete without the supplementary event read.
+        delivery = null;
+      }
+    }
+  }
+
+  return <AdminAuditDetail operation={operation} delivery={delivery} />;
 }

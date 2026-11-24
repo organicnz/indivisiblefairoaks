@@ -63,6 +63,16 @@ describe('CivicCommandPalette component', () => {
     document.body.innerHTML = '';
   });
 
+  async function renderOpenPalette() {
+    await act(async () => {
+      root.render(<CivicCommandPalette isOpen={true} setIsOpen={vi.fn()} />);
+    });
+    await act(async () => {
+      await import('@/components/ui/CivicCommandPaletteDialog');
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+  }
+
   it('renders search trigger button', async () => {
     await act(async () => {
       root.render(<CivicCommandPalette />);
@@ -73,9 +83,7 @@ describe('CivicCommandPalette component', () => {
   });
 
   it('includes the ICE rapid-response and historical map and navigates to it', async () => {
-    await act(async () => {
-      root.render(<CivicCommandPalette isOpen={true} setIsOpen={vi.fn()} />);
-    });
+    await renderOpenPalette();
 
     const options = Array.from(document.querySelectorAll('li[role="option"]'));
     const iceOption = options.find((opt) =>
@@ -91,9 +99,7 @@ describe('CivicCommandPalette component', () => {
   });
 
   it('filters theme commands when searching for theme', async () => {
-    await act(async () => {
-      root.render(<CivicCommandPalette isOpen={true} setIsOpen={vi.fn()} />);
-    });
+    await renderOpenPalette();
 
     const input = document.querySelector('input[role="combobox"]') as HTMLInputElement;
     expect(input).not.toBeNull();
@@ -113,9 +119,7 @@ describe('CivicCommandPalette component', () => {
   });
 
   it('triggers setMode when a theme option is selected', async () => {
-    await act(async () => {
-      root.render(<CivicCommandPalette isOpen={true} setIsOpen={vi.fn()} />);
-    });
+    await renderOpenPalette();
 
     // Locate the dark theme option
     const options = Array.from(document.querySelectorAll('li[role="option"]'));
@@ -130,9 +134,7 @@ describe('CivicCommandPalette component', () => {
   });
 
   it('triggers setMode for system theme option', async () => {
-    await act(async () => {
-      root.render(<CivicCommandPalette isOpen={true} setIsOpen={vi.fn()} />);
-    });
+    await renderOpenPalette();
 
     const options = Array.from(document.querySelectorAll('li[role="option"]'));
     const systemOption = options.find((opt) => opt.textContent?.includes('System Theme'));
@@ -146,9 +148,7 @@ describe('CivicCommandPalette component', () => {
   });
 
   it('triggers cycle for cycle color theme option', async () => {
-    await act(async () => {
-      root.render(<CivicCommandPalette isOpen={true} setIsOpen={vi.fn()} />);
-    });
+    await renderOpenPalette();
 
     const options = Array.from(document.querySelectorAll('li[role="option"]'));
     const cycleOption = options.find((opt) => opt.textContent?.includes('Cycle Color Theme'));
@@ -163,9 +163,7 @@ describe('CivicCommandPalette component', () => {
 
   it('shows admin publishing and management options when logged in as admin', async () => {
     mockUseEditContext.mockReturnValue({ loading: false, isAdmin: true, target: null });
-    await act(async () => {
-      root.render(<CivicCommandPalette isOpen={true} setIsOpen={vi.fn()} />);
-    });
+    await renderOpenPalette();
 
     const options = Array.from(document.querySelectorAll('li[role="option"]'));
     const addNewsOption = options.find((opt) => opt.textContent?.includes('Add News'));

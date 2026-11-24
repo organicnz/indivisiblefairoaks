@@ -1,8 +1,8 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { CivicNewsletterEditorModal } from '@/components/admin/civic/CivicNewsletterEditorModal';
 import { useEditContext } from '@/components/layout/useEditContext';
 import { NewsletterCard } from '@/components/newsletters/NewsletterCard';
 import { NewsletterEmptyState } from '@/components/newsletters/NewsletterEmptyState';
@@ -13,6 +13,14 @@ import { useNewsletterArchive } from '@/hooks/useNewsletterArchive';
 import { type CivicNewsletterRecord, deleteCivicNewsletter } from '@/lib/actions/civic';
 import { ALL_NEWSLETTER_TOPICS, mergeNewsletterRows, sortNewsletters } from '@/lib/news-text';
 import type { NewsletterRow } from '@/lib/queries/civic';
+
+const CivicNewsletterEditorModal = dynamic(
+  () =>
+    import('@/components/admin/civic/CivicNewsletterEditorModal').then(
+      (module) => module.CivicNewsletterEditorModal
+    ),
+  { ssr: false }
+);
 
 export function InteractiveNewslettersList({
   initialNewsletters,

@@ -1,14 +1,23 @@
 'use client';
 
 import { ChevronDown, ChevronUp, Database } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useState } from 'react';
-import { IceArrestHeatMap } from './IceArrestHeatMap';
 import { IceHistoricalHeader } from './IceHistoricalHeader';
 import type { IceMapUrlState } from './map-url-state';
-import type { HeatmapSnapshot } from './types';
+import type { HeatmapMeta } from './types';
+import { useHistoricalSnapshot } from './use-historical-snapshot';
+
+const IceArrestHeatMap = dynamic(
+  () => import('./IceArrestHeatMap').then((module) => module.IceArrestHeatMap),
+  {
+    ssr: false,
+    loading: () => <HistoricalMapSkeleton />,
+  }
+);
 
 type HistoricalFoiaModuleProps = {
-  snapshot: HeatmapSnapshot;
+  meta: HeatmapMeta;
   initialState: IceMapUrlState;
   initialOpen: boolean;
   dataPoints: Record<string, string>;
@@ -27,15 +36,25 @@ function visibleModule() {
  * dashboard remains the primary experience and only one map initializes by
  * default. Legacy `?view=history` links still open it, and #historical-foia
  * links from the page navigation and map popups open and scroll to it.
+ *
+ * The 8,599-city snapshot and the map code are requested only after the module
+ * opens. Passing the snapshot as an eager prop put the city rows into the
+ * initial RSC payload twice, adding roughly 1.7 MB to the document for a panel
+ * most visitors never expand.
  */
 export function HistoricalFoiaModule({
-  snapshot,
+  meta,
   initialState,
   initialOpen,
   dataPoints,
 }: HistoricalFoiaModuleProps) {
   const [isOpen, setIsOpen] = useState(initialOpen);
   const [hasOpened, setHasOpened] = useState(initialOpen);
+  const { snapshot, status: loadStatus, load: loadSnapshot } = useHistoricalSnapshot();
+
+  useEffect(() => {
+    if (isOpen) void loadSnapshot();
+  }, [isOpen, loadSnapshot]);
 
   const markOpenInUrl = useCallback(() => {
     const url = new URL(window.location.href);
@@ -109,7 +128,7 @@ export function HistoricalFoiaModule({
       className="scroll-mt-28 border-y border-border bg-surface-muted/40"
     >
       <IceHistoricalHeader
-        snapshot={snapshot}
+        meta={meta}
         dataPoints={dataPoints}
         action={
           <button
@@ -130,20 +149,52 @@ export function HistoricalFoiaModule({
         }
       />
 
-      <div
-        id={PANEL_ID}
-        hidden={!isOpen}
-        className="border-t border-border bg-background"
-      >
+      <div id={PANEL_ID} hidden={!isOpen} className="border-t border-border bg-background">
         {hasOpened ? (
-          <IceArrestHeatMap
-            snapshot={snapshot}
-            initialState={initialState}
-            urlKeyPrefix="foia"
-            isActive={isOpen}
-          />
+          snapshot ? (
+            <IceArrestHeatMap
+              snapshot={snapshot}
+              initialState={initialState}
+              urlKeyPrefix="foia"
+              isActive={isOpen}
+            />
+          ) : loadStatus === 'error' ? (
+            <HistoricalMapError onRetry={() => void loadSnapshot()} />
+          ) : (
+            <HistoricalMapSkeleton />
+          )
         ) : null}
       </div>
     </section>
+  );
+}
+
+function HistoricalMapSkeleton() {
+  return (
+    <div role="status" aria-live="polite" className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="h-[clamp(19.5rem,43vh,31rem)] w-full animate-pulse border border-border bg-surface-muted" />
+      <span className="sr-only">Loading historical ICE map…</span>
+    </div>
+  );
+}
+
+function HistoricalMapError({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div
+      role="alert"
+      className="mx-auto flex max-w-3xl flex-col items-start gap-3 px-4 py-10 sm:px-6 lg:px-8"
+    >
+      <p className="text-sm leading-relaxed text-muted-foreground">
+        The historical heat-map data is temporarily unavailable. The rapid-response map above is
+        unaffected.
+      </p>
+      <button
+        type="button"
+        onClick={onRetry}
+        className="inline-flex min-h-9 items-center border border-border bg-background px-3 py-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.09em] text-foreground transition-colors hover:border-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+      >
+        Try again
+      </button>
+    </div>
   );
 }

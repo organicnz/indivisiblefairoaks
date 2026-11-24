@@ -1,10 +1,10 @@
 'use client';
 
 import { Monitor, Moon, Sun } from 'lucide-react';
-import { motion, useReducedMotion } from 'motion/react';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { useDataPoints } from '@/hooks/useDataPoints';
 import { nextThemeMode, THEME_ORDER, type ThemeMode, themeModeLabel } from '@/lib/theme';
+import { ThemePill } from './ThemePill';
 import { useThemeMode } from './theme-store';
 
 /**
@@ -23,28 +23,7 @@ import { useThemeMode } from './theme-store';
  * Falls back to a static pill when `prefers-reduced-motion` is active.
  */
 function SegmentedPill({ layoutId, mode }: { layoutId: string; mode: ThemeMode }) {
-  const prefersReduced = useReducedMotion();
-
-  const pillClasses = activeThemeClasses(mode);
-
-  if (prefersReduced) {
-    return <span aria-hidden="true" className={`absolute inset-0 rounded-lg ${pillClasses}`} />;
-  }
-
-  return (
-    <motion.span
-      layoutId={layoutId}
-      aria-hidden="true"
-      className={`absolute inset-0 rounded-lg ${pillClasses}`}
-      transition={{
-        type: 'spring',
-        stiffness: 500,
-        damping: 35,
-        mass: 0.8,
-      }}
-      style={{ originX: 0.5, originY: 0.5 }}
-    />
-  );
+  return <ThemePill layoutId={layoutId} className={`rounded-lg ${activeThemeClasses(mode)}`} />;
 }
 // Focus ring, matching the header's other controls. Declared per component by
 // convention (Header, NavDropdown, CivicCommandPalette each carry their own).

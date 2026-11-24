@@ -8,11 +8,59 @@ import { getDataPoints } from '@/lib/queries/civic-client';
 const EMPTY_DATA_POINTS: Record<string, string> = {};
 
 /**
+ * Whether a server-supplied record already covers this group. Any key in the
+ * group is enough: the root layout sends whole groups, and a page's
+ * `initialData` is the complete group its server query read. Checking this
+ * before mounting avoids a second request for copy that is already in the
+ * HTML/RSC payload.
+ */
+function hasGroup(source: Record<string, string>, group?: string): boolean {
+  if (!group) return false;
+  const normalized = dataPointGroup(group);
+  for (const key of Object.keys(source)) {
+    if (dataPointGroup(key) === normalized) return true;
+  }
+  return false;
+}
+
+/**
  * A page can mount hundreds of DataPoints in one render. They all ask for the
  * same handful of groups, so share the request that is already in flight
  * instead of issuing one per component (and aborting most of them on nav).
  */
 const inFlight = new Map<string, Promise<Record<string, string>>>();
+
+/**
+ * One window listener for every mounted data point.
+ *
+ * A page can render hundreds of `DataPoint`s, and each one used to install its
+ * own `data-point-saved` listener. That made a save dispatch through hundreds
+ * of DOM listeners even though only one group usually changes. The listener is
+ * now installed once, lazily, and fans out to the mounted hooks; the DOM cost
+ * is constant regardless of how much copy is on the page.
+ */
+type SavedDataPointHandler = (key: string, value: string) => void;
+const savedDataPointHandlers = new Set<SavedDataPointHandler>();
+let savedDataPointListenerInstalled = false;
+
+function subscribeToSavedDataPoints(handler: SavedDataPointHandler): () => void {
+  savedDataPointHandlers.add(handler);
+
+  if (!savedDataPointListenerInstalled && typeof window !== 'undefined') {
+    savedDataPointListenerInstalled = true;
+    window.addEventListener('data-point-saved', (event) => {
+      const detail = (event as CustomEvent<{ key?: string; value?: string }>).detail;
+      if (!detail?.key) return;
+      for (const mountedHandler of savedDataPointHandlers) {
+        mountedHandler(detail.key, detail.value ?? '');
+      }
+    });
+  }
+
+  return () => {
+    savedDataPointHandlers.delete(handler);
+  };
+}
 
 function fetchGroup(group?: string): Promise<Record<string, string>> {
   const cacheKey = group ?? '';
@@ -42,6 +90,12 @@ export function useDataPoints(group?: string, initialData: Record<string, string
     snapshot ? { ...initialData, ...snapshot } : initialData
   );
   const [loading, setLoading] = useState<boolean>(false);
+  // The server snapshot and a page's initialData are authoritative for the
+  // first render. Fetching the same group again on mount was one API request
+  // per group per page view, for copy that had just been server-rendered. An
+  // editor save still reaches every mounted DataPoint through the
+  // `data-point-saved` event below.
+  const seeded = hasGroup(snapshot ?? EMPTY_DATA_POINTS, group) || hasGroup(initialData, group);
 
   const fetchLive = useCallback(async () => {
     try {
@@ -61,33 +115,24 @@ export function useDataPoints(group?: string, initialData: Record<string, string
   }, [group]);
 
   useEffect(() => {
-    // Fetch live data points from Edge API route on client mount
-    void fetchLive();
+    // Fetch only when the server did not already supply this group.
+    if (!seeded) void fetchLive();
 
-    const handleSaved = (e: Event) => {
-      const customEvent = e as CustomEvent<{ key: string; value: string }>;
-      if (customEvent.detail?.key) {
-        const { key, value } = customEvent.detail;
-        const normKeyGroup = dataPointGroup(key);
-        const normHookGroup = dataPointGroup(group ?? '');
-        if (
-          !group ||
-          key.startsWith(`${group}.`) ||
-          (normHookGroup && normKeyGroup === normHookGroup)
-        ) {
-          setDataPoints((prev) => ({
-            ...prev,
-            [key]: value,
-          }));
-        }
+    return subscribeToSavedDataPoints((key, value) => {
+      const normKeyGroup = dataPointGroup(key);
+      const normHookGroup = dataPointGroup(group ?? '');
+      if (
+        !group ||
+        key.startsWith(`${group}.`) ||
+        (normHookGroup && normKeyGroup === normHookGroup)
+      ) {
+        setDataPoints((prev) => ({
+          ...prev,
+          [key]: value,
+        }));
       }
-    };
-
-    window.addEventListener('data-point-saved', handleSaved);
-    return () => {
-      window.removeEventListener('data-point-saved', handleSaved);
-    };
-  }, [group, fetchLive]);
+    });
+  }, [group, fetchLive, seeded]);
 
   const get = useCallback(
     (key: string, fallback = ''): string => {

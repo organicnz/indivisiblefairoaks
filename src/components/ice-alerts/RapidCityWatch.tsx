@@ -12,37 +12,26 @@ import {
 } from 'lucide-react';
 import { iceSourceReportArchiveHref } from '@/lib/ice-source-report-search';
 import { formatNumber } from './data';
+import { formatRelativeTime, isAlertActive } from './rapid-alert-utils';
 import { buildRapidCityBrief } from './rapid-city-brief';
 import type { PublicCase, RapidAlert, RapidFeedSource } from './rapid-types';
-import { useCopyStatus } from './use-copy-status';
-import { formatRelativeTime, isAlertActive } from './rapid-alert-utils';
-import type { CityPoint } from './types';
 import { useCitySourceSummary } from './use-city-source-summary';
+import { useCopyStatus } from './use-copy-status';
 
 type RapidCityWatchProps = {
   alert: RapidAlert;
   cityAlerts: RapidAlert[];
   publicCases: PublicCase[];
-  historicalCity: CityPoint | null;
+  historicalCityCount: number | null;
   community: RapidFeedSource | null;
   feedFromCache: boolean;
   now: number;
 };
 
-function Stat({
-  label,
-  value,
-  detail,
-}: {
-  label: string;
-  value: string;
-  detail: string;
-}) {
+function Stat({ label, value, detail }: { label: string; value: string; detail: string }) {
   return (
     <div className="bg-background p-2.5">
-      <p className="font-display text-xl font-semibold leading-none tracking-[-0.035em]">
-        {value}
-      </p>
+      <p className="font-display text-xl font-semibold leading-none tracking-[-0.035em]">{value}</p>
       <p className="mt-1 font-mono text-[8px] font-bold uppercase tracking-[0.09em] text-foreground">
         {label}
       </p>
@@ -61,7 +50,7 @@ export function RapidCityWatch({
   alert,
   cityAlerts,
   publicCases,
-  historicalCity,
+  historicalCityCount,
   community,
   feedFromCache,
   now,
@@ -81,9 +70,7 @@ export function RapidCityWatch({
     alert.city
   )}&foiaState=${alert.stateCode}#historical-foia`;
   const recentArchive = archiveData?.recent.slice(0, 2) ?? [];
-  const extractionMethods = [
-    ...new Set(recentArchive.map((report) => report.extractionMethod)),
-  ];
+  const extractionMethods = [...new Set(recentArchive.map((report) => report.extractionMethod))];
 
   const handleCopy = async () => {
     const brief = buildRapidCityBrief({
@@ -94,24 +81,17 @@ export function RapidCityWatch({
       feedStatus: community?.status ?? null,
       feedFromCache,
       reviewedCaseCount: publicCases.length,
-      foiaCount: historicalCity?.count ?? null,
-      archive: archiveData
-        ? { total: archiveData.total, extractionMethods }
-        : null,
+      foiaCount: historicalCityCount,
+      archive: archiveData ? { total: archiveData.total, extractionMethods } : null,
       archiveUrl: `${window.location.origin}${archiveHref}`,
-      mapUrl: `${window.location.origin}/ice-alerts?alert=${encodeURIComponent(
-        alert.id
-      )}`,
+      mapUrl: `${window.location.origin}/ice-alerts?alert=${encodeURIComponent(alert.id)}`,
     });
 
     await copy(brief);
   };
 
   return (
-    <section
-      aria-labelledby="ice-city-watch-title"
-      className="mt-4 border-t border-border pt-3.5"
-    >
+    <section aria-labelledby="ice-city-watch-title" className="mt-4 border-t border-border pt-3.5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="inline-flex items-center gap-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.11em] text-accent">
           <Layers3 className="size-3.5" aria-hidden="true" />
@@ -148,16 +128,8 @@ export function RapidCityWatch({
       </p>
 
       <div className="mt-2 grid grid-cols-2 gap-px border border-border bg-border sm:grid-cols-4">
-        <Stat
-          label="Feed reports"
-          value={formatNumber(cityAlerts.length)}
-          detail="in this city"
-        />
-        <Stat
-          label="Active <4h"
-          value={formatNumber(activeCount)}
-          detail="recent pulse"
-        />
+        <Stat label="Feed reports" value={formatNumber(cityAlerts.length)} detail="in this city" />
+        <Stat label="Active <4h" value={formatNumber(activeCount)} detail="recent pulse" />
         <Stat
           label="Reviewed cases"
           value={formatNumber(publicCases.length)}
@@ -165,7 +137,7 @@ export function RapidCityWatch({
         />
         <Stat
           label="FOIA baseline"
-          value={historicalCity ? formatNumber(historicalCity.count) : 'No match'}
+          value={historicalCityCount === null ? 'No match' : formatNumber(historicalCityCount)}
           detail="latest release"
         />
       </div>
@@ -177,10 +149,7 @@ export function RapidCityWatch({
       ) : null}
 
       <div className="mt-2.5 grid gap-2 lg:grid-cols-2">
-        <div
-          aria-live="polite"
-          className="border border-border bg-background p-2.5"
-        >
+        <div aria-live="polite" className="border border-border bg-background p-2.5">
           <p className="inline-flex items-center gap-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.09em] text-foreground">
             <Archive className="size-3" aria-hidden="true" />
             Public source archive
@@ -195,11 +164,8 @@ export function RapidCityWatch({
           {archiveData ? (
             <>
               <p className="mt-1.5 text-[11px] leading-relaxed text-foreground">
-                <strong className="font-semibold">
-                  {formatNumber(archiveData.total)}
-                </strong>{' '}
-                archived {archiveData.total === 1 ? 'report' : 'reports'} indexed for this
-                city.
+                <strong className="font-semibold">{formatNumber(archiveData.total)}</strong>{' '}
+                archived {archiveData.total === 1 ? 'report' : 'reports'} indexed for this city.
               </p>
               {archive.status === 'loading' ? (
                 <p className="mt-0.5 text-[9px] text-muted-foreground">Refreshing archive count…</p>
@@ -238,8 +204,8 @@ export function RapidCityWatch({
 
           {!archiveData && archive.status === 'error' ? (
             <p className="mt-1.5 text-[10px] leading-relaxed text-muted-foreground">
-              The public source archive could not be checked right now. The live feed and
-              historical FOIA lanes above are still available.
+              The public source archive could not be checked right now. The live feed and historical
+              FOIA lanes above are still available.
             </p>
           ) : null}
 
@@ -258,12 +224,10 @@ export function RapidCityWatch({
             Context lanes
           </p>
           <p className="mt-1.5 text-[11px] leading-relaxed text-foreground">
-            {historicalCity ? (
+            {historicalCityCount !== null ? (
               <>
-                <strong className="font-semibold">
-                  {formatNumber(historicalCity.count)}
-                </strong>{' '}
-                FOIA records in the latest city-level release.
+                <strong className="font-semibold">{formatNumber(historicalCityCount)}</strong> FOIA
+                records in the latest city-level release.
               </>
             ) : (
               'No FOIA city match in the current historical release.'
@@ -297,8 +261,8 @@ export function RapidCityWatch({
 
       <p className="mt-2 text-[9px] leading-relaxed text-muted-foreground">
         These lanes may overlap and the archive can lag the live feed. They are not independent
-        confirmation. Archive links open the original publisher; the map still shows city
-        centroids only.
+        confirmation. Archive links open the original publisher; the map still shows city centroids
+        only.
       </p>
     </section>
   );

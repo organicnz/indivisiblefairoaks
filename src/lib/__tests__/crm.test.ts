@@ -149,6 +149,7 @@ describe('Civic CRM Server Actions', () => {
       // suite even if the action had wired one contact's id to another's insert.
       tables.crm_contacts = { rows: [], insert: { id: 'new-contact-123' } };
       tables.crm_activities = { rows: [] };
+      tables.admin_audit_log = { rows: [] };
 
       const res = await saveCRMContact({
         email: '  ACTIVIST@IndivisibleFairOaks.org  ',
@@ -175,6 +176,18 @@ describe('Civic CRM Server Actions', () => {
         type: 'note',
         title: 'Constituent Created',
         created_by: 'admin-user-uuid-1234',
+      });
+      expect(tables.admin_audit_log.rows?.[0]).toMatchObject({
+        action: 'crm.contact.create',
+        target_type: 'crm_contact',
+        target_id: 'new-contact-123',
+        target_label: 'activist@indivisiblefairoaks.org',
+        before: null,
+        after: {
+          id: 'new-contact-123',
+          email: 'activist@indivisiblefairoaks.org',
+        },
+        outcome: 'success',
       });
     });
 
@@ -1598,6 +1611,12 @@ describe('Civic CRM Server Actions', () => {
   });
 
   describe('sendCRMDirectEmail', () => {
+    beforeEach(() => {
+      // Direct email pre-registers a ledger row before the provider call. Other
+      // CRM actions never touch this table.
+      tables.crm_direct_email_sends = { rows: [] };
+    });
+
     it('refuses an empty subject or message before touching the contact row', async () => {
       const res = await sendCRMDirectEmail({
         contactId: 'c-1',
@@ -1623,7 +1642,9 @@ describe('Civic CRM Server Actions', () => {
         ],
       };
       tables.crm_activities = { rows: [] };
+      tables.admin_audit_log = { rows: [] };
 
+      const sendKey = '11111111-2222-4333-8444-555555555555';
       const mockFetch = installFetchMock(
         vi.fn().mockResolvedValue({
           ok: true,
@@ -1636,6 +1657,7 @@ describe('Civic CRM Server Actions', () => {
         contactId: 'c-1',
         subject: 'Welcome to the Movement',
         message: 'Thank you for connecting with Indivisible Fair Oaks!',
+        idempotencyKey: sendKey,
       });
 
       expect(res.success).toBe(true);
@@ -1646,12 +1668,40 @@ describe('Civic CRM Server Actions', () => {
           body: expect.stringContaining('neighbor@example.com'),
         })
       );
+      // The provider request carries the idempotency key as an HTTP header, and
+      // the ledger records the accepted result under that same key.
+      const init = mockFetch.mock.calls[0]?.[1] as { headers?: Record<string, string> };
+      expect(init.headers?.['Idempotency-Key']).toBe(sendKey);
+      expect(tables.crm_direct_email_sends.rows?.[0]).toMatchObject({
+        idempotency_key: sendKey,
+        status: 'accepted',
+        provider_id: 'resend_msg_123',
+        provider_status: 200,
+        attempts: 1,
+      });
       // The activity carries the provider's message id, so the timeline can be
       // tied back to what Resend actually accepted.
       expect(tables.crm_activities.rows?.[0]).toMatchObject({
         contact_id: 'c-1',
         type: 'email_sent',
         metadata: { resend_id: 'resend_msg_123' },
+      });
+      // The audit record must point at both the contact and the provider's
+      // accepted message id, not merely say that a send happened.
+      expect(tables.admin_audit_log.rows?.[0]).toMatchObject({
+        actor_user_id: session.adminUserId,
+        actor_email: session.adminEmail,
+        action: 'crm.direct_email.send',
+        target_type: 'crm_contact',
+        target_id: 'c-1',
+        target_label: 'neighbor@example.com',
+        outcome: 'success',
+        error: null,
+        after: {
+          email: 'neighbor@example.com',
+          subject: 'Welcome to the Movement',
+          resend_id: 'resend_msg_123',
+        },
       });
       // And the contact's outbound stamp moved. `last_contacted_at` is kept
       // current for legacy readers; the split history column is what the
@@ -3177,6 +3227,23 @@ describe('Broadcast drafts are a document, not a log entry', () => {
     });
   });
 
+  it('warns when a created draft could not be audited', async () => {
+    tables.crm_broadcasts = { rows: [], insert: { id: 'draft-1' } };
+    tables.admin_audit_log = { rows: [], insertError: { message: 'audit log offline' } };
+    tables.admin_audit_outbox = { rows: [], insertError: { message: 'outbox offline' } };
+
+    const res = await saveCRMBroadcastDraft({ subject: 'Draft', body: 'Later' });
+
+    expect(res).toEqual({
+      success: true,
+      broadcastId: 'draft-1',
+      warning: `The draft was saved, but ${CRM_AUDIT_LOST_DETAIL}`,
+    });
+    expect(tables.crm_broadcasts.rows?.[0]).toMatchObject({ id: 'draft-1', status: 'draft' });
+    expect(tables.admin_audit_log.rows).toEqual([]);
+    expect(tables.admin_audit_outbox.rows).toEqual([]);
+  });
+
   it('updates in place when the id is known, so a second save does not duplicate', async () => {
     tables.crm_broadcasts = {
       rows: [{ id: 'draft-1', status: 'draft', subject: 'Draft', body: 'Later', target_tags: [] }],
@@ -3195,6 +3262,30 @@ describe('Broadcast drafts are a document, not a log entry', () => {
     // the old "update called once, insert not called" pair could not rule out
     // while asserting only on a stub's call log.
     expect(tables.crm_broadcasts.rows).toHaveLength(1);
+    expect(tables.crm_broadcasts.rows?.[0]).toMatchObject({
+      subject: 'Draft, revised',
+      body: 'Better copy',
+    });
+  });
+
+  it('warns when an updated draft could not be audited', async () => {
+    tables.crm_broadcasts = {
+      rows: [{ id: 'draft-1', status: 'draft', subject: 'Draft', body: 'Later', target_tags: [] }],
+    };
+    tables.admin_audit_log = { rows: [], insertError: { message: 'audit log offline' } };
+    tables.admin_audit_outbox = { rows: [], insertError: { message: 'outbox offline' } };
+
+    const res = await saveCRMBroadcastDraft({
+      broadcastId: 'draft-1',
+      subject: 'Draft, revised',
+      body: 'Better copy',
+    });
+
+    expect(res).toEqual({
+      success: true,
+      broadcastId: 'draft-1',
+      warning: `The draft was saved, but ${CRM_AUDIT_LOST_DETAIL}`,
+    });
     expect(tables.crm_broadcasts.rows?.[0]).toMatchObject({
       subject: 'Draft, revised',
       body: 'Better copy',

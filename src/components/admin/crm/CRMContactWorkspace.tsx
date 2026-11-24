@@ -2,7 +2,7 @@
 
 import { CalendarCheck, FileText, Image as ImageIcon, Mail, MessageSquare } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { CRMContactEmailTab } from '@/components/admin/crm/CRMContactEmailTab';
 import { CRMContactMediaTab } from '@/components/admin/crm/CRMContactMediaTab';
@@ -20,13 +20,13 @@ import {
   updateCRMNote,
   updateCRMTask,
 } from '@/lib/actions/crm';
-import type { CRMActivity, CRMContact, CRMTask } from '@/types/crm';
+import type { CRMActivity, CRMActivityWithDelivery, CRMContact, CRMTask } from '@/types/crm';
 
 type TabId = 'timeline' | 'tasks' | 'email' | 'note' | 'media';
 
 interface CRMContactWorkspaceProps {
   contact: CRMContact;
-  activities: CRMActivity[];
+  activities: CRMActivityWithDelivery[];
   tasks: CRMTask[];
   /** The timeline page represented by `activities`. */
   activityPage: number;
@@ -59,6 +59,18 @@ export function CRMContactWorkspace({
   const [emailSubject, setEmailSubject] = useState('');
   const [emailMessage, setEmailMessage] = useState('');
   const [sendingEmail, setSendingEmail] = useState(false);
+  /*
+   * One key per compose attempt. It survives a failed request so a retry can
+   * be reconciled with Resend's idempotency cache, and it is replaced when the
+   * operator changes the message (a new message is a new send). It is cleared
+   * only after a successful submission.
+   */
+  const emailSendRef = useRef<{
+    contactId: string;
+    key: string;
+    subject: string;
+    message: string;
+  } | null>(null);
 
   // Note form state
   const [noteTitle, setNoteTitle] = useState('');
@@ -94,22 +106,48 @@ export function CRMContactWorkspace({
 
   const handleSendEmail = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!emailSubject.trim() || !emailMessage.trim()) {
+    const trimmedSubject = emailSubject.trim();
+    const trimmedMessage = emailMessage.trim();
+    if (!trimmedSubject || !trimmedMessage) {
       toast.error('Subject and message are required');
       return;
     }
+
+    const prior = emailSendRef.current;
+    const idempotencyKey =
+      prior &&
+      prior.contactId === contact.id &&
+      prior.subject === trimmedSubject &&
+      prior.message === trimmedMessage
+        ? prior.key
+        : crypto.randomUUID();
+    emailSendRef.current = {
+      contactId: contact.id,
+      key: idempotencyKey,
+      subject: trimmedSubject,
+      message: trimmedMessage,
+    };
 
     setSendingEmail(true);
     try {
       const res = await sendCRMDirectEmail({
         contactId: contact.id,
-        subject: emailSubject,
-        message: emailMessage,
+        subject: trimmedSubject,
+        message: trimmedMessage,
+        idempotencyKey,
       });
 
       if (res.success) {
         toast.success(`Email dispatched to ${contact.email} via Resend`);
         if (res.warning) toast.warning(res.warning);
+        if (res.requiresReconcile) {
+          // Keep the form and the idempotency key. Clearing them would make the
+          // operator compose a "new" send with a new key, which is exactly how
+          // a provider-accepted message becomes a duplicate.
+          router.refresh();
+          return;
+        }
+        emailSendRef.current = null;
         setEmailSubject('');
         setEmailMessage('');
         setActiveTab('timeline');
@@ -141,6 +179,7 @@ export function CRMContactWorkspace({
 
       if (res.success) {
         toast.success('Organizer note recorded');
+        if (res.warning) toast.warning(res.warning);
         setNoteTitle('');
         setNoteDesc('');
         setActiveTab('timeline');
@@ -171,6 +210,7 @@ export function CRMContactWorkspace({
       });
       if (res.success) {
         toast.success('Follow-up scheduled');
+        if (res.warning) toast.warning(res.warning);
         setTaskTitle('');
         setTaskDetails('');
         setTaskDue('');
@@ -196,6 +236,7 @@ export function CRMContactWorkspace({
       const res = await setCRMTaskStatus({ id: task.id, status: next });
       if (res.success) {
         toast.success(next === 'done' ? 'Follow-up completed' : 'Follow-up reopened');
+        if (res.warning) toast.warning(res.warning);
         router.refresh();
       } else {
         toast.error(res.error || 'Failed to update follow-up');
@@ -227,6 +268,7 @@ export function CRMContactWorkspace({
       });
       if (res.success) {
         toast.success('Note updated');
+        if (res.warning) toast.warning(res.warning);
         setEditingNoteId(null);
         router.refresh();
       } else {
@@ -244,6 +286,7 @@ export function CRMContactWorkspace({
       const res = await deleteCRMNote(activityId);
       if (res.success) {
         toast.success('Note deleted');
+        if (res.warning) toast.warning(res.warning);
         router.refresh();
       } else {
         toast.error(res.error || 'Failed to delete note');
@@ -275,6 +318,7 @@ export function CRMContactWorkspace({
       });
       if (res.success) {
         toast.success('Follow-up updated');
+        if (res.warning) toast.warning(res.warning);
         setEditingTaskId(null);
         router.refresh();
       } else {
@@ -292,6 +336,7 @@ export function CRMContactWorkspace({
       const res = await deleteCRMTask(taskId);
       if (res.success) {
         toast.success('Follow-up deleted');
+        if (res.warning) toast.warning(res.warning);
         router.refresh();
       } else {
         toast.error(res.error || 'Failed to delete follow-up');

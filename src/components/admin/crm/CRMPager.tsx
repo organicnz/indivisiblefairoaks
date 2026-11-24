@@ -10,8 +10,12 @@ interface Props {
   pageSize: number;
   /** Path without query string, e.g. `/admin/crm` */
   basePath: string;
-  /** Query params to preserve (page is managed separately). */
-  params?: URLSearchParams;
+  /** Query params to preserve (the page param is managed separately). */
+  params?: URLSearchParams | Record<string, string>;
+  /** The query key this pager owns. Defaults to `page`. */
+  pageParam?: string;
+  /** Distinguishes multiple pagers rendered on the same page. */
+  ariaLabel?: string;
 }
 
 /**
@@ -62,14 +66,22 @@ export function pageWindow(page: number, total: number): (number | null)[] {
  * render even when there are no page controls, which is the case that made the
  * two copies disagree. `CRMContactList` renders it; this renders the way to move.
  */
-export function CRMPager({ page, totalCount, pageSize, basePath, params }: Props) {
+export function CRMPager({
+  page,
+  totalCount,
+  pageSize,
+  basePath,
+  params,
+  pageParam = 'page',
+  ariaLabel = 'Pagination',
+}: Props) {
   const total = countPages(totalCount, pageSize);
   if (total <= 1) return null;
 
   const hrefFor = (p: number) => {
     const next = new URLSearchParams(params);
-    if (p <= 1) next.delete('page');
-    else next.set('page', String(p));
+    if (p <= 1) next.delete(pageParam);
+    else next.set(pageParam, String(p));
     const qs = next.toString();
     return qs ? `${basePath}?${qs}` : basePath;
   };
@@ -80,7 +92,7 @@ export function CRMPager({ page, totalCount, pageSize, basePath, params }: Props
     'inline-flex items-center gap-1 px-3 py-2 text-muted-foreground text-xs font-bold cursor-not-allowed';
 
   return (
-    <nav aria-label="Pagination" className="flex items-center gap-1.5">
+    <nav aria-label={ariaLabel} className="flex items-center gap-1.5">
       {page > 1 ? (
         <Link href={hrefFor(page - 1)} className={navLink} rel="prev" aria-label="Previous page">
           <ChevronLeft size={14} aria-hidden="true" /> Previous

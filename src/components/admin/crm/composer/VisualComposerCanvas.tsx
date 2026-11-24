@@ -25,11 +25,11 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { uploadCRMMedia } from '@/lib/actions/crm';
-import { CRMMediaLibraryModal } from './CRMMediaLibraryModal';
 import { ComposerBlockForm } from './ComposerBlockForm';
 import { ComposerBlockPalette } from './ComposerBlockPalette';
 import { ComposerBlockPreview } from './ComposerBlockPreview';
 import { ComposerCanvasToolbar } from './ComposerCanvasToolbar';
+import { CRMMediaLibraryModal } from './CRMMediaLibraryModal';
 import type { ComposerBlock } from './types';
 
 interface Props {
@@ -40,7 +40,6 @@ interface Props {
 function genId(): string {
   return `b_${Math.random().toString(36).slice(2, 9)}`;
 }
-
 
 export function VisualComposerCanvas({ blocks, onChange }: Props) {
   // Undo/Redo state management
@@ -506,6 +505,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
       const res = await uploadCRMMedia(formData);
       if (res.success && res.data) {
         toast.success(`Uploaded ${res.data.name} to Supabase S3 storage`);
+        if (res.warning) toast.warning(res.warning);
         updateBlock(blockId, {
           url: res.data.url,
           alt: res.data.name.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' '),

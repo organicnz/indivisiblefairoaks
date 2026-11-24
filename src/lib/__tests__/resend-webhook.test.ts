@@ -20,6 +20,8 @@ import { decodeBase64, encodeBase64 } from '@/lib/base64';
  * 9. Suppression stamps `unsubscribed_at` and preserves the earliest evidence.
  * 10. The contact lookup lowercases the recipient — CRM emails are stored
  *     lowercase, so an exact-case match would miss mixed-case rows.
+ * 11. `email.delivered` records the provider id for direct-email correlation
+ *     without suppressing the contact or adding a second timeline activity.
  *
  * ## Signature construction in tests
  *
@@ -196,6 +198,14 @@ const OPENED_EVENT = {
   },
 };
 
+const DELIVERED_EVENT = {
+  type: 'email.delivered',
+  data: {
+    to: ['member@example.com'],
+    email_id: 'res_delivered',
+  },
+};
+
 beforeEach(() => {
   vi.clearAllMocks();
   writes = [];
@@ -352,6 +362,27 @@ describe('POST /api/webhooks/resend — email.complained', () => {
     const activity = writes.find((w) => w.table === 'crm_activities' && w.op === 'insert');
     expect(activity).toBeDefined();
     expect(activity?.payload).toMatchObject({ type: 'email_complained' });
+  });
+});
+
+describe('POST /api/webhooks/resend — email.delivered', () => {
+  it('records a delivered event with the provider id used for correlation', async () => {
+    const res = await POST(await signedRequest(DELIVERED_EVENT));
+
+    expect(res.status).toBe(200);
+    const event = writes.find((w) => w.table === 'crm_email_events' && w.op === 'insert');
+    expect(event?.payload).toMatchObject({
+      event_type: 'delivered',
+      provider_id: 'res_delivered',
+      contact_id: 'c-1',
+    });
+  });
+
+  it('does NOT change do_not_email or write a second timeline activity', async () => {
+    await POST(await signedRequest(DELIVERED_EVENT));
+
+    expect(writes.some((w) => w.table === 'crm_contacts' && w.op === 'update')).toBe(false);
+    expect(writes.some((w) => w.table === 'crm_activities' && w.op === 'insert')).toBe(false);
   });
 });
 

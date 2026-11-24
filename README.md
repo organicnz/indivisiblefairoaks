@@ -2,10 +2,9 @@
 
 [![Next.js 16](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org/)
 [![Supabase](https://img.shields.io/badge/Supabase-Database-green?logo=supabase)](https://supabase.com/)
-[![Stripe](https://img.shields.io/badge/Stripe-Payments-blue?logo=stripe)](https://stripe.com/)
 [![Tailwind CSS 4](https://img.shields.io/badge/Tailwind-4-38B2AC?logo=tailwind-css)](https://tailwindcss.com/)
 
-Platform for [Indivisible Fair Oaks-Carmichael](https://indivisiblefairoaks.org) — a grassroots democracy organization in Fair Oaks & Carmichael, CA. Migrated from WordPress/Elementor to a headless Next.js 16 stack.
+Platform for [Indivisible Fair Oaks-Carmichael](https://indivisiblefairoaks.org) — a grassroots democracy organization in Fair Oaks & Carmichael, CA. Migrated from Google Sites to a headless Next.js 16 stack.
 
 ---
 
@@ -16,9 +15,9 @@ Platform for [Indivisible Fair Oaks-Carmichael](https://indivisiblefairoaks.org)
 | Runtime | Bun ≥1.4.4 — **no Node.js anywhere** (server, build, type check, tests, scripts) |
 | Frontend | Next.js 16.4 · App Router · React 19 · tsrs (TypeScript 7 in Rust) |
 | Backend | Supabase (PostgreSQL · Auth · Storage · Edge Functions) |
-| Payments | Stripe Checkout + Webhooks |
+| Commerce | Catalog only — no online checkout |
 | Styling | Tailwind CSS 4 (native `@theme`, no config file) |
-| State | Zustand (cart/wishlist) · TanStack Query |
+| State | Zustand · TanStack Query |
 | Quality | Biome 2 · oxlint · Vitest · Playwright + `@axe-core/playwright` |
 | Deploy | Vercel (auto-deploy on push to `main`) |
 
@@ -68,16 +67,14 @@ Copy `.env.local` and fill in your values:
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 SUPABASE_SECRET_KEY=sb_secret_...
-STRIPE_SECRET_KEY=sk_live_...
-STRIPE_WEBHOOK_SECRET=whsec_...
-NEXT_PUBLIC_SITE_URL=http://localhost:3000
+NEXT_PUBLIC_SITE_URL=http://localhost:3031
 ```
 
 ### Commands
 ```bash
-bun run dev          # dev server (Turbopack) — runs on Bun
+bun run dev          # dev server on :3031 (Turbopack) — runs on Bun
 bun run build        # production build — runs on Bun
-bun run start        # production server — runs on Bun
+bun run start        # production server on :3031 — runs on Bun
 bun run lint         # Biome + oxlint (auto-fix)
 bun run lint:check   # lint without writing
 bun run format       # Biome format (auto-fix)
@@ -120,10 +117,10 @@ service-worker behavior are outside the current boundary.
 
 ## CI/CD
 
-- **Runner**: self-hosted **X64** Linux, requested as `[self-hosted, linux, X64, frontend-runner|backend-runner]`. `X64` is correct and should not be changed. This repository **is** served by the `ghrunner` fleet manager (Podman + Quadlet, one x86_64 VPS behind Tailscale), and jobs are dispatched, check out, and start. They do not finish: the host is an **887 MiB / 2 vCPU** VPS and `bunx tsc --noEmit` exhausts it. See [`docs/ci-runners.md`](./docs/ci-runners.md).
+- **Runner**: self-hosted **X64** Linux, requested as `[self-hosted, linux, X64, frontend-runner|backend-runner]`. `X64` is correct and should not be changed. This repository **is** served by the `ghrunner` fleet manager (Podman + Quadlet, one x86_64 VPS behind Tailscale), and jobs are dispatched, check out, and start. The host is an **887 MiB / 2 vCPU** VPS, so memory is the ceiling: `experimental.cpus: 1` for the e2e build and Playwright's `--workers=1` are load-bearing. The type check is `bun --bun tsrs --noEmit`, a native Rust binary, so it is not the bottleneck; `bun install` and the Next build are. See [`docs/ci-runners.md`](./docs/ci-runners.md).
 - **On push to `main`**: `ci.yml` runs lint → types → unit + coverage → build → Playwright e2e → live `/api/health` probe. `supabase.yml` runs in parallel on any `supabase/**` or generated-type change, applies migrations, and then verifies `src/types/supabase.ts` against the live schema. There is **no job that deploys to Vercel** — the `vercel-deploy` job only observes and verifies the deployment Vercel builds from the push. Do not re-add a CLI deploy job: it produced spare previews and hit the free tier's upload limit.
 - **Scheduled**: `runner-health.yml` hourly, `walle-refresh.yml` at 04:17 UTC, `secret-audit.yml` at 04:37 UTC, `supabase-type-freshness.yml` at 05:17 UTC. Deliberately staggered off `:00`, when every scheduled workflow competes for the shared runner fleet. There is no nightly compatibility workflow; `scripts/ai-review.mjs` is unreferenced.
-- **Pre-commit**: 36 lefthook guards — secrets, migration/RLS/`SECURITY DEFINER` checks, static migration↔generated-type consistency (advisory, no token or network), Biome, oxlint, typecheck, four env-contract checkers, lockfile pairing, and `playwright test --list` (spec parse only, no browsers). Guard bodies live in `scripts/hooks/*.mjs`. With `SUPABASE_ACCESS_TOKEN` configured, a committed migration regenerates `src/types/supabase.ts`; without it, the hook skips cleanly. After applying migrations, `supabase.yml` verifies the generated file is current.
+- **Pre-commit**: 39 lefthook guards — secrets, migration/RLS/`SECURITY DEFINER` checks, static migration↔generated-type consistency (blocking against a checked-in baseline; no token or network), Biome, oxlint, typecheck, four env-contract checkers, lockfile pairing, and `playwright test --list` (spec parse only, no browsers). Guard bodies live in `scripts/hooks/*.mjs`. With `SUPABASE_ACCESS_TOKEN` configured, a committed migration regenerates `src/types/supabase.ts` only after it is recorded as applied; without the token, or before the migration is applied, the hook skips cleanly. After applying migrations, `supabase.yml` verifies the generated file is current.
 - **Pre-push**: lint → unit → typecheck → coverage → production build → peer-deps, then the **Playwright e2e delivery gate** when the push range touches runtime surfaces (`src/`, `e2e/`, `public/`, `supabase/`, configs, lockfile). Docs-only pushes skip e2e. Bypass: `LEFTHOOK_EXCLUDE=e2e git push`.
 
 ---

@@ -90,6 +90,12 @@ function normalizeFeed(payload: RapidFeed): RapidFeed {
   return { ...payload, publicCases: payload.publicCases ?? [] };
 }
 
+function hasCommunityDescriptions(feed: RapidFeed): boolean {
+  return feed.alerts.every(
+    (alert) => alert.source !== 'community' || Boolean(alert.description?.trim())
+  );
+}
+
 function readCachedFeed(): { feed: RapidFeed; cachedAt: number } | null {
   if (typeof window === 'undefined') return null;
 
@@ -103,7 +109,8 @@ function readCachedFeed(): { feed: RapidFeed; cachedAt: number } | null {
       typeof candidate.cachedAt !== 'number' ||
       !Number.isFinite(candidate.cachedAt) ||
       candidate.cachedAt <= 0 ||
-      !isRapidFeed(candidate.feed)
+      !isRapidFeed(candidate.feed) ||
+      !hasCommunityDescriptions(candidate.feed)
     ) {
       window.localStorage.removeItem(RAPID_FEED_CACHE_KEY);
       return null;
@@ -153,11 +160,15 @@ export function useRapidFeed() {
     try {
       for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt += 1) {
         try {
-          const response = await fetchWithTimeout(FEED_ENDPOINT, {
-            cache: 'no-store',
-            headers: { Accept: 'application/json' },
-            signal: controller.signal,
-          }, FEED_TIMEOUT_MS);
+          const response = await fetchWithTimeout(
+            FEED_ENDPOINT,
+            {
+              cache: 'no-store',
+              headers: { Accept: 'application/json' },
+              signal: controller.signal,
+            },
+            FEED_TIMEOUT_MS
+          );
           if (!response.ok) throw new FeedHttpError(response.status);
 
           let payload: unknown;

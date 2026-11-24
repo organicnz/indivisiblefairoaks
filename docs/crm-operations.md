@@ -972,6 +972,9 @@ CHECK with `email_bounced` / `email_complained`. **The migration ships before th
 route, and that order matters.** Without it, the suppression `UPDATE` still lands,
 but the event row and the activity row are refused.
 
+Migration `20261120130000_crm_email_delivered_events.sql` widens the event-type
+CHECK to admit `delivered`; apply it before the route starts writing that event.
+
 - **It authenticates by signature only.** It checks the Svix HMAC over
   `id.timestamp.body` against `RESEND_WEBHOOK_SECRET`. A timestamp outside five
   minutes is refused before anything is written, because a signature that
@@ -997,7 +1000,14 @@ but the event row and the activity row are refused.
   the merge RPC and `setCRMEmailConsent`.
 - The recipient is lowercased before the lookup, because emails are stored
   lowercase.
+- `email.delivered` is recorded without changing consent. Acceptance is not
+  delivery; the delivered event is what moves a direct send beyond accepted.
 - Opens, clicks and delays are recorded and change nothing.
+
+Direct-email sends store Resend's message id as `resend_id` on the `email_sent`
+activity and the audit detail's `after` snapshot. The contact timeline and audit
+detail join that id to `crm_email_events.provider_id`, scoped to the contact, and
+summarize the observed accepted / delivered / bounced / complained stages.
 
 **The key is the decoded secret, not the string.** Svix keys its HMAC with the
 base64-decoded part of the secret after `whsec_`. The first version of this
@@ -1008,7 +1018,8 @@ consistent-but-wrong implementation cannot pass.
 
 **State as of 2026-10-06.** Resend webhook `736ff3a2-5703-4426-afe4-1e78627de44d`
 exists. It points at `https://test.indivisiblefairoaks.org/api/webhooks/resend`,
-subscribes to the six events the route handles, and is **disabled**. `RESEND_WEBHOOK_SECRET`
+subscribes to the seven events the route handles (including `email.delivered`), and is
+**disabled**. `RESEND_WEBHOOK_SECRET`
 is set in Vercel as `sensitive` for production and preview. The webhook stays
 disabled until the route is deployed, because an endpoint that answers 404 or
 400 gets retried and then auto-disabled by Svix, with nothing to say why. After

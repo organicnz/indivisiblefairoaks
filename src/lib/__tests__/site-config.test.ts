@@ -221,9 +221,11 @@ describe('pageMetadata', () => {
     const result = metadata.privateMetadata({
       title: 'Your Account',
       description: 'Account settings.',
-      path: '/account',
     });
     expect(result.robots).toEqual({ index: false, follow: false });
+    // The root layout maps canonical to `/`. A private page inheriting that
+    // would advertise the homepage as its canonical URL while also noindexing.
+    expect(result.alternates?.canonical).toBeNull();
   });
 });
 

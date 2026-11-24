@@ -130,16 +130,18 @@ export function pageMetadata({
 export function privateMetadata({
   title,
   description,
-  path,
 }: {
   title: string;
   description: string;
-  path: string;
 }): Metadata {
   return {
     title,
     description,
-    alternates: { canonical: path },
+    // The root layout canonicalizes `/`. A private page that inherits it emits
+    // a canonical pointing at the homepage while also saying `noindex` — worse
+    // than either signal alone. `canonical: null` replaces the inherited
+    // alternates and emits no canonical at all.
+    alternates: { canonical: null },
     robots: ROBOTS.noindex,
   };
 }

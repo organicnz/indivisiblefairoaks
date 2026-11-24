@@ -38,16 +38,9 @@ export function DefaultContextZone(props: VisualEditorSidebarProps) {
     contentRow,
     documentLoadState = 'idle',
     dirty,
-    savingBackend,
     sections,
-    blocks,
-    enabledSectionKeys,
-    history,
     activeBlockIndex,
-    pageRegions,
     unsaveableReason = null,
-    activeRegionId,
-    activeRegionLabel,
     showSectionBadges,
     showAllSectionBorders,
     showInspector,
@@ -55,14 +48,9 @@ export function DefaultContextZone(props: VisualEditorSidebarProps) {
     deviceOrientation,
     themeMode,
     effectiveTheme,
-    backendStatus,
-    backendSummary,
-    showHealthDetails,
-    statusLoading,
     modifiedBlocks,
     modifiedDataPoints,
     blockTypeOptions,
-    adminEditUrl,
   } = props;
 
   const changeCount = modifiedBlocks.length + modifiedDataPoints.length;
@@ -71,11 +59,6 @@ export function DefaultContextZone(props: VisualEditorSidebarProps) {
   const documentOpening = documentLoadState === 'idle' || documentLoadState === 'loading';
   const documentUnavailable = documentLoadState === 'degraded';
   const canMutateDocument = documentReady && !unsaveableReason;
-  const regionSwitchBlockedReason = documentOpening
-    ? 'Wait for the saved document to open before switching regions'
-    : documentLoadState === 'degraded'
-      ? 'Reload the saved document before switching regions'
-      : null;
   const themePreviewLabel = `${themeModeLabel(themeMode)}${themeMode === 'system' ? ` (${effectiveTheme})` : ''}`;
 
   return (

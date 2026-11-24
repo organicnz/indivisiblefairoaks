@@ -28,9 +28,10 @@
  *     alongside Bun produces a second lockfile, a second resolution, and a
  *     `bun install --frozen-lockfile` CI failure that looks like a supply
  *     chain attack.
- *   - unpinned `bun x` / `bunx` invocations — the package is resolved outside
- *     `bun.lock`, so `latest` makes the same commit run different code over
- *     time. Pin the exact version, e.g. `bun x --bun pkg@1.2.3`.
+ *   - unpinned `bun x` / `bunx` invocations, or ones missing `--bun` — the
+ *     package is resolved outside `bun.lock`, and an exact version still does
+ *     not force Bun's runtime. Pin the exact version and pass `--bun`, e.g.
+ *     `bun x --bun pkg@1.2.3`.
  *   - `setup-node` in a workflow — the same, in CI, where it is invisible
  *     until the runner is replaced.
  *   - `engines.node` in package.json — declaring a Node engine tells a
@@ -158,7 +159,8 @@
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { run } from '../bun-exec.mjs';
-import { findUnpinnedBunx } from './unpinned-bunx.mjs';
+import { parseBunInvocations } from './bun-invocations.mjs';
+import { findPinnedBunxWithoutBun, findUnpinnedBunx } from './unpinned-bunx.mjs';
 
 const argv = process.argv.slice(2);
 const scanAll = argv.includes('--all');
@@ -309,6 +311,14 @@ const RULES = [
     exemptFiles: new Set(['bin/npx']),
   },
   {
+    name: 'package runner missing --bun',
+    why:
+      'an exact version controls the package, not the runtime. Without `--bun`, the package bin honours its `#!/usr/bin/env node` shebang and runs on Node.js wherever Node is installed. ' +
+      'Write `bun x --bun pkg@1.2.3`.',
+    test: (line) => findPinnedBunxWithoutBun(line) !== null,
+    exemptFiles: new Set(['bin/npx']),
+  },
+  {
     name: 'setup-node action',
     why: 'the CI form of the same mistake — Bun is installed by oven-sh/setup-bun',
     test: (line) => /uses:\s*actions\/setup-node\b/.test(line),
@@ -328,7 +338,7 @@ const RULES = [
     // The version is required, so that a prose mention of "node@" — a
     // package name, a URL, a note in a comment — is not a finding. A runtime
     // declaration always carries a version.
-    test: (line) => /(^|[\s'"\[,])node@\d+\.\d+/.test(line),
+    test: (line) => /(^|[\s'"[,])node@\d+\.\d+/.test(line),
   },
   {
     name: 'node-fetch',
@@ -440,70 +450,17 @@ function localBinNames(root) {
 }
 
 /**
- * The `bun` invocations on a line, with the flags that precede the binary.
+ * The local half of the shared Bun invocation model.
  *
- * A line can carry a command in two shapes, and both are real:
- *
- *   - a shell word — `run: bun biome ci ./src`
- *   - an argv array — `run(['bun', 'vitest', 'run'])`
- *
- * The array shape is the one this repository uses most, because
- * `scripts/bun-exec.mjs` takes argv arrays so that an interpolated value is
- * an argument rather than shell syntax. So the search is for the *token*
- * `bun`, wherever it appears, and the tokens that follow it are read out of
- * the line with quotes and commas removed.
- */
-function bunInvocations(line) {
-  // `bun` as a word — not `bunx`, not `Bun`, not a path segment like
-  // `node_modules/.bin/bun`.
-  const token = /(?<![\w@/.-])bun(?![\w-])/g;
-  const found = [];
-
-  for (const match of line.matchAll(token)) {
-    const rest = line.slice(match.index + match[0].length);
-    // Strip the quoting and comma separators an argv array is written with,
-    // so `', 'vitest', 'run'` reads as the words `vitest run`.
-    const words = rest
-      .replace(/['"`]/g, ' ')
-      .replace(/[,()[\]{}]/g, ' ')
-      .split(/\s+/)
-      .filter(Boolean);
-
-    const flags = [];
-    let cursor = 0;
-    // `bun run <script>` is a different command from `bun <binary>`: it
-    // resolves a package.json script first. It still ends up in the `.bin`
-    // shim when no such script exists, so it is the same hazard.
-    if (words[cursor] === 'run') cursor++;
-
-    while (cursor < words.length && words[cursor].startsWith('-')) {
-      flags.push(words[cursor]);
-      cursor++;
-    }
-
-    const name = words[cursor];
-    if (!name) continue;
-
-    found.push({ name, flags, index: match.index });
-  }
-
-  return found;
-}
-
-/**
- * The rule: a local binary is invoked without `--bun`.
- *
- * The flag is checked among the flags that *precede* the binary name, so a
- * compound line is judged per invocation:
- *
- *     bun biome ci ./src && bun --bun oxlint ./src
- *                  ^^^^^^ unpinned              ^^^^^ pinned
+ * A local binary is invoked without `--bun`; package-runner invocations are
+ * judged by the unpinned-runner rules, so they are skipped here.
  */
 function checkBunInvocation(line, bins) {
-  for (const invocation of bunInvocations(line)) {
-    if (!bins.has(invocation.name)) continue;
-    if (invocation.flags.includes('--bun')) continue;
-    return invocation.name;
+  for (const invocation of parseBunInvocations(line)) {
+    if (invocation.kind !== 'local') continue;
+    if (!bins.has(invocation.target)) continue;
+    if (invocation.forcedBun) continue;
+    return invocation.target;
   }
   return null;
 }
@@ -699,7 +656,7 @@ if (scanAll && scanned === 0) {
 
 if (violations.length > 0) {
   console.log('');
-  console.log('✖  Node.js runtime or unpinned registry tooling reintroduced:');
+  console.log('✖  Node.js runtime or registry tooling outside Bun reintroduced:');
   console.log('');
   for (const v of violations) {
     const where = v.line ? `${v.file}:${v.line}` : v.file;

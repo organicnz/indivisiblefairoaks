@@ -24,11 +24,11 @@ const publicSchema = z.object({
   // malformed values to undefined (same precedent as RESEND_API_KEY) so a
   // half-filled .env.local disables Sentry instead of failing validation.
   NEXT_PUBLIC_SENTRY_DSN: z.string().url().optional().catch(undefined),
-  // PostHog session replay (project API key, `phc_…`). Optional with no default,
-  // exactly like the Sentry DSN above: absent means `src/lib/posthog.ts` never
-  // imports the SDK, which is how local dev, CI and the e2e bundle stay quiet —
-  // none of them may file replays against the production project. Public by
-  // construction, because the client SDK ships it in the bundle.
+  // PostHog event analytics (project API key, `phc_…`). Optional with no
+  // default, exactly like the Sentry DSN above: absent means `src/lib/posthog.ts`
+  // never imports the SDK, which is how local dev, CI and the e2e bundle stay
+  // quiet — none of them may file events against the production project. Public
+  // by construction, because the client SDK ships it in the bundle.
   NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: z.string().min(1).optional().catch(undefined),
   // Web Push public key. Optional: absent disables the phone-alert button while
   // email surge alerts keep working. Safe to inline; the private half stays on
@@ -64,11 +64,7 @@ const serverSchema = publicSchema.extend({
   // without push still serves email alerts; the sender refuses cleanly when
   // they are absent.
   VAPID_PRIVATE_KEY: z.string().min(1).optional().catch(undefined),
-  VAPID_SUBJECT: z
-    .string()
-    .min(1)
-    .optional()
-    .default('mailto:contact@indivisiblefairoaks.org'),
+  VAPID_SUBJECT: z.string().min(1).optional().default('mailto:contact@indivisiblefairoaks.org'),
   // Bearer token for the pg_cron -> /api/ice-rapid/notify request. Optional:
   // without it the route answers 503 rather than accepting an unauthenticated
   // send request.

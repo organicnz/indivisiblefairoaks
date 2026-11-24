@@ -1,4 +1,5 @@
 import { crmContactDoNotEmail, normalizeCRMEmail } from '@/lib/crm-contact-options';
+import { getDirectEmailDeliveries, resendIdFromSnapshot } from '@/lib/crm-direct-email-delivery';
 import { applyCRMStatusFilter } from '@/lib/crm-donor';
 import { splitActiveValues } from '@/lib/crm-filters';
 import { normalizeTags, toCsvRow } from '@/lib/crm-import';
@@ -9,7 +10,7 @@ import {
   CRM_EXPORT_LIMIT,
 } from '@/lib/crm-limits';
 import { type CRMTagScan, getCachedCRMTags } from '@/lib/crm-tag-scan';
-import type { ConsentDecision, CRMActivity, CRMContact, CRMTask } from '@/types/crm';
+import type { ConsentDecision, CRMActivityWithDelivery, CRMContact, CRMTask } from '@/types/crm';
 import {
   type AdminClient,
   crmAuditLostWarning,
@@ -358,7 +359,7 @@ export async function getCRMContactDetail(
   activityPage = 1
 ): Promise<{
   contact: CRMContact;
-  activities: CRMActivity[];
+  activities: CRMActivityWithDelivery[];
   /** The page of the timeline represented by `activities`, clamped to >= 1. */
   activityPage: number;
   activityPageSize: number;
@@ -441,9 +442,46 @@ export async function getCRMContactDetail(
     throw new Error(`Failed to count open contact tasks: ${openTaskCountError.message}`);
   }
 
+  const activityRows = activities || [];
+  const directSends = new Map<string, string | null>();
+  for (const activity of activityRows) {
+    if (activity.type !== 'email_sent') continue;
+    const providerId = resendIdFromSnapshot(activity.metadata);
+    // Activities are newest-first; keep the first sighting if a retry ever
+    // produced two timeline rows for the same provider message.
+    if (providerId && !directSends.has(providerId)) {
+      directSends.set(providerId, activity.created_at);
+    }
+  }
+
+  /*
+   * Correlate the direct sends on this page with their Resend delivery events
+   * in one query. The activity's provider id is the join key. A delivery read
+   * failure must not take down the contact page: the send still happened, so
+   * the timeline renders without the supplementary status rather than 404ing.
+   */
+  let activitiesWithDelivery: CRMActivityWithDelivery[] = activityRows;
+  if (directSends.size > 0) {
+    try {
+      const deliveries = await getDirectEmailDeliveries(adminClient, {
+        contactId: contact.id,
+        providerIds: [...directSends.keys()],
+        acceptedAtByProvider: directSends,
+      });
+      activitiesWithDelivery = activityRows.map((activity) => {
+        if (activity.type !== 'email_sent') return activity;
+        const providerId = resendIdFromSnapshot(activity.metadata);
+        const delivery = providerId ? deliveries.get(providerId) : undefined;
+        return delivery ? { ...activity, delivery } : activity;
+      });
+    } catch {
+      // Delivery status is supplementary; keep the timeline usable.
+    }
+  }
+
   return {
     contact,
-    activities: activities || [],
+    activities: activitiesWithDelivery,
     activityPage: page,
     activityPageSize: CRM_CONTACT_TIMELINE_PAGE_SIZE,
     activityCount: activityCount ?? 0,

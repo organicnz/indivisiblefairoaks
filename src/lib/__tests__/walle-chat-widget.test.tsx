@@ -37,6 +37,14 @@ describe('WallEChatWidget', () => {
     container.remove();
   });
 
+  async function openChat(launcherBtn: HTMLButtonElement | null) {
+    await act(async () => {
+      launcherBtn?.click();
+      await import('@/components/ui/WallEChatPanel');
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+  }
+
   it('renders closed launcher button with accessible label and avatar', async () => {
     await act(async () => {
       root.render(<WallEChatWidget />);
@@ -59,9 +67,7 @@ describe('WallEChatWidget', () => {
     );
     expect(launcherBtn).toBeDefined();
 
-    await act(async () => {
-      launcherBtn?.click();
-    });
+    await openChat(launcherBtn);
 
     // Chat dialogue rendered in document.body via Dialog.Portal
     expect(document.body.textContent).toContain('WALL-E');
@@ -96,9 +102,7 @@ describe('WallEChatWidget', () => {
       'button[aria-label="Open WALL-E assistant"]'
     );
 
-    await act(async () => {
-      launcherBtn?.click();
-    });
+    await openChat(launcherBtn);
 
     expect(document.body.textContent).toContain("Hi! I'm WALL-E");
 
@@ -131,9 +135,7 @@ describe('WallEChatWidget', () => {
     const launcherBtn = container.querySelector<HTMLButtonElement>(
       'button[aria-label="Open WALL-E assistant"]'
     );
-    await act(async () => {
-      launcherBtn?.click();
-    });
+    await openChat(launcherBtn);
 
     // Check suggestion chips are visible
     expect(document.body.textContent).toContain('Suggested topics');
@@ -205,9 +207,7 @@ describe('WallEChatWidget', () => {
     const launcherBtn = container.querySelector<HTMLButtonElement>(
       'button[aria-label="Open WALL-E assistant"]'
     );
-    await act(async () => {
-      launcherBtn?.click();
-    });
+    await openChat(launcherBtn);
 
     const eventsChip = Array.from(document.body.querySelectorAll('button')).find((btn) =>
       btn.textContent?.includes('Upcoming Events')
@@ -235,9 +235,7 @@ describe('WallEChatWidget', () => {
     const launcherBtn = container.querySelector<HTMLButtonElement>(
       'button[aria-label="Open WALL-E assistant"]'
     );
-    await act(async () => {
-      launcherBtn?.click();
-    });
+    await openChat(launcherBtn);
 
     const eventsChip = Array.from(document.body.querySelectorAll('button')).find((btn) =>
       btn.textContent?.includes('Upcoming Events')
@@ -278,9 +276,7 @@ describe('WallEChatWidget', () => {
     const launcherBtn = container.querySelector<HTMLButtonElement>(
       'button[aria-label="Open WALL-E assistant"]'
     );
-    await act(async () => {
-      launcherBtn?.click();
-    });
+    await openChat(launcherBtn);
 
     const eventsChip = Array.from(document.body.querySelectorAll('button')).find((btn) =>
       btn.textContent?.includes('Upcoming Events')

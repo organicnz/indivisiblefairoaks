@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import type { CmsEditTarget } from '@/lib/edit-target';
-import { createClient } from '@/lib/supabase';
+import { hasSupabaseAuthCookie } from '@/lib/supabase-auth-cookie';
 
 /**
  * Editorial-button context for the header and the nav drawer.
@@ -68,55 +68,56 @@ export function useEditContext(pathname: string): EditContextState {
       return;
     }
 
-    let cancelled = false;
-    setState(IDLE);
-
-    let client: ReturnType<typeof createClient>;
-    try {
-      client = createClient();
-    } catch {
+    if (!hasSupabaseAuthCookie()) {
       contextCache.set(pathname, NOT_ADMIN);
       setState(NOT_ADMIN);
       return;
     }
 
-    client.auth
-      .getSession()
-      .then(({ data: { session } }) => {
+    let cancelled = false;
+    setState(IDLE);
+
+    void (async () => {
+      try {
+        const { createClient } = await import('@/lib/supabase');
         if (cancelled) return;
+
+        const client = createClient();
+        const {
+          data: { session },
+        } = await client.auth.getSession();
+        if (cancelled) return;
+
         if (!session) {
           contextCache.set(pathname, NOT_ADMIN);
           setState(NOT_ADMIN);
           return;
         }
-        return fetch(`/api/admin/edit-context?path=${encodeURIComponent(pathname)}`, {
-          cache: 'no-store',
-        })
-          .then((res) => (res.ok ? res.json() : null))
-          .then((answer) => {
-            if (cancelled) return;
-            const resolved: EditContextState = {
-              loading: false,
-              isAdmin: answer?.isAdmin === true,
-              target: answer?.target ?? null,
-            };
-            contextCache.set(pathname, resolved);
-            setState(resolved);
-          })
-          .catch(() => {
-            if (cancelled) return;
-            // A failed lookup reads as "not an admin" rather than "unknown".
-            // The editor surfaces that the operator cannot see are exactly the
-            // ones that should not appear, so failing closed is also failing
-            // correctly here.
-            contextCache.set(pathname, NOT_ADMIN);
-            setState(NOT_ADMIN);
-          });
-      })
-      .catch(() => {
+
+        const response = await fetch(
+          `/api/admin/edit-context?path=${encodeURIComponent(pathname)}`,
+          { cache: 'no-store' }
+        );
+        const answer = response.ok ? await response.json() : null;
         if (cancelled) return;
+
+        const resolved: EditContextState = {
+          loading: false,
+          isAdmin: answer?.isAdmin === true,
+          target: answer?.target ?? null,
+        };
+        contextCache.set(pathname, resolved);
+        setState(resolved);
+      } catch {
+        if (cancelled) return;
+        // A failed lookup reads as "not an admin" rather than "unknown".
+        // The editor surfaces that the operator cannot see are exactly the
+        // ones that should not appear, so failing closed is also failing
+        // correctly here.
+        contextCache.set(pathname, NOT_ADMIN);
         setState(NOT_ADMIN);
-      });
+      }
+    })();
 
     return () => {
       cancelled = true;

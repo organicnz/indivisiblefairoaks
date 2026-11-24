@@ -3,8 +3,8 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  InteractiveEventsCalendar,
   type CivicEvent,
+  InteractiveEventsCalendar,
 } from '@/components/ui/InteractiveEventsCalendar';
 import { DEFAULT_UPCOMING_MEETING } from '@/lib/civic-events';
 
@@ -184,7 +184,15 @@ describe('InteractiveEventsCalendar', () => {
       importItem?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
 
-    expect(document.body.textContent).toContain('Import Mobilize Event');
+    // The editor is a lazy chunk; it renders after the import resolves.
+    await act(async () => {
+      await vi.waitFor(
+        () => {
+          expect(document.body.textContent).toContain('Import Mobilize Event');
+        },
+        { timeout: 2000 }
+      );
+    });
   });
 
   it('expands search input on button click and collapses when cleared', async () => {

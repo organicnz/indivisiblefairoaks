@@ -82,6 +82,18 @@ export function AdminAuditFilters({ filters }: { filters: AuditFilterValues }) {
         </label>
 
         <label className={labelClass}>
+          Contact in bulk change
+          <input
+            type="search"
+            name="contact"
+            defaultValue={filters.contact}
+            placeholder="Full contact UUID"
+            autoComplete="off"
+            className={inputClass}
+          />
+        </label>
+
+        <label className={labelClass}>
           From (UTC)
           <input type="date" name="from" defaultValue={filters.from} className={inputClass} />
         </label>

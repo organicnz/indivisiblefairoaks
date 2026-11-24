@@ -16,8 +16,8 @@ import {
 } from 'lucide-react';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { formatDateLabel } from './data';
-import type { RapidFeedSource } from './rapid-types';
 import { formatRelativeTime, formatUpdateTime } from './rapid-alert-utils';
+import type { RapidFeedSource } from './rapid-types';
 import type { HeatmapMeta } from './types';
 
 type RapidResponseGuideProps = {
@@ -166,8 +166,8 @@ export function RapidResponseGuide({
               name="ice.rapid.guide.warning_detail"
               className="mt-1.5 text-xs leading-relaxed text-muted-foreground"
             >
-              You can carefully observe or film from a safe distance. Filming in public is
-              generally protected, but safety comes first. This is not legal advice.
+              You can carefully observe or film from a safe distance. Filming in public is generally
+              protected, but safety comes first. This is not legal advice.
             </DataPoint>
           </div>
         </div>
@@ -396,10 +396,10 @@ export function RapidResponseGuide({
                 name="ice.rapid.sources.community.body"
                 className="mt-1 text-[11px] leading-relaxed text-muted-foreground"
               >
-                Public nightly export. We use city centroids and a short source memo built from
-                the report&apos;s city, type, status, and timestamp. The original export includes
-                street addresses and vehicle details that we do not republish. Source-confirmed
-                is the network&apos;s label.
+                Public nightly export. We use city centroids and a short source memo built from the
+                report&apos;s city, type, status, and timestamp. The original export includes street
+                addresses and vehicle details that we do not republish. Source-confirmed is the
+                network&apos;s label.
               </DataPoint>
               <div className="mt-2 flex flex-wrap gap-3">
                 <a
@@ -448,9 +448,9 @@ export function RapidResponseGuide({
                 name="ice.rapid.sources.official.body"
                 className="mt-1 text-[11px] leading-relaxed text-muted-foreground"
               >
-                Official newsroom RSS. These are agency releases, not live enforcement locations.
-                We summarize the topic and link out instead of reproducing names or case details,
-                and we do not map releases as incidents.
+                Official newsroom RSS. These are agency releases, not live enforcement locations. We
+                summarize the topic and link out instead of reproducing names or case details, and
+                we do not map releases as incidents.
               </DataPoint>
               <a
                 href={official?.sourceUrl ?? 'https://www.ice.gov/newsroom'}
@@ -476,8 +476,8 @@ export function RapidResponseGuide({
               <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
                 The optional city circles come from a processed ICE FOIA release covering{' '}
                 {formatDateLabel(historicalMeta.periodStart)} through{' '}
-                {formatDateLabel(historicalMeta.periodEnd)}, via the Deportation Data Project.
-                They are historical totals, not current incidents.
+                {formatDateLabel(historicalMeta.periodEnd)}, via the Deportation Data Project. They
+                are historical totals, not current incidents.
               </p>
               <a
                 href={historicalMeta.sourceUrl}

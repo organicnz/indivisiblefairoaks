@@ -19,8 +19,7 @@ for (const file of files) {
   }
 
   const tableRegex = /CREATE TABLE (IF NOT EXISTS )?([a-z_".]+)/gi;
-  let match;
-  while ((match = tableRegex.exec(content)) !== null) {
+  for (let match = tableRegex.exec(content); match !== null; match = tableRegex.exec(content)) {
     let table = match[2].replace(/"/g, '');
     table = table.replace(/^.*\./, '');
 

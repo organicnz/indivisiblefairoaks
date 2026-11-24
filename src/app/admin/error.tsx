@@ -1,10 +1,9 @@
 'use client';
 
-import * as Sentry from '@sentry/nextjs';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect } from 'react';
-import { reportClientError } from '@/lib/error-report';
+import { reportBoundaryError } from '@/lib/report-boundary-error';
 
 export default function AdminError({
   error,
@@ -14,8 +13,7 @@ export default function AdminError({
   reset: () => void;
 }) {
   useEffect(() => {
-    reportClientError(error, { digest: error.digest });
-    Sentry.captureException(error);
+    reportBoundaryError(error, { digest: error.digest });
   }, [error]);
 
   return (

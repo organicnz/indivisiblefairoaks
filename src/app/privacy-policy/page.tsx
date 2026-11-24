@@ -18,7 +18,7 @@ export default function PrivacyPage() {
       eyebrow="Privacy & trust"
       title="Privacy Policy"
       intro="We collect only what the chapter needs to answer you, run the site, and keep our organizing records straight. This page explains that in plain language."
-      updated="November 17, 2026"
+      updated="November 21, 2026"
       copyRegionId="privacy-body"
     >
       <PrivacyPolicyContent />

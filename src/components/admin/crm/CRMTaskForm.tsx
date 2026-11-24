@@ -56,6 +56,7 @@ export function CRMTaskForm({ contactId, contactName, onDone }: Props) {
     });
     if (res.success) {
       toast.success('Follow-up added');
+      if (res.warning) toast.warning(res.warning);
       reset();
       setOpen(false);
       onDone?.();

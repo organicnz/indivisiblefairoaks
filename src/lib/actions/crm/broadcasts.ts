@@ -291,7 +291,8 @@ export async function saveCRMBroadcastDraft({
 }: BroadcastTarget & { broadcastId?: string | null; subject: string; body: string }): Promise<
   CRMResult<{ broadcastId?: string }>
 > {
-  const { adminClient, adminUserId } = await requireCRMAdmin();
+  const admin = await requireCRMAdmin();
+  const { adminClient, adminUserId } = admin;
   const cleanSubject = broadcastSubject(subject);
   if (!cleanSubject) return { success: false, error: 'Subject is required' };
   if (!body.trim()) return { success: false, error: 'Message body is required' };
@@ -324,8 +325,18 @@ export async function saveCRMBroadcastDraft({
         error: 'That draft is no longer a draft — it was sent or removed. Save it as a new draft.',
       };
     }
+    const auditResult = await recordCRMAudit(admin, {
+      action: 'crm.broadcast.draft_save',
+      targetType: 'crm_broadcast',
+      targetId: data.id,
+      targetLabel: cleanSubject,
+      before: null,
+      after: { ...row, id: data.id, status: 'draft' },
+      outcome: 'success',
+    });
+    const warning = crmAuditLostWarning(auditResult, 'The draft was saved');
     revalidateCRMRoutes();
-    return { success: true, broadcastId: data.id };
+    return { success: true, broadcastId: data.id, ...(warning ? { warning } : {}) };
   }
 
   const { data, error } = await adminClient
@@ -340,15 +351,27 @@ export async function saveCRMBroadcastDraft({
     .single();
   if (error) return { success: false, error: error.message };
 
+  const auditResult = await recordCRMAudit(admin, {
+    action: 'crm.broadcast.draft_save',
+    targetType: 'crm_broadcast',
+    targetId: data.id,
+    targetLabel: cleanSubject,
+    before: null,
+    after: { ...row, id: data.id, recipient_count: 0, status: 'draft' },
+    outcome: 'success',
+  });
+  const warning = crmAuditLostWarning(auditResult, 'The draft was saved');
+
   revalidateCRMRoutes();
-  return { success: true, broadcastId: data.id };
+  return { success: true, broadcastId: data.id, ...(warning ? { warning } : {}) };
 }
 
 export async function deleteCRMBroadcastDraft(id: string): Promise<CRMResult> {
-  const { adminClient } = await requireCRMAdmin();
+  const admin = await requireCRMAdmin();
+  const { adminClient } = admin;
   const { data: existing, error: readError } = await adminClient
     .from('crm_broadcasts')
-    .select('status')
+    .select('id, status, subject')
     .eq('id', id)
     .maybeSingle();
   if (readError) return { success: false, error: readError.message };
@@ -366,8 +389,20 @@ export async function deleteCRMBroadcastDraft(id: string): Promise<CRMResult> {
     .maybeSingle();
   if (error) return { success: false, error: error.message };
   if (!deleted) return { success: false, error: 'That broadcast no longer exists' };
+
+  const auditResult = await recordCRMAudit(admin, {
+    action: 'crm.broadcast.draft_delete',
+    targetType: 'crm_broadcast',
+    targetId: id,
+    targetLabel: existing.subject ?? id,
+    before: { id, status: existing.status, subject: existing.subject ?? null },
+    after: { deleted: true },
+    outcome: 'success',
+  });
+  const warning = crmAuditLostWarning(auditResult, 'The draft was deleted');
+
   revalidateCRMRoutes();
-  return { success: true };
+  return { success: true, ...(warning ? { warning } : {}) };
 }
 
 /**
@@ -743,7 +778,8 @@ export async function sendCRMBroadcastSelfTest({
  * row six months later.
  */
 export async function markCRMBroadcastFailed(broadcastId: string): Promise<CRMResult> {
-  const { adminClient, adminUserId } = await requireCRMAdmin();
+  const admin = await requireCRMAdmin();
+  const { adminClient, adminUserId } = admin;
 
   const { data: existing, error: readError } = await adminClient
     .from('crm_broadcasts')
@@ -832,12 +868,14 @@ export async function markCRMBroadcastFailed(broadcastId: string): Promise<CRMRe
    * the campaign finished while the organizer was deciding, and nothing is
    * changed.
    */
+  const markedFailedAt = new Date().toISOString();
+  const failedCount = Math.max((existing.recipient_count ?? 0) - (existing.sent_count ?? 0), 0);
   const { data: marked, error } = await broadcasts
     .from('crm_broadcasts')
     .update({
       status: 'failed',
-      failed_count: Math.max((existing.recipient_count ?? 0) - (existing.sent_count ?? 0), 0),
-      marked_failed_at: new Date().toISOString(),
+      failed_count: failedCount,
+      marked_failed_at: markedFailedAt,
       marked_failed_by: adminUserId,
     })
     .eq('id', broadcastId)
@@ -872,8 +910,28 @@ export async function markCRMBroadcastFailed(broadcastId: string): Promise<CRMRe
     );
   }
 
+  const auditResult = await recordCRMAudit(admin, {
+    action: 'crm.broadcast.mark_failed',
+    targetType: 'crm_broadcast',
+    targetId: broadcastId,
+    targetLabel: existing.subject ?? broadcastId,
+    before: {
+      status: existing.status,
+      sent_count: existing.sent_count ?? null,
+      recipient_count: existing.recipient_count ?? null,
+    },
+    after: {
+      status: 'failed',
+      failed_count: failedCount,
+      marked_failed_at: markedFailedAt,
+      marked_failed_by: adminUserId,
+    },
+    outcome: 'success',
+  });
+  const warning = crmAuditLostWarning(auditResult, 'The campaign was marked failed');
+
   revalidateCRMRoutes();
-  return { success: true };
+  return { success: true, ...(warning ? { warning } : {}) };
 }
 
 async function dispatchBroadcastSender(

@@ -15,9 +15,10 @@ import { createPublicClient } from '@/lib/supabase-server';
 
 // Search results are per-user request-time views — never index them.
 export const metadata: Metadata = {
-  title: 'Search — Indivisible Fair Oaks-Carmichael',
+  title: 'Search',
   description:
     'Search actions, meeting notes, guides, and pages across Indivisible Fair Oaks-Carmichael.',
+  alternates: { canonical: null },
   robots: { index: false, follow: true },
 };
 

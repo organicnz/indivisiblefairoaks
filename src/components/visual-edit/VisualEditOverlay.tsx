@@ -4092,6 +4092,7 @@ export function VisualEditOverlay() {
         formData.append('folder', 'content');
         const res = await uploadCRMMedia(formData);
         if (res.success && res.data?.url) {
+          if (res.warning) toast.warning(res.warning);
           const newUrl = res.data.url;
           const session = imageSessionRef.current;
           const previousSrc = session.element.src;

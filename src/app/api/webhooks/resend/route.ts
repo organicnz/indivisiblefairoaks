@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { env } from '@/lib/env';
 import { clientKey, rateLimit } from '@/lib/rate-limit';
-import { createAdminClient } from '@/lib/supabase-server';
 import { readTextBodyWithLimit } from '@/lib/request-body';
+import { createAdminClient } from '@/lib/supabase-server';
 import { isFreshSvixTimestamp, verifySvixSignature } from '@/lib/svix-signature';
 import type { Json } from '@/types/supabase';
 
@@ -38,8 +38,10 @@ import type { Json } from '@/types/supabase';
  *   - `email.suppressed` — Resend dropped the send because the address is on its
  *     own suppression list. Without this the CRM keeps targeting addresses that
  *     Resend silently refuses to deliver to.
- * - `email.opened` / `email.clicked` / `email.delivery_delayed` → recorded
- *   only; `do_not_email` is untouched.
+ * - `email.delivered` / `email.opened` / `email.clicked` /
+ *   `email.delivery_delayed` → recorded only; `do_not_email` is untouched.
+ *   Delivered is the post-acceptance signal the contact timeline correlates
+ *   back to a direct-email send by `provider_id`.
  *
  * ## Retries are deduplicated on `svix-id`
  *
@@ -83,6 +85,7 @@ import type { Json } from '@/types/supabase';
 const RESEND_TO_EVENT_TYPE: Record<string, string> = {
   'email.bounced': 'bounced',
   'email.complained': 'complained',
+  'email.delivered': 'delivered',
   'email.opened': 'opened',
   'email.clicked': 'clicked',
   'email.delivery_delayed': 'delivery_delayed',

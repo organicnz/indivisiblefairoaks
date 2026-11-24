@@ -14,10 +14,11 @@ import {
 } from './constants';
 import { formatNumber } from './data';
 import { leafletText } from './leaflet-text';
-import type { PublicCase, RapidMapPoint, RapidWatchRadius } from './rapid-types';
 import { formatRelativeTime, KIND_LABELS, rapidPopupSummary } from './rapid-alert-utils';
+import type { PublicCase, RapidMapPoint, RapidWatchRadius } from './rapid-types';
 import type {
   CityPoint,
+  HeatmapMeta,
   HeatmapSnapshot,
   MapView,
   MapViewport,
@@ -26,7 +27,8 @@ import type {
 } from './types';
 
 type UseRapidMapOptions = {
-  snapshot: HeatmapSnapshot;
+  meta: HeatmapMeta;
+  historicalSnapshot: HeatmapSnapshot | null;
   points: RapidMapPoint[];
   publicCases: PublicCase[];
   selectedAlertId: string | null;
@@ -59,8 +61,7 @@ function syncMarkerVisibility(
 }
 
 function pointLabel(point: RapidMapPoint) {
-  const status =
-    point.status === 'source-confirmed' ? 'Source-confirmed' : 'Community sighting';
+  const status = point.status === 'source-confirmed' ? 'Source-confirmed' : 'Community sighting';
   const count = point.count === 1 ? '1 report' : `${point.count} reports`;
   return `${point.place}: ${count}, ${status}. Open alert details.`;
 }
@@ -116,9 +117,7 @@ function buildPopup({
   );
 
   if (strongest) {
-    root.append(
-      popupText('ice-map-popup__rank ice-map-popup__rank--strongest', strongest)
-    );
+    root.append(popupText('ice-map-popup__rank ice-map-popup__rank--strongest', strongest));
   }
 
   root.append(popupText('ice-map-popup__note', note));
@@ -143,14 +142,8 @@ function buildPopup({
   return root;
 }
 
-function buildRapidPopup(
-  point: RapidMapPoint,
-  onViewLatest: () => void,
-  onClose: () => void
-) {
-  const countLabel = `${formatNumber(point.count)} ${
-    point.count === 1 ? 'report' : 'reports'
-  }`;
+function buildRapidPopup(point: RapidMapPoint, onViewLatest: () => void, onClose: () => void) {
+  const countLabel = `${formatNumber(point.count)} ${point.count === 1 ? 'report' : 'reports'}`;
   const popupSummary = rapidPopupSummary(point, Date.now());
 
   return buildPopup({
@@ -197,11 +190,7 @@ function buildPublicCasePopup(report: PublicCase) {
  * ring so every published case remains individually clickable; the popup still
  * describes a city-level location, never a street address.
  */
-function publicCasePosition(
-  lat: number,
-  lng: number,
-  index: number
-): [number, number] {
+function publicCasePosition(lat: number, lng: number, index: number): [number, number] {
   if (index === 0) return [lat, lng];
   const angle = ((index - 1) % 8) * (Math.PI / 4);
   const ring = Math.floor((index - 1) / 8) + 1;
@@ -228,7 +217,8 @@ function buildHistoricalCityPopup(city: CityPoint) {
 }
 
 export function useRapidMap({
-  snapshot,
+  meta,
+  historicalSnapshot,
   points,
   publicCases,
   selectedAlertId,
@@ -342,29 +332,19 @@ export function useRapidMap({
 
         const location = userLocationRef.current;
         setMapView(
-          location && map.getBounds().contains([location.lat, location.lng])
-            ? 'local'
-            : 'free'
+          location && map.getBounds().contains([location.lat, location.lng]) ? 'local' : 'free'
         );
       };
 
       map.on('moveend', () => {
         updateView();
-        syncMarkerVisibility(
-          map!,
-          markerElementsRef.current,
-          markerPositionsRef.current
-        );
+        syncMarkerVisibility(map!, markerElementsRef.current, markerPositionsRef.current);
       });
 
       resizeObserver = new ResizeObserver(() => {
         map?.invalidateSize();
         if (map) {
-          syncMarkerVisibility(
-            map,
-            markerElementsRef.current,
-            markerPositionsRef.current
-          );
+          syncMarkerVisibility(map, markerElementsRef.current, markerPositionsRef.current);
         }
       });
       resizeObserver.observe(mapContainerRef.current);
@@ -485,11 +465,7 @@ export function useRapidMap({
 
       const map = mapRef.current;
       if (map) {
-        syncMarkerVisibility(
-          map,
-          markerElementsRef.current,
-          markerPositionsRef.current
-        );
+        syncMarkerVisibility(map, markerElementsRef.current, markerPositionsRef.current);
       }
     })();
 
@@ -501,9 +477,7 @@ export function useRapidMap({
   useEffect(() => {
     for (const [id, element] of Object.entries(markerElementsRef.current)) {
       const point = points.find((candidate) => candidate.id === id);
-      const selected = Boolean(
-        selectedAlertId && point?.alertIds.includes(selectedAlertId)
-      );
+      const selected = Boolean(selectedAlertId && point?.alertIds.includes(selectedAlertId));
       const marker = element.querySelector('.ice-rapid-marker');
       marker?.classList.toggle('is-selected', Boolean(selected));
       element.setAttribute('aria-pressed', String(Boolean(selected)));
@@ -573,12 +547,12 @@ export function useRapidMap({
       if (!layer) return;
 
       layer.clearLayers();
-      if (!showHistorical) return;
+      if (!showHistorical || !historicalSnapshot) return;
 
-      const maxCount = snapshot.meta.maxCityCount;
+      const maxCount = meta.maxCityCount;
       // Render larger totals last so an overlapping small point cannot steal
       // the click from the city a reader is trying to inspect.
-      const historicalCities = snapshot.cities
+      const historicalCities = historicalSnapshot.cities
         .slice(0, 360)
         .sort((a, b) => a.count - b.count);
       for (const city of historicalCities) {
@@ -595,9 +569,7 @@ export function useRapidMap({
         })
           .bindTooltip(
             leafletText(
-              `${city.city}, ${city.stateCode} · ${formatNumber(
-                city.count
-              )} historical records`
+              `${city.city}, ${city.stateCode} · ${formatNumber(city.count)} historical records`
             ),
             { direction: 'top' }
           )
@@ -610,7 +582,7 @@ export function useRapidMap({
     return () => {
       disposed = true;
     };
-  }, [isReady, showHistorical, snapshot]);
+  }, [isReady, showHistorical, historicalSnapshot, meta.maxCityCount]);
 
   useEffect(() => {
     if (!isReady) return;
@@ -722,11 +694,7 @@ export function useRapidMap({
   const flyToPoint = (point: Pick<RapidMapPoint, 'lat' | 'lng'>) => {
     const map = mapRef.current;
     if (!map) return;
-    map.flyTo(
-      [point.lat, point.lng],
-      Math.max(map.getZoom(), CITY_FOCUS_ZOOM),
-      { duration: 0.5 }
-    );
+    map.flyTo([point.lat, point.lng], Math.max(map.getZoom(), CITY_FOCUS_ZOOM), { duration: 0.5 });
   };
 
   const flyToOverview = () => {
@@ -734,18 +702,15 @@ export function useRapidMap({
   };
 
   const flyToUser = (location: UserLocation) => {
-    mapRef.current?.flyTo(
-      [location.lat, location.lng],
-      location.precision === 'precise' ? 11 : 7,
-      { duration: 0.6 }
-    );
+    mapRef.current?.flyTo([location.lat, location.lng], location.precision === 'precise' ? 11 : 7, {
+      duration: 0.6,
+    });
   };
 
   const flyToWatchRadius = (radius: RapidWatchRadius) => {
     const map = mapRef.current;
     if (!map) return;
-    const zoom =
-      radius.miles <= 25 ? 11 : radius.miles <= 50 ? 10 : radius.miles <= 100 ? 9 : 8;
+    const zoom = radius.miles <= 25 ? 11 : radius.miles <= 50 ? 10 : radius.miles <= 100 ? 9 : 8;
     map.flyTo([radius.lat, radius.lng], zoom, { duration: 0.6 });
   };
 
@@ -765,11 +730,7 @@ export function useRapidMap({
   };
 }
 
-export function rapidMapHelpText(
-  alertCount: number,
-  cityCount: number,
-  publicCaseCount = 0
-) {
+export function rapidMapHelpText(alertCount: number, cityCount: number, publicCaseCount = 0) {
   const cases =
     publicCaseCount > 0
       ? ` ${formatNumber(

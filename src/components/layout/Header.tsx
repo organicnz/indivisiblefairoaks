@@ -48,6 +48,9 @@ function HeaderInner() {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 20);
     };
+    // The browser restores the previous scroll position after hydration. Sync
+    // once so a reload halfway down a page does not paint a shadowless header.
+    handleScroll();
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);

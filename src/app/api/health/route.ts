@@ -35,6 +35,14 @@ export async function GET() {
       latencyMs,
       timestamp: new Date().toISOString(),
     },
-    { status: status === 'ok' ? 200 : 503 }
+    {
+      status: status === 'ok' ? 200 : 503,
+      headers: {
+        // Monitors and proxies must see the live check, never a cached
+        // 200 from a previous isolate.
+        'Cache-Control': 'no-store',
+        'X-Content-Type-Options': 'nosniff',
+      },
+    }
   );
 }

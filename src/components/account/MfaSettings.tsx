@@ -1,11 +1,10 @@
 'use client';
 
-import * as Sentry from '@sentry/nextjs';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from '@tanstack/react-query';
 import { KeyRound, Loader2, Plus, Shield, ShieldAlert, ShieldCheck, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import { MfaEnrollmentDialog } from '@/components/account/MfaEnrollmentDialog';
 import { MfaRecoveryCodesDialog } from '@/components/account/MfaRecoveryCodesDialog';
 import {
@@ -24,15 +23,43 @@ import {
 import { unenrollMfaFactorAction } from '@/lib/actions/settings';
 import { getTotpEnrollmentUri } from '@/lib/mfa';
 import { recoveryCodesText } from '@/lib/mfa-recovery';
+import { reportBoundaryError } from '@/lib/report-boundary-error';
 import { createClient } from '@/lib/supabase';
 
-export function MfaSettings({
-  autoEnroll = false,
-  returnTo = '/account?tab=settings',
-}: {
+type MfaSettingsProps = {
   autoEnroll?: boolean;
   returnTo?: string;
-} = {}) {
+};
+
+/**
+ * The MFA panel is the only consumer of TanStack Query. Its provider used to
+ * live in the root layout, which put the query runtime and client on every
+ * public page. Scope it here so the cost is paid only when this panel mounts.
+ */
+export function MfaSettings(props: MfaSettingsProps = {}) {
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            staleTime: 60 * 1000,
+            refetchOnWindowFocus: false,
+          },
+        },
+      })
+  );
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <MfaSettingsContent {...props} />
+    </QueryClientProvider>
+  );
+}
+
+function MfaSettingsContent({
+  autoEnroll = false,
+  returnTo = '/account?tab=settings',
+}: MfaSettingsProps = {}) {
   const router = useRouter();
   const [enrolling, setEnrolling] = useState(false);
   const [totpUri, setTotpUri] = useState('');
@@ -85,12 +112,6 @@ export function MfaSettings({
     },
     enabled: !isLoading && hasVerifiedTotp,
   });
-
-  useEffect(() => {
-    if (!autoEnroll || isLoading || autoEnrollmentStarted.current || hasVerifiedTotp) return;
-    autoEnrollmentStarted.current = true;
-    void startEnrollment();
-  }, [autoEnroll, hasVerifiedTotp, isLoading]);
 
   async function startEnrollment() {
     try {
@@ -148,11 +169,23 @@ export function MfaSettings({
         setTotpUri(uri);
       }
     } catch (err) {
-      Sentry.captureException(err);
+      reportBoundaryError(err);
       setError('An unexpected error occurred. Please try again.');
       setEnrolling(false);
     }
   }
+
+  // An Effect Event sees the latest factors/supabase without making the
+  // auto-start effect rerun whenever the enrollment callback is recreated.
+  const autoStartEnrollment = useEffectEvent(() => {
+    void startEnrollment();
+  });
+
+  useEffect(() => {
+    if (!autoEnroll || isLoading || autoEnrollmentStarted.current || hasVerifiedTotp) return;
+    autoEnrollmentStarted.current = true;
+    autoStartEnrollment();
+  }, [autoEnroll, hasVerifiedTotp, isLoading]);
 
   function closeDialog() {
     setEnrolling(false);
@@ -226,7 +259,7 @@ export function MfaSettings({
       // rejected an unhandled promise, `verifying` stayed true, and the button
       // was disabled for the rest of the session — with the panel's own error
       // box empty, so there was nothing to explain it.
-      Sentry.captureException(err);
+      reportBoundaryError(err);
       setError('Could not reach the verification service. Check your connection and try again.');
     } finally {
       setVerifying(false);

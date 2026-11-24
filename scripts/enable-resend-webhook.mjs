@@ -33,10 +33,12 @@ const VERCEL_TEAM_ID = Bun.env.VERCEL_ORG_ID || 'team_G8IMZRRSHw7ti3HLUs3aWmPS';
 const TARGETS = ['production', 'preview'];
 // Must match RESEND_TO_EVENT_TYPE in src/app/api/webhooks/resend/route.ts. A
 // subscribed event the route does not map is acked and dropped; a mapped event
-// that is not subscribed never arrives — email.suppressed was the second case.
+// that is not subscribed never arrives — email.suppressed and email.delivered
+// were both missed this way.
 const EVENTS = [
   'email.bounced',
   'email.complained',
+  'email.delivered',
   'email.suppressed',
   'email.opened',
   'email.clicked',

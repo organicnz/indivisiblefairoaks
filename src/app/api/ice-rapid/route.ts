@@ -1,10 +1,6 @@
 import { after, connection, NextResponse } from 'next/server';
 import type { RapidFeed } from '@/components/ice-alerts/rapid-types';
-import {
-  getRapidFeed,
-  getRapidFeedResult,
-  hasUsableRapidFeed,
-} from '@/lib/ice-rapid-feed';
+import { getRapidFeed, getRapidFeedResult, hasUsableRapidFeed } from '@/lib/ice-rapid-feed';
 import { getRapidPublicCases } from '@/lib/queries/ice-public-cases';
 
 // Cold source resolution is bounded in the feed module; this leaves headroom
@@ -64,7 +60,7 @@ export async function GET() {
   return NextResponse.json(payload, {
     status: usable ? 200 : 503,
     headers: {
-      'X-ICE-Feed-Version': '2',
+      'X-ICE-Feed-Version': '3',
       // Provenance only: these values expose no upstream body, URL, or credential.
       'X-ICE-Feed-Source': meta.source,
       'X-ICE-Feed-Age': String(meta.ageSeconds),

@@ -1,8 +1,7 @@
 'use client';
 
-import * as Sentry from '@sentry/nextjs';
 import { useEffect } from 'react';
-import { reportClientError } from '@/lib/error-report';
+import { reportBoundaryError } from '@/lib/report-boundary-error';
 
 export default function GlobalError({
   error,
@@ -12,11 +11,11 @@ export default function GlobalError({
   reset: () => void;
 }) {
   useEffect(() => {
-    reportClientError(error, { digest: error.digest });
     // Dual reporting is deliberate: error_reports is the admin-visible,
     // rate-limited first-party log; Sentry carries source-mapped traces for
-    // debugging. Neither replaces the other. No-ops when no DSN is set.
-    Sentry.captureException(error);
+    // debugging. Neither replaces the other. Both load on demand so their SDKs
+    // stay out of the initial bundle.
+    reportBoundaryError(error, { digest: error.digest });
   }, [error]);
 
   return (

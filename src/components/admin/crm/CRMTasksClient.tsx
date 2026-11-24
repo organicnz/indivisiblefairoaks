@@ -103,6 +103,7 @@ export function CRMTasksClient({ tasks, scope, page, pageSize, totalCount }: Pro
       });
       if (res.success) {
         toast.success('Follow-up updated');
+        if (res.warning) toast.warning(res.warning);
         setEditingTask(null);
         router.refresh();
       } else {
@@ -128,6 +129,7 @@ export function CRMTasksClient({ tasks, scope, page, pageSize, totalCount }: Pro
       const res = await setCRMTaskStatus({ id: task.id, status: next });
       if (res.success) {
         toast.success(next === 'done' ? 'Follow-up completed' : 'Follow-up reopened');
+        if (res.warning) toast.warning(res.warning);
         router.refresh();
       } else {
         toast.error(res.error || 'Failed to update follow-up');
@@ -151,6 +153,7 @@ export function CRMTasksClient({ tasks, scope, page, pageSize, totalCount }: Pro
       });
       if (res.success) {
         toast.success('Due date updated');
+        if (res.warning) toast.warning(res.warning);
         router.refresh();
       } else {
         toast.error(res.error || 'Failed to update due date');
@@ -170,6 +173,7 @@ export function CRMTasksClient({ tasks, scope, page, pageSize, totalCount }: Pro
       const res = await deleteCRMTask(task.id);
       if (res.success) {
         toast.success('Follow-up deleted');
+        if (res.warning) toast.warning(res.warning);
         router.refresh();
       } else {
         toast.error(res.error || 'Failed to delete');

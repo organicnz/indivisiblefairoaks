@@ -1,9 +1,9 @@
 'use client';
 
 import { Monitor, Moon, Sun, X } from 'lucide-react';
-import { motion, useReducedMotion } from 'motion/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { THEME_ORDER, type ThemeMode, themeModeLabel } from '@/lib/theme';
+import { ThemePill } from './ThemePill';
 import { cycleThemeMode, setThemeMode, subscribeThemeHud, type ThemeHudEvent } from './theme-store';
 
 const MODE_ICON: Record<ThemeMode, typeof Monitor> = {
@@ -13,8 +13,6 @@ const MODE_ICON: Record<ThemeMode, typeof Monitor> = {
 };
 
 function SegmentedHudPill({ mode }: { mode: ThemeMode }) {
-  const prefersReduced = useReducedMotion();
-
   const pillColor =
     mode === 'dark'
       ? 'bg-sky-400 text-ink-strong shadow-xs ring-1 ring-sky-300/50'
@@ -22,24 +20,7 @@ function SegmentedHudPill({ mode }: { mode: ThemeMode }) {
         ? 'bg-amber-400 text-ink-strong shadow-xs ring-1 ring-amber-300/50'
         : 'bg-emerald-400 text-ink-strong shadow-xs ring-1 ring-emerald-300/50';
 
-  if (prefersReduced) {
-    return <span aria-hidden="true" className={`absolute inset-0 rounded-full ${pillColor}`} />;
-  }
-
-  return (
-    <motion.span
-      layoutId="theme-hud-active-pill"
-      aria-hidden="true"
-      className={`absolute inset-0 rounded-full ${pillColor}`}
-      transition={{
-        type: 'spring',
-        stiffness: 500,
-        damping: 35,
-        mass: 0.8,
-      }}
-      style={{ originX: 0.5, originY: 0.5 }}
-    />
-  );
+  return <ThemePill layoutId="theme-hud-active-pill" className={`rounded-full ${pillColor}`} />;
 }
 
 /**

@@ -1,3 +1,6 @@
+import { FUTURE_ALERT_TOLERANCE_MS } from '@/components/ice-alerts/rapid-alert-utils';
+import { communityDescription } from '@/components/ice-alerts/rapid-community-description';
+import { communityMemo } from '@/components/ice-alerts/rapid-community-memo';
 import type {
   OfficialRelease,
   RapidAlert,
@@ -8,14 +11,12 @@ import type {
   RapidFeedSource,
 } from '@/components/ice-alerts/rapid-types';
 import type { CityPoint } from '@/components/ice-alerts/types';
-import { FUTURE_ALERT_TOLERANCE_MS } from '@/components/ice-alerts/rapid-alert-utils';
 import { getIceHeatmapSnapshot } from '@/lib/queries/ice-heatmap';
 import {
+  type PersistedRapidFeed,
   persistRapidFeed,
   readPersistedRapidFeed,
-  type PersistedRapidFeed,
 } from '@/lib/queries/ice-rapid-cache';
-import { communityMemo } from '@/components/ice-alerts/rapid-community-memo';
 import { createCityMatcher, extractStateCode } from './rapid-city-match';
 
 const STOPICE_HOME = 'https://stopice.net/';
@@ -144,9 +145,7 @@ function decodeXml(value: string) {
 }
 
 function readTag(block: string, tag: string) {
-  const match = block.match(
-    new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${tag}>`, 'i')
-  );
+  const match = block.match(new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${tag}>`, 'i'));
   return match ? decodeXml(match[1]) : '';
 }
 
@@ -202,14 +201,7 @@ export function parseCommunityTimestamp(value: string): string | null {
   }
   if (localDate.getUTCDate() !== day) return null;
 
-  const timestamp = Date.UTC(
-    year,
-    monthIndex,
-    day,
-    hour - offsetHours,
-    minute,
-    second
-  );
+  const timestamp = Date.UTC(year, monthIndex, day, hour - offsetHours, minute, second);
   const date = new Date(timestamp);
   if (Number.isNaN(date.getTime())) return null;
 
@@ -219,11 +211,7 @@ export function parseCommunityTimestamp(value: string): string | null {
 function classifyKind(priority: string, comments: string): RapidAlertKind {
   const text = `${priority} ${comments}`.toLowerCase();
   if (/\b(checkpoint|sobriety|roadblock|dui)\b/.test(text)) return 'checkpoint';
-  if (
-    /\b(jail|prison|detention|detain|irc|mdc|processing center|holding facility)\b/.test(
-      text
-    )
-  ) {
+  if (/\b(jail|prison|detention|detain|irc|mdc|processing center|holding facility)\b/.test(text)) {
     return 'detention';
   }
   return 'enforcement';
@@ -233,12 +221,16 @@ function statusForPriority(priority: string): RapidAlertStatus {
   return /urgent|confirmed/i.test(priority) ? 'source-confirmed' : 'sighting';
 }
 
-
-
 function communityTitle(kind: RapidAlertKind, status: RapidAlertStatus) {
   const kindLabel =
-    kind === 'detention' ? 'Detention report' : kind === 'checkpoint' ? 'Checkpoint report' : 'Enforcement report';
-  return status === 'source-confirmed' ? `Source-confirmed ${kindLabel.toLowerCase()}` : `Community ${kindLabel.toLowerCase()}`;
+    kind === 'detention'
+      ? 'Detention report'
+      : kind === 'checkpoint'
+        ? 'Checkpoint report'
+        : 'Enforcement report';
+  return status === 'source-confirmed'
+    ? `Source-confirmed ${kindLabel.toLowerCase()}`
+    : `Community ${kindLabel.toLowerCase()}`;
 }
 
 /**
@@ -274,19 +266,16 @@ export function parseStopIceCommunityFeed(
     const match = matcher.findCityInLocation(location, extractStateCode(location));
 
     const observedMs = observedAt ? Date.parse(observedAt) : Number.NaN;
-    if (
-      !match ||
-      !observedAt ||
-      !Number.isFinite(observedMs) ||
-      observedMs > futureCutoff
-    ) {
+    if (!match || !observedAt || !Number.isFinite(observedMs) || observedMs > futureCutoff) {
       skipped += 1;
       continue;
     }
 
     const priority = readTag(block, 'thispriority');
     const status = statusForPriority(priority);
-    const kind = classifyKind(priority, readTag(block, 'comments'));
+    const comments = readTag(block, 'comments');
+    const kind = classifyKind(priority, comments);
+    const description = communityDescription({ comments, kind, location });
     const city = match.city;
     const id = readTag(block, 'id') || `${city.city}-${observedAt}`;
 
@@ -305,6 +294,7 @@ export function parseStopIceCommunityFeed(
       lng: city.lng,
       observedAt,
       expiresAt: new Date(new Date(observedAt).getTime() + ACTIVE_WINDOW_MS).toISOString(),
+      description,
       summary: communityMemo({
         kind,
         status,
@@ -375,7 +365,10 @@ export function parseIceNewsroomRss(
     if (Number.isNaN(publishedAt.getTime())) continue;
 
     releases.push({
-      id: `ice-${(guid || rawTitle).slice(0, 64).trim().replace(/[^a-z0-9_-]+/gi, '-')}`,
+      id: `ice-${(guid || rawTitle)
+        .slice(0, 64)
+        .trim()
+        .replace(/[^a-z0-9_-]+/gi, '-')}`,
       sourceName: ICE_SOURCE_NAME,
       sourceUrl: link,
       // ICE release titles and descriptions can contain names and case details.
@@ -476,11 +469,7 @@ async function fetchTextResult(
   }
 }
 
-async function fetchText(
-  url: string,
-  options: FetchOptions,
-  attempt = 0
-): Promise<string> {
+async function fetchText(url: string, options: FetchOptions, attempt = 0): Promise<string> {
   return (await fetchTextResult(url, options, attempt)).text;
 }
 
@@ -569,9 +558,7 @@ async function fetchCommunityDocument(now: Date): Promise<CommunityDocument> {
       deadline,
     });
     const discovered = [
-      ...index.matchAll(
-        /href=["']?([^"'\s>]*stopicenet_[a-z]{3}_\d{4}_complete\.xml)/gi
-      ),
+      ...index.matchAll(/href=["']?([^"'\s>]*stopicenet_[a-z]{3}_\d{4}_complete\.xml)/gi),
     ]
       .map((match) => trustedCommunityUrl(match[1]))
       .filter((url): url is string => url !== null && !tried.has(url));
@@ -606,10 +593,7 @@ function sourceState(
 
 async function fetchCommunity(now: Date, citiesPromise: Promise<readonly CityPoint[]>) {
   try {
-    const [cities, document] = await Promise.all([
-      citiesPromise,
-      fetchCommunityDocument(now),
-    ]);
+    const [cities, document] = await Promise.all([citiesPromise, fetchCommunityDocument(now)]);
     if (cities.length === 0) {
       throw new Error('The Supabase ICE city reference snapshot is unavailable');
     }
@@ -636,14 +620,12 @@ async function fetchCommunity(now: Date, citiesPromise: Promise<readonly CityPoi
     const modifiedMs = document.lastModifiedMs;
     const exportAge = modifiedMs !== null ? now.getTime() - modifiedMs : reportAge;
     const exportAgeLimit =
-      modifiedMs !== null
-        ? COMMUNITY_EXPORT_MAX_AGE_MS
-        : COMMUNITY_REPORT_FALLBACK_MAX_AGE_MS;
+      modifiedMs !== null ? COMMUNITY_EXPORT_MAX_AGE_MS : COMMUNITY_REPORT_FALLBACK_MAX_AGE_MS;
     const exportIsDelayed = exportAge > exportAgeLimit;
     const reportsAreDelayed = reportAge > COMMUNITY_EXPORT_MAX_AGE_MS;
     const stale = exportIsDelayed || reportsAreDelayed;
     const note = !stale
-      ? 'Public nightly export. Locations are generalized to the nearest known city; street addresses, vehicle plates, and identities are withheld.'
+      ? 'Public nightly export. Locations and descriptions are generalized; street addresses, vehicle plates, contact details, and identities are withheld.'
       : modifiedMs !== null && exportIsDelayed
         ? `Delayed community export: the public data file has not updated since ${new Date(
             modifiedMs
@@ -754,9 +736,7 @@ export async function getRapidFeedResult(
  * Build the public feed. A source failure never turns into invented data; it is
  * reported as unavailable so the UI can be explicit about what is missing.
  */
-export async function getRapidFeed(
-  options: { fresh?: boolean } = {}
-): Promise<RapidFeedBase> {
+export async function getRapidFeed(options: { fresh?: boolean } = {}): Promise<RapidFeedBase> {
   return (await getRapidFeedResult(options)).feed;
 }
 
@@ -766,6 +746,18 @@ export function hasUsableRapidFeed(feed: RapidFeedBase): boolean {
     feed.officialReleases.length > 0 ||
     feed.community.status !== 'unavailable' ||
     feed.official.status !== 'unavailable'
+  );
+}
+
+/**
+ * A snapshot written before community descriptions were introduced is still
+ * safe to display, but it would keep every right-hand card on the old generic
+ * memo. Treat that snapshot as incomplete so the next request rebuilds it from
+ * the fetched reports instead of serving the stale projection as fresh.
+ */
+function hasCommunityDescriptions(feed: RapidFeedBase): boolean {
+  return feed.alerts.every(
+    (alert) => alert.source !== 'community' || Boolean(alert.description?.trim())
   );
 }
 
@@ -810,7 +802,13 @@ async function resolveRapidFeed(fresh: boolean): Promise<RapidFeedResult> {
   const fetchedMs = persisted ? Date.parse(persisted.fetchedAt) : Number.NaN;
   const cacheAgeMs = Number.isFinite(fetchedMs) ? now - fetchedMs : Number.NaN;
 
-  if (!fresh && persisted && hasUsableRapidFeed(persisted.feed) && Number.isFinite(cacheAgeMs)) {
+  if (
+    !fresh &&
+    persisted &&
+    hasUsableRapidFeed(persisted.feed) &&
+    hasCommunityDescriptions(persisted.feed) &&
+    Number.isFinite(cacheAgeMs)
+  ) {
     if (cacheAgeMs <= PERSISTED_CACHE_FRESH_MS) {
       memoryCache = { at: now, feed: persisted.feed };
       return {
@@ -846,9 +844,7 @@ async function resolveRapidFeed(fresh: boolean): Promise<RapidFeedResult> {
   return buildRapidFeed(persisted);
 }
 
-async function buildRapidFeed(
-  persisted: PersistedRapidFeed | null
-): Promise<RapidFeedResult> {
+async function buildRapidFeed(persisted: PersistedRapidFeed | null): Promise<RapidFeedResult> {
   const now = new Date();
   const citiesPromise = getIceHeatmapSnapshot()
     .then((snapshot) => snapshot.cities)
@@ -884,9 +880,7 @@ async function buildRapidFeed(
         )
       : official.source,
     alerts: communityFallback ? communityFallback.feed.alerts : community.alerts,
-    officialReleases: officialFallback
-      ? officialFallback.feed.officialReleases
-      : official.releases,
+    officialReleases: officialFallback ? officialFallback.feed.officialReleases : official.releases,
   };
 
   if (hasUsableRapidFeed(feed)) {

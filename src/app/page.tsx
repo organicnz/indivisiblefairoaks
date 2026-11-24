@@ -27,14 +27,17 @@ export default async function HomePage() {
 
   return (
     <div className="civic-page flex w-full flex-col">
-      <HomeHero photos={galleryPhotos} dataPoints={dataPoints} />
+      <HomeHero
+        photos={galleryPhotos.filter((photo) => photo.is_hero || photo.is_pair)}
+        dataPoints={dataPoints}
+      />
       <HomeQuickHits dataPoints={dataPoints} />
       <CivicActionTicker items={tickerItems} initialData={dataPoints} />
       <HomeGathering card={card} dataPoints={dataPoints} />
       <HomePillars dataPoints={dataPoints} />
       <HomeChoir dataPoints={dataPoints} />
       <HomeVoterHub dataPoints={dataPoints} />
-      <HomeGalleryPreview photos={galleryPhotos} dataPoints={dataPoints} />
+      <HomeGalleryPreview photos={galleryPhotos.slice(0, 6)} dataPoints={dataPoints} />
       <HomeNonviolence dataPoints={dataPoints} />
       <HomeSupportCta dataPoints={dataPoints} />
     </div>

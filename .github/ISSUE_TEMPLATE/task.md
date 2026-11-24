@@ -15,5 +15,5 @@ assignees:
 
 ## Acceptance Criteria
 - [ ] Requirements met
-- [ ] Type check passes (`bun tsrs --noEmit`)
-- [ ] Tests pass (`bun vitest run`)
+- [ ] Type check passes (`bun --bun tsrs --noEmit`)
+- [ ] Tests pass (`bun --bun vitest run`)

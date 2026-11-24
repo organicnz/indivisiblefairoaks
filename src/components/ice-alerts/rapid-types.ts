@@ -28,6 +28,8 @@ export type RapidAlert = {
   lng: number;
   observedAt: string;
   expiresAt: string;
+  /** Generalized event description derived from the fetched report text. */
+  description?: string;
   summary: string;
 };
 

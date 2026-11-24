@@ -1,266 +1,21 @@
 'use client';
 
 import * as Dialog from '@radix-ui/react-dialog';
-import {
-  Calendar,
-  ExternalLink,
-  FilePlus2,
-  FileText,
-  Heart,
-  Mail,
-  MapPin,
-  Monitor,
-  Moon,
-  Music,
-  Newspaper,
-  PenLine,
-  Search,
-  Sparkles,
-  Sun,
-  Users,
-  UsersRound,
-  Vote,
-  X,
-} from 'lucide-react';
-import { usePathname, useRouter } from 'next/navigation';
-import type React from 'react';
-import { useCallback, useEffect, useId, useMemo, useState } from 'react';
-import { useThemeMode } from '@/components/layout/theme-store';
-import { useEditContext } from '@/components/layout/useEditContext';
-import { useVisualEditMode } from '@/components/layout/visual-edit-store';
-import { DataPoint } from '@/components/ui/DataPoint';
-import { useDataPoints } from '@/hooks/useDataPoints';
-import { themeModeLabel } from '@/lib/theme';
+import { Search } from 'lucide-react';
+import dynamic from 'next/dynamic';
+import { useCallback, useEffect, useState } from 'react';
 
-interface PaletteItem {
-  id: string;
-  title: string;
-  description: string;
-  category: 'Pages' | 'Direct Actions' | 'Civic Resources' | 'Preferences' | 'Admin & Publishing';
-  href?: string;
-  icon: React.ComponentType<{ size?: number; className?: string }>;
-  isExternal?: boolean;
-  action?: 'theme-light' | 'theme-dark' | 'theme-system' | 'theme-cycle' | 'visual-edit-toggle';
-  keywords?: string[];
-}
-
-const PALETTE_ITEMS: PaletteItem[] = [
-  {
-    id: 'home',
-    title: 'Home',
-    description: 'Mission, upcoming actions, and chapter overview',
-    category: 'Pages',
-    href: '/',
-    icon: Users,
-  },
-  {
-    id: 'events',
-    title: 'Upcoming Events & Actions',
-    description: 'Community meetings, rallies, and canvassing dates',
-    category: 'Pages',
-    href: '/events',
-    icon: Calendar,
-  },
-  {
-    id: 'voter-info',
-    title: 'Voter Information & Guides',
-    description: 'Sacramento County ballot measures, deadlines, and rights',
-    category: 'Civic Resources',
-    href: '/voter-info',
-    icon: Vote,
-  },
-  {
-    id: 'ice-alerts',
-    title: 'ICE Rapid-Response & Historical Map',
-    description:
-      'Live community and official ICE alerts, with a historical city-level FOIA baseline',
-    category: 'Civic Resources',
-    href: '/ice-alerts',
-    icon: MapPin,
-    keywords: [
-      'ice',
-      'alert',
-      'alerts',
-      'immigration',
-      'deportation',
-      'heat map',
-      'heatmap',
-      'map',
-      'foia',
-      'enforcement',
-    ],
-  },
-  {
-    id: 'choir',
-    title: 'Carmichael Resistance Choir',
-    description: 'Music rehearsal schedule, songbook, and events',
-    category: 'Pages',
-    href: '/choir',
-    icon: Music,
-  },
-  {
-    id: 'about',
-    title: 'About Our Chapter',
-    description: 'Core values, history, and grassroots organizing',
-    category: 'Pages',
-    href: '/about',
-    icon: Users,
-  },
-  {
-    id: 'news',
-    title: 'News & Updates',
-    description: 'Articles, meeting minutes, and chapter dispatches',
-    category: 'Pages',
-    href: '/news',
-    icon: FileText,
-  },
-  {
-    id: 'newsletters',
-    title: 'Newsletters & Bulletins',
-    description: 'Monthly bulletins and the chapter newsletter archive',
-    category: 'Pages',
-    href: '/newsletters',
-    icon: Mail,
-  },
-  {
-    id: 'links',
-    title: 'Coalition Links & Allies',
-    description: 'National Indivisible, Sister District, 5 Calls',
-    category: 'Civic Resources',
-    href: '/links',
-    icon: ExternalLink,
-  },
-  {
-    id: 'donate',
-    title: 'Donate via ActBlue',
-    description: 'Support local grassroots flyers, postcard stamps, and rallies',
-    category: 'Direct Actions',
-    href: '/donate',
-    icon: Heart,
-  },
-  {
-    id: 'contact',
-    title: 'Contact Chapter Organizers',
-    description: 'Send a message or inquire about volunteering',
-    category: 'Pages',
-    href: '/contact',
-    icon: Mail,
-  },
-  {
-    id: 'ca-voter-reg',
-    title: 'Official CA Voter Registration',
-    description: 'Register online or check your registration status',
-    category: 'Direct Actions',
-    href: 'https://registertovote.ca.gov',
-    icon: Vote,
-    isExternal: true,
-  },
-  {
-    id: 'actblue-direct',
-    title: 'ActBlue Chapter Donation',
-    description: 'Secure online grassroots donation portal',
-    category: 'Direct Actions',
-    href: 'https://secure.actblue.com/donate/indivisiblefoc1432155925',
-    icon: Heart,
-    isExternal: true,
-  },
-  {
-    id: 'theme-cycle',
-    title: 'Cycle Color Theme',
-    description: 'Toggle forward between System, Light, and Dark palettes',
-    category: 'Preferences',
-    icon: Sparkles,
-    action: 'theme-cycle',
-    keywords: ['cycle', 'toggle', 'switch', 'theme', 'appearance', 'mode', 'palette'],
-  },
-  {
-    id: 'theme-light',
-    title: 'Switch to Light Theme',
-    description: 'Daytime crisp high-contrast presentation',
-    category: 'Preferences',
-    icon: Sun,
-    action: 'theme-light',
-    keywords: ['light', 'white', 'day', 'theme', 'appearance', 'mode', 'palette'],
-  },
-  {
-    id: 'theme-dark',
-    title: 'Switch to Dark Theme',
-    description: 'Nighttime sensory luxury obsidian & slate palette',
-    category: 'Preferences',
-    icon: Moon,
-    action: 'theme-dark',
-    keywords: ['dark', 'black', 'night', 'theme', 'appearance', 'mode', 'palette'],
-  },
-  {
-    id: 'theme-system',
-    title: 'System Theme (Follow OS)',
-    description: 'Sync palette automatically with device appearance setting',
-    category: 'Preferences',
-    icon: Monitor,
-    action: 'theme-system',
-    keywords: ['system', 'device', 'auto', 'automatic', 'theme', 'appearance', 'mode', 'os'],
-  },
-];
-
-const ADMIN_PALETTE_ITEMS: PaletteItem[] = [
-  {
-    id: 'admin-add-news',
-    title: 'Add News',
-    description: 'Draft or publish a chapter article or dispatch in the block editor',
-    category: 'Admin & Publishing',
-    href: '/admin/content/new?type=post',
-    icon: FilePlus2,
-    keywords: ['post', 'news', 'write', 'article', 'dispatch', 'blog', 'publish', 'new', 'cms'],
-  },
-  {
-    id: 'admin-events',
-    title: 'Manage Chapter Events',
-    description: 'Add, edit, or publish meetings, rallies, and actions',
-    category: 'Admin & Publishing',
-    href: '/admin/events',
-    icon: Calendar,
-    keywords: ['event', 'meeting', 'action', 'rally', 'gathering', 'calendar', 'manage', 'edit'],
-  },
-  {
-    id: 'admin-news',
-    title: 'Manage Bulletins & Newsletters',
-    description: 'Publish chapter newsletters and legislative bulletins',
-    category: 'Admin & Publishing',
-    href: '/admin/news',
-    icon: Newspaper,
-    keywords: ['news', 'newsletter', 'bulletin', 'pdf', 'dispatch', 'alert', 'manage', 'edit'],
-  },
-  {
-    id: 'admin-links',
-    title: 'Manage Link Tree & Action Links',
-    description: 'Curate partner, coalition, and voter action links',
-    category: 'Admin & Publishing',
-    href: '/admin/links',
-    icon: ExternalLink,
-    keywords: ['link', 'tree', 'coalition', 'allies', 'partner', 'action', 'resource', 'manage', 'edit'],
-  },
-  {
-    id: 'admin-crm',
-    title: 'Civic CRM & Constituents',
-    description: 'Voter database, constituent tags, tasks, and consent',
-    category: 'Admin & Publishing',
-    href: '/admin/crm',
-    icon: UsersRound,
-    keywords: ['crm', 'constituent', 'supporter', 'volunteer', 'donor', 'tag', 'task', 'consent'],
-  },
-  {
-    id: 'admin-visual-edit',
-    title: 'Toggle Visual Editor (⌘E)',
-    description: 'Activate in-place visual section and content editing',
-    category: 'Admin & Publishing',
-    action: 'visual-edit-toggle',
-    icon: PenLine,
-    keywords: ['visual', 'editor', 'edit', 'inline', 'cms', 'block', 'overlay'],
-  },
-];
+const CivicCommandPaletteDialog = dynamic(
+  () => import('./CivicCommandPaletteDialog').then((module) => module.CivicCommandPaletteDialog),
+  { ssr: false }
+);
 
 const FOCUS_RING =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background';
+
+function preloadDialog() {
+  void import('./CivicCommandPaletteDialog');
+}
 
 export function CivicCommandPalette({
   isOpen: controlledOpen,
@@ -269,312 +24,52 @@ export function CivicCommandPalette({
   isOpen?: boolean;
   setIsOpen?: (open: boolean) => void;
 } = {}) {
-  const pathname = usePathname();
-  const { isAdmin } = useEditContext(pathname ?? '/');
-  const { toggle: toggleVisualEdit } = useVisualEditMode(pathname ?? '/');
-  const { dataPoints } = useDataPoints('palette');
-  const { mode, effective, setMode, cycle } = useThemeMode();
   const [internalOpen, setInternalOpen] = useState(false);
   const isOpen = controlledOpen ?? internalOpen;
-  const setIsOpen: (open: boolean) => void = setControlledOpen ?? setInternalOpen;
-  const [query, setQuery] = useState('');
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const router = useRouter();
-  const listboxId = useId();
+  const [hasOpened, setHasOpened] = useState(Boolean(controlledOpen));
+
+  const handleOpenChange = useCallback(
+    (next: boolean) => {
+      if (setControlledOpen) setControlledOpen(next);
+      else setInternalOpen(next);
+      if (next) setHasOpened(true);
+    },
+    [setControlledOpen]
+  );
 
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        setIsOpen(!isOpen);
+    if (isOpen) setHasOpened(true);
+  }, [isOpen]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key === 'k') {
+        event.preventDefault();
+        handleOpenChange(!isOpen);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, setIsOpen]);
-
-  const filteredItems = useMemo(() => {
-    const pool = isAdmin ? [...ADMIN_PALETTE_ITEMS, ...PALETTE_ITEMS] : PALETTE_ITEMS;
-    const needle = query.trim().toLowerCase();
-    if (!needle) return pool;
-    return pool.filter(
-      (item) =>
-        item.title.toLowerCase().includes(needle) ||
-        item.description.toLowerCase().includes(needle) ||
-        item.category.toLowerCase().includes(needle) ||
-        Boolean(item.keywords?.some((kw) => kw.toLowerCase().includes(needle)))
-    );
-  }, [isAdmin, query]);
-
-  // The highlight must stay inside the result set: shrinking the list while the
-  // last index was selected left the palette with no active option and Enter did
-  // nothing.
-  const activeIndex =
-    filteredItems.length === 0 ? -1 : Math.min(selectedIndex, filteredItems.length - 1);
-  const activeItem = filteredItems[activeIndex];
-
-  const handleSelect = useCallback(
-    (item: PaletteItem) => {
-      const activeEl = typeof document !== 'undefined' ? document.activeElement : null;
-      const rect = activeEl?.getBoundingClientRect();
-      const coords =
-        rect && (rect.width > 0 || rect.height > 0)
-          ? {
-              x: Math.round(rect.left + rect.width / 2),
-              y: Math.round(rect.top + rect.height / 2),
-            }
-          : undefined;
-
-      setIsOpen(false);
-      setQuery('');
-      setSelectedIndex(0);
-
-      if (item.action === 'visual-edit-toggle') {
-        toggleVisualEdit();
-      } else if (item.action === 'theme-cycle') {
-        if (coords) cycle('next', coords);
-        else cycle('next');
-      } else if (item.action === 'theme-light') {
-        if (coords) setMode('light', coords);
-        else setMode('light');
-      } else if (item.action === 'theme-dark') {
-        if (coords) setMode('dark', coords);
-        else setMode('dark');
-      } else if (item.action === 'theme-system') {
-        if (coords) setMode('system', coords);
-        else setMode('system');
-      } else if (item.isExternal && item.href) {
-        window.open(item.href, '_blank', 'noopener,noreferrer');
-      } else if (item.href) {
-        router.push(item.href);
-      }
-    },
-    [router, setIsOpen, setMode, cycle, toggleVisualEdit]
-  );
-
-  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      setSelectedIndex(filteredItems.length === 0 ? 0 : (activeIndex + 1) % filteredItems.length);
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      setSelectedIndex(
-        filteredItems.length === 0
-          ? 0
-          : (activeIndex - 1 + filteredItems.length) % filteredItems.length
-      );
-    } else if (e.key === 'Enter' && activeItem) {
-      e.preventDefault();
-      handleSelect(activeItem);
-    } else if (e.key === 'Home') {
-      e.preventDefault();
-      setSelectedIndex(0);
-    } else if (e.key === 'End' && filteredItems.length > 0) {
-      e.preventDefault();
-      setSelectedIndex(filteredItems.length - 1);
-    }
-  };
+  }, [handleOpenChange, isOpen]);
 
   return (
-    <>
-      <button
-        type="button"
-        onClick={() => setIsOpen(true)}
-        // p-2 plus a 20px glyph is 36px — under the 44px minimum target.
-        className={`inline-flex size-11 items-center justify-center rounded-sm text-foreground/75 transition-colors duration-300 ease-out hover:bg-surface-muted hover:text-foreground ${FOCUS_RING}`}
-        aria-label="Search site (Command K)"
-        title="Search site (⌘K)"
-      >
-        <Search size={20} aria-hidden="true" />
-      </button>
+    <Dialog.Root open={isOpen} onOpenChange={handleOpenChange}>
+      <Dialog.Trigger asChild>
+        <button
+          type="button"
+          // p-2 plus a 20px glyph is 36px — under the 44px minimum target.
+          className={`inline-flex size-11 items-center justify-center rounded-sm text-foreground/75 transition-colors duration-300 ease-out hover:bg-surface-muted hover:text-foreground ${FOCUS_RING}`}
+          aria-label="Search site (Command K)"
+          title="Search site (⌘K)"
+          onPointerEnter={preloadDialog}
+          onFocus={preloadDialog}
+        >
+          <Search size={20} aria-hidden="true" />
+        </button>
+      </Dialog.Trigger>
 
-      {/*
-        This was a hand-rolled `role="dialog" aria-modal="true"` div. It had no
-        focus trap, no `inert` on the page behind it, no scroll lock, and no focus
-        restoration — so tabbing walked straight out of the "modal" into the page
-        underneath. Radix supplies all of it and is already a dependency.
-
-        The result list was also semantically broken: a `<button>` with its role
-        overridden to `option`, inside a `role="listbox"`, with focus never
-        entering the listbox. `aria-selected` was therefore never announced and
-        the entire selection model was unreachable non-visually. It is now a
-        proper combobox: focus stays in the input and `aria-activedescendant`
-        points at the active option.
-
-        The two Biome a11y rules disabled for this file in biome.json
-        (`noNoninteractiveElementToInteractiveRole`, `useFocusableInteractive`)
-        assume a listbox that takes DOM focus. This one does not — options are
-        intentionally unfocusable because `aria-activedescendant` is what conveys
-        the active option, and `ul`/`li` are the elements ARIA-in-HTML designates
-        for `listbox`/`option`.
-      */}
-      <Dialog.Root open={isOpen} onOpenChange={setIsOpen}>
-        <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 z-[120] bg-secondary/80 backdrop-blur-md data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0" />
-          <Dialog.Content
-            className="fixed left-1/2 top-20 z-[130] w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 overflow-hidden rounded-sm border border-white/10 bg-secondary shadow-float data-[state=open]:animate-in data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:zoom-out-95 data-[state=open]:duration-200 data-[state=closed]:duration-150 sm:top-28"
-            aria-describedby={undefined}
-          >
-            <Dialog.Title className="sr-only">Civic quick search</Dialog.Title>
-
-            <div className="flex items-center px-4 py-3.5 border-b border-white/10 gap-3">
-              <Search size={18} className="text-primary-light shrink-0" aria-hidden="true" />
-              <input
-                type="text"
-                role="combobox"
-                aria-expanded={filteredItems.length > 0}
-                aria-controls={listboxId}
-                aria-activedescendant={activeItem ? `${listboxId}-${activeItem.id}` : undefined}
-                aria-autocomplete="list"
-                aria-label="Search pages and actions"
-                autoFocus
-                placeholder={
-                  dataPoints['palette.placeholder'] || 'Type a page, action, or civic topic…'
-                }
-                value={query}
-                onChange={(e) => {
-                  setQuery(e.target.value);
-                  setSelectedIndex(0);
-                }}
-                onKeyDown={handleInputKeyDown}
-                className="w-full bg-transparent text-white placeholder-ink-muted-on-dark text-sm focus:outline-none"
-              />
-              <Dialog.Close
-                className={`inline-flex size-9 items-center justify-center rounded-sm text-ink-muted-on-dark transition-colors duration-300 ease-out hover:bg-white/10 hover:text-white ${FOCUS_RING}`}
-                aria-label="Close search dialog"
-              >
-                <X size={16} aria-hidden="true" />
-              </Dialog.Close>
-            </div>
-
-            {/*
-              Result count is announced: without it, filtering to zero results is
-              completely silent.
-            */}
-            <p role="status" aria-live="polite" className="sr-only">
-              {filteredItems.length} result{filteredItems.length === 1 ? '' : 's'} available
-            </p>
-
-            <ul
-              id={listboxId}
-              role="listbox"
-              aria-label="Search results"
-              className="max-h-[min(28rem,55vh)] overflow-y-auto overscroll-contain p-2 divide-y divide-white/5 list-none sm:max-h-80"
-            >
-              {filteredItems.length === 0 ? (
-                <li className="py-8 text-center text-ink-muted-on-dark text-xs space-y-1">
-                  <DataPoint as="div" name="palette.empty.title" initialData={dataPoints}>
-                    No civic actions or pages found
-                  </DataPoint>
-                  <DataPoint
-                    as="div"
-                    name="palette.empty.desc"
-                    initialData={dataPoints}
-                    className="text-ink-muted-on-dark/70"
-                  >
-                    Try searching for voter, meeting, choir, or donate.
-                  </DataPoint>
-                </li>
-              ) : (
-                filteredItems.map((item, index) => {
-                  const Icon = item.icon;
-                  const isSelected = index === activeIndex;
-                  return (
-                    <li
-                      key={item.id}
-                      id={`${listboxId}-${item.id}`}
-                      role="option"
-                      aria-selected={isSelected}
-                      // `onMouseDown` fires before the input's blur, so a click
-                      // both selects and keeps focus in the combobox.
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        handleSelect(item);
-                      }}
-                      onMouseEnter={() => setSelectedIndex(index)}
-                      className={`flex cursor-pointer list-none items-center justify-between rounded-sm p-3 transition-colors duration-300 ease-out ${
-                        isSelected
-                          ? 'bg-primary/20 text-white border border-primary-light/30'
-                          : 'text-ink-on-dark border border-transparent'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div
-                          aria-hidden="true"
-                          className={`flex size-8 shrink-0 items-center justify-center rounded-sm ${
-                            isSelected
-                              ? 'bg-primary text-white'
-                              : 'bg-white/10 text-ink-muted-on-dark'
-                          }`}
-                        >
-                          <Icon size={16} />
-                        </div>
-                        <div>
-                          <div className="text-sm font-semibold text-white flex items-center gap-2">
-                            <span>{item.title}</span>
-                            {item.isExternal && (
-                              <span className="rounded-sm bg-white/10 px-1.5 py-0.5 font-mono text-xs text-ink-muted-on-dark">
-                                external
-                              </span>
-                            )}
-                            {item.action === 'theme-light' && mode === 'light' && (
-                              <span className="border border-amber-400/40 bg-amber-400/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-300">
-                                Active
-                              </span>
-                            )}
-                            {item.action === 'theme-dark' && mode === 'dark' && (
-                              <span className="border border-sky-400/40 bg-sky-400/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-sky-300">
-                                Active
-                              </span>
-                            )}
-                            {item.action === 'theme-system' && mode === 'system' && (
-                              <span className="border border-emerald-400/40 bg-emerald-400/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-300">
-                                Active · {effective === 'dark' ? 'Dark' : 'Light'}
-                              </span>
-                            )}
-                            {item.action === 'theme-cycle' && (
-                              <span className="rounded-sm bg-white/10 px-1.5 py-0.5 font-mono text-[10px] text-ink-muted-on-dark">
-                                {themeModeLabel(mode)}
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-xs text-ink-muted-on-dark">{item.description}</div>
-                        </div>
-                      </div>
-                      <span className="rounded-sm bg-white/5 px-2 py-0.5 font-mono text-xs text-ink-muted-on-dark">
-                        {item.category}
-                      </span>
-                    </li>
-                  );
-                })
-              )}
-            </ul>
-
-            <div className="px-4 py-2 bg-secondary/60 border-t border-white/10 flex items-center justify-between text-xs text-ink-muted-on-dark">
-              <div className="flex items-center gap-2">
-                <span>Navigate</span>
-                <kbd className="px-1 py-0.5 rounded bg-white/5 border border-white/10 text-xs font-mono">
-                  ↑
-                </kbd>
-                <kbd className="px-1 py-0.5 rounded bg-white/5 border border-white/10 text-xs font-mono">
-                  ↓
-                </kbd>
-                <span className="ml-2">Select</span>
-                <kbd className="px-1 py-0.5 rounded bg-white/5 border border-white/10 text-xs font-mono">
-                  ↵
-                </kbd>
-              </div>
-              <div>
-                <span>Close</span>
-                <kbd className="ml-1.5 px-1 py-0.5 rounded bg-white/5 border border-white/10 text-xs font-mono">
-                  esc
-                </kbd>
-              </div>
-            </div>
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog.Root>
-    </>
+      {hasOpened && <CivicCommandPaletteDialog onClose={() => handleOpenChange(false)} />}
+    </Dialog.Root>
   );
 }

@@ -29,8 +29,7 @@ async function auditImages() {
   content?.forEach(c => {
     const body = c.body || '';
     const imgRegex = /https:\/\/[^"']+\/storage\/v1\/object\/public\/media\/([^"'\s>]+)/g;
-    let match;
-    while ((match = imgRegex.exec(body)) !== null) {
+    for (let match = imgRegex.exec(body); match !== null; match = imgRegex.exec(body)) {
       referencedPaths.add(match[1]);
     }
   });
@@ -40,7 +39,7 @@ async function auditImages() {
   // 2. List all files in Storage (this is harder because list isn't recursive)
   // We'll check the standard WordPress-style year/month structure
   console.log('📂 Scanning storage folders...');
-  let allStoragePaths = [];
+  const allStoragePaths = [];
   const years = ['2020', '2021', '2022', '2023', '2024', '2025'];
   
   for (const year of years) {

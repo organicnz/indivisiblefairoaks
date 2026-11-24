@@ -1,15 +1,12 @@
 'use client';
 
 import { Pause, Play } from 'lucide-react';
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { GalleryImage } from '@/components/gallery/GalleryImage';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { FALLBACK_GALLERY_PHOTOS } from '@/config/gallery-fallback';
 import { useDataPoints } from '@/hooks/useDataPoints';
-
-import { getGalleryPhotos } from '@/lib/queries/content-client';
 import type { GalleryPhotoView } from '@/types/gallery';
 
 interface Photo {
@@ -38,115 +35,89 @@ const FALLBACK_PAIR_PHOTOS = FALLBACK_GALLERY_PHOTOS.filter((photo) => photo.is_
   toFallbackPhoto
 );
 
-// Hero crossfade photos (top 4 by sort_order, is_hero=true)
-const useHeroPhotos = (initialPhotos?: GalleryPhotoView[]): Photo[] => {
-  const [heroPhotos, setHeroPhotos] = useState<Photo[]>(() => {
-    const initialHeroes = (initialPhotos ?? [])
-      .filter((p) => p.is_hero === true)
-      .slice(0, 4)
-      .map((p) => ({
-        id: p.id,
-        src: p.url,
-        alt: p.alt || p.caption || '',
-        label: (p as { label?: string }).label || p.caption || '',
-      }));
+const toHeroPhoto = (photo: GalleryPhotoView): Photo => ({
+  id: photo.id,
+  src: photo.url,
+  alt: photo.alt || photo.caption || '',
+  label: (photo as { label?: string }).label || photo.caption || '',
+});
 
-    return initialHeroes.length > 0 ? initialHeroes : FALLBACK_HERO_PHOTOS;
-  });
-
-  useEffect(() => {
-    // A supplied array is authoritative for this server-rendered surface. Only
-    // a standalone mount that passed no prop needs to fetch.
-    if (initialPhotos) return;
-    getGalleryPhotos().then((photos) => {
-      const heroes = photos
-        .filter((p): p is typeof p & { is_hero: true } => p.is_hero === true)
-        .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
-
-      // An empty successful response is not a reason to erase the fallback.
-      if (heroes.length === 0) return;
-
-      setHeroPhotos(
-        heroes.slice(0, 4).map((p) => ({
-          id: p.id,
-          src: p.url,
-          alt: p.alt || p.caption || '',
-          label: (p as { label?: string }).label || p.caption || '',
-        }))
-      );
-    });
-  }, [initialPhotos]);
-
-  return heroPhotos;
+// Hero crossfade photos (top 4 by sort_order, is_hero=true). The homepage
+// supplies these rows from the same server read as the gallery preview, so
+// this is a pure projection, not a second client-side fetch.
+const resolveHeroPhotos = (photos: GalleryPhotoView[]): Photo[] => {
+  const heroes = photos
+    .filter((photo) => photo.is_hero === true)
+    .slice(0, 4)
+    .map(toHeroPhoto);
+  return heroes.length > 0 ? heroes : FALLBACK_HERO_PHOTOS;
 };
 
-// Pair photos (is_pair=true)
-const usePairPhotos = (initialPhotos?: GalleryPhotoView[]): Photo[] => {
-  const [pairPhotos, setPairPhotos] = useState<Photo[]>(() => {
-    const initialPairs = (initialPhotos ?? [])
-      .filter((p) => p.is_pair === true)
-      .map((p) => ({
-        id: p.id,
-        src: p.url,
-        alt: p.alt || p.caption || '',
-        label: (p as { label?: string }).label || p.caption || '',
-      }));
-
-    return initialPairs.length > 0 ? initialPairs : FALLBACK_PAIR_PHOTOS;
-  });
-
-  useEffect(() => {
-    if (initialPhotos) return;
-    getGalleryPhotos().then((photos) => {
-      const pairs = photos.filter((p) => p.is_pair === true);
-      if (pairs.length === 0) return;
-
-      setPairPhotos(
-        pairs.map((p) => ({
-          id: p.id,
-          src: p.url,
-          alt: p.alt || p.caption || '',
-          label: (p as { label?: string }).label || p.caption || '',
-        }))
-      );
-    });
-  }, [initialPhotos]);
-
-  return pairPhotos;
+// Pair photos (is_pair=true).
+const resolvePairPhotos = (photos: GalleryPhotoView[]): Photo[] => {
+  const pairs = photos.filter((photo) => photo.is_pair === true).map(toHeroPhoto);
+  return pairs.length > 0 ? pairs : FALLBACK_PAIR_PHOTOS;
 };
 
 const HERO_INTERVAL = 6000; // ms between hero crossfades
+const HERO_FADE_MS = 1000;
 
-const EASE_STD = [0.4, 0, 0.2, 1] as const;
+function usePrefersReducedMotion(): boolean {
+  const [reduced, setReduced] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
+
+    const media = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const update = () => setReduced(media.matches);
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
+
+  return reduced;
+}
 
 export function HeroPhotoFrame({
   photos: initialPhotos,
   initialData,
 }: {
-  photos?: GalleryPhotoView[];
+  photos: GalleryPhotoView[];
   initialData?: Record<string, string>;
-} = {}) {
+}) {
   const { dataPoints } = useDataPoints('home', initialData);
-  const reduced = useReducedMotion();
-  const heroPhotos = useHeroPhotos(initialPhotos);
-  const pairPhotos = usePairPhotos(initialPhotos);
+  const reduced = usePrefersReducedMotion();
+  const heroPhotos = useMemo(() => resolveHeroPhotos(initialPhotos), [initialPhotos]);
+  const pairPhotos = useMemo(() => resolvePairPhotos(initialPhotos), [initialPhotos]);
   const [heroIndex, setHeroIndex] = useState(0);
+  const [previousHeroIndex, setPreviousHeroIndex] = useState<number | null>(null);
   const [isPaused, setIsPaused] = useState(false);
 
   useEffect(() => {
-    if (reduced !== false || isPaused || heroPhotos.length < 2) return;
-    const t = setInterval(() => setHeroIndex((p) => (p + 1) % heroPhotos.length), HERO_INTERVAL);
+    if (reduced || isPaused || heroPhotos.length < 2) return;
+    const t = setInterval(() => {
+      setPreviousHeroIndex(heroIndex);
+      setHeroIndex((heroIndex + 1) % heroPhotos.length);
+    }, HERO_INTERVAL);
     return () => clearInterval(t);
-  }, [heroPhotos.length, isPaused, reduced]);
+  }, [heroIndex, heroPhotos.length, isPaused, reduced]);
+
+  useEffect(() => {
+    if (previousHeroIndex === null) return;
+    const t = setTimeout(() => setPreviousHeroIndex(null), HERO_FADE_MS);
+    return () => clearTimeout(t);
+  }, [previousHeroIndex]);
 
   const selectHero = (index: number) => {
+    if (index === heroIndex) return;
+    setPreviousHeroIndex(heroIndex);
     setHeroIndex(index);
     // Choosing a frame should keep it on screen rather than letting the timer
     // immediately move on. The explicit pause control is still available.
     setIsPaused(true);
   };
 
-  const dur = reduced !== false ? 0 : undefined;
+  const previousHero = previousHeroIndex === null ? undefined : heroPhotos[previousHeroIndex];
   const currentHero = heroPhotos[heroIndex];
   const hasHeroes = heroPhotos.length > 0;
   const hasMultipleHeroes = heroPhotos.length > 1;
@@ -162,25 +133,31 @@ export function HeroPhotoFrame({
           className="relative aspect-[4/3] overflow-hidden rounded-sm border border-foreground/25 bg-surface-deep"
         >
           <span aria-hidden="true" className="absolute left-2 top-2 z-10 size-1.5 bg-accent" />
+          {previousHero && previousHero.id !== currentHero?.id && (
+            <div className="absolute inset-0" aria-hidden="true">
+              <GalleryImage
+                src={previousHero.src}
+                alt=""
+                className="object-cover"
+                sizes="(min-width: 1024px) 44vw, 100vw"
+              />
+            </div>
+          )}
           {hasHeroes && (
-            <AnimatePresence initial={false}>
-              <motion.div
-                key={currentHero?.id}
-                className="absolute inset-0"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: dur ?? 1.1, ease: EASE_STD }}
-              >
-                <GalleryImage
-                  src={currentHero?.src ?? ''}
-                  alt={currentHero?.alt ?? ''}
-                  className="object-cover"
-                  sizes="(min-width: 1024px) 44vw, 100vw"
-                  priority
-                />
-              </motion.div>
-            </AnimatePresence>
+            <div
+              key={currentHero?.id}
+              className={`absolute inset-0 ${
+                previousHero ? 'animate-in fade-in duration-1000 motion-reduce:animate-none' : ''
+              }`}
+            >
+              <GalleryImage
+                src={currentHero?.src ?? ''}
+                alt={currentHero?.alt ?? ''}
+                className="object-cover"
+                sizes="(min-width: 1024px) 44vw, 100vw"
+                priority
+              />
+            </div>
           )}
           {!hasHeroes && (
             <div className="absolute inset-0 flex items-center justify-center bg-surface-muted px-6 text-center">

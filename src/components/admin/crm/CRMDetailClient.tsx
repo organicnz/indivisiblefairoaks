@@ -4,11 +4,11 @@ import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { CRMContactProfileCard } from '@/components/admin/crm/CRMContactProfileCard';
 import { CRMContactWorkspace } from '@/components/admin/crm/CRMContactWorkspace';
-import type { CRMActivity, CRMContact, CRMTask } from '@/types/crm';
+import type { CRMActivityWithDelivery, CRMContact, CRMTask } from '@/types/crm';
 
 interface Props {
   contact: CRMContact;
-  activities: CRMActivity[];
+  activities: CRMActivityWithDelivery[];
   tasks: CRMTask[];
   /** The timeline page represented by `activities`. */
   activityPage: number;

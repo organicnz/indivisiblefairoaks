@@ -80,6 +80,7 @@ export function CRMMergeModal({ keep, isOpen, onClose, initialCandidate = null, 
         const res = await mergeCRMContacts({ keepId: keep.id, removeId: candidate.id });
         if (res.success) {
           toast.success('Contacts merged');
+          if (res.warning) toast.warning(res.warning);
           onMerged?.();
           onClose();
           router.refresh();

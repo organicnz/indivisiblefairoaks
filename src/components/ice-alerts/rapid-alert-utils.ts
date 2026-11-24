@@ -103,7 +103,7 @@ export function filterAlerts(
     if (filters.time === '24h' && !isAlertRecent(alert, now)) return false;
 
     if (!normalizedQuery) return true;
-    const searchable = `${alert.place} ${alert.title} ${alert.summary} ${alert.status} ${alert.kind}`;
+    const searchable = `${alert.place} ${alert.title} ${alert.summary} ${alert.description ?? ''} ${alert.status} ${alert.kind}`;
     return searchable.toLowerCase().includes(normalizedQuery);
   });
 }
@@ -130,9 +130,7 @@ export function groupRapidAlerts(alerts: RapidAlert[], now: number): RapidMapPoi
   const points: RapidMapPoint[] = [];
 
   for (const group of groups.values()) {
-    const sorted = [...group].sort(
-      (a, b) => Date.parse(b.observedAt) - Date.parse(a.observedAt)
-    );
+    const sorted = [...group].sort((a, b) => Date.parse(b.observedAt) - Date.parse(a.observedAt));
     const latest = sorted[0];
     const confirmed = sorted.some((alert) => alert.status === 'source-confirmed');
     const hasActive = sorted.some((alert) => isAlertActive(alert, now));

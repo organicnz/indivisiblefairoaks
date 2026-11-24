@@ -161,6 +161,7 @@ export function CRMSegmentManager({
       });
       if (res.success) {
         toast.success(editingId ? 'Segment updated' : 'Segment created');
+        if (res.warning) toast.warning(res.warning);
         reset();
         router.refresh();
       } else {
@@ -179,6 +180,7 @@ export function CRMSegmentManager({
       const res = await deleteCRMSegment(id);
       if (res.success) {
         toast.success('Segment deleted');
+        if (res.warning) toast.warning(res.warning);
         router.refresh();
       } else {
         toast.error(res.error || 'Failed to delete segment');

@@ -79,7 +79,6 @@ export const PAGE_COPY_REGIONS: Readonly<Record<string, readonly CopyRegionDefin
     { id: 'about-mission', label: 'Mission Statement' },
     { id: 'about-who', label: 'Who We Are' },
     { id: 'about-nonviolence', label: 'Nonviolence Commitment' },
-    { id: 'about-join', label: 'Join Our Next Gathering' },
   ],
   '/voter-info': [
     { id: 'voter-guides', label: 'Voter Rights & Guides' },
@@ -105,9 +104,7 @@ export const PAGE_COPY_REGIONS: Readonly<Record<string, readonly CopyRegionDefin
     { id: 'ice-reunification-steps', label: 'What Happens Next' },
     { id: 'ice-reunification-privacy', label: 'Reunification Privacy Boundary' },
   ],
-  '/ice-alerts/web-reports': [
-    { id: 'ice-web-reports-intro', label: 'Web Reports Header' },
-  ],
+  '/ice-alerts/web-reports': [{ id: 'ice-web-reports-intro', label: 'Web Reports Header' }],
   '/ice-alerts/data': [{ id: 'ice-data-intro', label: 'Open Data Header' }],
   '/ice-alerts': [
     { id: 'ice-rapid-web-reports-intro', label: 'Web Reports Feature' },

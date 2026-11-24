@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true,
+    "strict": false,
+    "noImplicitAny": false,
+    "incremental": false,
+    "types": ["bun-types", "node"]
+  },
+  "include": ["scripts/hooks/**/*.mjs"],
+  "exclude": ["node_modules", "supabase"]
+}

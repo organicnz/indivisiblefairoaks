@@ -19,13 +19,7 @@ import type { FormEvent, RefObject } from 'react';
 import { Button } from '@/components/ui/Button';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { formatNumber } from './data';
-import type {
-  PublicCase,
-  RapidAlert,
-  RapidFeedRequestState,
-  RapidFeedSource,
-  RapidMapPoint,
-} from './rapid-types';
+import { RapidCityWatch } from './RapidCityWatch';
 import {
   formatRelativeTime,
   formatUpdateTime,
@@ -33,16 +27,16 @@ import {
   KIND_LABELS,
   STATUS_LABELS,
 } from './rapid-alert-utils';
-import { rapidMapHelpText } from './use-rapid-map';
-import { RapidCityWatch } from './RapidCityWatch';
 import { communityMemo } from './rapid-community-memo';
 import type {
-  CityPoint,
-  LocationSearchState,
-  MapView,
-  UserLocation,
-  UserLocationStatus,
-} from './types';
+  PublicCase,
+  RapidAlert,
+  RapidFeedRequestState,
+  RapidFeedSource,
+  RapidMapPoint,
+} from './rapid-types';
+import type { LocationSearchState, MapView, UserLocation, UserLocationStatus } from './types';
+import { rapidMapHelpText } from './use-rapid-map';
 
 type RapidMapPanelProps = {
   mapContainerRef: RefObject<HTMLDivElement | null>;
@@ -60,7 +54,9 @@ type RapidMapPanelProps = {
   selectedAlert: RapidAlert | null;
   cityAlerts: RapidAlert[];
   cityPublicCases: PublicCase[];
-  historicalCity: CityPoint | null;
+  historicalCityCount: number | null;
+  historicalReady: boolean;
+  historicalStatus: 'idle' | 'loading' | 'error';
   onClearSelected: () => void;
   onZoom: (direction: 'in' | 'out') => void;
   onReset: () => void;
@@ -99,7 +95,9 @@ export function RapidMapPanel({
   selectedAlert,
   cityAlerts,
   cityPublicCases,
-  historicalCity,
+  historicalCityCount,
+  historicalReady,
+  historicalStatus,
   onClearSelected,
   onZoom,
   onReset,
@@ -115,8 +113,7 @@ export function RapidMapPanel({
   showHistorical,
   onToggleHistorical,
 }: RapidMapPanelProps) {
-  const isLocating =
-    userLocationStatus === 'checking' || userLocationStatus === 'locating';
+  const isLocating = userLocationStatus === 'checking' || userLocationStatus === 'locating';
   const cityCount = points.length;
   const selectedActive = selectedAlert ? isAlertActive(selectedAlert, now) : false;
   const feedLoading = requestStatus === 'loading' && !community;
@@ -152,10 +149,7 @@ export function RapidMapPanel({
           : 'bg-accent';
 
   return (
-    <div
-      id="ice-rapid-map-panel"
-      className="min-w-0 scroll-mt-28"
-    >
+    <div id="ice-rapid-map-panel" className="min-w-0 scroll-mt-28">
       <div className="overflow-hidden border border-border bg-surface-card">
         <div className="border-b border-border p-3 sm:p-3.5">
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -182,10 +176,7 @@ export function RapidMapPanel({
               <span
                 className={`inline-flex items-center gap-1.5 border px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-[0.11em] ${feedStatusClass}`}
               >
-                <span
-                  className={`size-1.5 rounded-full ${feedDotClass}`}
-                  aria-hidden="true"
-                />
+                <span className={`size-1.5 rounded-full ${feedDotClass}`} aria-hidden="true" />
                 {feedStatusLabel}
               </span>
               <p className="font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
@@ -294,11 +285,11 @@ export function RapidMapPanel({
           />
           <p id="ice-rapid-map-help" className="sr-only">
             {rapidMapHelpText(filteredCount, cityCount, publicCaseCount)} Use the plus and minus
-            buttons to zoom, U.S. overview to reset, and Near me to center on your approximate
-            area. Pins are keyboard accessible; select a pin for an on-map popup and the detail
-            panel below. Published community cases open their Supabase-backed popup. FOIA city
-            points open their historical total. Show radius in Local watch draws a dashed distance
-            guide; it is not a boundary or a verification zone.
+            buttons to zoom, U.S. overview to reset, and Near me to center on your approximate area.
+            Pins are keyboard accessible; select a pin for an on-map popup and the detail panel
+            below. Published community cases open their Supabase-backed popup. FOIA city points open
+            their historical total. Show radius in Local watch draws a dashed distance guide; it is
+            not a boundary or a verification zone.
           </p>
 
           <div className="pointer-events-none absolute inset-0 z-[900]">
@@ -343,7 +334,11 @@ export function RapidMapPanel({
               </span>
               {showHistorical ? (
                 <span className="inline-flex items-center gap-1.5 border border-border bg-background/95 px-2.5 py-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.09em] text-muted-foreground">
-                  FOIA city totals on
+                  {historicalReady
+                    ? 'FOIA city totals on'
+                    : historicalStatus === 'error'
+                      ? 'FOIA totals unavailable'
+                      : 'Loading FOIA totals'}
                 </span>
               ) : null}
             </div>
@@ -469,25 +464,37 @@ export function RapidMapPanel({
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border bg-surface-muted px-4 py-2.5 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-muted-foreground sm:px-5">
           <span className="inline-flex items-center gap-1.5">
-            <span className="size-2 rounded-full border border-accent bg-accent/25 ice-live-dot" aria-hidden="true" />
+            <span
+              className="size-2 rounded-full border border-accent bg-accent/25 ice-live-dot"
+              aria-hidden="true"
+            />
             <DataPoint as="span" name="ice.map.legend.active">
               Active &lt;4h
             </DataPoint>
           </span>
           <span className="inline-flex items-center gap-1.5">
-            <span className="size-2 rounded-full border border-accent bg-accent" aria-hidden="true" />
+            <span
+              className="size-2 rounded-full border border-accent bg-accent"
+              aria-hidden="true"
+            />
             <DataPoint as="span" name="ice.map.legend.source_confirmed">
               Source-confirmed
             </DataPoint>
           </span>
           <span className="inline-flex items-center gap-1.5">
-            <span className="size-2 rounded-full border border-accent-gold bg-accent-gold" aria-hidden="true" />
+            <span
+              className="size-2 rounded-full border border-accent-gold bg-accent-gold"
+              aria-hidden="true"
+            />
             <DataPoint as="span" name="ice.map.legend.sighting">
               Sighting
             </DataPoint>
           </span>
           <span className="inline-flex items-center gap-1.5">
-            <span className="size-2 rounded-full border border-border bg-muted-foreground/40" aria-hidden="true" />
+            <span
+              className="size-2 rounded-full border border-border bg-muted-foreground/40"
+              aria-hidden="true"
+            />
             <DataPoint as="span" name="ice.map.legend.earlier">
               Earlier
             </DataPoint>
@@ -495,8 +502,7 @@ export function RapidMapPanel({
           {publicCaseCount > 0 ? (
             <span className="inline-flex items-center gap-1.5">
               <span className="ice-public-case-swatch" aria-hidden="true" />
-              {formatNumber(publicCaseCount)} community{' '}
-              {publicCaseCount === 1 ? 'case' : 'cases'}
+              {formatNumber(publicCaseCount)} community {publicCaseCount === 1 ? 'case' : 'cases'}
             </span>
           ) : null}
           <span className="ml-auto inline-flex items-center gap-1.5 normal-case tracking-normal">
@@ -547,7 +553,7 @@ export function RapidMapPanel({
               </h3>
               <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-muted-foreground">
                 {selectedAlert.source === 'community'
-                  ? communityMemo(selectedAlert)
+                  ? (selectedAlert.description ?? communityMemo(selectedAlert))
                   : selectedAlert.summary}
               </p>
 
@@ -583,15 +589,15 @@ export function RapidMapPanel({
                   persistent note makes the privacy boundary explicit without
                   rendering raw report text that may contain identifying detail. */}
               <p className="mt-3 border-t border-border pt-2.5 text-[10px] leading-relaxed text-muted-foreground">
-                City-level locations only. Street addresses, vehicle plates, and identities are
-                not republished.
+                City-level locations only. Street addresses, vehicle plates, and identities are not
+                republished.
               </p>
 
               <RapidCityWatch
                 alert={selectedAlert}
                 cityAlerts={cityAlerts}
                 publicCases={cityPublicCases}
-                historicalCity={historicalCity}
+                historicalCityCount={historicalCityCount}
                 community={community}
                 feedFromCache={feedFromCache}
                 now={now}

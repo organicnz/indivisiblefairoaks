@@ -102,11 +102,49 @@ jobs:
           mkdir -p "$BIN"
           export PATH="$BIN:$PATH"
           echo "$BIN" >> "$GITHUB_PATH"
-          if ! command -v supabase &>/dev/null || ! supabase --version &>/dev/null; then
-            curl -fsSL "https://github.com/supabase/cli/releases/latest/download/supabase_${SUPA_OS}_${SUPA_ARCH}.tar.gz" \
-              | tar -xz -C "$BIN" supabase
+
+          # One source of truth: scripts/supabase-cli.mjs pins the version used
+          # by `bun x`. Derive it here rather than writing 3.2.0 a second time.
+          SUPABASE_CLI_VERSION="$(
+            grep -oE "supabase@[0-9]+\.[0-9]+\.[0-9]+" scripts/supabase-cli.mjs \
+              | head -n 1 | cut -d@ -f2
+          )"
+          test -n "$SUPABASE_CLI_VERSION" || {
+            echo "::error::Could not read the pinned Supabase CLI version from scripts/supabase-cli.mjs"
+            exit 1
+          }
+
+          TARBALL="supabase_${SUPABASE_CLI_VERSION}_${SUPA_OS}_${SUPA_ARCH}.tar.gz"
+          RELEASE="https://github.com/supabase/cli/releases/download/v${SUPABASE_CLI_VERSION}"
+          TMP="$(mktemp -d)"
+          trap 'rm -rf "$TMP"' EXIT
+          curl -fsSL "$RELEASE/checksums.txt" -o "$TMP/checksums.txt"
+          curl -fsSL "$RELEASE/$TARBALL" -o "$TMP/$TARBALL"
+
+          EXPECTED="$(awk -v f="$TARBALL" '$2 == f { print $1 }' "$TMP/checksums.txt")"
+          test -n "$EXPECTED" || {
+            echo "::error::No published checksum for $TARBALL"
+            exit 1
+          }
+          if command -v sha256sum >/dev/null 2>&1; then
+            ACTUAL="$(sha256sum "$TMP/$TARBALL" | awk '{print $1}')"
+          else
+            ACTUAL="$(shasum -a 256 "$TMP/$TARBALL" | awk '{print $1}')"
           fi
-          supabase --version
+          if [ "$ACTUAL" != "$EXPECTED" ]; then
+            echo "::error::Checksum mismatch for $TARBALL"
+            echo "  expected: $EXPECTED"
+            echo "  actual:   $ACTUAL"
+            exit 1
+          fi
+
+          tar -xzf "$TMP/$TARBALL" -C "$BIN" supabase
+          INSTALLED="$(supabase --version | head -n1 | tr -d '[:space:]')"
+          if [ "$INSTALLED" != "$SUPABASE_CLI_VERSION" ]; then
+            echo "::error::Supabase CLI version mismatch: expected $SUPABASE_CLI_VERSION, got $INSTALLED"
+            exit 1
+          fi
+          echo "Supabase CLI $INSTALLED installed and verified."
 
           {
             echo '#!/usr/bin/env bash'
@@ -331,11 +369,49 @@ jobs:
           mkdir -p "$BIN"
           export PATH="$BIN:$PATH"
           echo "$BIN" >> "$GITHUB_PATH"
-          if ! command -v supabase &>/dev/null || ! supabase --version &>/dev/null; then
-            curl -fsSL "https://github.com/supabase/cli/releases/latest/download/supabase_${SUPA_OS}_${SUPA_ARCH}.tar.gz" \
-              | tar -xz -C "$BIN" supabase
+
+          # One source of truth: scripts/supabase-cli.mjs pins the version used
+          # by `bun x`. Derive it here rather than writing 3.2.0 a second time.
+          SUPABASE_CLI_VERSION="$(
+            grep -oE "supabase@[0-9]+\.[0-9]+\.[0-9]+" scripts/supabase-cli.mjs \
+              | head -n 1 | cut -d@ -f2
+          )"
+          test -n "$SUPABASE_CLI_VERSION" || {
+            echo "::error::Could not read the pinned Supabase CLI version from scripts/supabase-cli.mjs"
+            exit 1
+          }
+
+          TARBALL="supabase_${SUPABASE_CLI_VERSION}_${SUPA_OS}_${SUPA_ARCH}.tar.gz"
+          RELEASE="https://github.com/supabase/cli/releases/download/v${SUPABASE_CLI_VERSION}"
+          TMP="$(mktemp -d)"
+          trap 'rm -rf "$TMP"' EXIT
+          curl -fsSL "$RELEASE/checksums.txt" -o "$TMP/checksums.txt"
+          curl -fsSL "$RELEASE/$TARBALL" -o "$TMP/$TARBALL"
+
+          EXPECTED="$(awk -v f="$TARBALL" '$2 == f { print $1 }' "$TMP/checksums.txt")"
+          test -n "$EXPECTED" || {
+            echo "::error::No published checksum for $TARBALL"
+            exit 1
+          }
+          if command -v sha256sum >/dev/null 2>&1; then
+            ACTUAL="$(sha256sum "$TMP/$TARBALL" | awk '{print $1}')"
+          else
+            ACTUAL="$(shasum -a 256 "$TMP/$TARBALL" | awk '{print $1}')"
           fi
-          supabase --version
+          if [ "$ACTUAL" != "$EXPECTED" ]; then
+            echo "::error::Checksum mismatch for $TARBALL"
+            echo "  expected: $EXPECTED"
+            echo "  actual:   $ACTUAL"
+            exit 1
+          fi
+
+          tar -xzf "$TMP/$TARBALL" -C "$BIN" supabase
+          INSTALLED="$(supabase --version | head -n1 | tr -d '[:space:]')"
+          if [ "$INSTALLED" != "$SUPABASE_CLI_VERSION" ]; then
+            echo "::error::Supabase CLI version mismatch: expected $SUPABASE_CLI_VERSION, got $INSTALLED"
+            exit 1
+          fi
+          echo "Supabase CLI $INSTALLED installed and verified."
 
       - name: Select DB route (diagnostic)
         # The direct DB host is IPv6-only (no A record). If the runner has

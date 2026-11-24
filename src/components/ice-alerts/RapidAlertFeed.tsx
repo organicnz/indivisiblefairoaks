@@ -13,14 +13,8 @@ import {
   SearchX,
   ShieldCheck,
 } from 'lucide-react';
-import { useRef, useState, type KeyboardEvent } from 'react';
+import { type KeyboardEvent, useRef, useState } from 'react';
 import { DataPoint } from '@/components/ui/DataPoint';
-import type {
-  OfficialRelease,
-  RapidAlert,
-  RapidFeedRequestState,
-  RapidFeedSource,
-} from './rapid-types';
 import {
   formatRelativeTime,
   formatShortDate,
@@ -29,6 +23,12 @@ import {
   STATUS_LABELS,
 } from './rapid-alert-utils';
 import { communityMemo } from './rapid-community-memo';
+import type {
+  OfficialRelease,
+  RapidAlert,
+  RapidFeedRequestState,
+  RapidFeedSource,
+} from './rapid-types';
 
 type RapidAlertFeedProps = {
   alerts: RapidAlert[];
@@ -135,7 +135,7 @@ function CommunityCard({
         </span>
 
         <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">
-          {communityMemo(alert)}
+          {alert.description ?? communityMemo(alert)}
         </span>
 
         <span className="mt-2 flex items-center gap-1.5 font-mono text-[8px] font-bold uppercase tracking-[0.09em] text-muted-foreground">
@@ -257,8 +257,7 @@ export function RapidAlertFeed({
         ? 0
         : key === 'End'
           ? FEED_TABS.length - 1
-          : (currentIndex + (key === 'ArrowRight' ? 1 : -1) + FEED_TABS.length) %
-            FEED_TABS.length;
+          : (currentIndex + (key === 'ArrowRight' ? 1 : -1) + FEED_TABS.length) % FEED_TABS.length;
     const nextTab = FEED_TABS[nextIndex];
     if (!nextTab) return;
 
@@ -387,8 +386,7 @@ export function RapidAlertFeed({
           >
             <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-accent" aria-hidden="true" />
             <span>
-              Live refresh failed{status === 'error' ? '' : '; showing the last successful feed'}.
-              {' '}
+              Live refresh failed{status === 'error' ? '' : '; showing the last successful feed'}.{' '}
               {error}
             </span>
           </div>
@@ -456,8 +454,7 @@ export function RapidAlertFeed({
               name="ice.feed.empty.community.body"
               className="mx-auto mt-1.5 max-w-xs text-xs leading-relaxed text-muted-foreground"
             >
-              Try a different state, time window, status, or search. The map uses the same
-              filters.
+              Try a different state, time window, status, or search. The map uses the same filters.
             </DataPoint>
             {hasFilters ? (
               <button
@@ -524,9 +521,7 @@ export function RapidAlertFeed({
             </button>
           </div>
         ) : (
-          officialReleases.map((release) => (
-            <OfficialCard key={release.id} release={release} />
-          ))
+          officialReleases.map((release) => <OfficialCard key={release.id} release={release} />)
         )}
       </div>
 
@@ -538,8 +533,8 @@ export function RapidAlertFeed({
         <DataPoint as="span" name="ice.feed.footer">
           This page checks for a new public export every 2 minutes; the community source compiles
           its export nightly. Source links open the original network, which may show more detail,
-          including any community comments or updates. Official releases are summarized by topic
-          so names and case details are not reproduced; open the release for the agency&apos;s full
+          including any community comments or updates. Official releases are summarized by topic so
+          names and case details are not reproduced; open the release for the agency&apos;s full
           text. They are not live enforcement locations. Source-confirmed means the reporting
           network&apos;s label, not independent verification by this page.
         </DataPoint>

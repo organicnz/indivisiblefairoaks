@@ -13,11 +13,6 @@ import { createAdminClient, createServerClient } from '@/lib/supabase-server';
 // Deliberate Cache Components opt-out (Block): per-user auth + MFA state, entire surface is request-time.
 export const instant = false;
 
-export const metadata = {
-  title: 'Account — Indivisible Fair Oaks-Carmichael',
-  robots: { index: false, follow: false },
-};
-
 /** The real tabs. Used to bound what the MFA gate reflects back as `?next=`. */
 const ALLOWED_TABS = new Set(['settings']);
 

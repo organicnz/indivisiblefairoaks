@@ -44,8 +44,7 @@ for (const file of files) {
   // form it actually found — the two have different fixes.
   const varRegex = /(process\.env|Bun\.env)\.([A-Z_][A-Z0-9_]*)/g;
   const vars = new Map();
-  let match;
-  while ((match = varRegex.exec(content)) !== null) {
+  for (let match = varRegex.exec(content); match !== null; match = varRegex.exec(content)) {
     vars.set(match[2], match[1]);
   }
 

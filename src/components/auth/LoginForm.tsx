@@ -1,12 +1,13 @@
 'use client';
 
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { ArrowRight, Eye, EyeOff, Fingerprint, Loader2, Lock, Shield } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { useDataPoints } from '@/hooks/useDataPoints';
 import { getSafeNextPath } from '@/lib/safe-redirect';
-import { createClient } from '@/lib/supabase';
+import { hasSupabaseAuthCookie } from '@/lib/supabase-auth-cookie';
 
 export function LoginForm() {
   const { dataPoints } = useDataPoints('login');
@@ -22,10 +23,20 @@ export function LoginForm() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  const supabase = useMemo(
-    () => (typeof window !== 'undefined' ? createClient() : null),
-    []
-  );
+  const supabaseRef = useRef<Promise<SupabaseClient> | null>(null);
+  const getSupabase = useCallback(() => {
+    if (!supabaseRef.current) {
+      supabaseRef.current = import('@/lib/supabase')
+        .then(({ createClient }) => createClient())
+        .catch((error: unknown) => {
+          // Do not cache a failed chunk load; a later attempt should be able
+          // to fetch and initialize the client again.
+          supabaseRef.current = null;
+          throw error;
+        });
+    }
+    return supabaseRef.current;
+  }, []);
   const router = useRouter();
 
   // Check URL error parameters on mount
@@ -49,19 +60,49 @@ export function LoginForm() {
     }
   }, [searchParams]);
 
-  // If already authenticated, redirect to destination
+  // If already authenticated, redirect to destination. Visitors who are not
+  // signed in do not load the auth SDK just to render the form; when a session
+  // cookie exists, defer it until the page is interactive.
   useEffect(() => {
-    if (!supabase) return;
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        router.push(targetNext || '/account');
-      }
-    });
-  }, [supabase, router, targetNext]);
+    if (!hasSupabaseAuthCookie()) return;
+
+    let cancelled = false;
+    let idleHandle: number | undefined;
+    let timeoutHandle: number | undefined;
+
+    const checkSession = () => {
+      void getSupabase()
+        .then((supabase) => supabase.auth.getSession())
+        .then(({ data: { session } }) => {
+          if (!cancelled && session) router.push(targetNext || '/account');
+        })
+        .catch(() => {
+          // The form still works; a failed preflight should not block sign-in.
+        });
+    };
+
+    if (typeof window.requestIdleCallback === 'function') {
+      idleHandle = window.requestIdleCallback(checkSession, { timeout: 2500 });
+    } else {
+      timeoutHandle = window.setTimeout(checkSession, 1500);
+    }
+
+    return () => {
+      cancelled = true;
+      if (idleHandle !== undefined) window.cancelIdleCallback(idleHandle);
+      if (timeoutHandle !== undefined) window.clearTimeout(timeoutHandle);
+    };
+  }, [getSupabase, router, targetNext]);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!supabase) return;
+
+    // Validate locally before loading the auth SDK.
+    if (authMethod === 'password' && isSignUp && password.length < 8) {
+      setMessage({ type: 'error', text: '❌ Password must be at least 8 characters.' });
+      return;
+    }
+
     setLoading(true);
     setMessage(null);
 
@@ -70,6 +111,8 @@ export function LoginForm() {
       : `${window.location.origin}/auth/callback`;
 
     try {
+      const supabase = await getSupabase();
+
       if (authMethod === 'otp') {
         const { error } = await supabase.auth.signInWithOtp({
           email,
@@ -82,37 +125,30 @@ export function LoginForm() {
           type: 'success',
           text: `✅ A secure sign-in link has been sent to ${email}. Click the button in your email to authenticate.`,
         });
+      } else if (isSignUp) {
+        // Match the reset flow's 8-char minimum for new passwords.
+        // Sign-in is deliberately unchecked: existing short passwords
+        // must keep working.
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: callbackUrl,
+          },
+        });
+        if (error) throw error;
+        setMessage({
+          type: 'success',
+          text: '✅ Account created! Please check your email to verify.',
+        });
       } else {
-        if (isSignUp) {
-          // Match the reset flow's 8-char minimum for new passwords.
-          // Sign-in is deliberately unchecked: existing short passwords
-          // must keep working.
-          if (password.length < 8) {
-            setMessage({ type: 'error', text: '❌ Password must be at least 8 characters.' });
-            setLoading(false);
-            return;
-          }
-          const { error } = await supabase.auth.signUp({
-            email,
-            password,
-            options: {
-              emailRedirectTo: callbackUrl,
-            },
-          });
-          if (error) throw error;
-          setMessage({
-            type: 'success',
-            text: '✅ Account created! Please check your email to verify.',
-          });
-        } else {
-          const { error } = await supabase.auth.signInWithPassword({
-            email,
-            password,
-          });
-          if (error) throw error;
-          router.push(targetNext || '/account');
-          router.refresh();
-        }
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        if (error) throw error;
+        router.push(targetNext || '/account');
+        router.refresh();
       }
     } catch (error: unknown) {
       if (error instanceof Error) {
@@ -138,19 +174,26 @@ export function LoginForm() {
       setMessage({ type: 'error', text: '❌ Please enter your email address first.' });
       return;
     }
-    if (!supabase) return;
-
     setLoading(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/callback?next=/account/update-password`,
-    });
+    try {
+      const supabase = await getSupabase();
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/callback?next=/account/update-password`,
+      });
 
-    if (error) {
-      setMessage({ type: 'error', text: `❌ ${error.message}` });
-    } else {
-      setMessage({ type: 'success', text: '✅ Password reset link sent to your email.' });
+      if (error) {
+        setMessage({ type: 'error', text: `❌ ${error.message}` });
+      } else {
+        setMessage({ type: 'success', text: '✅ Password reset link sent to your email.' });
+      }
+    } catch (error) {
+      setMessage({
+        type: 'error',
+        text: `❌ ${error instanceof Error ? error.message : 'An unknown error occurred.'}`,
+      });
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (

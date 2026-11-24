@@ -71,12 +71,12 @@ export const VARS = {
     required: false,
     example: 'phc_…',
     note:
-      'PostHog session replay. Public by construction — the client SDK ships it ' +
+      'PostHog event analytics. Public by construction — the client SDK ships it ' +
       'in the bundle — so a var, never a secret. Absent, src/lib/posthog.ts never ' +
-      'imports the SDK: local dev, CI and the e2e bundle file no replays, which ' +
-      'is the same switch shape NEXT_PUBLIC_SENTRY_DSN uses. A key alone does not ' +
-      'start a recording; recording is consent-gated and excluded on /admin, ' +
-      '/account, /auth, /login and /success. Setting this also widens the CSP to ' +
+      'imports the SDK: local dev, CI and the e2e bundle file no events, which ' +
+      'is the same switch shape NEXT_PUBLIC_SENTRY_DSN uses. Vercel Analytics ' +
+      'owns pageviews; PostHog is used for named journey events, and session ' +
+      'replay is not enabled. Setting this also widens the CSP to ' +
       'https://*.posthog.com (see next.config.ts).',
   },
   RESEND_FROM_EMAIL: {

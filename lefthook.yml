@@ -214,14 +214,14 @@ pre-commit:
     # ── 24. Biome – format + lint staged files ────────────────────────────────
     biome-check:
       priority: 21
-      glob: "*.{js,jsx,ts,tsx,json,css}"
+      glob: "*.{js,jsx,mjs,cjs,ts,tsx,json,css}"
       run: bun --bun biome check --write --no-errors-on-unmatched --files-ignore-unknown=true {staged_files}
       stage_fixed: true
 
     # ── 25. oxlint – React / hooks / Next.js rules ────────────────────────────
     oxlint:
       priority: 22
-      glob: "*.{ts,tsx}"
+      glob: "*.{js,jsx,mjs,cjs,ts,tsx}"
       run: bun --bun oxlint {staged_files}
 
     # ── 26. TypeScript – type-check without full build ────────────────────────
@@ -235,6 +235,18 @@ pre-commit:
       priority: 23
       glob: "*.{ts,tsx}"
       run: bun --bun tsrs --noEmit
+
+    # ── 26b. Hooks type-check (checkJs, hooks only) ──────────────────────────
+    # `scripts/hooks/*.mjs` are outside the root tsconfig's include (which is
+    # limited to ts/tsx/mts), so the TypeScript gate above never sees them.
+    # `tsconfig.hooks.json` is the deliberately narrow program: checkJs on the
+    # hooks only, without turning checkJs on for all 115 scripts.
+    typecheck-hooks:
+      priority: 23
+      glob:
+        - "scripts/*.mjs"
+        - "scripts/**/*.mjs"
+      run: bun run typecheck:hooks
 
     # ── 27. E2E spec list check (no browsers) ────────────────────────────────
     # Body: scripts/hooks/e2e-spec-list.mjs
@@ -408,7 +420,7 @@ pre-commit:
       priority: 31
       run: bun scripts/hooks/vitest-environment.mjs
 
-    # ── 35. Migration ↔ generated types (advisory) ──────────────────────────
+    # ── 35. Migration ↔ generated types (blocking) ──────────────────────────
     # Body: scripts/check-migration-types.mjs
     #
     # The live freshness check needs SUPABASE_ACCESS_TOKEN and network access,
@@ -418,8 +430,9 @@ pre-commit:
     # explicit UNTYPED_TABLES list from scripts/schema-tables.mjs. No token, no
     # network and no install.
     #
-    # Advisory while the existing drift is cleared: findings are printed and
-    # annotated, but the hook exits 0. Remove --advisory to make it blocking.
+    # Known drift is pinned in scripts/migration-types-baseline.json: baselined
+    # findings are reported but do not fail, new findings do, and an entry that
+    # stops applying fails until it is removed. Advisory mode is not used here.
     migration-types:
       priority: 32
       glob:
@@ -428,7 +441,34 @@ pre-commit:
         - "scripts/schema-tables.mjs"
         - "scripts/check-migration-types.mjs"
         - "scripts/gen-types.mjs"
-      run: bun scripts/check-migration-types.mjs --advisory
+      run: bun scripts/check-migration-types.mjs
+
+    # ── 36. Audit coverage ────────────────────────────────────────────────────
+    # Body: scripts/check-audit-coverage.mjs
+    #
+    # Every write-capable server file under src/app/api or src/lib/actions must
+    # call recordAdminAudit/recordCRMAudit or be listed with a reason. Existing
+    # gaps are a baseline, and the guard fails if an exemption stops being true,
+    # so the list can only shrink. Token-free, so it runs on every commit.
+    audit-coverage:
+      priority: 33
+      glob:
+        - "src/app/api/**/*.ts"
+        - "src/lib/actions/*.ts"
+        - "src/lib/actions/**/*.ts"
+        - "scripts/check-audit-coverage.mjs"
+      run: bun scripts/check-audit-coverage.mjs
+
+    # ── 37. Supabase CLI pin is single-sourced ───────────────────────────────
+    # Body: scripts/check-supabase-cli-pin.mjs
+    #
+    # Both the workflow and the type/migration scripts use SUPABASE_CLI from
+    # scripts/supabase-cli.mjs. A second package pin in any executable or
+    # configuration file would drift independently, so this scans the whole
+    # tree rather than only the file that happened to change.
+    supabase-cli-pin:
+      priority: 34
+      run: bun scripts/check-supabase-cli-pin.mjs
 
 # ─── commit-msg ───────────────────────────────────────────────────────────────
 commit-msg:
@@ -619,7 +659,7 @@ pre-push:
 
     typecheck:
       priority: 34
-      run: bun --bun tsrs --noEmit
+      run: bun run typecheck && bun run typecheck:hooks
 
     # ── 7. Build smoke-test ───────────────────────────────────────────────────
     # Coverage thresholds are enforced in CI (`.github/workflows/ci.yml`).

@@ -33,11 +33,13 @@ describe('SacramentoRepresentativeFinder', () => {
     expect(container.textContent).toContain('5 Calls App');
     expect(container.textContent).toContain('Rep. Ami Bera, M.D.');
     expect(container.textContent).toContain('Sen. Alex Padilla');
-    expect(container.textContent).toContain('Sen. Laphonza Butler');
+    expect(container.textContent).toContain('Sen. Adam Schiff');
     expect(container.textContent).toContain('Asm. Josh Hoover');
     expect(container.textContent).toContain('Supervisor Rich Desmond');
 
-    const fiveCallsLink = container.querySelector<HTMLAnchorElement>('a[href="https://5calls.org"]');
+    const fiveCallsLink = container.querySelector<HTMLAnchorElement>(
+      'a[href="https://5calls.org"]'
+    );
     expect(fiveCallsLink).not.toBeNull();
     expect(fiveCallsLink?.target).toBe('_blank');
     expect(fiveCallsLink?.rel).toContain('noopener');
@@ -46,18 +48,21 @@ describe('SacramentoRepresentativeFinder', () => {
     expect(phoneLink).not.toBeNull();
   });
 
-async function searchZip(container: HTMLElement, zip: string) {
-  const form = container.querySelector('form');
-  const input = container.querySelector<HTMLInputElement>('#repfinder-zip');
-  if (!form || !input) throw new Error('Zip form or input not found');
-  await act(async () => {
-    Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set?.call(input, zip);
-    input.dispatchEvent(new Event('input', { bubbles: true }));
-  });
-  await act(async () => {
-    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-  });
-}
+  async function searchZip(container: HTMLElement, zip: string) {
+    const form = container.querySelector('form');
+    const input = container.querySelector<HTMLInputElement>('#repfinder-zip');
+    if (!form || !input) throw new Error('Zip form or input not found');
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set?.call(
+        input,
+        zip
+      );
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => {
+      form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    });
+  }
 
   it('searches for Carmichael (95608) and updates district', async () => {
     await act(async () => {

@@ -1,14 +1,10 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { env } from '@/lib/env';
 import {
   canonicalizeDiscoveryUrl,
   dedupeDiscoveryCandidates,
   discoveryStoryKey,
 } from '@/lib/ice-crawl-discovery';
-import { env } from '@/lib/env';
-import {
-  normalizeIceSourceReportQuery,
-  type IceSourceReportFilters,
-} from '@/lib/ice-source-report-search';
 import type {
   IceCrawlDiscovery,
   IceCrawlDiscoveryStatus,
@@ -18,6 +14,10 @@ import type {
   IceSourceReport,
   IceSourceReportKind,
 } from '@/lib/ice-crawl-types';
+import {
+  type IceSourceReportFilters,
+  normalizeIceSourceReportQuery,
+} from '@/lib/ice-source-report-search';
 
 export type IceCrawlPageRow = {
   id: string;
@@ -416,10 +416,7 @@ export async function upsertIceCrawlPage(
 ) {
   const { data, error } = await store
     .from('ice_crawl_pages')
-    .upsert(
-      { ...page, source_id: sourceId },
-      { onConflict: 'source_id,url' }
-    )
+    .upsert({ ...page, source_id: sourceId }, { onConflict: 'source_id,url' })
     .select('*')
     .single();
   if (error) throw new Error(`crawl page upsert failed: ${error.message}`);
@@ -438,10 +435,7 @@ export async function updateIceCrawlPageReportCount(
   if (error) throw new Error(`crawl page update failed: ${error.message}`);
 }
 
-export async function insertIceSourceReports(
-  store: IceCrawlStore,
-  rows: IceSourceReportInput[]
-) {
+export async function insertIceSourceReports(store: IceCrawlStore, rows: IceSourceReportInput[]) {
   const unique = new Map<string, IceSourceReportInput>();
   for (const row of rows) {
     if (row.dedupe_key && !unique.has(row.dedupe_key)) unique.set(row.dedupe_key, row);
@@ -541,7 +535,11 @@ export async function getPublishedSourceReportCount(
 ) {
   let query = store
     .from('ice_source_reports')
-    .select('id', { count: 'exact', head: true });
+    .select('id', { count: 'exact', head: true })
+    // The store uses the service-role key, so PostgREST does not apply the
+    // anon RLS policy that hides future-dated rows. Every public read must
+    // repeat that predicate or a scheduled report becomes visible early.
+    .lte('published_at', new Date().toISOString());
 
   if (filters?.kind && filters.kind !== 'all') {
     query = query.eq('kind', filters.kind);
@@ -587,6 +585,7 @@ export async function getPublishedSourceReportCitySummary(
       .select(
         'id, title, source_name, source_url, source_published_at, source_retrieved_at, kind, extraction_method, published_at, city, state_code'
       )
+      .lte('published_at', new Date().toISOString())
       .eq('state_code', stateCode)
       .ilike('city', city)
       .order('published_at', { ascending: false })
@@ -666,6 +665,7 @@ export async function getPublishedSourceReports(
   let query = store
     .from('ice_source_reports')
     .select('*')
+    .lte('published_at', new Date().toISOString())
     .order('published_at', { ascending: false });
 
   if (filters?.kind && filters.kind !== 'all') {

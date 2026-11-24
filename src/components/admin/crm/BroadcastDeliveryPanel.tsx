@@ -23,6 +23,7 @@ const KNOWN_TYPE_ORDER = [
   'complained',
   'suppressed',
   'delivery_delayed',
+  'delivered',
   'opened',
   'clicked',
 ];
@@ -45,7 +46,8 @@ function typePillClass(type: string): string {
   if (type === 'bounced' || type === 'complained' || type === 'failed')
     return 'bg-rose-100 text-rose-800';
   if (type === 'suppressed' || type === 'delivery_delayed') return 'bg-amber-100 text-amber-900';
-  if (type === 'opened' || type === 'clicked') return 'bg-emerald-100 text-emerald-800';
+  if (type === 'opened' || type === 'clicked' || type === 'delivered')
+    return 'bg-emerald-100 text-emerald-800';
   if (type === 'pending') return 'bg-blue-100 text-blue-800';
   return 'bg-surface-muted text-muted-foreground';
 }
@@ -240,7 +242,8 @@ export function BroadcastDeliveryPanel({
         </p>
       ) : events.length === 0 ? (
         <p className="text-[11px] font-bold text-muted-foreground">
-          No delivery events yet — bounces, complaints, opens and clicks land here after sending.
+          No delivery events yet — deliveries, bounces, complaints, opens and clicks land here after
+          sending.
         </p>
       ) : (
         <section aria-label="Delivery events" className="space-y-2">

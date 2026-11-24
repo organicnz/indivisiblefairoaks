@@ -4,6 +4,7 @@ import {
   type AdminAuditOutcome,
   type AdminAuditTargetType,
 } from '@/lib/admin-audit';
+import { parseAdminAuditBulkEvidence } from '@/lib/admin-audit-bulk-evidence';
 
 /**
  * Read-only access to the append-only admin audit log.
@@ -15,6 +16,7 @@ import {
  */
 
 export const ADMIN_AUDIT_PAGE_SIZE = 50;
+export const ADMIN_AUDIT_CONTACT_BULK_PAGE_SIZE = 10;
 export const ADMIN_AUDIT_EXPORT_BATCH_SIZE = 1_000;
 export const ADMIN_AUDIT_MAX_EXPORT_ROWS = 20_000;
 
@@ -34,6 +36,9 @@ export const ADMIN_AUDIT_ACTION_LABELS: Record<AdminAuditAction, string> = {
   'admin.audit.export': 'Audit log exported',
   'coalition_link.save': 'Coalition link saved',
   'coalition_link.delete': 'Coalition link deleted',
+  'crm.contact.create': 'Contact created',
+  'crm.contact.update': 'Contact updated',
+  'crm.contact.consent': 'Contact consent changed',
   'crm.contact.delete': 'Contact deleted',
   'crm.contact.bulk_delete': 'Bulk contacts deleted',
   'crm.contact.bulk_update': 'Bulk contacts updated',
@@ -41,8 +46,14 @@ export const ADMIN_AUDIT_ACTION_LABELS: Record<AdminAuditAction, string> = {
   'crm.contacts.export': 'Contacts exported',
   'crm.contacts.import': 'Contacts imported',
   'crm.direct_email.send': 'Direct email sent',
+  'crm.note.create': 'Note added',
+  'crm.note.update': 'Note updated',
+  'crm.note.delete': 'Note deleted',
   'crm.broadcast.send': 'Broadcast sent',
   'crm.broadcast.self_test': 'Broadcast self-test',
+  'crm.broadcast.draft_save': 'Broadcast draft saved',
+  'crm.broadcast.draft_delete': 'Broadcast draft deleted',
+  'crm.broadcast.mark_failed': 'Broadcast marked failed',
   'crm.segment.save': 'Segment saved',
   'crm.segment.delete': 'Segment deleted',
   'crm.task.create': 'Follow-up created',
@@ -124,6 +135,8 @@ export interface AdminAuditFilters {
   to: string;
   targetType: AdminAuditTargetType | '';
   target: string;
+  /** A contact UUID selected by a bulk operation, matched in metadata.requested_ids. */
+  contact: string;
 }
 
 export const EMPTY_ADMIN_AUDIT_FILTERS: AdminAuditFilters = {
@@ -134,6 +147,7 @@ export const EMPTY_ADMIN_AUDIT_FILTERS: AdminAuditFilters = {
   to: '',
   targetType: '',
   target: '',
+  contact: '',
 };
 
 export interface AdminAuditListRow {
@@ -161,6 +175,11 @@ export interface AdminAuditPage {
   totalCount: number;
 }
 
+export interface AdminAuditContactBulkPage {
+  rows: AdminAuditOperation[];
+  totalCount: number;
+}
+
 interface AuditResponse {
   data: unknown;
   error: { message: string } | null;
@@ -172,6 +191,7 @@ interface AuditQuery extends PromiseLike<AuditResponse> {
   eq(column: string, value: unknown): AuditQuery;
   ilike(column: string, pattern: string): AuditQuery;
   or(expression: string): AuditQuery;
+  contains(column: string, value: unknown): AuditQuery;
   gte(column: string, value: string): AuditQuery;
   lte(column: string, value: string): AuditQuery;
   order(column: string, options?: { ascending?: boolean; nullsFirst?: boolean }): AuditQuery;
@@ -242,6 +262,7 @@ export function parseAdminAuditFilters(
   const to = first(params.to).trim();
   const targetType = first(params.targetType).trim();
   const target = first(params.target).trim().slice(0, 200);
+  const contact = first(params.contact).trim().slice(0, 64);
 
   return {
     actor,
@@ -251,6 +272,7 @@ export function parseAdminAuditFilters(
     to: isValidDateInput(to) ? to : '',
     targetType: isTargetType(targetType) ? targetType : '',
     target,
+    contact,
   };
 }
 
@@ -267,7 +289,8 @@ export function hasAdminAuditFilters(filters: AdminAuditFilters): boolean {
       filters.from ||
       filters.to ||
       filters.targetType ||
-      filters.target
+      filters.target ||
+      filters.contact
   );
 }
 
@@ -315,6 +338,16 @@ function applyAdminAuditFilters(query: AuditQuery, filters: AdminAuditFilters): 
     }
   }
 
+  if (filters.contact) {
+    // Bulk operations record every selected id before the write, including ids
+    // that were missing or unchanged. Matching requested_ids is what makes the
+    // history complete; affected_ids would hide those attempts. Postgres
+    // normalizes UUID columns but not UUID strings inside JSONB, so match the
+    // lowercase form the audit writer stored.
+    const contact = isUuid(filters.contact) ? filters.contact.toLowerCase() : filters.contact;
+    next = next.contains('metadata', { requested_ids: [contact] });
+  }
+
   return next;
 }
 
@@ -331,11 +364,43 @@ export async function getAdminAuditPage(
   );
   const { data, error, count } = await query
     .order('created_at', { ascending: false })
+    .order('id', { ascending: false })
     .range(offset, offset + ADMIN_AUDIT_PAGE_SIZE - 1);
 
   if (error) throw new AdminAuditReadError('load the audit log', error);
 
   const rows = (data as AdminAuditListRow[] | null) ?? [];
+  return { rows, totalCount: count ?? rows.length };
+}
+
+/** Bulk updates that selected this contact, newest first. */
+export async function getAdminAuditContactBulkChanges(
+  adminClient: unknown,
+  contactId: string,
+  page: number
+): Promise<AdminAuditContactBulkPage> {
+  const contact = contactId.trim();
+  if (!contact) return { rows: [], totalCount: 0 };
+  const scopedContact = isUuid(contact) ? contact.toLowerCase() : contact;
+
+  const offset = (Math.max(1, page) - 1) * ADMIN_AUDIT_CONTACT_BULK_PAGE_SIZE;
+  const db = asDatabase(adminClient);
+  const query = applyAdminAuditFilters(
+    db.from(ADMIN_AUDIT_TABLE).select(EXPORT_COLUMNS, { count: 'exact' }),
+    {
+      ...EMPTY_ADMIN_AUDIT_FILTERS,
+      action: 'crm.contact.bulk_update',
+      contact: scopedContact,
+    }
+  );
+  const { data, error, count } = await query
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: false })
+    .range(offset, offset + ADMIN_AUDIT_CONTACT_BULK_PAGE_SIZE - 1);
+
+  if (error) throw new AdminAuditReadError('load the contact bulk changes', error);
+
+  const rows = (data as AdminAuditOperation[] | null) ?? [];
   return { rows, totalCount: count ?? rows.length };
 }
 
@@ -370,10 +435,18 @@ async function getAdminAuditCount(
   return count ?? 0;
 }
 
+export interface AdminAuditCsvExport {
+  csv: string;
+  /** Number of operation rows actually serialized into the CSV. */
+  rowCount: number;
+  /** IDs of exactly those rows, in CSV order. */
+  operationIds: string[];
+}
+
 export async function exportAdminAuditCsv(
   adminClient: unknown,
   filters: AdminAuditFilters
-): Promise<string> {
+): Promise<AdminAuditCsvExport> {
   const totalCount = await getAdminAuditCount(adminClient, filters);
   if (totalCount > ADMIN_AUDIT_MAX_EXPORT_ROWS) {
     throw new AdminAuditExportTooLargeError(totalCount);
@@ -389,6 +462,7 @@ export async function exportAdminAuditCsv(
     );
     const { data, error } = await query
       .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
       .range(offset, offset + ADMIN_AUDIT_EXPORT_BATCH_SIZE - 1);
     if (error) throw new AdminAuditReadError('export the audit log', error);
 
@@ -397,7 +471,11 @@ export async function exportAdminAuditCsv(
     if (batch.length < ADMIN_AUDIT_EXPORT_BATCH_SIZE) break;
   }
 
-  return toAdminAuditCsv(rows);
+  return {
+    csv: toAdminAuditCsv(rows),
+    rowCount: rows.length,
+    operationIds: rows.map((row) => row.id),
+  };
 }
 
 function csvValue(value: unknown): string {
@@ -437,13 +515,23 @@ export function toAdminAuditCsv(rows: readonly AdminAuditOperation[]): string {
     'Outcome',
     'Outcome label',
     'Error',
+    // Normalized bulk-operation evidence. Counts and ids are derived from the
+    // same parser as the audit detail, so an export cannot show a different
+    // requested/affected/updated set than the operator reviewed on screen.
+    'Requested count',
+    'Affected count',
+    'Updated count',
+    'Changed fields',
+    'Requested IDs',
+    'Affected IDs',
     'Before',
     'After',
     'Metadata',
   ];
 
-  const lines = rows.map((row) =>
-    [
+  const lines = rows.map((row) => {
+    const bulk = parseAdminAuditBulkEvidence(row);
+    return [
       row.id,
       row.created_at,
       row.actor_user_id,
@@ -458,13 +546,21 @@ export function toAdminAuditCsv(rows: readonly AdminAuditOperation[]): string {
       row.outcome,
       adminAuditOutcomeLabel(row.outcome),
       row.error,
+      bulk?.requested ?? null,
+      bulk?.affected ?? null,
+      // A delete records `deleted_count`; putting that under "Updated count"
+      // would relabel a deletion as an update. The raw metadata still carries it.
+      bulk?.action === 'crm.contact.bulk_update' ? bulk.updated : null,
+      bulk?.changedFields ?? null,
+      bulk?.requestedIds ?? null,
+      bulk?.affectedIds ?? null,
       row.before,
       row.after,
       row.metadata,
     ]
       .map(csvValue)
-      .join(',')
-  );
+      .join(',');
+  });
 
   return `${header.join(',')}\r\n${lines.join('\r\n')}${lines.length > 0 ? '\r\n' : ''}`;
 }
@@ -496,6 +592,7 @@ export function adminAuditHref(path: string, filters: AdminAuditFilters, page?: 
   if (filters.to) params.set('to', filters.to);
   if (filters.targetType) params.set('targetType', filters.targetType);
   if (filters.target) params.set('target', filters.target);
+  if (filters.contact) params.set('contact', filters.contact);
   if (page && page > 1) params.set('page', String(page));
 
   const query = params.toString();

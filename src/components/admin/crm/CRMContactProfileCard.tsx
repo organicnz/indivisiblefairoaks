@@ -91,6 +91,7 @@ export function CRMContactProfileCard({ contact, openTaskCount }: CRMContactProf
       const res = await deleteCRMContact(contact.id);
       if (res.success) {
         toast.success('Constituent deleted');
+        if (res.warning) toast.warning(res.warning);
         // `refresh()` first, so the redirect cannot resolve before this row is
         // gone. The two race otherwise, and the redirect lands on a directory
         // that still lists the row just deleted — which reads as a failed delete.

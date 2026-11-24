@@ -56,7 +56,7 @@ const DOH = [
 ];
 const FETCH_TIMEOUT_MS = 6000;
 
-let findings = [];
+const findings = [];
 const ok = (msg) => console.log(`  OK    ${msg}`);
 const note = (msg) => console.log(`  WARN  ${msg}`);
 const fail = (msg) => { findings.push(msg); console.log(`  FAIL  ${msg}`); };

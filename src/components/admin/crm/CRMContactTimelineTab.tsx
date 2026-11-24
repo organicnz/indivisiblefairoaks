@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  AlertTriangle,
   Check,
   Edit2,
   FileText,
@@ -8,6 +9,7 @@ import {
   Loader2,
   Mail,
   MessageSquare,
+  ShieldAlert,
   ShoppingBag,
   Trash2,
   User,
@@ -15,11 +17,12 @@ import {
 import { usePathname } from 'next/navigation';
 import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import { CRMPager } from '@/components/admin/crm/CRMPager';
+import { DirectEmailDeliveryStatusPills } from '@/components/admin/crm/DirectEmailDeliveryStatus';
 import { pageRange, totalPages } from '@/lib/crm-filters';
-import type { CRMActivity } from '@/types/crm';
+import type { CRMActivity, CRMActivityWithDelivery } from '@/types/crm';
 
 interface CRMContactTimelineTabProps {
-  activities: CRMActivity[];
+  activities: CRMActivityWithDelivery[];
   activityPage: number;
   activityPageSize: number;
   activityCount: number;
@@ -86,6 +89,12 @@ export function CRMContactTimelineTab({
             if (act.type === 'email_sent') {
               icon = <Mail size={12} />;
               badgeClass = 'bg-blue-100 text-blue-800';
+            } else if (act.type === 'email_bounced') {
+              icon = <AlertTriangle size={12} />;
+              badgeClass = 'bg-amber-100 text-amber-900';
+            } else if (act.type === 'email_complained') {
+              icon = <ShieldAlert size={12} />;
+              badgeClass = 'bg-rose-100 text-rose-800';
             } else if (act.type === 'order') {
               icon = <ShoppingBag size={12} />;
               badgeClass = 'bg-emerald-100 text-emerald-800';
@@ -194,6 +203,12 @@ export function CRMContactTimelineTab({
                           )}
                         </div>
                       </div>
+                      {act.delivery ? (
+                        <DirectEmailDeliveryStatusPills
+                          delivery={act.delivery}
+                          className="pl-6 pt-1"
+                        />
+                      ) : null}
                       {act.description && (
                         <p className="text-xs text-muted-foreground whitespace-pre-wrap pl-6 pt-1 leading-relaxed">
                           {act.description}

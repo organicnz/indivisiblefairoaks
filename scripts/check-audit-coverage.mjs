@@ -73,6 +73,12 @@ export const AUDIT_EXEMPTIONS = new Map([
   // Read-only, but the aggregate is reached through `.rpc`, which the write
   // detector cannot distinguish from a mutating function.
   ['src/lib/actions/crm/stats.ts', 'read-only aggregate RPC; no rows change'],
+  // Ledger helper, not a server action entry point. The caller in
+  // `direct-email.ts` records `crm.direct_email.send` for every send.
+  [
+    'src/lib/actions/crm/direct-email-ledger.ts',
+    'direct-email send ledger helper; direct-email.ts records the send audit after settling it',
+  ],
 ]);
 
 /** Strip comments so prose about a write does not register as one. */

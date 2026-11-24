@@ -871,6 +871,23 @@ describe('CRM reads and bookkeeping', () => {
       expect(tables.crm_broadcasts.rows?.map((b) => b.id)).toEqual(['b2']);
     });
 
+    it('warns when a deleted draft could not be audited', async () => {
+      tables.crm_broadcasts = {
+        rows: [{ id: 'b1', status: 'draft', subject: 'Draft' }],
+      };
+      failAuditWrites();
+
+      const res = await deleteCRMBroadcastDraft('b1');
+
+      expect(res).toEqual({
+        success: true,
+        warning: `The draft was deleted, but ${CRM_AUDIT_LOST_DETAIL}`,
+      });
+      expect(tables.crm_broadcasts.rows).toEqual([]);
+      expect(tables.admin_audit_log.rows).toEqual([]);
+      expect(tables.admin_audit_outbox.rows).toEqual([]);
+    });
+
     it('reports a draft removed between the read and the delete', async () => {
       // The read finds a draft, but the delete matches nothing — another admin
       // removed it after the check. A delete that matched no rows still returns
@@ -971,6 +988,7 @@ describe('CRM reads and bookkeeping', () => {
           created_at: '2026-09-30T00:00:00.000Z',
         },
       };
+      tables.admin_audit_log = { rows: [] };
 
       const res = await saveCRMSegment({ name: 'Canvassers', statuses: ['supporter'] });
 
@@ -982,6 +1000,13 @@ describe('CRM reads and bookkeeping', () => {
         id: 's1',
         name: 'Canvassers',
         statuses: ['supporter'],
+      });
+      expect(tables.admin_audit_log.rows?.[0]).toMatchObject({
+        action: 'crm.segment.save',
+        target_type: 'crm_segment',
+        target_id: 's1',
+        target_label: 'Canvassers',
+        outcome: 'success',
       });
     });
 
@@ -1030,12 +1055,18 @@ describe('CRM reads and bookkeeping', () => {
       // 23505 is a Postgres error code, not an instruction. The raw text is
       // what a volunteer sees if this mapping is missing.
       tables.crm_segments = { rows: [], error: { code: '23505', message: 'duplicate key' } };
+      tables.admin_audit_log = { rows: [] };
 
       const res = await saveCRMSegment({ name: 'Canvassers' });
 
       expect(res.success).toBe(false);
       expect(res.error).toMatch(/already/i);
       expect(res.error).not.toMatch(/23505|duplicate key/);
+      expect(tables.admin_audit_log.rows?.[0]).toMatchObject({
+        action: 'crm.segment.save',
+        outcome: 'failure',
+        error: 'A segment with that name already exists',
+      });
     });
 
     it('returns the database error message when the insert fails for other reasons', async () => {
@@ -1057,6 +1088,7 @@ describe('CRM reads and bookkeeping', () => {
           },
         ],
       };
+      tables.admin_audit_log = { rows: [] };
 
       const res = await saveCRMSegment({
         id: 'a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d',
@@ -1065,6 +1097,14 @@ describe('CRM reads and bookkeeping', () => {
 
       expect(res.success).toBe(true);
       expect(res.segmentId).toBe('a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d');
+      expect(tables.admin_audit_log.rows?.[0]).toMatchObject({
+        action: 'crm.segment.save',
+        target_id: 'a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d',
+        target_label: 'New name',
+        before: { id: 'a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d' },
+        after: { name: 'New name' },
+        outcome: 'success',
+      });
     });
 
     it('deletes a segment', async () => {
@@ -1074,9 +1114,18 @@ describe('CRM reads and bookkeeping', () => {
           { id: 's2', name: 'Choir' },
         ],
       };
+      tables.admin_audit_log = { rows: [] };
 
       await expect(deleteCRMSegment('s1')).resolves.toEqual({ success: true });
       expect(tables.crm_segments.rows?.map((s) => s.id)).toEqual(['s2']);
+      expect(tables.admin_audit_log.rows?.[0]).toMatchObject({
+        action: 'crm.segment.delete',
+        target_type: 'crm_segment',
+        target_id: 's1',
+        target_label: 'Canvassers',
+        outcome: 'success',
+        after: { deleted: true },
+      });
     });
 
     it('warns when a deleted segment could not be audited', async () => {
@@ -1099,11 +1148,17 @@ describe('CRM reads and bookkeeping', () => {
 
     it('reports a delete that failed', async () => {
       tables.crm_segments = { rows: [{ id: 's1' }], error: { message: 'fk violation' } };
+      tables.admin_audit_log = { rows: [] };
 
       const res = await deleteCRMSegment('s1');
 
       expect(res.success).toBe(false);
       expect(res.error).toBe('fk violation');
+      expect(tables.admin_audit_log.rows?.[0]).toMatchObject({
+        action: 'crm.segment.delete',
+        outcome: 'failure',
+        error: 'fk violation',
+      });
     });
 
     it('returns an error when the segment does not exist', async () => {
@@ -1524,6 +1579,93 @@ describe('CRM reads and bookkeeping', () => {
       expect(res.activityCount).toBe(2);
     });
 
+    it('correlates email_sent activities with their Resend delivery events', async () => {
+      const contact = { id: 'c1', first_name: 'Robin', email: 'robin@example.org' };
+      tables.crm_contacts = { rows: [contact] };
+      tables.crm_activities = {
+        rows: [
+          {
+            id: 'a1',
+            contact_id: 'c1',
+            type: 'email_sent',
+            title: 'Sent Email: Update',
+            created_at: '2026-11-20T12:00:00.000Z',
+            metadata: { resend_id: 'res_1', subject: 'Update' },
+          },
+          {
+            id: 'a2',
+            contact_id: 'c1',
+            type: 'email_sent',
+            title: 'Sent Email: Earlier',
+            created_at: '2026-11-19T12:00:00.000Z',
+            metadata: { resend_id: 'res_2', subject: 'Earlier' },
+          },
+        ],
+      };
+      tables.crm_email_events = {
+        rows: [
+          {
+            id: 'e1',
+            contact_id: 'c1',
+            provider_id: 'res_1',
+            event_type: 'delivered',
+            occurred_at: '2026-11-20T12:01:00.000Z',
+          },
+          {
+            id: 'e2',
+            contact_id: 'c1',
+            provider_id: 'res_1',
+            event_type: 'complained',
+            occurred_at: '2026-11-20T12:05:00.000Z',
+          },
+          {
+            id: 'e3',
+            contact_id: 'c2',
+            provider_id: 'res_2',
+            event_type: 'bounced',
+            occurred_at: '2026-11-19T12:03:00.000Z',
+          },
+        ],
+      };
+      tables.crm_tasks = { rows: [] };
+
+      const res = await getCRMContactDetail('c1');
+
+      expect(res.activities[0]?.delivery).toMatchObject({
+        status: 'complained',
+        deliveredAt: '2026-11-20T12:01:00.000Z',
+        complainedAt: '2026-11-20T12:05:00.000Z',
+      });
+      // The other contact's bounce is not correlated to this contact's send.
+      expect(res.activities[1]?.delivery).toMatchObject({
+        status: 'accepted',
+        events: [],
+      });
+    });
+
+    it('keeps the timeline when the supplementary delivery read fails', async () => {
+      tables.crm_contacts = { rows: [{ id: 'c1', first_name: 'Robin' }] };
+      tables.crm_activities = {
+        rows: [
+          {
+            id: 'a1',
+            contact_id: 'c1',
+            type: 'email_sent',
+            title: 'Sent Email: Update',
+            created_at: '2026-11-20T12:00:00.000Z',
+            metadata: { resend_id: 'res_1' },
+          },
+        ],
+      };
+      tables.crm_email_events = { rows: [], error: { message: 'timeout' } };
+      tables.crm_tasks = { rows: [] };
+
+      const res = await getCRMContactDetail('c1');
+
+      expect(res.activities.map((activity) => activity.id)).toEqual(['a1']);
+      expect(res.activities[0]?.delivery).toBeUndefined();
+    });
+
     it('pages the timeline with a stable newest-first order', async () => {
       // 120 activities against a 50-row page. Page 2 has to be rows 51–100,
       // not the first fifty again and not an arbitrary subset: the query orders
@@ -1787,6 +1929,7 @@ describe('CRM reads and bookkeeping', () => {
         ],
       };
       tables.crm_activities = { rows: [], insert: {}, onInsert: (row) => activities.push(row) };
+      tables.admin_audit_log = { rows: [] };
 
       const res = await setCRMEmailConsent({ contactId: 'c1', doNotEmail: 'opted_out' });
 
@@ -1804,6 +1947,35 @@ describe('CRM reads and bookkeeping', () => {
         title: 'Email Consent Revoked',
         created_by: 'admin-user-uuid-1234',
       });
+      expect(tables.admin_audit_log.rows?.[0]).toMatchObject({
+        action: 'crm.contact.consent',
+        target_type: 'crm_contact',
+        target_id: 'c1',
+        target_label: 'robin@example.org',
+        before: { decision: 'opted_in', do_not_email: false, unsubscribed_at: null },
+        after: {
+          decision: 'opted_out',
+          do_not_email: true,
+          unsubscribed_at: expect.any(String),
+        },
+        outcome: 'success',
+        metadata: { decision: 'opted_out' },
+      });
+    });
+
+    it('warns when a consent change could not be audited', async () => {
+      tables.crm_contacts = {
+        rows: [{ id: 'c1', email: 'robin@example.org', do_not_email: false }],
+      };
+      failAuditWrites();
+
+      const res = await setCRMEmailConsent({ contactId: 'c1', doNotEmail: 'opted_out' });
+
+      expect(res).toEqual({
+        success: true,
+        warning: `The email consent was updated, but ${CRM_AUDIT_LOST_DETAIL}`,
+      });
+      expect(tables.crm_contacts.rows?.[0]?.do_not_email).toBe(true);
     });
 
     it('keeps the consent change and warns when its timeline entry fails', async () => {
@@ -1943,9 +2115,15 @@ describe('CRM reads and bookkeeping', () => {
 
     it('reports an RPC failure', async () => {
       mockAdminClient.rpc.mockResolvedValue({ data: null, error: { message: 'denied' } });
+      tables.admin_audit_log = { rows: [] };
       const res = await triggerHistoricalCRMSync();
       expect(res.success).toBe(false);
       expect(res.error).toBeTruthy();
+      expect(tables.admin_audit_log.rows?.[0]).toMatchObject({
+        action: 'crm.sync.historical',
+        outcome: 'failure',
+        error: 'denied',
+      });
     });
   });
 });

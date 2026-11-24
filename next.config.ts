@@ -25,12 +25,12 @@ const sentryHost = (() => {
   }
 })();
 
-// PostHog session replay (src/lib/posthog.ts). The SDK lazy-loads its recorder
-// bundle from PostHog's CDN and sends events to the ingestion host, and PostHog
-// serves from subdomains that change over time — so the allowlist is the
-// wildcard, not a pair of hosts that will be stale in a release or two. It is
-// added only when a project token is configured, so a build without analytics
-// keeps the tighter policy it had before.
+// PostHog event analytics (src/lib/posthog.ts). The SDK sends events to
+// PostHog's ingestion host; optional PostHog extensions load from its CDN, and
+// PostHog serves from subdomains that change over time — so the allowlist is
+// the wildcard, not a pair of hosts that will be stale in a release or two. It
+// is added only when a project token is configured, so a build without
+// analytics keeps the tighter policy it had before.
 const posthogHost = process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN ? 'https://*.posthog.com' : '';
 
 // Hosts that may serve first-party imagery. All three apex spellings are listed
@@ -48,14 +48,17 @@ const firstPartyHosts = [
 // JSON-LD + framework bootstrap scripts, which cannot carry per-request nonces.
 const csp = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline' https://js.stripe.com https://m.stripe.com ${posthogHost}`.trim(),
+  `script-src 'self' 'unsafe-inline' ${posthogHost}`.trim(),
   "style-src 'self' 'unsafe-inline'",
   `img-src 'self' data: blob: ${supabaseHost ? `https://${supabaseHost}` : ''} https://*.tile.openstreetmap.org https://upload.wikimedia.org https://thumb.wikimedia.org https://images.unsplash.com https://sites.google.com https://*.googleusercontent.com https://i.ytimg.com ${firstPartyHosts.map((h) => `https://${h}`).join(' ')} https://i0.wp.com https://i1.wp.com https://i2.wp.com`.replace(
     /\s+/g,
     ' '
   ),
   "font-src 'self' data:",
-  `media-src 'self' data: blob: ${supabaseHost ? `https://${supabaseHost}` : ''} https://*.supabase.co https://*.s3.amazonaws.com https:`.replace(
+  // Media comes from Supabase Storage or the legacy S3 bucket. The former
+  // bare `https:` wildcard let any CMS-entered video/audio URL load an
+  // arbitrary origin; external media must be uploaded to one of these hosts.
+  `media-src 'self' data: blob: ${supabaseHost ? `https://${supabaseHost}` : ''} https://*.supabase.co https://*.s3.amazonaws.com`.replace(
     /\s+/g,
     ' '
   ),
@@ -63,14 +66,14 @@ const csp = [
   // Sentry ingest is dynamically allowed when DSN is configured. Nominatim is
   // the submit-only geocoder for the ICE map; it receives the location query,
   // never report contents.
-  `connect-src 'self' ${supabaseHost ? `https://${supabaseHost}` : ''} https://api.stripe.com https://m.stripe.com https://nominatim.openstreetmap.org ${sentryHost ? `https://${sentryHost}` : ''} ${posthogHost}`.replace(
+  `connect-src 'self' ${supabaseHost ? `https://${supabaseHost}` : ''} https://nominatim.openstreetmap.org ${sentryHost ? `https://${sentryHost}` : ''} ${posthogHost}`.replace(
     /\s+/g,
     ' '
   ),
-  "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://js.stripe.com https://hooks.stripe.com https://secure.actblue.com https://www.mobilize.us",
-  // `data:` arrives with the session replay recorder, which runs in an inlined
-  // worker. Without analytics the policy is unchanged.
-  `worker-src 'self' blob:${posthogHost ? ' data:' : ''}`.trim(),
+  "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://secure.actblue.com https://www.mobilize.us",
+  // Session replay is not enabled, so no `data:` worker is needed. `blob:`
+  // remains for workers created from bundled scripts.
+  "worker-src 'self' blob:",
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
@@ -99,13 +102,7 @@ const securityHeaders = [
 // and the URL is retained as a bare search result). These surfaces are marked
 // noindex via the header below and a page-level `robots` directive, which is the
 // combination that actually works.
-const noIndexPaths = [
-  '/login',
-  '/search',
-  '/account/:path*',
-  '/admin/:path*',
-  '/auth/:path*',
-];
+const noIndexPaths = ['/login', '/search', '/account/:path*', '/admin/:path*', '/auth/:path*'];
 
 const routeHeaders = [
   { source: '/(.*)', headers: securityHeaders },

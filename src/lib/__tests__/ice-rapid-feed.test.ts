@@ -1,13 +1,13 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { CityPoint } from '@/components/ice-alerts/types';
+import { isAlertActive } from '@/components/ice-alerts/rapid-alert-utils';
 import type { RapidFeedBase } from '@/components/ice-alerts/rapid-types';
+import type { CityPoint } from '@/components/ice-alerts/types';
 import {
   parseCommunityTimestamp,
   parseIceNewsroomRss,
   parseStopIceCommunityFeed,
 } from '@/lib/ice-rapid-feed';
-import { isAlertActive } from '@/components/ice-alerts/rapid-alert-utils';
 
 vi.mock('@/lib/queries/ice-heatmap', () => ({
   getIceHeatmapSnapshot: vi.fn(),
@@ -124,6 +124,7 @@ const PERSISTED_FEED: RapidFeedBase = {
       lng: -117.8829,
       observedAt: '2026-11-15T03:00:00.000Z',
       expiresAt: '2026-11-15T07:00:00.000Z',
+      description: 'Reporters described ICE activity in the area.',
       summary: 'Cached sighting in Santa Ana, CA.',
     },
   ],
@@ -141,9 +142,7 @@ const PERSISTED_FEED: RapidFeedBase = {
 
 describe('parseCommunityTimestamp', () => {
   it('converts the export timestamp from Pacific time to UTC', () => {
-    expect(parseCommunityTimestamp('nov 14, 2026 (21:00:02) PST')).toBe(
-      '2026-11-15T05:00:02.000Z'
-    );
+    expect(parseCommunityTimestamp('nov 14, 2026 (21:00:02) PST')).toBe('2026-11-15T05:00:02.000Z');
   });
 
   it('rejects malformed timestamps', () => {
@@ -187,6 +186,12 @@ describe('parseStopIceCommunityFeed', () => {
     expect(santaAna.summary).not.toContain('Civic Center');
     expect(santaAna.summary).not.toContain('8LHN072');
     expect(santaAna.summary).not.toContain('Jane Doe');
+    expect(santaAna.description).toBe(
+      'Reporters described multiple ICE vehicles near a jail or detention facility. Reporters said at least one person was taken into custody.'
+    );
+    expect(santaAna.description).not.toContain('Civic Center');
+    expect(santaAna.description).not.toContain('8LHN072');
+    expect(santaAna.description).not.toContain('Jane Doe');
     expect(santaAna.lat).toBe(CITIES[0].lat);
     expect(santaAna.lng).toBe(CITIES[0].lng);
     expect(santaAna.lat).not.toBe(33.7504866);
@@ -201,6 +206,11 @@ describe('parseStopIceCommunityFeed', () => {
     );
     expect(tustin.summary).not.toContain('courthouse');
     expect(tustin.summary).not.toContain('Myford');
+    expect(tustin.description).toBe(
+      'Reporters described a checkpoint or roadblock near a courthouse.'
+    );
+    expect(tustin.description).not.toContain('Myford');
+    expect(tustin.description).not.toContain('14101');
   });
 
   it('drops reports that cannot be resolved to a city', () => {
@@ -277,9 +287,7 @@ describe('getRapidFeed', () => {
       if (/stopicenet_[a-z]{3}_\d{4}_complete\.xml/.test(url)) {
         return new Response(COMMUNITY_XML, {
           status: 200,
-          headers: communityLastModified
-            ? { 'last-modified': communityLastModified }
-            : {},
+          headers: communityLastModified ? { 'last-modified': communityLastModified } : {},
         });
       }
       if (url === 'https://www.ice.gov/rss/ice-breaking-news') {
@@ -424,6 +432,21 @@ describe('getRapidFeed', () => {
 
     expect(feed).toBe(PERSISTED_FEED);
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('rebuilds a persisted snapshot that predates community descriptions', async () => {
+    const legacyAlert = { ...PERSISTED_FEED.alerts[0] };
+    legacyAlert.description = undefined;
+    vi.mocked(cacheModule.readPersistedRapidFeed).mockResolvedValue({
+      feed: { ...PERSISTED_FEED, alerts: [legacyAlert] },
+      fetchedAt: '2026-11-15T05:55:00.000Z',
+    });
+
+    const { getRapidFeed } = await import('@/lib/ice-rapid-feed');
+    const feed = await getRapidFeed();
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(feed.alerts[0]?.description).toContain('Reporters described');
   });
 
   it('revalidates upstream when a caller explicitly asks for a fresh feed', async () => {

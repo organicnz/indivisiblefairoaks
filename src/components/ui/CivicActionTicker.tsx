@@ -1,11 +1,13 @@
 'use client';
 
-import { ArrowUpRight, Calendar, Heart, Music, PhoneCall, Sparkles, Vote } from 'lucide-react';
+// Deliberately a client reference even though the strip has no state or
+// effects: as a server component its repeated markup was duplicated in the
+// RSC payload, which measured larger than this boundary's hydration cost. The
+// dead ticker-fetch effect is gone; the home server component supplies events.
+
+import { ArrowUpRight, Calendar, Music, Sparkles } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
 import { DataPoint } from '@/components/ui/DataPoint';
-import { useDataPoints } from '@/hooks/useDataPoints';
-import { getTickerEvents } from '@/lib/queries/civic-client';
 
 export interface TickerItem {
   icon?: React.ReactNode;
@@ -30,27 +32,6 @@ const DEFAULT_TICKER_ITEMS: TickerItem[] = [
     href: '/choir',
     badge: 'Choir',
   },
-  {
-    icon: <PhoneCall size={14} className="text-accent-gold-on-dark" />,
-    label: 'Sacramento Rep Directory & 5 Calls Scripts',
-    detail: 'Lookup CA-03 / CA-06 elected officials in seconds',
-    href: '/voter-info',
-    badge: 'Advocacy',
-  },
-  {
-    icon: <Vote size={14} className="text-accent-gold-on-dark" />,
-    label: 'Grassroots Postcard Blitz',
-    detail: 'Writing swing voter cards across Sacramento County',
-    href: '/events',
-    badge: 'Voter Turnout',
-  },
-  {
-    icon: <Heart size={14} className="text-accent-gold-on-dark" />,
-    label: 'Community Food Bank Drive',
-    detail: 'Bring non-perishable cans to our monthly gathering',
-    href: '/events',
-    badge: 'Mutual Aid',
-  },
 ];
 
 export function CivicActionTicker({
@@ -60,21 +41,11 @@ export function CivicActionTicker({
   items?: TickerItem[];
   initialData?: Record<string, string>;
 } = {}) {
-  const { dataPoints } = useDataPoints('home', initialData);
-  const [items, setItems] = useState<TickerItem[]>(initialItems ?? []);
-
-  useEffect(() => {
-    if (initialItems && initialItems.length > 0) return;
-    getTickerEvents().then((rows) => {
-      if (rows.length > 0) {
-        setItems(
-          rows.map((r) => ({ ...r, icon: <Sparkles size={14} className="text-accent-gold" /> }))
-        );
-      }
-    });
-  }, [initialItems]);
-
-  const TICKER_ITEMS = items.length > 0 ? items : DEFAULT_TICKER_ITEMS;
+  // The home server component supplies upcoming events. If there are none,
+  // the checked-in defaults keep the strip useful. This static section has no
+  // client fetch and no state; only the client boundary hydrates.
+  const TICKER_ITEMS =
+    initialItems && initialItems.length > 0 ? initialItems : DEFAULT_TICKER_ITEMS;
   // The old strip let its fifth item run off the right edge without any
   // indication that it could be scrolled. Two featured items keep each line
   // readable; the rest stay one click away in All events.
@@ -94,7 +65,7 @@ export function CivicActionTicker({
             </span>
             <div className="min-w-0">
               <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-accent-gold-on-dark">
-                <DataPoint as="span" name="home.ticker.pulse" initialData={dataPoints}>
+                <DataPoint as="span" name="home.ticker.pulse" initialData={initialData}>
                   Community Pulse
                 </DataPoint>
               </p>
@@ -145,7 +116,6 @@ export function CivicActionTicker({
               className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-secondary to-transparent lg:hidden"
             />
           </div>
-
         </div>
       </div>
     </section>

@@ -43,6 +43,9 @@ export const APP_TABLES = new Set([
  *   - `admin_audit_log` / `admin_audit_outbox` are service-only tables whose
  *     row shapes live beside the audit code rather than in the browser-safe
  *     generated client.
+ *   - `crm_direct_email_sends` is the admin-only idempotency ledger; its row
+ *     shape lives with the direct-email action and is never read by the
+ *     browser's generated client.
  *   - The `ice_*` tables are read through hand-written row types in the ICE
  *     surfaces, which carry narrower public shapes than the storage tables.
  *   - The `legacy_*` tables exist only for the one-way content archive import.
@@ -56,6 +59,7 @@ export const APP_TABLES = new Set([
 export const UNTYPED_TABLES = new Set([
   'admin_audit_log',
   'admin_audit_outbox',
+  'crm_direct_email_sends',
   'ice_alert_rate_limits',
   'ice_alert_subscribers',
   'ice_alert_surge_events',

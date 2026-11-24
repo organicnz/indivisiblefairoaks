@@ -17,7 +17,7 @@ and `www` still 302 to the legacy Google Site.
 | Vercel environment | `NEXT_PUBLIC_SITE_URL` is one plain entry targeting **production, preview and development**; its current value is the test origin. Present in production: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `RESEND_API_KEY`, `RESEND_WEBHOOK_SECRET`, `RESEND_FROM_EMAIL` (write-only), `ADMIN_ORDER_EMAIL` (write-only), `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_AUTH_TOKEN`. The legacy `SUPABASE_SERVICE_ROLE_KEY` is also present. |
 | DNS | Cloudflare nameservers. Apex and `www` resolve to Cloudflare proxy addresses and return the observed **302** to Google Sites. `test` is a CNAME to Vercel. There are **no CAA records** on the apex or `www`. The `_vercel` TXT record currently proves only `test`. |
 | Email | Resend reports both the apex and test domains verified; apex sending and receiving are enabled. SPF includes Google and Resend; Google and Resend DKIM records exist; DMARC is `p=quarantine; pct=100`. Google MX records are present. |
-| Resend webhook | One webhook exists: endpoint `https://test.indivisiblefairoaks.org/api/webhooks/resend`, status **disabled**, events include bounced/complained/suppressed/opened/clicked/delivery_delayed. |
+| Resend webhook | One webhook exists: endpoint `https://test.indivisiblefairoaks.org/api/webhooks/resend`, status **disabled**, events include bounced/complained/delivered/suppressed/opened/clicked/delivery_delayed. |
 | Supabase | Local `supabase/config.toml` already has the apex `site_url` and apex/www/test redirect entries. The hosted auth URL configuration could **not** be verified from this checkout. Edge `APP_URL` is still the test origin (confirmed by CORS on `wall-e-chat` and `search`). `crm-broadcast-send` health returned `{"ready":true,"missing":[]}`. |
 | Content | The six unreachable CMS rows were compared with the live pages. See [`content-row-disposition.md`](./content-row-disposition.md#2026-11-14-final-copy-review). No content rows were changed. |
 | Code gate | Last recorded gate at `ba32737` was green: 3,492 unit tests, 78 e2e passed / 7 skipped, typecheck, build, peer-dependency and data-point checks. This plan changes no application code. |
@@ -127,7 +127,7 @@ Management API with a token:
   - `https://indivisiblefairoaks.org/auth/callback`
   - `https://www.indivisiblefairoaks.org/auth/callback`
   - `https://test.indivisiblefairoaks.org/auth/callback` (rollback)
-  - `http://localhost:3000/auth/callback` (development)
+  - `http://localhost:3031/auth/callback` (development)
 - Remove unrelated hosts such as `https://ai.foodshare.club` if they are still
   present. Do not blindly replace the whole allow-list without reading it first:
   the hosted value could not be read from this checkout.

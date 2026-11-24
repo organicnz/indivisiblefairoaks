@@ -7,6 +7,7 @@ import {
   adminAuditHref,
   EMPTY_ADMIN_AUDIT_FILTERS,
   exportAdminAuditCsv,
+  getAdminAuditContactBulkChanges,
   getAdminAuditOperation,
   getAdminAuditPage,
   parseAdminAuditFilters,
@@ -16,6 +17,9 @@ import {
 import { createMockAdminClient } from './supabase-mock';
 
 const OPERATION_ID = '11111111-1111-4111-8111-111111111111';
+const CONTACT_ID = '33333333-3333-4333-8333-333333333333';
+const CONTACT_2 = '44444444-4444-4444-8444-444444444444';
+const CONTACT_3 = '55555555-5555-4555-8555-555555555555';
 
 type TestAuditOperation = AdminAuditOperation & Record<string, unknown>;
 
@@ -59,6 +63,7 @@ describe('admin audit filters', () => {
         to: '2026-11-19',
         targetType: 'crm_contact',
         target: '  c1  ',
+        contact: `  ${CONTACT_ID}  `,
       })
     ).toEqual({
       actor: 'organizer@example.org',
@@ -68,6 +73,7 @@ describe('admin audit filters', () => {
       to: '2026-11-19',
       targetType: 'crm_contact',
       target: 'c1',
+      contact: CONTACT_ID,
     });
 
     expect(
@@ -98,6 +104,7 @@ describe('admin audit filters', () => {
         from: '2026-11-01',
         targetType: 'crm_contact',
         target: 'c1',
+        contact: CONTACT_ID,
       },
       2
     );
@@ -108,6 +115,7 @@ describe('admin audit filters', () => {
     expect(href).toContain('from=2026-11-01');
     expect(href).toContain('targetType=crm_contact');
     expect(href).toContain('target=c1');
+    expect(href).toContain(`contact=${CONTACT_ID}`);
     expect(href).toContain('page=2');
   });
 });
@@ -129,8 +137,10 @@ describe('admin audit queries', () => {
     expect(result.rows[0]?.created_at).toBe('2026-11-19T12:09:00.000Z');
   });
 
-  it('combines actor, action, outcome, date, target type and target filters', async () => {
-    const matching = auditRow();
+  it('combines actor, action, outcome, date, target type, target and contact filters', async () => {
+    const matching = auditRow({
+      metadata: { requested_ids: [CONTACT_ID], requested_count: 2, updated_count: 2 },
+    });
     const other = auditRow({
       id: '22222222-2222-4222-8222-222222222222',
       actor_email: 'other@example.org',
@@ -160,12 +170,61 @@ describe('admin audit queries', () => {
         to: '2026-11-19',
         targetType: 'crm_contact',
         target: 'bulk-update',
+        contact: CONTACT_ID,
       },
       1
     );
 
     expect(result.totalCount).toBe(1);
     expect(result.rows[0]?.id).toBe(OPERATION_ID);
+  });
+
+  it('matches the contact filter against metadata.requested_ids', async () => {
+    const matching = auditRow({ metadata: { requested_ids: [CONTACT_ID] } });
+    const other = auditRow({
+      id: '22222222-2222-4222-8222-222222222222',
+      metadata: { requested_ids: ['44444444-4444-4444-8444-444444444444'] },
+    });
+    const client = createMockAdminClient(
+      { admin_audit_log: { rows: [matching, other], filterRows: [matching] } },
+      { recordFilters: true }
+    );
+
+    const result = await getAdminAuditPage(
+      client,
+      { ...EMPTY_ADMIN_AUDIT_FILTERS, contact: CONTACT_ID.toUpperCase() },
+      1
+    );
+
+    expect(result.rows.map((row) => row.id)).toEqual([OPERATION_ID]);
+    expect(client.filterCalls).toContainEqual({
+      method: 'contains',
+      args: ['metadata', { requested_ids: [CONTACT_ID] }],
+    });
+  });
+
+  it('pages bulk updates that selected one contact', async () => {
+    const rows = Array.from({ length: 12 }, (_, index) =>
+      auditRow({
+        id: `00000000-0000-4000-8000-${String(index).padStart(12, '0')}`,
+        created_at: new Date(Date.UTC(2026, 10, 19, 12, index)).toISOString(),
+        metadata: { requested_ids: [CONTACT_ID] },
+      })
+    );
+    const client = createMockAdminClient(
+      { admin_audit_log: { rows, filterRows: rows } },
+      { recordFilters: true }
+    );
+
+    const result = await getAdminAuditContactBulkChanges(client, CONTACT_ID.toUpperCase(), 2);
+
+    expect(result.totalCount).toBe(12);
+    expect(result.rows).toHaveLength(2);
+    expect(result.rows[0]?.created_at).toBe('2026-11-19T12:01:00.000Z');
+    expect(client.filterCalls).toContainEqual({
+      method: 'contains',
+      args: ['metadata', { requested_ids: [CONTACT_ID] }],
+    });
   });
 
   it('loads one operation by exact uuid and rejects malformed ids', async () => {
@@ -200,23 +259,87 @@ describe('admin audit CSV', () => {
     expect(csv).toContain('Bulk contacts updated');
   });
 
-  it('exports every matching row in batches and includes full snapshots', async () => {
+  it('writes normalized bulk-update evidence into dedicated columns', () => {
+    const csv = toAdminAuditCsv([
+      auditRow({
+        before: {
+          contacts: [
+            { id: CONTACT_ID, status: 'supporter', tags: ['one'] },
+            { id: CONTACT_2, status: 'supporter', tags: ['one'] },
+          ],
+        },
+        after: {
+          contacts: [
+            { id: CONTACT_ID, status: 'active_volunteer', tags: ['one', 'two'] },
+            { id: CONTACT_2, status: 'supporter', tags: ['one'] },
+          ],
+        },
+        metadata: {
+          requested_count: 3,
+          requested_ids: [CONTACT_ID, CONTACT_2, CONTACT_3],
+          affected_count: 2,
+          affected_ids: [CONTACT_ID, CONTACT_2],
+          updated_count: 1,
+          changed_fields: ['status', 'tags'],
+        },
+      }),
+    ]);
+    const [header = '', first = ''] = csv.split('\r\n');
+
+    expect(header).toContain(
+      'Requested count,Affected count,Updated count,Changed fields,Requested IDs,Affected IDs'
+    );
+    expect(first).toContain('"3","2","1","[""status"",""tags""]"');
+    expect(first).toContain(`"[""${CONTACT_ID}"",""${CONTACT_2}"",""${CONTACT_3}""]"`);
+    expect(first).toContain(`"[""${CONTACT_ID}"",""${CONTACT_2}""]"`);
+  });
+
+  it('leaves the Updated count blank for a bulk delete while retaining its ids', () => {
+    const csv = toAdminAuditCsv([
+      auditRow({
+        action: 'crm.contact.bulk_delete',
+        before: {
+          contacts: [{ id: CONTACT_ID, email: 'ada@example.org' }],
+        },
+        after: {
+          contacts: [{ id: CONTACT_ID, deleted: true }],
+        },
+        metadata: {
+          requested_count: 2,
+          requested_ids: [CONTACT_ID, CONTACT_2],
+          affected_count: 1,
+          affected_ids: [CONTACT_ID],
+          deleted_count: 1,
+        },
+      }),
+    ]);
+    const first = csv.split('\r\n')[1] ?? '';
+
+    expect(first).toContain('"2","1",""');
+    expect(first).toContain(`"[""${CONTACT_ID}"",""${CONTACT_2}""]"`);
+    expect(first).toContain(`"[""${CONTACT_ID}""]"`);
+  });
+
+  it('exports every matching row in batches and returns the exact manifest', async () => {
     const rows = [
       auditRow({ before: { status: 'supporter' }, after: { status: 'active_volunteer' } }),
       auditRow({
         id: '22222222-2222-4222-8222-222222222222',
+        created_at: '2026-11-19T13:00:00.000Z',
         action: 'content.publish',
         target_type: 'content',
         target_id: 'a-page',
       }),
     ];
 
-    const csv = await exportAdminAuditCsv(clientWith(rows), EMPTY_ADMIN_AUDIT_FILTERS);
+    const result = await exportAdminAuditCsv(clientWith(rows), EMPTY_ADMIN_AUDIT_FILTERS);
 
-    expect(csv.split('\r\n')).toHaveLength(4);
-    expect(csv).toContain('Content published');
-    expect(csv).toContain('"{""status"":""supporter""}"');
-    expect(csv).toContain('"{""status"":""active_volunteer""}"');
+    expect(result.csv.split('\r\n')).toHaveLength(4);
+    expect(result.csv).toContain('Content published');
+    expect(result.csv).toContain('"{""status"":""supporter""}"');
+    expect(result.csv).toContain('"{""status"":""active_volunteer""}"');
+    expect(result.rowCount).toBe(2);
+    expect(result.operationIds).toEqual([OPERATION_ID, '22222222-2222-4222-8222-222222222222']);
   });
 
   it('refuses an export above the row cap instead of truncating silently', async () => {

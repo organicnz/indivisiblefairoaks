@@ -202,11 +202,15 @@ export async function runTextAsync(argv, options = {}) {
 export async function runOrThrow(argv, options = {}) {
   const { exitCode, stdout, stderr } = await runAsync(argv, options);
   if (exitCode !== 0) {
-    const error = new Error(`Command failed (exit ${exitCode}): ${argv.join(' ')}`);
-    error.exitCode = exitCode;
-    error.stdout = stdout;
-    error.stderr = stderr;
-    throw error;
+    // `Object.assign` keeps the thrown value an `Error` while giving it the
+    // output fields the docblock promises. Assigning them one by one works at
+    // runtime but fails `checkJs`: the compiler sees a plain `Error`, which has
+    // no `exitCode`/`stdout`/`stderr` properties.
+    throw Object.assign(new Error(`Command failed (exit ${exitCode}): ${argv.join(' ')}`), {
+      exitCode,
+      stdout,
+      stderr,
+    });
   }
   return { exitCode, stdout, stderr };
 }

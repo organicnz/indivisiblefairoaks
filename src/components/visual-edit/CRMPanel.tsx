@@ -786,6 +786,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({
         setNewNoteDesc('');
         loadActivities(selectedContact.id);
         toast.success('Note added');
+        if (res.warning) toast.warning(res.warning);
       } else {
         toast.error(res.error ?? 'Failed to add note');
       }
@@ -810,6 +811,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({
         setEditingNoteDesc('');
         loadActivities(selectedContact.id);
         toast.success('Note updated');
+        if (res.warning) toast.warning(res.warning);
       } else {
         toast.error(res.error ?? 'Failed to update note');
       }

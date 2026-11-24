@@ -5,6 +5,7 @@ const getIceCrawlStore = vi.hoisted(() => vi.fn());
 const getSourceReportForRefinement = vi.hoisted(() => vi.fn());
 const saveSourceReportRefinement = vi.hoisted(() => vi.fn());
 const refineSourceReportWithAi = vi.hoisted(() => vi.fn());
+const rateLimit = vi.hoisted(() => vi.fn());
 
 vi.mock('next/server', async (importOriginal) => {
   const actual = await importOriginal<typeof import('next/server')>();
@@ -24,6 +25,11 @@ vi.mock('@/lib/ice-crawl-store', async (importOriginal) => {
 vi.mock('@/lib/ice-source-refine', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/ice-source-refine')>();
   return { ...actual, refineSourceReportWithAi };
+});
+
+vi.mock('@/lib/rate-limit', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/rate-limit')>();
+  return { ...actual, rateLimit };
 });
 
 const { POST } = await import('@/app/api/ice-source-reports/refine/route');
@@ -70,12 +76,38 @@ describe('POST /api/ice-source-reports/refine', () => {
     getSourceReportForRefinement.mockResolvedValue(REPORT);
     saveSourceReportRefinement.mockResolvedValue(true);
     refineSourceReportWithAi.mockResolvedValue({ isReport: true, text: DIGEST });
+    rateLimit.mockReturnValue({ ok: true, retryAfterSec: 0 });
   });
 
   it('rejects an invalid report id before touching the archive', async () => {
     const response = await POST(request({ id: 'not-a-uuid' }));
 
     expect(response.status).toBe(400);
+    expect(getSourceReportForRefinement).not.toHaveBeenCalled();
+  });
+
+  it('rejects an oversized body before touching the archive', async () => {
+    const response = await POST(
+      new Request('http://localhost/api/ice-source-reports/refine', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: ID, padding: 'x'.repeat(4_096) }),
+      })
+    );
+
+    expect(response.status).toBe(413);
+    expect(await response.json()).toMatchObject({ ok: false, code: 'too-large' });
+    expect(getSourceReportForRefinement).not.toHaveBeenCalled();
+  });
+
+  it('returns a retry hint without touching the archive when rate limited', async () => {
+    rateLimit.mockReturnValue({ ok: false, retryAfterSec: 42 });
+
+    const response = await POST(request({ id: ID }));
+
+    expect(response.status).toBe(429);
+    expect(response.headers.get('retry-after')).toBe('42');
+    expect(await response.json()).toMatchObject({ ok: false, code: 'rate-limited' });
     expect(getSourceReportForRefinement).not.toHaveBeenCalled();
   });
 

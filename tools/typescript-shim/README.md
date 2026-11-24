@@ -25,35 +25,22 @@ It then runs that binary twice:
 
 | Call | Purpose | Handled by |
 |---|---|---|
-| `tsc --showConfig --project <tsconfig> --pretty false` | parsed as JSON, to read `compilerOptions.incremental` and `.composite` | **this shim** |
+| `tsc --showConfig --project <tsconfig> --pretty false` | parsed as JSON, to read `compilerOptions.incremental` and `.composite` | `tsrs`, natively |
 | `tsc --project <tsconfig> --noEmit --declarationMap false --emitDeclarationOnly false` | the actual type check | `tsrs`, natively |
 
-`tsrs` implements the second call natively. It does not implement the first —
-it exits 5 with `error: --showConfig is not supported by tsrs.` — and Next.js
-treats a non-zero exit from that call as a hard failure:
+## The shim is only a launcher
 
-```ts
-if (result.exitCode !== 0) {
-  throw new Error(/* ... */)
-}
-```
+`tsrs` 7.1.0-beta.tsrs4 implements `--showConfig` natively, including the
+merged tsconfig chain, the compiler defaults, and the expanded file list.
+Every argument is forwarded unchanged to the native binary.
 
-So the shim answers `--showConfig` itself and forwards everything else to the
-native Rust binary.
+Older `tsrs` releases did not implement `--showConfig`; this shim answered
+that call itself with a small JSONC parser and tsconfig merger. That code is
+gone. Keeping it would mean maintaining a second, subtly different view of
+the project's configuration next to the compiler that actually checks it.
 
-## The `--showConfig` answer is not `tsc --showConfig`
-
-`tsc --showConfig` reports the *computed* configuration: the merged tsconfig
-chain, the compiler's default options filled in, and the `files`/`include`
-globs expanded into a concrete file list.
-
-The shim reports the merged tsconfig chain **as declared** — the
-`compilerOptions` that the chain resolves to, plus the raw `files`, `include`
-and `exclude`. It does not fill in defaults and does not expand globs.
-
-Next.js only reads two booleans out of it, and both are answered faithfully.
-The output carries a `_tsrsShim` marker so that a human reading the JSON is
-not misled into thinking `tsc` produced it.
+Next.js reads only `compilerOptions.incremental` and `.composite` from the
+JSON, and both come directly from `tsrs` now.
 
 ## The package deliberately has no `exports` field
 
@@ -83,16 +70,15 @@ runtime that cannot parse it.
 
 - One type checker. `tsrs` is the gate (`bun run typecheck`) *and* the
   compiler inside `next build`.
-- The `typescript` package — a Go binary — is no longer in the dependency
-  tree. It was never Node.js, so this is toolchain consolidation rather than
+- No second implementation of `--showConfig`, tsconfig inheritance, or JSONC
+  parsing in the repository.
+- The `typescript` package — a Go binary — is not in the dependency tree.
+  It was never Node.js, so this is toolchain consolidation rather than
   runtime removal, but it is one fewer compiler to keep in step.
 - `next build`'s type check runs at Rust speed.
 
 ## What it costs
 
-- One more moving part, and a `--showConfig` implementation that is not
-  `tsc`'s. If `tsrs` ever implements `--showConfig`, the shim should
-  delegate to it and this file should lose the JSONC parsing.
-- `tsrs` 0.20.1 publishes binaries for `darwin-arm64` and
-  `linux-{arm64,x64}-{gnu,musl}`. A host outside that set gets tsrs's own
-  "This platform is not supported" error, which names the supported set.
+- One thin launcher between Next.js and the native compiler.
+- `tsrs` is a beta release. It is pinned exactly so a routine `bun install`
+  cannot change the gate's output.

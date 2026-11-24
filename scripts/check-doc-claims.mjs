@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import path from 'node:path';
 /**
  * Documentation-claims gate.
  *
@@ -54,7 +55,6 @@
  * Exit code 0 = every recognised claim matches, 1 = a claim is stale.
  */
 import { run } from './bun-exec.mjs';
-import path from 'node:path';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 
@@ -78,7 +78,7 @@ async function precommitGuardCount() {
     }
     if (section !== 'pre-commit') continue;
     // Guards sit at 4 spaces under `commands:`; their own keys are at 6+.
-    if (/^    [a-z0-9-]+:\s*$/.test(line)) count += 1;
+    if (/^ {4}[a-z0-9-]+:\s*$/.test(line)) count += 1;
   }
   return count;
 }
@@ -160,7 +160,13 @@ async function coverageFloor(file) {
 const CLAIMS = [
   {
     label: 'pre-commit guards',
-    pattern: /(\d+) pre-commit guards/g,
+    // Both spellings are load-bearing: AGENTS.md and docs/ci-runners.md write
+    // "N pre-commit guards", while README.md writes "N lefthook guards". The
+    // README form escaped this pattern for exactly that reason and sat at 36
+    // while lefthook.yml held 38. Anchoring on the digits immediately before
+    // "guards" keeps command names and the `lefthook.yml` filename out of
+    // range.
+    pattern: /(\d+) (?:pre-commit|lefthook) guards/g,
     source: () => precommitGuardCount(),
     fix: 'update the number, or add the guard you forgot to lefthook.yml',
   },
@@ -263,8 +269,7 @@ for (const claim of CLAIMS) {
     for (let i = 0; i < lines.length; i++) {
       // Restart the global pattern per line so lastIndex cannot skip matches.
       const pattern = new RegExp(claim.pattern.source, 'g');
-      let match;
-      while ((match = pattern.exec(lines[i])) !== null) {
+      for (let match = pattern.exec(lines[i]); match !== null; match = pattern.exec(lines[i])) {
         matches += 1;
         const actual = match[1];
         if (!sameValue(actual, expected)) {

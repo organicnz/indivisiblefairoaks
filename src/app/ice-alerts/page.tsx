@@ -2,20 +2,21 @@ import 'leaflet/dist/leaflet.css';
 
 import type { Metadata } from 'next';
 import { HistoricalFoiaModule } from '@/components/ice-alerts/HistoricalFoiaModule';
+import { buildHistoricalCityCounts } from '@/components/ice-alerts/historical-city-key';
 import { IceAlertsTopBar } from '@/components/ice-alerts/IceAlertsTopBar';
 import { IceRapidResponse } from '@/components/ice-alerts/IceRapidResponse';
-import { ReviewedReportsSection } from '@/components/ice-alerts/ReviewedReportsSection';
-import { WebReportsSection } from '@/components/ice-alerts/WebReportsSection';
 import { parseIceMapUrlState } from '@/components/ice-alerts/map-url-state';
+import { ReviewedReportsSection } from '@/components/ice-alerts/ReviewedReportsSection';
 import { parseRapidUrlState } from '@/components/ice-alerts/rapid-url-state';
+import { WebReportsSection } from '@/components/ice-alerts/WebReportsSection';
 import { pageMetadata } from '@/lib/metadata';
 import { getDataPoints } from '@/lib/queries/civic';
 import { getIceHeatmapSnapshot } from '@/lib/queries/ice-heatmap';
 
-// Deliberate Cache Components opt-out: the selected city, search pin and
-// viewport derive from request-time searchParams, and the rapid-response view
-// uses a live client feed.
-export const instant = false;
+// The selected city, search pin and viewport derive from request-time
+// searchParams, and the rapid-response view uses a live client feed. Those
+// reads stay behind the segment's loading boundary so the route ships a
+// non-empty shell instead of an empty 0-byte PPR placeholder.
 
 export const metadata: Metadata = pageMetadata({
   title: 'ICE Alert — National Rapid-Response Map',
@@ -35,28 +36,27 @@ function readView(params: Record<string, string | string[] | undefined>) {
 export default async function IceAlertsPage({ searchParams }: { searchParams: PageSearchParams }) {
   const params = await searchParams;
   const view = readView(params);
-  const hasLegacyHistoricalParams = Boolean(
-    params.city || params.state || params.pin || params.q
-  );
-  const initialHistoryOpen =
-    view === 'history' || (view !== 'rapid' && hasLegacyHistoricalParams);
-  const [snapshot, dataPoints] = await Promise.all([
-    getIceHeatmapSnapshot(),
-    getDataPoints('ice'),
-  ]);
+  const hasLegacyHistoricalParams = Boolean(params.city || params.state || params.pin || params.q);
+  const initialHistoryOpen = view === 'history' || (view !== 'rapid' && hasLegacyHistoricalParams);
+  const [snapshot, dataPoints] = await Promise.all([getIceHeatmapSnapshot(), getDataPoints('ice')]);
   const historicalState = parseIceMapUrlState(params, snapshot.cities, {
     keyPrefix: 'foia',
     includeUnprefixed: initialHistoryOpen,
   });
   const rapidState = parseRapidUrlState(params);
+  const historicalCityCounts = buildHistoricalCityCounts(snapshot.cities);
 
   return (
     <div className="civic-page min-h-screen w-full bg-background text-foreground">
       <IceAlertsTopBar dataPoints={dataPoints} />
 
-      <IceRapidResponse snapshot={snapshot} initialState={rapidState}>
+      <IceRapidResponse
+        meta={snapshot.meta}
+        historicalCityCounts={historicalCityCounts}
+        initialState={rapidState}
+      >
         <HistoricalFoiaModule
-          snapshot={snapshot}
+          meta={snapshot.meta}
           initialState={historicalState}
           initialOpen={initialHistoryOpen}
           dataPoints={dataPoints}

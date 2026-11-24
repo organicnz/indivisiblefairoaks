@@ -1,6 +1,9 @@
 import { ArrowLeft, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 import { AdminNotice } from '@/components/admin/AdminNotice';
+import { AdminAuditBulkEvidenceView } from '@/components/admin/audit/AdminAuditBulkEvidence';
+import { DirectEmailDeliveryPanel } from '@/components/admin/crm/DirectEmailDeliveryStatus';
+import { parseAdminAuditBulkEvidence } from '@/lib/admin-audit-bulk-evidence';
 import {
   type AdminAuditOperation,
   adminAuditActionLabel,
@@ -8,6 +11,7 @@ import {
   adminAuditTargetTypeLabel,
   formatAdminAuditTimestamp,
 } from '@/lib/admin-audit-read';
+import type { DirectEmailDelivery } from '@/types/crm';
 
 const OUTCOME_BADGE: Record<string, string> = {
   success: 'border-emerald-300 bg-emerald-50 text-emerald-800',
@@ -53,7 +57,26 @@ function JsonPanel({ title, value }: { title: string; value: unknown }) {
   );
 }
 
-export function AdminAuditDetail({ operation }: { operation: AdminAuditOperation }) {
+function RawJsonPanels({ operation }: { operation: AdminAuditOperation }) {
+  return (
+    <div className="grid gap-4 xl:grid-cols-3">
+      <JsonPanel title="Before" value={operation.before} />
+      <JsonPanel title="After" value={operation.after} />
+      <JsonPanel title="Metadata" value={operation.metadata} />
+    </div>
+  );
+}
+
+export function AdminAuditDetail({
+  operation,
+  delivery,
+}: {
+  operation: AdminAuditOperation;
+  /** Correlated Resend state for a successful direct-email send. */
+  delivery?: DirectEmailDelivery | null;
+}) {
+  const bulkEvidence = parseAdminAuditBulkEvidence(operation);
+
   return (
     <div className="space-y-6">
       <Link
@@ -133,11 +156,27 @@ export function AdminAuditDetail({ operation }: { operation: AdminAuditOperation
         </dl>
       </section>
 
-      <div className="grid gap-4 xl:grid-cols-3">
-        <JsonPanel title="Before" value={operation.before} />
-        <JsonPanel title="After" value={operation.after} />
-        <JsonPanel title="Metadata" value={operation.metadata} />
-      </div>
+      {delivery ? <DirectEmailDeliveryPanel delivery={delivery} /> : null}
+
+      {bulkEvidence ? (
+        <>
+          <AdminAuditBulkEvidenceView evidence={bulkEvidence} />
+          <details className="overflow-hidden rounded-2xl border border-border bg-surface-card">
+            <summary className="cursor-pointer px-4 py-3 font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+              Raw JSON fallback
+            </summary>
+            <div className="border-t border-border p-4">
+              <p className="mb-3 text-xs leading-relaxed text-muted-foreground">
+                The unprocessed before, after, and metadata payloads are preserved for audit
+                completeness.
+              </p>
+              <RawJsonPanels operation={operation} />
+            </div>
+          </details>
+        </>
+      ) : (
+        <RawJsonPanels operation={operation} />
+      )}
     </div>
   );
 }

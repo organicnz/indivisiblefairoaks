@@ -1,7 +1,7 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { usePathname } from 'next/navigation';
-import { Toaster } from 'sonner';
 import { useThemeMode } from './theme-store';
 import { useVisualEditMode } from './visual-edit-store';
 
@@ -22,6 +22,14 @@ import { useVisualEditMode } from './visual-edit-store';
  * click, and the toast stays visible wherever it is not covered.
  */
 const VISUAL_EDIT_TOAST_Z_INDEX = 9000;
+
+// Toasts are the only consumer of sonner on a page with no interactive
+// controls. Loading the ~36 KB renderer on demand keeps it out of the first
+// load; a toast fired before this resolves is still in sonner's store and
+// appears as soon as the renderer mounts.
+const Toaster = dynamic(() => import('sonner').then((module) => module.Toaster), {
+  ssr: false,
+});
 
 /**
  * The toast surface, following the reader's palette.

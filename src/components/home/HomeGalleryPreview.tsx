@@ -1,14 +1,17 @@
 'use client';
 
+// Deliberately a client reference even though the section has no state or
+// effects: as a server component its large, repeated markup was duplicated in
+// the RSC payload, which measured larger than this boundary's hydration cost.
+// The dead gallery-fetch effect was removed; this component only renders the
+// photos the homepage already read.
+
 import { ArrowRight, Camera, MapPin } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
-
-import { FALLBACK_GALLERY_PHOTOS } from '@/config/gallery-fallback';
 import { GalleryImage } from '@/components/gallery/GalleryImage';
 import { DataPoint } from '@/components/ui/DataPoint';
+import { FALLBACK_GALLERY_PHOTOS } from '@/config/gallery-fallback';
 import { galleryAltText, galleryCaption } from '@/lib/gallery-alt';
-import { getGalleryPhotos, type GalleryPhoto } from '@/lib/queries/content-client';
 import type { GalleryPhotoView } from '@/types/gallery';
 
 interface PreviewPhoto {
@@ -20,7 +23,7 @@ interface PreviewPhoto {
   image: string;
 }
 
-const toPreviewPhoto = (photo: GalleryPhotoView | GalleryPhoto): PreviewPhoto => ({
+const toPreviewPhoto = (photo: GalleryPhotoView): PreviewPhoto => ({
   id: photo.id,
   alt: galleryAltText(photo),
   title: galleryCaption(photo),
@@ -29,38 +32,20 @@ const toPreviewPhoto = (photo: GalleryPhotoView | GalleryPhoto): PreviewPhoto =>
   image: photo.url || '',
 });
 
-const FALLBACK_PREVIEW_PHOTOS = FALLBACK_GALLERY_PHOTOS.map(toPreviewPhoto);
-
 export function HomeGalleryPreview({
-  photos: initialPhotos,
+  photos,
   dataPoints,
 }: {
-  photos?: GalleryPhotoView[];
-  dataPoints?: Record<string, string>;
-} = {}) {
-  const [previewPhotos, setPreviewPhotos] = useState<PreviewPhoto[]>(() => {
-    if (initialPhotos && initialPhotos.length > 0) {
-      return initialPhotos.map(toPreviewPhoto);
-    }
-    return FALLBACK_PREVIEW_PHOTOS;
-  });
-
-  useEffect(() => {
-    // The home server component always supplies this prop (possibly empty).
-    // Treat a supplied array as authoritative; only a standalone mount with no
-    // prop should pay for a second gallery request.
-    if (initialPhotos) return;
-    getGalleryPhotos().then((photos) => {
-      // Map gallery_photos rows to PreviewPhoto format.
-      const mapped = photos.map(toPreviewPhoto);
-
-      // A successful but empty read must not blank the homepage section; the
-      // checked-in fallback stays visible until the archive has real rows.
-      if (mapped.length > 0) setPreviewPhotos(mapped);
-    });
-  }, [initialPhotos]);
-
-  const displayedPhotos = previewPhotos.slice(0, 6);
+  photos: GalleryPhotoView[];
+  dataPoints: Record<string, string>;
+}) {
+  // The homepage server component supplies the gallery rows. A successful but
+  // empty read must not blank the section, so the checked-in archive remains
+  // the fallback until the gallery table has real rows. The client boundary is
+  // only for RSC payload size; there is no state or client-side data access.
+  const displayedPhotos = (photos.length > 0 ? photos : FALLBACK_GALLERY_PHOTOS)
+    .slice(0, 6)
+    .map(toPreviewPhoto);
 
   return (
     <section className="civic-section bg-surface-muted text-foreground">
@@ -101,26 +86,7 @@ export function HomeGalleryPreview({
 
         {/* One horizontal, snap-scrolling strip on phones; a two-up grid from sm,
             with a featured lead frame from lg. */}
-        {displayedPhotos.length === 0 ? (
-          <div className="civic-panel flex min-h-60 flex-col items-center justify-center gap-4 p-8 text-center">
-            <span className="flex size-12 items-center justify-center border border-border bg-surface-muted text-muted-foreground">
-              <Camera size={20} aria-hidden="true" />
-            </span>
-            <p className="max-w-sm text-sm leading-relaxed text-muted-foreground">
-              The chapter photo archive is being prepared. Check back soon, or visit the gallery
-              for the latest uploads.
-            </p>
-            <Link href="/gallery" className="civic-link-arrow group">
-              Visit the gallery
-              <ArrowRight
-                size={14}
-                aria-hidden="true"
-                className="transition-transform group-hover:translate-x-1 motion-reduce:transform-none"
-              />
-            </Link>
-          </div>
-        ) : (
-          <div className="-mx-4 flex snap-x snap-mandatory scroll-pl-4 gap-4 overflow-x-auto px-4 pb-4 sm:mx-0 sm:grid sm:grid-cols-2 sm:px-0 lg:auto-rows-[20rem] lg:grid-cols-3">
+        <div className="-mx-4 flex snap-x snap-mandatory scroll-pl-4 gap-4 overflow-x-auto px-4 pb-4 sm:mx-0 sm:grid sm:grid-cols-2 sm:px-0 lg:auto-rows-[20rem] lg:grid-cols-3">
           {displayedPhotos.map((photo, index) => {
             // A full set of six makes a complete magazine grid: the lead frame
             // spans two rows while the other five fill the remaining cells.
@@ -176,8 +142,7 @@ export function HomeGalleryPreview({
               </Link>
             );
           })}
-          </div>
-        )}
+        </div>
       </div>
     </section>
   );

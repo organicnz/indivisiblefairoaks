@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { markCRMBroadcastFailed } from '@/lib/actions/crm';
+import { CRM_AUDIT_LOST_DETAIL } from '@/lib/actions/crm/shared';
 
 vi.mock('next/cache', () => ({
   revalidatePath: vi.fn(),
@@ -60,6 +61,12 @@ const strandedRow = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
+/** Make both durable audit destinations reject the record. */
+function failAuditWrites() {
+  tables.admin_audit_log = { rows: [], insertError: { message: 'audit log offline' } };
+  tables.admin_audit_outbox = { rows: [], insertError: { message: 'outbox offline' } };
+}
+
 describe('markCRMBroadcastFailed', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -88,6 +95,21 @@ describe('markCRMBroadcastFailed', () => {
     // failure from an organizer's decision.
     expect(row?.marked_failed_at).toBeTruthy();
     expect(row?.marked_failed_by).toBe('admin-user-uuid-1234');
+  });
+
+  it('warns when the failed status could not be audited', async () => {
+    tables.crm_broadcasts = { rows: [strandedRow()] };
+    failAuditWrites();
+
+    const res = await markCRMBroadcastFailed('b1');
+
+    expect(res).toEqual({
+      success: true,
+      warning: `The campaign was marked failed, but ${CRM_AUDIT_LOST_DETAIL}`,
+    });
+    expect(tables.crm_broadcasts.rows?.[0]?.status).toBe('failed');
+    expect(tables.admin_audit_log.rows).toEqual([]);
+    expect(tables.admin_audit_outbox.rows).toEqual([]);
   });
 
   it('never reports a negative remainder', async () => {

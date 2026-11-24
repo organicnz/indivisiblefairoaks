@@ -4,41 +4,64 @@ import { main as checkMigrations } from '../../../scripts/check-migrations.mjs';
 import { main as checkSchemaHygiene } from '../../../scripts/check-schema-hygiene.mjs';
 
 /**
- * The schema-check job's token/fork policy, pinned as behaviour.
+ * The schema gate's trust boundary, pinned as behaviour.
  *
- * Four rules are load-bearing and until now lived only in YAML comments:
+ * `schema-check-trusted.yml` owns the required `Migration History` check. It
+ * runs on `pull_request_target` and `push`, executes base-branch scripts, and
+ * checks out only the merge ref's migration directory as data. It has no
+ * fork-only condition and no tokenless skip: a fork PR either runs the hosted
+ * checks or fails.
  *
- *   1. a hosted check runs when a token exists, and also when it does not but
- *      the event is not a fork PR — where the script then fails on the missing
- *      credential, so the job fails rather than passing unverified;
- *   2. a tokenless fork PR skips the two hosted checks and nothing else;
- *   3. the token-free checks are never gated and never advisory, so they fail
- *      the job on every event;
- *   4. every token-bearing step runs from the pinned base checkout and reads
- *      the PR's migrations as data, never executes from the PR checkout — and
- *      the fork companion does the same with its sparse data-only checkout.
+ * `ci.yml` keeps the token-free checks that inspect PR source in a separate
+ * `Schema checks (PR)` job. That job is deliberately not named "Migration
+ * History", so its green result cannot stand in for the hosted check.
  *
- * A test that compared the `if:` strings would fail on a harmless rewrite and
- * would still pass on a condition that reads the same but evaluates the other
- * way. So this parses the workflow, evaluates each step's condition against
- * the four contexts, and asserts which steps would be skipped. The evaluator
- * below is the GitHub expression subset these conditions use — no more.
+ * Three rules are load-bearing:
+ *
+ *   1. every event that produces the required check — a fork PR, a same-repo
+ *      PR, and a push to main — runs the hosted checks;
+ *   2. the trusted workflow executes no PR script and reads only
+ *      `trusted/pr-migrations`, never `pr/`;
+ *   3. the token-free checks in `ci.yml` receive no credential and are not
+ *      presented as the hosted check.
  */
 
-const WORKFLOW = `${process.cwd()}/.github/workflows/ci.yml`;
-const FORK_WORKFLOW = `${process.cwd()}/.github/workflows/schema-check-fork.yml`;
+const CI_WORKFLOW = `${process.cwd()}/.github/workflows/ci.yml`;
+const TRUSTED_WORKFLOW = `${process.cwd()}/.github/workflows/schema-check-trusted.yml`;
 
-/** The two checks that need `SUPABASE_ACCESS_TOKEN` (and a network call). */
+/** The checks that need `SUPABASE_ACCESS_TOKEN` (and a network call). */
 const HOSTED_CHECKS = ['scripts/check-migrations.mjs', 'scripts/check-schema-hygiene.mjs'];
 
-/** The checks that read only the checkout, and so must always run. */
-const TOKEN_FREE_CHECKS = [
+/** Migration checks that run the trusted script against the copied merge set. */
+const TRUSTED_MIGRATION_CHECKS = [
+  'scripts/check-migration-immutability.mjs',
+  'scripts/check-migration-sql.mjs',
+];
+
+/** Token-free checks that need the PR tree. They stay in `ci.yml`. */
+const TOKEN_FREE_PR_CHECKS = [
   'scripts/check-migration-immutability.mjs',
   'scripts/check-migration-sql.mjs',
   'scripts/check-migration-types.mjs',
   'scripts/check-audit-coverage.mjs',
   'scripts/check-supabase-cli-pin.mjs',
 ];
+
+const TRUSTED_CHECKS = [...HOSTED_CHECKS, ...TRUSTED_MIGRATION_CHECKS];
+
+/** Where the PR migration data is copied inside the trusted checkout. */
+const COPIED_MIGRATIONS = 'trusted/pr-migrations';
+
+/** The PR checkout's migration source. */
+const PR_MIGRATIONS = 'pr/supabase/migrations';
+
+/** A path or command that names the untrusted PR checkout. */
+const PR_PATH = /(^|[/\s"'=(])(\.\/)?pr\//;
+
+type Trigger = {
+  branches?: string[];
+  types?: string[];
+};
 
 type Step = {
   name?: string;
@@ -53,169 +76,38 @@ type Step = {
 };
 
 type Job = {
+  name?: string;
   if?: unknown;
   steps?: Step[];
   defaults?: { run?: { 'working-directory'?: string } };
 };
 
 type Workflow = {
-  on?: Record<string, unknown>;
+  on?: Record<string, Trigger>;
+  permissions?: Record<string, unknown>;
   jobs: Record<string, Job>;
 };
 
-const workflow = Bun.YAML.parse(await Bun.file(WORKFLOW).text()) as Workflow;
-const job = workflow.jobs['schema-check'];
-const steps = job?.steps ?? [];
+const ciWorkflow = Bun.YAML.parse(await Bun.file(CI_WORKFLOW).text()) as Workflow;
+const trustedWorkflow = Bun.YAML.parse(await Bun.file(TRUSTED_WORKFLOW).text()) as Workflow;
+const trustedJob = trustedWorkflow.jobs.schema;
+if (!trustedJob) throw new Error('schema-check-trusted.yml must have a "schema" job');
+const ciJob = ciWorkflow.jobs['schema-pr-checks'];
+if (!ciJob) throw new Error('ci.yml must have a "schema-pr-checks" job');
 
-const forkWorkflow = Bun.YAML.parse(await Bun.file(FORK_WORKFLOW).text()) as Workflow;
-const forkJob = forkWorkflow.jobs.hosted;
-const forkSteps = forkJob?.steps ?? [];
-
-type ExpressionValue = boolean | string | undefined;
-type ExpressionContext = Record<string, ExpressionValue>;
-
-/** GitHub truthiness for the values these conditions can produce. */
-function truthy(value: ExpressionValue): boolean {
-  return typeof value === 'boolean' ? value : value !== undefined;
-}
-
-/**
- * Evaluate a GitHub Actions `if:` expression.
- *
- * Grammar, in precedence order: `||`, `&&`, `==` / `!=`, `!`, parentheses,
- * string literals and dotted context paths. That is the whole subset the
- * schema-check job uses; anything else throws rather than guessing, so a
- * condition that reaches for a new operator fails loudly instead of passing
- * vacuously.
- */
-function evaluate(condition: string, context: ExpressionContext): boolean {
-  const tokens = condition.match(/'[^']*'|[A-Za-z_][A-Za-z0-9_.]*|&&|\|\||==|!=|!|\(|\)/g) ?? [];
-  if (tokens.length === 0) {
-    throw new Error(`cannot tokenize condition: ${condition}`);
-  }
-
-  let cursor = 0;
-  const peek = (): string | undefined => tokens[cursor];
-
-  function take(): string {
-    const token = tokens[cursor];
-    cursor += 1;
-    if (token === undefined) throw new Error(`unexpected end of condition: ${condition}`);
-    return token;
-  }
-
-  function primary(): ExpressionValue {
-    const token = take();
-    if (token === '(') {
-      const value = disjunction();
-      if (take() !== ')') throw new Error(`missing ")" in condition: ${condition}`);
-      return value;
-    }
-    if (token.startsWith("'")) return token.slice(1, -1);
-    if (token === 'true') return true;
-    if (token === 'false') return false;
-    return context[token];
-  }
-
-  function unary(): ExpressionValue {
-    if (peek() === '!') {
-      take();
-      return !truthy(unary());
-    }
-    return primary();
-  }
-
-  function comparison(): ExpressionValue {
-    const left = unary();
-    const operator = peek();
-    if (operator !== '==' && operator !== '!=') return left;
-    take();
-    // These conditions only ever compare booleans and the strings 'true' /
-    // 'false', where GitHub's loose equality and this string comparison agree.
-    const equal = String(left) === String(unary());
-    return operator === '==' ? equal : !equal;
-  }
-
-  function conjunction(): ExpressionValue {
-    let value = comparison();
-    while (peek() === '&&') {
-      take();
-      // Evaluate both operands before combining: using `&&` here would skip
-      // `comparison()` on a false left side and leave the cursor mid-condition.
-      const left = truthy(value);
-      const right = truthy(comparison());
-      value = left && right;
-    }
-    return value;
-  }
-
-  function disjunction(): ExpressionValue {
-    let value = conjunction();
-    while (peek() === '||') {
-      take();
-      const left = truthy(value);
-      const right = truthy(conjunction());
-      value = left || right;
-    }
-    return value;
-  }
-
-  const result = disjunction();
-  if (cursor !== tokens.length) {
-    throw new Error(`unexpected "${peek()}" in condition: ${condition}`);
-  }
-  return truthy(result);
-}
-
-/** The context a step sees: whether the token was detected, and the event shape. */
-function contextFor(tokenAvailable: boolean, fork: boolean | undefined): ExpressionContext {
-  return {
-    'steps.supabase.outputs.available': tokenAvailable ? 'true' : 'false',
-    // Absent on `push`, which is why the condition is `!= true` and not `== false`.
-    'github.event.pull_request.head.repo.fork': fork,
-  };
-}
-
-const TOKEN = true;
-const NO_TOKEN = false;
-const FORK_PR = true;
-const SAME_REPO_PR = false;
-const PUSH = undefined;
-
-function runs(step: Step, context: ExpressionContext): boolean {
-  const condition = step.if;
-  if (condition === undefined || condition === null) return true;
-  if (typeof condition === 'boolean') return condition;
-  if (typeof condition !== 'string') {
-    throw new Error(`unexpected "if" value for step ${step.name ?? step.run ?? '?'}`);
-  }
-  return evaluate(condition, context);
-}
+const trustedSteps = trustedJob.steps ?? [];
+const ciSteps = ciJob.steps ?? [];
 
 function label(step: Step): string {
   return step.name ?? step.run ?? 'unnamed step';
 }
 
-/**
- * The check steps that would not run under a context, by name.
- *
- * Only `bun scripts/check-*` steps count. The fork-PR notice is a step too,
- * and it is *supposed* to be skipped outside a fork PR — counting it would
- * make "nothing is skipped" false for the wrong reason.
- */
-function skippedChecks(context: ExpressionContext): string[] {
-  return steps
-    .filter((step) => !runs(step, context))
-    .filter((step) => (step.run ?? '').includes('scripts/check-'))
-    .map((step) => label(step));
-}
-
-function stepRunning(script: string): Step {
-  const matches = steps.filter((step) => step.run?.includes(script));
+function checkStep(candidates: Step[], script: string): Step {
+  const matches = candidates.filter((step) => step.run?.includes(script));
   const [match, ...extra] = matches;
   if (!match || extra.length > 0) {
     throw new Error(
-      `${script} must be the only command in exactly one schema-check step (found ${matches.length})`
+      `${script} must be the only command in exactly one schema step (found ${matches.length})`
     );
   }
   return match;
@@ -238,199 +130,213 @@ function checkoutAt(candidates: Step[], path: string): Step {
 }
 
 /** A step's own working directory, falling back to the job default. */
-function workingDirectory(step: Step, stepJob: Job | undefined): string | undefined {
-  return step['working-directory'] ?? stepJob?.defaults?.run?.['working-directory'];
+function workingDirectory(step: Step, job: Job): string | undefined {
+  return step['working-directory'] ?? job.defaults?.run?.['working-directory'];
 }
 
-/** Any `run:` that names the untrusted checkout as a command or path. */
-function executesFromPr(candidates: Step[]): string[] {
-  return candidates
-    .filter((step) => /(^|[\s"'=(])(\.\/)?pr\//.test(step.run ?? ''))
-    .map((step) => label(step));
+/** The one step that copies PR migrations into the trusted checkout. */
+function migrationCopy(): Step {
+  const matches = trustedSteps.filter(
+    (step) =>
+      (step.run ?? '').includes(PR_MIGRATIONS) && (step.run ?? '').includes(COPIED_MIGRATIONS)
+  );
+  const [match, ...extra] = matches;
+  if (!match || extra.length > 0) {
+    throw new Error(`expected exactly one PR-migration copy step (found ${matches.length})`);
+  }
+  return match;
 }
 
-describe('schema-check conditions', () => {
-  it('finds every expected check exactly once', () => {
-    for (const script of [...HOSTED_CHECKS, ...TOKEN_FREE_CHECKS]) {
-      expect(
-        steps.filter((step) => (step.run ?? '').includes(script)),
-        `${script} must appear in exactly one step`
-      ).toHaveLength(1);
+describe('trusted schema workflow', () => {
+  it('is the required Migration History check for every PR and main push', () => {
+    const events = Object.keys(trustedWorkflow.on ?? {}).sort();
+    expect(events).toEqual(['pull_request_target', 'push']);
+    expect(trustedWorkflow.on?.push?.branches).toEqual(['main']);
+    expect(trustedWorkflow.on?.pull_request_target?.branches).toEqual(['main']);
+    expect(trustedWorkflow.on?.pull_request).toBeUndefined();
+
+    expect(trustedJob.name).toBe('Migration History');
+    expect(trustedWorkflow.permissions).toEqual({ contents: 'read' });
+  });
+
+  it('has no level at which an unverified run can skip and stay green', () => {
+    // A job-level skip would remove the required check entirely; a step-level
+    // skip on the hosted pair would recreate the old fork-PR hole. Both are
+    // forbidden. A missing token still fails inside the scripts (below).
+    expect(trustedJob.if, 'the required job must not be conditionally skipped').toBeUndefined();
+    for (const step of trustedSteps) {
+      expect(step.if, `${label(step)} must be unconditional`).toBeUndefined();
     }
+    expect(
+      trustedSteps.filter((step) => (step.run ?? '').includes('::notice')),
+      'there must be no skip notice standing in for a check'
+    ).toEqual([]);
   });
 
-  it('detects the token in one step that reports "available"', () => {
-    const detect = steps.find((step) => step.id === 'supabase');
-    if (!detect)
-      throw new Error('schema-check must have a token detection step with id "supabase"');
+  it('checks out only the merge migration directory, as data', () => {
+    const prCheckout = checkoutAt(trustedSteps, 'pr');
+    const prRef = String(prCheckout.with?.ref ?? '');
+    expect(prRef).toContain('refs/pull/');
+    expect(prRef).toContain('/merge');
+    expect(prRef).toContain('github.sha');
+    expect(prCheckout.with?.['sparse-checkout']).toBe('supabase/migrations');
+    expect(prCheckout.with?.['persist-credentials']).toBe(false);
+    expect(prCheckout.with?.['allow-unsafe-pr-checkout']).toBe(true);
 
-    expect(detect.run ?? '').toContain('available=true');
-    expect(detect.run ?? '').toContain('available=false');
-    expect(String(detect.env?.SUPABASE_ACCESS_TOKEN)).toContain('secrets.SUPABASE_ACCESS_TOKEN');
+    const trusted = checkoutAt(trustedSteps, 'trusted');
+    const trustedRef = String(trusted.with?.ref ?? '');
+    expect(trustedRef).toContain('github.event.pull_request.base.sha');
+    expect(trustedRef).toContain('github.sha');
+    expect(trusted.with?.['persist-credentials']).toBe(false);
   });
 
-  it('announces the fork-PR skip instead of skipping silently', () => {
-    const notices = steps.filter(
-      (step) => runs(step, contextFor(NO_TOKEN, FORK_PR)) && (step.run ?? '').includes('::notice')
-    );
-    expect(notices.length).toBeGreaterThan(0);
-  });
-
-  it('keeps both hosted checks blocking when they run', () => {
-    for (const script of HOSTED_CHECKS) {
-      expect(blocking(stepRunning(script)), `${script} must not be advisory`).toBe(true);
-    }
-  });
-
-  it('keeps the token-free checks unconditional and blocking', () => {
-    for (const script of TOKEN_FREE_CHECKS) {
-      const step = stepRunning(script);
-      expect(step.if, `${script} must not be gated`).toBeUndefined();
+  it('finds every trusted check exactly once and keeps it blocking', () => {
+    for (const script of TRUSTED_CHECKS) {
+      const step = checkStep(trustedSteps, script);
       expect(blocking(step), `${script} must fail the job`).toBe(true);
     }
   });
 
-  it('keeps migration/type consistency blocking rather than advisory', () => {
-    expect(stepRunning('scripts/check-migration-types.mjs').run).not.toContain('--advisory');
-  });
-});
+  it('does not execute any PR script in the privileged workflow', () => {
+    const runSteps = trustedSteps.filter((step) => step.run !== undefined);
+    for (const step of runSteps) {
+      expect(
+        workingDirectory(step, trustedJob),
+        `${label(step)} must not run from the PR`
+      ).not.toBe('pr');
+    }
 
-describe('hosted path: trusted scripts, PR data', () => {
-  it('pins the trusted checkout to the base commit, with a push fallback', () => {
-    const trusted = checkoutAt(steps, 'trusted');
-    const ref = String(trusted.with?.ref ?? '');
-    expect(ref).toContain('github.event.pull_request.base.sha');
-    expect(ref).toContain('github.sha');
-    expect(trusted.with?.['persist-credentials']).toBe(false);
-  });
+    const copy = migrationCopy();
+    expect(trustedSteps.filter((step) => PR_PATH.test(step.run ?? ''))).toEqual([copy]);
 
-  it('checks the PR out with no persisted credentials', () => {
-    expect(checkoutAt(steps, 'pr').with?.['persist-credentials']).toBe(false);
-  });
-
-  it('runs both hosted scripts from the trusted checkout', () => {
-    for (const script of HOSTED_CHECKS) {
-      expect(workingDirectory(stepRunning(script), job), `${script} must run from trusted`).toBe(
-        'trusted'
-      );
+    for (const script of [
+      'scripts/check-migration-types.mjs',
+      'scripts/check-audit-coverage.mjs',
+      'scripts/check-supabase-cli-pin.mjs',
+    ]) {
+      expect(
+        trustedSteps.some((step) => (step.run ?? '').includes(script)),
+        `${script} must stay out of the privileged workflow`
+      ).toBe(false);
     }
   });
 
-  it('feeds the history check the PR merge tree migrations', () => {
-    const step = stepRunning('scripts/check-migrations.mjs');
-    expect(String(step.env?.MIGRATIONS_DIR ?? '')).toContain('/pr/supabase/migrations');
-  });
-
-  it('never executes anything from the PR checkout', () => {
-    expect(executesFromPr(steps)).toEqual([]);
-  });
-
-  it('runs the token-free checks against the PR tree, not the base', () => {
-    for (const script of TOKEN_FREE_CHECKS) {
-      expect(workingDirectory(stepRunning(script), job), `${script} must inspect the PR`).toBe(
-        'pr'
-      );
-    }
-  });
-
-  it('does not let the immutability check compare the PR against itself', () => {
-    const step = stepRunning('scripts/check-migration-immutability.mjs');
-    const trustedPath = String(checkoutAt(steps, 'trusted').with?.path ?? '');
-    const prPath = String(checkoutAt(steps, 'pr').with?.path ?? '');
-    const base = String(step.env?.BASE_MIGRATIONS_DIR ?? '');
-
-    // The step runs from `pr/` (the test above), so a relative or PR-relative
-    // base would hash every file against itself and pass. It must name the
-    // trusted checkout explicitly.
-    expect(base, 'the base must be the trusted checkout').toBe(
-      `\${{ github.workspace }}/${trustedPath}/supabase/migrations`
+  it('copies only the migration directory before every trusted check', () => {
+    const copy = migrationCopy();
+    expect(copy.if, 'the copy must run on every event').toBeUndefined();
+    expect(blocking(copy), 'the copy must fail the job').toBe(true);
+    expect(copy.env?.SUPABASE_ACCESS_TOKEN).toBeUndefined();
+    expect(copy.run).toContain('rm -rf');
+    expect(copy.run).toContain('cp -R');
+    expect(copy.run, 'the copy must reject a symlinked source').toContain('-L "$SOURCE"');
+    expect(copy.run, 'the copy must reject a symlinked destination').toContain('-L "$DEST"');
+    expect(copy.run, 'the copy must reject symlinks and special files').toContain(
+      '-mindepth 1 ! -type f'
     );
-    expect(base, 'the base must not be the PR checkout').not.toContain(`/${prPath}/`);
-  });
-});
+    expect(copy.run, 'the copy must not overwrite the base migrations').not.toContain(
+      'trusted/supabase/migrations'
+    );
+    expect(copy.run, 'the copy must not execute a PR script').not.toMatch(
+      /\b(?:bun|node|bash|sh|deno|python)\b/
+    );
+    expect(copy.run, 'the copy must not invoke the scripts tree').not.toContain('scripts/');
 
-describe('fork companion workflow', () => {
-  it('runs on pull_request_target, not pull_request', () => {
-    expect(Object.keys(forkWorkflow.on ?? {})).toEqual(['pull_request_target']);
-  });
-
-  it('is limited to fork PRs', () => {
-    if (!forkJob) throw new Error('the fork workflow must have a "hosted" job');
-    expect(forkJob.if).toBeTypeOf('string');
-    expect(evaluate(String(forkJob.if), contextFor(TOKEN, FORK_PR))).toBe(true);
-    expect(evaluate(String(forkJob.if), contextFor(TOKEN, SAME_REPO_PR))).toBe(false);
-  });
-
-  it('runs base scripts against a sparse, data-only fork checkout', () => {
-    const trusted = checkoutAt(forkSteps, 'trusted');
-    expect(String(trusted.with?.ref ?? '')).toContain('github.event.pull_request.base.sha');
-
-    const pr = checkoutAt(forkSteps, 'pr');
-    expect(pr.with?.['sparse-checkout']).toBe('supabase/migrations');
-    expect(pr.with?.['persist-credentials']).toBe(false);
-  });
-
-  it('runs both hosted scripts from the trusted checkout', () => {
-    for (const script of HOSTED_CHECKS) {
-      const step = forkSteps.find((candidate) => (candidate.run ?? '').includes(script));
-      if (!step) throw new Error(`${script} must appear in the fork workflow`);
-      expect(workingDirectory(step, forkJob), `${script} must run from trusted`).toBe('trusted');
+    const copyIndex = trustedSteps.indexOf(copy);
+    for (const script of TRUSTED_CHECKS) {
+      expect(
+        trustedSteps.indexOf(checkStep(trustedSteps, script)),
+        `${script} must run after the migration copy`
+      ).toBeGreaterThan(copyIndex);
     }
   });
 
-  it('never executes anything from the fork checkout', () => {
-    expect(executesFromPr(forkSteps)).toEqual([]);
+  it('runs the hosted checks from trusted against the copied merge set', () => {
+    for (const script of HOSTED_CHECKS) {
+      const step = checkStep(trustedSteps, script);
+      expect(workingDirectory(step, trustedJob), `${script} must run from trusted`).toBe('trusted');
+      expect(step.if, `${script} must not be gated`).toBeUndefined();
+      expect(step.run, `${script} must not execute from the PR`).not.toMatch(PR_PATH);
+      expect(
+        String(step.env?.MIGRATIONS_DIR ?? ''),
+        `${script} must not read the PR checkout`
+      ).not.toContain(`/${PR_MIGRATIONS}`);
+      expect(String(step.env?.SUPABASE_ACCESS_TOKEN)).toContain(
+        'secrets.SUPABASE_READ_ONLY_ACCESS_TOKEN'
+      );
+    }
+
+    const history = checkStep(trustedSteps, 'scripts/check-migrations.mjs');
+    expect(String(history.env?.MIGRATIONS_DIR)).toContain(`/${COPIED_MIGRATIONS}`);
+  });
+
+  it('runs the migration immutability and SQL checks from trusted base code', () => {
+    for (const script of TRUSTED_MIGRATION_CHECKS) {
+      const step = checkStep(trustedSteps, script);
+      expect(workingDirectory(step, trustedJob), `${script} must run from trusted`).toBe('trusted');
+      expect(step.if, `${script} must not be gated`).toBeUndefined();
+      expect(step.run, `${script} must not execute from the PR`).not.toMatch(PR_PATH);
+      expect(step.env?.SUPABASE_ACCESS_TOKEN, `${script} must be token-free`).toBeUndefined();
+      expect(String(step.env?.MIGRATIONS_DIR)).toContain(`/${COPIED_MIGRATIONS}`);
+      expect(String(step.env?.MIGRATIONS_DIR)).not.toContain(`/${PR_MIGRATIONS}`);
+      expect(String(step.env?.BASE_MIGRATIONS_DIR)).toContain('/trusted/supabase/migrations');
+    }
   });
 });
 
-/**
- * Every row the gate promises to handle, in one place.
- *
- * The rows above test the pieces; this tests the contract. `skips` is the only
- * outcome that leaves the job green, and it is reachable only when there is no
- * token *and* the event is a fork PR. Every other tokenless row runs the
- * hosted checks and fails on the configuration fault.
- */
-const TRUTH_TABLE = [
-  { label: 'token present, fork PR', token: TOKEN, fork: FORK_PR, hosted: 'runs' },
-  { label: 'token present, same-repo PR', token: TOKEN, fork: SAME_REPO_PR, hosted: 'runs' },
-  { label: 'token present, push', token: TOKEN, fork: PUSH, hosted: 'runs' },
-  { label: 'no token, fork PR', token: NO_TOKEN, fork: FORK_PR, hosted: 'skips' },
-  { label: 'no token, same-repo PR', token: NO_TOKEN, fork: SAME_REPO_PR, hosted: 'runs' },
-  { label: 'no token, push', token: NO_TOKEN, fork: PUSH, hosted: 'runs' },
-] as const;
+describe('ci.yml', () => {
+  it('no longer owns a Migration History job or a hosted check', () => {
+    expect(ciWorkflow.jobs['schema-check']).toBeUndefined();
+    expect(
+      Object.values(ciWorkflow.jobs).filter((job) => job.name === 'Migration History')
+    ).toEqual([]);
 
-describe('schema-check truth table', () => {
-  const hostedNames = HOSTED_CHECKS.map((script) => label(stepRunning(script))).sort();
-
-  it('has no job-level condition that would bypass every row', () => {
-    // A job-level `if:` is evaluated before any step, so one condition there can
-    // skip the whole job — and every row below would then describe steps that
-    // never ran. The fork companion needs a job `if:` (it must only run for
-    // forks); this job must not, so its policy lives in the steps the table
-    // evaluates and nowhere else.
-    expect(job, 'schema-check job must exist').toBeDefined();
-    expect(job?.if, 'schema-check must not have a job-level "if:"').toBeUndefined();
+    for (const job of Object.values(ciWorkflow.jobs)) {
+      for (const step of job.steps ?? []) {
+        for (const script of HOSTED_CHECKS) {
+          expect(step.run ?? '', `${script} must not run in ci.yml`).not.toContain(script);
+        }
+      }
+    }
   });
 
-  for (const row of TRUTH_TABLE) {
-    it(`${row.label}: hosted checks ${row.hosted}`, () => {
-      const skipped = skippedChecks(contextFor(row.token, row.fork));
+  it('keeps the token-free checks in a separate, clearly named job', () => {
+    expect(ciJob.name).toBe('Schema checks (PR)');
+    expect(ciJob.if).toBeUndefined();
 
-      if (row.hosted === 'skips') {
-        // The only green-without-verification row, and it is limited to the
-        // hosted pair: a fork PR must still get every token-free check.
-        expect(skipped.sort()).toEqual(hostedNames);
-      } else {
-        expect(skipped).toEqual([]);
-      }
-    });
-  }
+    for (const script of TOKEN_FREE_PR_CHECKS) {
+      const step = checkStep(ciSteps, script);
+      expect(workingDirectory(step, ciJob), `${script} must inspect the PR`).toBe('pr');
+      expect(step.if, `${script} must not be gated`).toBeUndefined();
+      expect(step.env?.SUPABASE_ACCESS_TOKEN, `${script} must be token-free`).toBeUndefined();
+      expect(blocking(step), `${script} must fail the job`).toBe(true);
+    }
+  });
 
-  it('fails a tokenless non-fork run in the scripts themselves', async () => {
-    // The workflow half says the steps run; this half says they do not return
-    // success on a missing credential. Without it, "runs" could still mean a
-    // green job with no verification.
+  it('compares the PR migrations against the trusted base, not against themselves', () => {
+    for (const script of [
+      'scripts/check-migration-immutability.mjs',
+      'scripts/check-migration-sql.mjs',
+    ]) {
+      const step = checkStep(ciSteps, script);
+      expect(String(step.env?.BASE_MIGRATIONS_DIR)).toContain('/trusted/supabase/migrations');
+      expect(String(step.env?.BASE_MIGRATIONS_DIR)).not.toContain('/pr/supabase/migrations');
+    }
+  });
+
+  it('leaves the trusted workflow as the only owner of the migration-history check', async () => {
+    const glob = new Bun.Glob('*.yml');
+    const owners: string[] = [];
+    for await (const file of glob.scan({ cwd: '.github/workflows' })) {
+      const source = await Bun.file(`.github/workflows/${file}`).text();
+      if (source.includes('scripts/check-migrations.mjs')) owners.push(file);
+    }
+    owners.sort();
+    expect(owners).toEqual(['schema-check-trusted.yml']);
+  });
+});
+
+describe('missing credentials', () => {
+  it('fails in the scripts themselves instead of returning a green skip', async () => {
     const lines: string[] = [];
     const log = vi.spyOn(console, 'log').mockImplementation((...args: unknown[]) => {
       lines.push(args.join(' '));

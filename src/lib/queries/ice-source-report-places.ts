@@ -1,9 +1,6 @@
 import { cacheLife, cacheTag } from 'next/cache';
 import { getIceCrawlStore } from '@/lib/ice-crawl-store';
-import {
-  sourceReportPlaceKey,
-  type SourceReportPlace,
-} from '@/lib/ice-source-report-location';
+import { type SourceReportPlace, sourceReportPlaceKey } from '@/lib/ice-source-report-location';
 import { normalizeIceSourceReportCity } from '@/lib/ice-source-report-search';
 import { US_STATE_CODES } from '@/lib/rapid-city-match';
 
@@ -24,11 +21,15 @@ export async function getSourceReportPlaces(): Promise<SourceReportPlace[]> {
   if (!store) return [];
 
   const places = new Map<string, SourceReportPlace>();
+  const publishedBefore = new Date().toISOString();
 
   for (let from = 0; ; from += PAGE_SIZE) {
     const { data, error } = await store
       .from('ice_source_reports')
       .select('city, state_code')
+      // `getIceCrawlStore()` uses the service-role key, so the anon RLS
+      // predicate that hides future-dated reports is bypassed here too.
+      .lte('published_at', publishedBefore)
       .not('city', 'is', null)
       .not('state_code', 'is', null)
       .order('id', { ascending: true })
@@ -56,8 +57,6 @@ export async function getSourceReportPlaces(): Promise<SourceReportPlace[]> {
 
   return [...places.values()].sort(
     (a, b) =>
-      b.count - a.count ||
-      a.stateCode.localeCompare(b.stateCode) ||
-      a.city.localeCompare(b.city)
+      b.count - a.count || a.stateCode.localeCompare(b.stateCode) || a.city.localeCompare(b.city)
   );
 }

@@ -1,4 +1,4 @@
-import { env } from '@/lib/env';
+import { publicEnv } from '@/lib/public-env';
 
 // Single source of truth for site identity. Everything that needs to know
 // "where does this site live" reads from here: metadataBase, canonicals,
@@ -17,7 +17,7 @@ export const PRODUCTION_SITE_URL = 'https://indivisiblefairoaks.org';
  * The origin this build is serving. Drives metadataBase, canonicals, sitemap and
  * robots so staging and previews are self-referential instead of claiming the apex.
  */
-export const SITE_URL = env.NEXT_PUBLIC_SITE_URL.replace(/\/+$/, '');
+export const SITE_URL = publicEnv.NEXT_PUBLIC_SITE_URL.replace(/\/+$/, '');
 
 /**
  * True only when this build serves the production apex. Non-production builds

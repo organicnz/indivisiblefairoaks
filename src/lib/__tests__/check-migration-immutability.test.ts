@@ -3,10 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  listMigrations,
-  main,
-} from '../../../scripts/check-migration-immutability.mjs';
+import { main } from '../../../scripts/check-migration-immutability.mjs';
 
 /**
  * The applied-migration immutability gate's decision table.
@@ -73,9 +70,18 @@ describe('check-migration-immutability', () => {
     const out = captureOutput();
 
     const exit = await main(
-      trees({ [APPLIED]: 'select 1;\n' }, { [APPLIED]: 'select 1;\n', [NEW]: 'select 2;\n' })
+      trees(
+        { [APPLIED]: 'select 1;\n', 'README.md': 'old notes\n' },
+        {
+          [APPLIED]: 'select 1;\n',
+          [NEW]: 'select 2;\n',
+          'README.md': 'new notes\n',
+        }
+      )
     );
 
+    // The README is not a migration. If the listing stopped filtering to
+    // `*.sql`, its changed contents would turn this pass into a failure.
     expect(exit).toBe(0);
     expect(out.all()).toContain('1 applied migration(s) are unchanged.');
     out.restore();
@@ -122,10 +128,29 @@ describe('check-migration-immutability', () => {
     out.restore();
   });
 
+  it('checks the applied file even when a new file reuses its version', async () => {
+    const out = captureOutput();
+    // The duplicate version belongs to the history check. It sorts after
+    // APPLIED, so a version lookup alone would have selected it and reported a
+    // rename of the applied file.
+    const duplicate = '20260101000000_zzz_duplicate.sql';
+
+    expect(
+      await main(
+        trees(
+          { [APPLIED]: 'select 1;\n' },
+          { [APPLIED]: 'select 1;\n', [duplicate]: 'select 2;\n' }
+        )
+      )
+    ).toBe(0);
+    expect(out.all()).toContain('1 applied migration(s) are unchanged.');
+    out.restore();
+  });
+
   it('refuses to pass without a base reference configured', async () => {
     const out = captureOutput();
 
-    expect(await main({ MIGRATIONS_DIR: join(root, 'pr/supabase/migrations') })).toBe(1);
+    expect(await main({})).toBe(1);
     expect(out.all()).toContain('BASE_MIGRATIONS_DIR is not set');
     out.restore();
   });
@@ -133,13 +158,17 @@ describe('check-migration-immutability', () => {
   it('refuses a vacuous pass when the base checkout is missing', async () => {
     const out = captureOutput();
 
-    expect(
-      await main({
-        BASE_MIGRATIONS_DIR: join(root, 'missing'),
-        MIGRATIONS_DIR: join(root, 'pr/supabase/migrations'),
-      })
-    ).toBe(1);
+    expect(await main({ BASE_MIGRATIONS_DIR: join(root, 'missing') })).toBe(1);
     expect(out.all()).toContain('Refusing a vacuous pass');
+    out.restore();
+  });
+
+  it('refuses a missing PR migrations directory', async () => {
+    const out = captureOutput();
+    const { BASE_MIGRATIONS_DIR } = trees({ [APPLIED]: 'select 1;\n' }, {});
+
+    expect(await main({ BASE_MIGRATIONS_DIR, MIGRATIONS_DIR: join(root, 'missing-pr') })).toBe(1);
+    expect(out.all()).toContain('No migrations directory');
     out.restore();
   });
 
@@ -151,12 +180,15 @@ describe('check-migration-immutability', () => {
     out.restore();
   });
 
-  it('lists only SQL files, sorted', async () => {
-    const { MIGRATIONS_DIR } = trees({}, {});
-    writeFileSync(join(MIGRATIONS_DIR, 'b.sql'), '');
-    writeFileSync(join(MIGRATIONS_DIR, 'a.sql'), '');
-    writeFileSync(join(MIGRATIONS_DIR, 'notes.txt'), '');
+  it('refuses to compare a tree against itself', async () => {
+    const out = captureOutput();
+    const { BASE_MIGRATIONS_DIR } = trees(
+      { [APPLIED]: 'select 1;\n' },
+      { [APPLIED]: 'select 1;\n' }
+    );
 
-    expect(await listMigrations(MIGRATIONS_DIR)).toEqual(['a.sql', 'b.sql']);
+    expect(await main({ BASE_MIGRATIONS_DIR, MIGRATIONS_DIR: BASE_MIGRATIONS_DIR })).toBe(1);
+    expect(out.all()).toContain('same directory');
+    out.restore();
   });
 });

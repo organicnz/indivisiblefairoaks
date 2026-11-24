@@ -25,6 +25,39 @@ export type CRMActivity = Database['public']['Tables']['crm_activities']['Row'];
 export type CRMActivityInsert = Database['public']['Tables']['crm_activities']['Insert'];
 
 /**
+ * Post-acceptance state of one direct email, correlated to Resend through the
+ * provider message id stored on the send activity/audit and on each
+ * `crm_email_events` row.
+ */
+export type DirectEmailDeliveryStatus = 'accepted' | 'delivered' | 'bounced' | 'complained';
+
+export type DirectEmailDeliveryEventType = 'delivered' | 'bounced' | 'complained' | 'suppressed';
+
+export interface DirectEmailDeliveryEvent {
+  eventType: DirectEmailDeliveryEventType;
+  occurredAt: string;
+}
+
+export interface DirectEmailDelivery {
+  /**
+   * Current state: a complaint always wins; otherwise the latest delivery
+   * outcome wins (so a temporary bounce followed by delivery reads delivered).
+   */
+  status: DirectEmailDeliveryStatus;
+  acceptedAt: string | null;
+  deliveredAt: string | null;
+  /** A Resend suppression is recorded here alongside a bounce. */
+  bouncedAt: string | null;
+  complainedAt: string | null;
+  events: DirectEmailDeliveryEvent[];
+}
+
+/** A timeline row with its correlated direct-email delivery state, when any. */
+export type CRMActivityWithDelivery = CRMActivity & {
+  delivery?: DirectEmailDelivery;
+};
+
+/**
  * A broadcast campaign row.
  *
  * Plain `Row` — `marked_failed_at` / `marked_failed_by` already exist on the

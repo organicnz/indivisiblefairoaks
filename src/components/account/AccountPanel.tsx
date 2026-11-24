@@ -1,5 +1,5 @@
 import { LogoutButton } from '@/components/account/LogoutButton';
-import { MfaSettings } from '@/components/account/MfaSettings';
+import { MfaSettingsLazy } from '@/components/account/MfaSettingsLazy';
 import { UserSettings } from '@/components/account/UserSettings';
 import { DataPoint } from '@/components/ui/DataPoint';
 
@@ -14,7 +14,7 @@ export function AccountPanel({ email, autoEnroll, returnTo, dataPoints }: Accoun
   return (
     <div className="max-w-2xl space-y-12">
       <UserSettings />
-      <MfaSettings autoEnroll={autoEnroll} returnTo={returnTo} />
+      <MfaSettingsLazy autoEnroll={autoEnroll} returnTo={returnTo} />
       <div className="pt-8 border-t border-border">
         <h3 className="civic-meta text-foreground mb-1">
           <DataPoint name="account.session.title" initialData={dataPoints}>

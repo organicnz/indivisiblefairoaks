@@ -1,9 +1,10 @@
 'use client';
 
 import { AlertTriangle } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { computeRapidSurges } from '@/lib/ice-rapid-surges';
+import { type HistoricalCityCounts, historicalCityKey } from './historical-city-key';
 import { RapidAlertChannels } from './RapidAlertChannels';
 import { RapidAlertFeed } from './RapidAlertFeed';
 import { RapidCacheBanner } from './RapidCacheBanner';
@@ -11,7 +12,6 @@ import { RapidFilterBar } from './RapidFilterBar';
 import { RapidLiveRail } from './RapidLiveRail';
 import { RapidLocalWatch } from './RapidLocalWatch';
 import { RapidMapPanel } from './RapidMapPanel';
-import { useNewRapidAlerts } from './rapid-new';
 import { RapidNewReportsBanner } from './RapidNewReportsBanner';
 import { RapidResponseGuide } from './RapidResponseGuide';
 import { RapidSurgeBanner } from './RapidSurgeBanner';
@@ -22,47 +22,53 @@ import {
   groupRapidAlerts,
   type RapidFilters,
 } from './rapid-alert-utils';
+import { useNewRapidAlerts } from './rapid-new';
 import type { RapidUrlState, RapidWatchRadius } from './rapid-types';
 import { serializeRapidUrlState } from './rapid-url-state';
-import type { HeatmapSnapshot, SearchTarget } from './types';
+import type { HeatmapMeta, SearchTarget } from './types';
+import { useHistoricalSnapshot } from './use-historical-snapshot';
 import { useLocationSearch } from './use-location-search';
 import { useRapidFeed } from './use-rapid-feed';
 import { useRapidMap } from './use-rapid-map';
 import { useUserLocation } from './use-user-location';
 
 type IceRapidResponseProps = {
-  snapshot: HeatmapSnapshot;
+  meta: HeatmapMeta;
+  historicalCityCounts: HistoricalCityCounts;
   initialState: RapidUrlState;
   children?: ReactNode;
 };
 
-export function IceRapidResponse({ snapshot, initialState, children }: IceRapidResponseProps) {
+export function IceRapidResponse({
+  meta,
+  historicalCityCounts,
+  initialState,
+  children,
+}: IceRapidResponseProps) {
   const { feed, status, error, isRefreshing, refresh, cache } = useRapidFeed();
   const [filters, setFilters] = useState<RapidFilters>(initialState.initialFilters);
-  const [selectedId, setSelectedId] = useState<string | null>(
-    initialState.initialAlertId
-  );
+  const [selectedId, setSelectedId] = useState<string | null>(initialState.initialAlertId);
   const [showHistorical, setShowHistorical] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const [searchTarget, setSearchTarget] = useState<SearchTarget | null>(null);
   const [watchRadius, setWatchRadius] = useState<RapidWatchRadius | null>(null);
+  const {
+    snapshot: historicalSnapshot,
+    status: historicalStatus,
+    load: loadHistoricalSnapshot,
+  } = useHistoricalSnapshot();
 
   const urlSyncEnabledRef = useRef(initialState.hasUrlState);
   const initialSelectionAppliedRef = useRef(false);
   const pendingFlyAlertRef = useRef<string | null>(initialState.initialAlertId);
-  const selectAlertRef = useRef<(id: string, options?: { scroll?: boolean }) => void>(
-    () => {}
-  );
+  const selectAlertRef = useRef<(id: string, options?: { scroll?: boolean }) => void>(() => {});
 
   const alerts = feed?.alerts ?? [];
   const officialReleases = feed?.officialReleases ?? [];
   const publicCases = feed?.publicCases ?? [];
   const newIds = useNewRapidAlerts(alerts, status === 'ready' && !cache.fromCache);
 
-  const filteredAlerts = useMemo(
-    () => filterAlerts(alerts, filters, now),
-    [alerts, filters, now]
-  );
+  const filteredAlerts = useMemo(() => filterAlerts(alerts, filters, now), [alerts, filters, now]);
   const points = useMemo(() => groupRapidAlerts(filteredAlerts, now), [filteredAlerts, now]);
   const activeFilteredCount = useMemo(
     () => countActiveAlerts(filteredAlerts, now),
@@ -100,19 +106,12 @@ export function IceRapidResponse({ snapshot, initialState, children }: IceRapidR
         publicCase.city.toLowerCase() === selectedAlert.city.toLowerCase()
     );
   }, [publicCases, selectedAlert]);
-  const selectedHistoricalCity = useMemo(() => {
+  const selectedHistoricalCount = useMemo(() => {
     if (!selectedAlert) return null;
-    return (
-      snapshot.cities.find(
-        (city) =>
-          city.stateCode === selectedAlert.stateCode &&
-          city.city.toLowerCase() === selectedAlert.city.toLowerCase()
-      ) ?? null
-    );
-  }, [selectedAlert, snapshot.cities]);
+    return historicalCityCounts[historicalCityKey(selectedAlert)] ?? null;
+  }, [historicalCityCounts, selectedAlert]);
 
-  const { userLocation, userLocationStatus, locationNotice, requestPrecise } =
-    useUserLocation({});
+  const { userLocation, userLocationStatus, locationNotice, requestPrecise } = useUserLocation({});
 
   const markUrlSync = useCallback(() => {
     urlSyncEnabledRef.current = true;
@@ -136,7 +135,8 @@ export function IceRapidResponse({ snapshot, initialState, children }: IceRapidR
     flyToUser,
     flyToWatchRadius,
   } = useRapidMap({
-    snapshot,
+    meta,
+    historicalSnapshot,
     points,
     publicCases,
     selectedAlertId: selectedId,
@@ -176,10 +176,7 @@ export function IceRapidResponse({ snapshot, initialState, children }: IceRapidR
         flyToPoint(alert);
       }
 
-      if (
-        options.scroll !== false &&
-        window.matchMedia('(max-width: 1023px)').matches
-      ) {
+      if (options.scroll !== false && window.matchMedia('(max-width: 1023px)').matches) {
         document
           .getElementById('ice-rapid-map-panel')
           ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -189,6 +186,10 @@ export function IceRapidResponse({ snapshot, initialState, children }: IceRapidR
   );
 
   selectAlertRef.current = selectAlert;
+
+  useEffect(() => {
+    if (showHistorical) void loadHistoricalSnapshot();
+  }, [loadHistoricalSnapshot, showHistorical]);
 
   useEffect(() => {
     const interval = window.setInterval(() => setNow(Date.now()), 30_000);
@@ -303,10 +304,7 @@ export function IceRapidResponse({ snapshot, initialState, children }: IceRapidR
     setFilters(DEFAULT_RAPID_FILTERS);
   };
 
-  const updateFilter = <Key extends keyof RapidFilters>(
-    key: Key,
-    value: RapidFilters[Key]
-  ) => {
+  const updateFilter = <Key extends keyof RapidFilters>(key: Key, value: RapidFilters[Key]) => {
     markUrlSync();
     setFilters((current) => ({ ...current, [key]: value }));
   };
@@ -387,7 +385,9 @@ export function IceRapidResponse({ snapshot, initialState, children }: IceRapidR
             selectedAlert={selectedAlert}
             cityAlerts={selectedCityAlerts}
             cityPublicCases={selectedCityPublicCases}
-            historicalCity={selectedHistoricalCity}
+            historicalCityCount={selectedHistoricalCount}
+            historicalReady={Boolean(historicalSnapshot)}
+            historicalStatus={historicalStatus}
             onClearSelected={() => setSelectedId(null)}
             onZoom={handleZoom}
             onReset={handleReset}
@@ -463,7 +463,6 @@ export function IceRapidResponse({ snapshot, initialState, children }: IceRapidR
               hasFilters={hasFilters}
               showHistoricalLink={!(status === 'error' && !feed)}
             />
-
           </div>
         </div>
       </section>
@@ -473,7 +472,7 @@ export function IceRapidResponse({ snapshot, initialState, children }: IceRapidR
       <RapidAlertChannels />
 
       <RapidResponseGuide
-        historicalMeta={snapshot.meta}
+        historicalMeta={meta}
         community={feed?.community ?? null}
         official={feed?.official ?? null}
         now={now}

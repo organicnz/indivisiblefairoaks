@@ -101,6 +101,7 @@ export function CRMMediaLibraryModal({
       const res = await uploadCRMMedia(formData);
       if (res.success && res.data) {
         toast.success(`Uploaded ${res.data.name} to Supabase S3 storage (${targetFolder})`);
+        if (res.warning) toast.warning(res.warning);
         await loadMedia();
         // Automatically select the freshly uploaded asset
         onSelectMedia({
@@ -129,6 +130,7 @@ export function CRMMediaLibraryModal({
         const res = await deleteCRMMedia(path);
         if (res.success) {
           toast.success('Media removed from storage');
+          if (res.warning) toast.warning(res.warning);
           setMediaItems((prev) => prev.filter((m) => m.path !== path));
         } else {
           toast.error(res.error || 'Failed to delete');

@@ -13,7 +13,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { useDataPoints } from '@/hooks/useDataPoints';
-import { createClient } from '@/lib/supabase';
+import { hasSupabaseAuthCookie } from '@/lib/supabase-auth-cookie';
 
 interface AccountButtonProps {
   /** `pill` = compact desktop CTA, `block` = full-width mobile drawer row */
@@ -40,44 +40,73 @@ export function AccountButton({ variant = 'pill', onNavigate }: AccountButtonPro
   useEffect(() => {
     let mounted = true;
     let subscription: { unsubscribe: () => void } | undefined;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    let connecting = false;
 
-    // The auth client can be slow or unreachable in local/preview setups. A
-    // permanent loading pill used to occupy the masthead when `getSession()`
-    // never settled. Resolve to the signed-out entry point after a short beat;
-    // a real session arriving later still replaces it through the listener.
-    const timeout = setTimeout(() => {
-      if (mounted) setLoading(false);
-    }, 2500);
+    async function connect() {
+      if (!mounted || connecting) return;
+      connecting = true;
+      setLoading(true);
+      timeout = setTimeout(() => {
+        if (mounted) setLoading(false);
+      }, 2500);
 
-    try {
-      const supabase = createClient();
-      supabase.auth
-        .getSession()
-        .then(({ data: { session } }) => {
+      try {
+        const { createClient } = await import('@/lib/supabase');
+        if (!mounted) return;
+
+        const supabase = createClient();
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (!mounted) return;
+
+        setUser(session?.user ?? null);
+        setLoading(false);
+
+        subscription = supabase.auth.onAuthStateChange((_event, nextSession) => {
           if (mounted) {
-            setUser(session?.user ?? null);
+            setUser(nextSession?.user ?? null);
             setLoading(false);
           }
-        })
-        .catch(() => {
-          // Auth being unreachable must not leave a permanent loading pill in
-          // the masthead. Fall back to the signed-out entry point.
-          if (mounted) setLoading(false);
-        });
+        }).data.subscription;
+      } catch {
+        // Auth being unreachable must not leave a permanent loading pill in the
+        // masthead. Fall back to the signed-out entry point.
+        if (mounted) setLoading(false);
+      } finally {
+        if (timeout) clearTimeout(timeout);
+        connecting = false;
+      }
+    }
 
-      subscription = supabase.auth.onAuthStateChange((_event, session) => {
-        if (mounted) {
-          setUser(session?.user ?? null);
-          setLoading(false);
-        }
-      }).data.subscription;
-    } catch {
-      if (mounted) setLoading(false);
+    function recheck() {
+      if (!hasSupabaseAuthCookie()) return;
+      window.removeEventListener('focus', recheck);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      void connect();
+    }
+
+    function onVisibilityChange() {
+      if (document.visibilityState === 'visible') recheck();
+    }
+
+    // No session cookie means the visitor is signed out. Do not download the
+    // Supabase client just to render the sign-in link. Recheck on focus so a
+    // sign-in in another tab still swaps the masthead without a reload.
+    if (!hasSupabaseAuthCookie()) {
+      setLoading(false);
+      window.addEventListener('focus', recheck);
+      document.addEventListener('visibilitychange', onVisibilityChange);
+    } else {
+      void connect();
     }
 
     return () => {
       mounted = false;
-      clearTimeout(timeout);
+      if (timeout) clearTimeout(timeout);
+      window.removeEventListener('focus', recheck);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
       subscription?.unsubscribe();
     };
   }, []);
@@ -231,10 +260,14 @@ export function AccountButton({ variant = 'pill', onNavigate }: AccountButtonPro
         className="flex min-h-11 cursor-pointer items-center gap-3 rounded-sm px-3 py-2 text-sm text-ink-on-dark outline-none transition-colors duration-150 ease-out data-[highlighted]:bg-white/10 data-[highlighted]:text-white"
         onClick={() => {
           onNavigate?.();
-          const supabase = createClient();
-          supabase.auth.signOut().then(() => {
-            window.location.href = '/';
-          });
+          void (async () => {
+            try {
+              const { createClient } = await import('@/lib/supabase');
+              await createClient().auth.signOut();
+            } finally {
+              window.location.href = '/';
+            }
+          })();
         }}
       >
         <span aria-hidden="true" className="flex-shrink-0 w-3.5 h-3.5">

@@ -1,11 +1,10 @@
 'use client';
 
-import * as Sentry from '@sentry/nextjs';
 import Link from 'next/link';
 import { useEffect } from 'react';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { useDataPoints } from '@/hooks/useDataPoints';
-import { reportClientError } from '@/lib/error-report';
+import { reportBoundaryError } from '@/lib/report-boundary-error';
 
 export default function RouteError({
   error,
@@ -17,10 +16,10 @@ export default function RouteError({
   const { dataPoints } = useDataPoints('error');
 
   useEffect(() => {
-    reportClientError(error, { digest: error.digest });
     // Same dual-reporting contract as global-error.tsx: first-party log plus
-    // source-mapped Sentry trace. No-ops when no DSN is set.
-    Sentry.captureException(error);
+    // source-mapped Sentry trace. Both load on demand so their SDKs stay out
+    // of every route's first-load bundle.
+    reportBoundaryError(error, { digest: error.digest });
   }, [error]);
 
   return (

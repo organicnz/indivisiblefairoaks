@@ -1,36 +1,33 @@
 import { z } from 'zod';
+import {
+  ERROR_COMPONENT_STACK_MAX,
+  ERROR_DIGEST_MAX,
+  ERROR_MESSAGE_MAX,
+  ERROR_PATH_MAX,
+  ERROR_STACK_MAX,
+  VALID_ERROR_CATEGORIES,
+} from '@/lib/error-report-client';
 
 /**
- * Client error telemetry - shared between the browser error boundaries and
- * the /api/report-error route. Pure and dependency-free so it stays
- * unit-testable without a Next.js runtime.
+ * Server-side client-error telemetry schema - shared with the
+ * /api/report-error route. The browser reporter lives in
+ * `error-report-client.ts` so a crash does not ship Zod in the first load.
  *
  * Bounds are enforced here (not only in the DB) so oversized junk is rejected
  * before it ever reaches Postgres or burns rate-limiter accounting.
  */
 
-export const ERROR_MESSAGE_MAX = 500;
-export const ERROR_STACK_MAX = 2000;
-export const ERROR_COMPONENT_STACK_MAX = 1000;
-export const ERROR_DIGEST_MAX = 64;
-export const ERROR_PATH_MAX = 300;
-export const ERROR_CATEGORY_MAX = 50;
-
-export const VALID_ERROR_CATEGORIES = [
-  'runtime',
-  'build',
-  'deploy',
-  'ui',
-  'api',
-  'database',
-  'network',
-  'auth',
-  'stripe',
-  'supabase',
-  'other',
-] as const;
-
-export type ValidErrorCategory = (typeof VALID_ERROR_CATEGORIES)[number];
+export {
+  ERROR_COMPONENT_STACK_MAX,
+  ERROR_DIGEST_MAX,
+  ERROR_MESSAGE_MAX,
+  ERROR_PATH_MAX,
+  ERROR_STACK_MAX,
+  type ErrorReportInput,
+  reportClientError,
+  VALID_ERROR_CATEGORIES,
+  type ValidErrorCategory,
+} from '@/lib/error-report-client';
 
 export const errorReportSchema = z.object({
   message: z.string().trim().min(1).max(ERROR_MESSAGE_MAX),
@@ -40,8 +37,6 @@ export const errorReportSchema = z.object({
   path: z.string().max(ERROR_PATH_MAX).optional(),
   category: z.enum(VALID_ERROR_CATEGORIES).default('other').optional(),
 });
-
-export type ErrorReportInput = z.infer<typeof errorReportSchema>;
 
 /**
  * Groups identical crashes into one triage family: SHA-256 of the message
@@ -63,32 +58,4 @@ export async function errorFingerprint(message: string, stack?: string): Promise
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('')
     .slice(0, 32);
-}
-
-/**
- * Fire-and-forget beacon used by the error boundaries. Never throws and never
- * blocks recovery UI: keepalive fetch survives unload-triggered resets, and
- * every failure mode is swallowed. Safe to call from anywhere client-side.
- */
-export function reportClientError(error: unknown, extras: Partial<ErrorReportInput> = {}): void {
-  try {
-    const message =
-      error instanceof Error ? error.message : typeof error === 'string' ? error : 'Unknown error';
-    const payload = {
-      message,
-      stack: error instanceof Error ? error.stack : undefined,
-      path: typeof window !== 'undefined' ? window.location.pathname : undefined,
-      ...extras,
-    };
-    const parsed = errorReportSchema.safeParse(payload);
-    if (!parsed.success) return;
-    void fetch('/api/report-error', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(parsed.data),
-      keepalive: true,
-    }).catch(() => {});
-  } catch {
-    // Telemetry must never become its own incident.
-  }
 }

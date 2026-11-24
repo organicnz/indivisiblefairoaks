@@ -35,13 +35,17 @@ export function HomeChoir({ dataPoints }: { dataPoints: Record<string, string> }
               initialData={dataPoints}
               className="text-pretty text-base leading-relaxed text-muted-foreground dark:text-ink-on-dark sm:text-lg"
             >
-              Music lifts us up and has sustained justice movements throughout history. We gather
-              to weave our voices together in chants and songs of resistance, building vibrant
+              Music lifts us up and has sustained justice movements throughout history. We gather to
+              weave our voices together in chants and songs of resistance, building vibrant
               community while marching forward.
             </DataPoint>
             <div className="grid grid-cols-1 gap-4 py-2 sm:grid-cols-2">
               <div className="flex items-start gap-3 border-t border-foreground/25 pt-4">
-                <CheckCircle2 className="mt-0.5 shrink-0 text-primary-ink" size={18} aria-hidden="true" />
+                <CheckCircle2
+                  className="mt-0.5 shrink-0 text-primary-ink"
+                  size={18}
+                  aria-hidden="true"
+                />
                 <div>
                   <DataPoint
                     name="home.choir.all_voices"
@@ -62,7 +66,11 @@ export function HomeChoir({ dataPoints }: { dataPoints: Record<string, string> }
                 </div>
               </div>
               <div className="flex items-start gap-3 border-t border-foreground/25 pt-4">
-                <CheckCircle2 className="mt-0.5 shrink-0 text-primary-ink" size={18} aria-hidden="true" />
+                <CheckCircle2
+                  className="mt-0.5 shrink-0 text-primary-ink"
+                  size={18}
+                  aria-hidden="true"
+                />
                 <div>
                   <DataPoint
                     name="home.choir.rehearsal"
@@ -92,7 +100,7 @@ export function HomeChoir({ dataPoints }: { dataPoints: Record<string, string> }
                 <ArrowRight size={14} aria-hidden="true" />
               </Link>
               <a
-                href="https://www.mobilize.us/indivisible/"
+                href="https://www.mobilize.us/indivisible/event/1072857/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex min-h-11 max-w-full items-center gap-2 border border-foreground/30 px-5 py-3 text-[11px] font-bold uppercase tracking-[0.12em] text-foreground transition-colors hover:border-primary hover:text-primary-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"

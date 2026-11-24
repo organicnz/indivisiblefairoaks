@@ -56,6 +56,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return {
     title: `${content.title} — Visual composer`,
     description: 'Compose a CMS page visually.',
+    alternates: { canonical: null },
     robots: { index: false, follow: false },
   };
 }

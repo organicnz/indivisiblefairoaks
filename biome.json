@@ -18,7 +18,6 @@
       "!**/src/types/supabase.ts",
       "!**/supabase/functions",
       "!**/scratch",
-      "!**/scripts",
       "!**/coverage",
       "!**/tmp",
       "!**/test-results"
@@ -86,7 +85,10 @@
   },
   "overrides": [
     {
-      "includes": ["**/src/components/ui/CivicCommandPalette.tsx"],
+      "includes": [
+        "**/src/components/ui/CivicCommandPalette.tsx",
+        "**/src/components/ui/CivicCommandPaletteDialog.tsx"
+      ],
       "linter": {
         "rules": {
           "a11y": {
@@ -110,6 +112,10 @@
           }
         }
       }
+    },
+    {
+      "includes": ["**/scripts/**"],
+      "formatter": { "enabled": false }
     }
   ]
 }

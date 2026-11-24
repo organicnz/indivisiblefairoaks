@@ -1,10 +1,9 @@
 'use client';
 
-import * as Sentry from '@sentry/nextjs';
 import { AlertTriangle, ArrowLeft, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect } from 'react';
-import { reportClientError } from '@/lib/error-report';
+import { reportBoundaryError } from '@/lib/report-boundary-error';
 
 /**
  * The composer's route-level failure surface.
@@ -24,8 +23,7 @@ export default function ComposerWorkspaceError({
   reset: () => void;
 }) {
   useEffect(() => {
-    reportClientError(error, { digest: error.digest });
-    Sentry.captureException(error);
+    reportBoundaryError(error, { digest: error.digest });
   }, [error]);
 
   return (

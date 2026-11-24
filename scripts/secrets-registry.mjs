@@ -216,10 +216,10 @@ export const REGISTRY = {
     owner: OWNERS['app-runtime'],
     stores: ['vercel-var'],
     note:
-      'PostHog session replay project token. Inlined into the client bundle, so ' +
+      'PostHog event analytics project token. Inlined into the client bundle, so ' +
       'it is configuration rather than a credential. Deliberately NOT in ' +
       'github-var for the same reason as the Sentry DSN: CI and e2e builds carry ' +
-      'no token so neither can file replays against the production project.',
+      'no token so neither can file events against the production project.',
   },
   NEXT_PUBLIC_VAPID_PUBLIC_KEY: {
     exposure: EXPOSURE.public,

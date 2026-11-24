@@ -1,21 +1,21 @@
 import { ArrowRight, CalendarDays, Database, Phone } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { formatDateLabel } from '@/components/ice-alerts/data';
-import type { HeatmapSnapshot } from '@/components/ice-alerts/types';
+import type { HeatmapMeta } from '@/components/ice-alerts/types';
 import { DataPoint } from '@/components/ui/DataPoint';
 
 const numberFormatter = new Intl.NumberFormat('en-US');
 
 export function IceHistoricalHeader({
-  snapshot,
+  meta,
   dataPoints,
   action,
 }: {
-  snapshot: HeatmapSnapshot;
+  meta: HeatmapMeta;
   dataPoints: Record<string, string>;
   action?: ReactNode;
 }) {
-  const iceMeta = snapshot.meta;
+  const iceMeta = meta;
 
   return (
     <div className="mx-auto max-w-7xl px-4 pb-8 pt-6 sm:px-6 sm:pb-10 sm:pt-8 lg:px-8">
@@ -53,13 +53,13 @@ export function IceHistoricalHeader({
           </DataPoint>
           <p className="mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg">
             A national, interactive map of {numberFormatter.format(iceMeta.mappedRecords)} ICE
-            arrest records assigned to {numberFormatter.format(iceMeta.mappedCities)} U.S. city
-            and place points in a processed FOIA release. The latest available release covers
-            {formatDateLabel(iceMeta.periodStart)} through {formatDateLabel(iceMeta.periodEnd)}.
-            No newer ICE release was
-            available when this page was checked on {formatDateLabel(iceMeta.releaseCheckedAt)}.
-            This is a historical dataset, not a live alert service. The map starts nationwide and
-            can center on your approximate or precise area; it does not store your location.
+            arrest records assigned to {numberFormatter.format(iceMeta.mappedCities)} U.S. city and
+            place points in a processed FOIA release. The latest available release covers
+            {formatDateLabel(iceMeta.periodStart)} through {formatDateLabel(iceMeta.periodEnd)}. No
+            newer ICE release was available when this page was checked on{' '}
+            {formatDateLabel(iceMeta.releaseCheckedAt)}. This is a historical dataset, not a live
+            alert service. The map starts nationwide and can center on your approximate or precise
+            area; it does not store your location.
           </p>
           <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
             <span className="inline-flex items-center gap-1.5">

@@ -1,8 +1,8 @@
 'use client';
 
+import { prepareShader } from '@vgpu/wgsl/prepare';
 import { useEffect, useRef, useState } from 'react';
 import type { clock, effect, frame, init, surface, uniforms } from 'vgpu';
-import { prepareShader } from '@vgpu/wgsl/prepare';
 import { subscribeThemeHud, type ThemeHudEvent } from './theme-store';
 
 type GpuContext = Awaited<ReturnType<typeof init>>;
@@ -371,7 +371,6 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
 
 export const THEME_SHADER = prepareShader(THEME_WGSL, 'theme-wavefront.wgsl');
 
-
 function createInitialWave(): WaveSlot {
   return {
     origin: [0.5, 0.5],
@@ -421,8 +420,9 @@ function evaluateWave(slot: WaveSlot, currentTime: number, duration: number) {
  * - Graceful degradation: If WebGPU is unavailable or reduced-motion is requested,
  *   it leaves 0 footprint while CSS View Transitions handle the display.
  */
-export function VgpuThemeCanvas() {
+export function VgpuThemeCanvas({ initialEvent }: { initialEvent?: ThemeHudEvent }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const initialEventRef = useRef(initialEvent);
   const [isActive, setIsActive] = useState(false);
   const animFrameRef = useRef<number | null>(null);
   const fadeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -462,6 +462,7 @@ export function VgpuThemeCanvas() {
     if (!canvas) return;
 
     let disposed = false;
+    let gpuInitializing = false;
     let gpuInstance: GpuContext | null = null;
     let currentSurface: GpuSurface | null = null;
     let themeEffect: GpuEffect | null = null;
@@ -510,7 +511,8 @@ export function VgpuThemeCanvas() {
     // Asynchronously initialize WebGPU via vgpu
     async function initVgpu() {
       const canvas = canvasRef.current;
-      if (!canvas) return;
+      if (!canvas || gpuInitializing) return;
+      gpuInitializing = true;
 
       try {
         const vgpuModule = await import('vgpu');
@@ -605,6 +607,13 @@ export function VgpuThemeCanvas() {
           if (disposed) return;
         }
 
+        // Replay the transition that triggered this chunk to load. A later
+        // event has already populated wave1, so only do this when the canvas
+        // was mounted by the first-event wrapper.
+        if (initialEventRef.current && !wave1Ref.current.enabled) {
+          handleThemeEvent(initialEventRef.current);
+        }
+
         // If any wave was requested before compile finished, start loop
         if (
           animFrameRef.current === null &&
@@ -621,6 +630,8 @@ export function VgpuThemeCanvas() {
         }
       } catch {
         // Graceful fallback if WebGPU initialization fails
+      } finally {
+        gpuInitializing = false;
       }
     }
 
@@ -784,7 +795,7 @@ export function VgpuThemeCanvas() {
     }
 
     // Listen to atomic theme transitions
-    const unsubscribe = subscribeThemeHud((event: ThemeHudEvent) => {
+    function handleThemeEvent(event: ThemeHudEvent) {
       if (disposed) return;
 
       if (!gpuInstance) {
@@ -845,7 +856,9 @@ export function VgpuThemeCanvas() {
       if (animFrameRef.current === null) {
         animFrameRef.current = requestAnimationFrame(step);
       }
-    });
+    }
+
+    const unsubscribe = subscribeThemeHud(handleThemeEvent);
 
     return () => {
       disposed = true;

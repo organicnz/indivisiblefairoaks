@@ -94,9 +94,9 @@ export function PrivacyPolicyContent() {
 
       <h2>Cookies and browser storage</h2>
       <p>
-        We use cookies or local browser storage for sign-in sessions, security, and display
-        preferences. We do not use advertising cookies. You can clear browser storage at any time;
-        some signed-in features will then require you to sign in again.
+        We use cookies or local browser storage for sign-in sessions, security, display preferences,
+        and analytics identifiers. We do not use advertising cookies. You can clear browser storage
+        at any time; some signed-in features will then require you to sign in again.
       </p>
 
       <h2>How long we keep it</h2>
@@ -113,6 +113,11 @@ export function PrivacyPolicyContent() {
         unsubscribe from chapter email using the link in any message. Email{' '}
         <a href="mailto:contact@indivisiblefairoaks.org">contact@indivisiblefairoaks.org</a> and a
         volunteer will follow up.
+      </p>
+      <p>
+        Vercel Analytics and Speed Insights send aggregate page-view and performance data. Our Do
+        Not Track / Global Privacy Control handling applies only to PostHog: when either signal is
+        set, PostHog is not initialized. We do not record session replays.
       </p>
 
       <h2>Security and changes</h2>

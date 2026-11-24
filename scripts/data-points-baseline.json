@@ -2,6 +2,8 @@
   "$comment": "Accepted data-points findings. Each entry records that a human reviewed the mismatch and chose a disposition: \"pending wiring\" (a seeded key whose screen wire-up is still to come), \"no matching UI\" (the string the seed names no longer exists) or \"superseded\" (a later key carries the copy). `acceptedUnread` and `acceptedUnseededReads` are keyed by data-point key; `acceptedMismatches` is keyed by `<key> @ <file> (<shape>)` with shape inline, jsx or map. The gate fails when a finding is not listed here AND when a listed entry is no longer a finding, so a fix must delete its own excuse. Regenerate with: bun scripts/check-data-points.mjs --update-baseline",
   "updated": "2026-11-19",
   "acceptedUnread": {
+    "about.join.body": "unused after 20261123120000 removed the sentence; retiring the seed is separate content cleanup",
+    "home.hero.btn_choir": "choir button removed from the hero; seed retirement is pending",
     "account.admin.customer": "no matching UI — the account page no longer has orders or admin order panels",
     "account.admin.empty_hint": "no matching UI — the account page no longer has orders or admin order panels",
     "account.admin.empty_msg": "no matching UI — the account page no longer has orders or admin order panels",
@@ -280,6 +282,9 @@
   },
   "acceptedUnseededReads": {},
   "acceptedMismatches": {
+    "about.foodbank.body @ src/components/about/AboutFoodDriveSection.tsx (jsx)": "superseded by 20261123120000 website feedback phase 1; the gate reads INSERT seeds and this key is updated in place",
+    "about.join.headline @ src/components/about/AboutJoinSection.tsx (jsx)": "superseded by 20261123120000 website feedback phase 1; the gate reads INSERT seeds and this key is updated in place",
+    "about.who.p2 @ src/components/about/AboutWhoSection.tsx (jsx)": "superseded by 20261123120000 website feedback phase 1; the gate reads INSERT seeds and this key is updated in place",
     "links.hero.intro @ src/components/links/LinksMasthead.tsx (jsx)": "superseded: updated to highlight Link Tree and quick-access tools (issue #164)",
     "news.read_bulletin @ src/components/newsletters/NewsletterCard.tsx (jsx)": "superseded by 20261119190000 — the live data point is updated to Read Full Issue and the fallback matches that shipped button"
   }

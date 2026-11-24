@@ -1,5 +1,9 @@
 import type { CivicEvent } from '@/components/ui/civic-event';
-import { filterUpcomingEvents, getFallbackMeeting, selectUpcomingMeetingEvent } from '@/lib/civic-events';
+import {
+  filterUpcomingEvents,
+  getFallbackMeeting,
+  selectUpcomingMeetingEvent,
+} from '@/lib/civic-events';
 
 export const EVENTS: CivicEvent[] = [
   {
@@ -29,7 +33,7 @@ export const EVENTS: CivicEvent[] = [
     address: 'Carmichael, CA (Address provided upon registration)',
     description:
       'Learn 4-part harmonies, freedom anthems, and chants of resistance. No auditions or singing experience required — all voices are warmly welcomed!',
-    rsvpUrl: 'mailto:contact@indivisiblefairoaks.org?subject=Join%20Resistance%20Choir',
+    rsvpUrl: 'https://www.mobilize.us/indivisible/event/1072857/',
   },
 ];
 

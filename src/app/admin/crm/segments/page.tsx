@@ -8,7 +8,7 @@ export const instant = false;
 
 export async function generateMetadata() {
   return pageMetadata({
-    title: 'Segments — CRM',
+    title: 'Segments — Civic CRM · Indivisible Fair Oaks',
     description: 'Saved audience rules for broadcasts and audits.',
     path: '/admin/crm/segments',
     robots: { index: false, follow: false },

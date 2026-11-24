@@ -1,0 +1,126 @@
+name: Schema hygiene
+
+# A schema can drift with no code change at all: a table created from the
+# dashboard, a policy dropped during a restore, a privilege granted again with
+# the project. None of that passes through a pull request, so the PR gate
+# cannot see it. This asks the hosted project directly, daily.
+#
+# Read-only against the project: `pg_catalog` queries over the Management API,
+# nothing written. The only write in this workflow is the tracking issue, and
+# `issues: write` is the only extra permission it takes.
+#
+# A scheduled run checks out the default branch, so the script is the trusted
+# copy the PR gate runs for a same-repo PR.
+on:
+  schedule:
+    # Off-peak and off the hour: the shared runner fleet is the constraint for
+    # every scheduled workflow here. 47 past 05:00 keeps this clear of the
+    # 05:17 type-freshness run.
+    - cron: '47 5 * * *'
+  # Useful immediately after a restore or a dashboard change, without waiting
+  # for the next cron.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+# Serialized so two runs cannot both create the same issue. A manual dispatch
+# queues behind the scheduled run rather than cancelling it.
+concurrency:
+  group: schema-hygiene
+  cancel-in-progress: false
+
+env:
+  BUN_VERSION: "canary"
+  # Public project identifier, not a credential.
+  SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+
+jobs:
+  hygiene:
+    runs-on: [self-hosted, linux, backend-runner]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      # Project-scoped Database Read PAT only, as in `supabase-type-freshness.yml`.
+      # No separate token check: an empty value is a configuration fault the
+      # script reports and exits 1 on, so a green run cannot mean "the secret
+      # was empty". The log is kept for the issue body; `pipefail` keeps a
+      # failing exit through `tee`.
+      - name: Check schema hygiene
+        id: hygiene
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_READ_ONLY_ACCESS_TOKEN }}
+        run: |
+          set -o pipefail
+          bun scripts/check-schema-hygiene.mjs 2>&1 | tee schema-hygiene.log
+
+      # A red scheduled run is not an alert: nobody watches the Actions tab for
+      # yesterday's cron. One open issue, found by title, is the alert. It
+      # comments while the drift lasts, so a week-long problem reads as a
+      # timeline instead of seven duplicates, and closes itself on recovery so
+      # a fixed run does not leave a stale red behind.
+      #
+      # The body carries the check's own output, because "open Actions to find
+      # out what drifted" is the same tab this is meant to replace.
+      - name: Report schema hygiene status
+        if: always() && (steps.hygiene.outcome == 'failure' || steps.hygiene.outcome == 'success')
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        env:
+          OUTCOME: ${{ steps.hygiene.outcome }}
+        with:
+          script: |
+            const fs = require('node:fs');
+            const title = 'Scheduled schema hygiene failed';
+            const { owner, repo } = context.repo;
+            const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+
+            // `--state open` so a closed issue is not commented on; exact title
+            // match so an unrelated issue that mentions hygiene is not used.
+            const { data: open } = await github.rest.issues.listForRepo({
+              owner, repo, state: 'open', per_page: 100,
+            });
+            const existing = open.find((issue) => issue.title === title);
+
+            if (process.env.OUTCOME === 'failure') {
+              const log = fs.existsSync('schema-hygiene.log')
+                ? fs.readFileSync('schema-hygiene.log', 'utf8')
+                    .replace(/^::(?:error|warning|notice)::/gm, '')
+                    .trim()
+                    .split('\n')
+                    .slice(-60)
+                    .join('\n')
+                : '(the check produced no output)';
+              const body = [
+                'The scheduled `check-schema-hygiene.mjs` run failed. That usually means the hosted catalogue drifted — a table without RLS, a duplicate or unused index, an unindexed foreign key, or a public privilege — but it can also be a configuration fault, such as a missing or unreadable token.',
+                '',
+                `**Run:** ${runUrl}`,
+                '',
+                '<details><summary>Check output</summary>',
+                '',
+                '````',
+                log,
+                '````',
+                '',
+                '</details>',
+                '',
+                'This issue closes itself when the scheduled check passes.',
+              ].join('\n');
+
+              if (existing) {
+                await github.rest.issues.createComment({ owner, repo, issue_number: existing.number, body });
+              } else {
+                await github.rest.issues.create({ owner, repo, title, body });
+              }
+            } else if (existing) {
+              const body = `Passing again as of ${new Date().toISOString()}; closing.\n\n${runUrl}`;
+              await github.rest.issues.createComment({ owner, repo, issue_number: existing.number, body });
+              await github.rest.issues.update({ owner, repo, issue_number: existing.number, state: 'closed' });
+            }

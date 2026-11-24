@@ -61,11 +61,12 @@ describe('GET /auth/callback', () => {
     mockGetUser.mockResolvedValue({
       data: { user: { id: 'user-123', email: 'regular@example.com' } },
     });
+    const or = vi.fn().mockReturnValue({
+      maybeSingle: vi.fn().mockResolvedValue({ data: { is_admin: false } }),
+    });
     mockFrom.mockReturnValue({
       select: vi.fn().mockReturnValue({
-        or: vi.fn().mockReturnValue({
-          maybeSingle: vi.fn().mockResolvedValue({ data: { is_admin: false } }),
-        }),
+        or,
       }),
     });
 
@@ -73,6 +74,7 @@ describe('GET /auth/callback', () => {
     const res = await GET(req);
 
     expect(mockExchangeCodeForSession).toHaveBeenCalledWith('valid-code-123');
+    expect(or).toHaveBeenCalledWith('id.eq.user-123,user_id.eq.user-123');
     expect(res.status).toBe(307); // NextResponse.redirect
     expect(res.headers.get('location')).toBe('https://indivisiblefairoaks.org/account');
   });

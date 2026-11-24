@@ -1,14 +1,22 @@
 'use client';
 
 import { ExternalLink, Layers, PenLine, Plus, Search, Trash2 } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { ConfirmAction } from '@/components/admin/ConfirmAction';
-import { CivicLinkEditorModal } from '@/components/admin/civic/CivicLinkEditorModal';
 import { useEditContext } from '@/components/layout/useEditContext';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { useDataPoints } from '@/hooks/useDataPoints';
 import { type CoalitionLinkRecord, deleteCoalitionLink } from '@/lib/actions/civic';
+
+const CivicLinkEditorModal = dynamic(
+  () =>
+    import('@/components/admin/civic/CivicLinkEditorModal').then(
+      (module) => module.CivicLinkEditorModal
+    ),
+  { ssr: false }
+);
 
 export interface LinkItem {
   slug?: string;
@@ -313,16 +321,18 @@ export function InteractiveLinksDirectory({
         </div>
       )}
 
-      {/* Link Editor Modal */}
-      <CivicLinkEditorModal
-        isOpen={isEditorModalOpen}
-        onClose={() => {
-          setIsEditorModalOpen(false);
-          setSelectedLinkForEdit(null);
-        }}
-        link={selectedLinkForEdit}
-        onSaved={handleLinkSaved}
-      />
+      {/* Link Editor Modal — loaded only after an admin opens it. */}
+      {isEditorModalOpen && (
+        <CivicLinkEditorModal
+          isOpen
+          onClose={() => {
+            setIsEditorModalOpen(false);
+            setSelectedLinkForEdit(null);
+          }}
+          link={selectedLinkForEdit}
+          onSaved={handleLinkSaved}
+        />
+      )}
     </div>
   );
 }

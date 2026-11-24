@@ -62,7 +62,8 @@ type BulkAuditFieldSet = {
 type BulkContactChange = {
   id: string;
   before: Record<string, unknown>;
-  after: Record<string, unknown>;
+  /** Null when the write response omitted this row; never project the pre-write values. */
+  after: Record<string, unknown> | null;
 };
 
 type BulkAuditFieldChange = {
@@ -71,7 +72,7 @@ type BulkAuditFieldChange = {
   new_value: unknown;
 };
 
-/** Keep only the values a bulk operation actually changed, keyed by contact. */
+/** Keep only the fields a bulk operation targets, keyed by contact. */
 function snapshotBulkContact(
   contact: BulkAuditContact,
   fields: BulkAuditFieldSet
@@ -111,32 +112,56 @@ function bulkAuditFieldChanges(
 ): Record<string, BulkAuditFieldChange[]> {
   const result: Record<string, BulkAuditFieldChange[]> = {};
   if (fields.status) {
-    result.status = changes.map(({ id, before, after }) => ({
-      contact_id: id,
-      old_value: before.status ?? null,
-      new_value: after.status ?? null,
-    }));
+    result.status = changes.flatMap(({ id, before, after }) =>
+      after
+        ? [
+            {
+              contact_id: id,
+              old_value: before.status ?? null,
+              new_value: after.status ?? null,
+            },
+          ]
+        : []
+    );
   }
   if (fields.district) {
-    result.district = changes.map(({ id, before, after }) => ({
-      contact_id: id,
-      old_value: before.district ?? null,
-      new_value: after.district ?? null,
-    }));
+    result.district = changes.flatMap(({ id, before, after }) =>
+      after
+        ? [
+            {
+              contact_id: id,
+              old_value: before.district ?? null,
+              new_value: after.district ?? null,
+            },
+          ]
+        : []
+    );
   }
   if (fields.tags) {
-    result.tags = changes.map(({ id, before, after }) => ({
-      contact_id: id,
-      old_value: before.tags ?? [],
-      new_value: after.tags ?? [],
-    }));
+    result.tags = changes.flatMap(({ id, before, after }) =>
+      after
+        ? [
+            {
+              contact_id: id,
+              old_value: before.tags ?? [],
+              new_value: after.tags ?? [],
+            },
+          ]
+        : []
+    );
   }
   if (fields.consent) {
-    result.consent = changes.map(({ id, before, after }) => ({
-      contact_id: id,
-      old_value: auditConsentValue(before),
-      new_value: auditConsentValue(after),
-    }));
+    result.consent = changes.flatMap(({ id, before, after }) =>
+      after
+        ? [
+            {
+              contact_id: id,
+              old_value: auditConsentValue(before),
+              new_value: auditConsentValue(after),
+            },
+          ]
+        : []
+    );
   }
   return result;
 }
@@ -297,7 +322,8 @@ async function duplicateEmailFailure(
 export async function saveCRMContact(
   rawInput: z.input<typeof contactSchema>
 ): Promise<SaveCRMContactResult> {
-  const { adminClient, adminUserId } = await requireCRMAdmin();
+  const admin = await requireCRMAdmin();
+  const { adminClient, adminUserId } = admin;
 
   // A create fills the defaults (status, district, tags); an edit must not.
   // Parsing an edit against `contactSchema` made every omitted field look like
@@ -337,7 +363,12 @@ export async function saveCRMContact(
 
     const { data: previous, error: previousError } = await adminClient
       .from('crm_contacts')
-      .select('status, email, tags, notes, updated_at')
+      // Explicit fields rather than `*`: the audit record should carry the
+      // profile it changed, not the unsubscribe token or other unrelated
+      // columns on the row.
+      .select(
+        'id, email, first_name, last_name, phone, address, district, city, zip_code, status, tags, notes, source, do_not_email, created_at, updated_at'
+      )
       .eq('id', id)
       .maybeSingle();
 
@@ -408,6 +439,25 @@ export async function saveCRMContact(
       created_by: adminUserId,
     });
 
+    const auditResult = await recordCRMAudit(admin, {
+      action: 'crm.contact.update',
+      targetType: 'crm_contact',
+      targetId: id,
+      targetLabel: normalizedEmail,
+      before: previous,
+      after: {
+        ...previous,
+        ...updatePayload,
+        updated_at: updated.updated_at ?? previous.updated_at,
+      },
+      outcome: 'success',
+      metadata: { changed_fields: Object.keys(updatePayload) },
+    });
+    const warning = combineCRMWarnings(
+      activityError ? CRM_ACTIVITY_WARNING : null,
+      crmAuditLostWarning(auditResult, 'The contact was updated')
+    );
+
     revalidateCRMRoutes(id);
     // The update's own SELECT returns the trigger-written value, so the editor's
     // next save is based on the database's version without a second read that
@@ -416,7 +466,7 @@ export async function saveCRMContact(
       success: true,
       contactId: updated.id,
       updatedAt: updated.updated_at ?? null,
-      ...(activityError ? { warning: CRM_ACTIVITY_WARNING } : {}),
+      ...(warning ? { warning } : {}),
     };
   }
 
@@ -433,7 +483,9 @@ export async function saveCRMContact(
       // Explicitly write NULL, not a DB default that could later become false.
       do_not_email: CRM_CONTACT_DEFAULTS.doNotEmail,
     })
-    .select('id')
+    .select(
+      'id, email, first_name, last_name, phone, address, district, city, zip_code, status, tags, notes, source, do_not_email, created_at, updated_at'
+    )
     .single();
 
   if (error) {
@@ -450,11 +502,25 @@ export async function saveCRMContact(
     created_by: adminUserId,
   });
 
+  const auditResult = await recordCRMAudit(admin, {
+    action: 'crm.contact.create',
+    targetType: 'crm_contact',
+    targetId: created.id,
+    targetLabel: normalizedEmail,
+    before: null,
+    after: created,
+    outcome: 'success',
+  });
+  const warning = combineCRMWarnings(
+    activityError ? CRM_ACTIVITY_WARNING : null,
+    crmAuditLostWarning(auditResult, 'The contact was created')
+  );
+
   revalidateCRMRoutes(created.id);
   return {
     success: true,
     contactId: created.id,
-    ...(activityError ? { warning: CRM_ACTIVITY_WARNING } : {}),
+    ...(warning ? { warning } : {}),
   };
 }
 
@@ -669,17 +735,80 @@ export async function bulkUpdateCRMContacts({
 }): Promise<CRMResult<{ updatedCount?: number; warning?: string }>> {
   const admin = await requireCRMAdmin();
   const { adminClient } = admin;
+  const requestedIds = [...new Set(contactIds ?? [])];
+  const auditFields: BulkAuditFieldSet = {
+    status: Boolean(status),
+    district: Boolean(district),
+    tags: Boolean(addTags?.length || removeTags?.length),
+    consent: Boolean(consent),
+  };
+  const changedFields = (['status', 'district', 'tags', 'consent'] as const).filter(
+    (field) => auditFields[field]
+  );
+  /*
+   * One operation-level audit row, not one per contact: a 5,000-row bulk would
+   * flood both the audit log and each timeline. The before/after snapshots carry
+   * only the fields this operation targets for each affected contact, so an
+   * admin can identify exactly what changed without copying full CRM profiles
+   * into the audit table.
+   */
+  const auditBulkUpdate = (
+    outcome: 'success' | 'failure',
+    updatedCount?: number,
+    error?: string,
+    changes: BulkContactChange[] = [],
+    affectedIds: string[] = changes.map((change) => change.id)
+  ) => {
+    const afterChanges = changes.flatMap((change) =>
+      change.after ? [{ id: change.id, after: change.after }] : []
+    );
+    return recordCRMAudit(admin, {
+      action: 'crm.contact.bulk_update',
+      targetType: 'crm_contact',
+      targetId: requestedIds.length === 1 ? requestedIds[0] : 'bulk-update',
+      targetLabel: `${requestedIds.length} selected contact${requestedIds.length === 1 ? '' : 's'}`,
+      before: changes.length
+        ? { contact_ids: affectedIds, contacts: changes.map((change) => change.before) }
+        : null,
+      // Record only rows the write actually returned. A partial representation
+      // must not become an invented after-snapshot for the missing contacts.
+      after: afterChanges.length
+        ? {
+            contact_ids: afterChanges.map((change) => change.id),
+            contacts: afterChanges.map((change) => change.after),
+          }
+        : null,
+      outcome,
+      error: error ?? null,
+      metadata: {
+        requested_count: requestedIds.length,
+        requested_ids: requestedIds,
+        ...(affectedIds.length
+          ? { affected_count: affectedIds.length, affected_ids: affectedIds }
+          : {}),
+        ...(updatedCount === undefined ? {} : { updated_count: updatedCount }),
+        changed_fields: changedFields,
+        field_changes: bulkAuditFieldChanges(changes, auditFields),
+      },
+    });
+  };
 
-  if (!contactIds || contactIds.length === 0) {
-    return { success: false, error: 'No contacts selected' };
+  if (requestedIds.length === 0) {
+    const message = 'No contacts selected';
+    await auditBulkUpdate('failure', undefined, message);
+    return { success: false, error: message };
   }
 
   if (status && !(CRM_CONTACT_STATUS_VALUES as readonly string[]).includes(status)) {
-    return { success: false, error: 'Invalid status' };
+    const message = 'Invalid status';
+    await auditBulkUpdate('failure', undefined, message);
+    return { success: false, error: message };
   }
 
   if (consent && !CRM_CONTACT_CONSENT_VALUES.includes(consent)) {
-    return { success: false, error: 'Invalid consent value' };
+    const message = 'Invalid consent value';
+    await auditBulkUpdate('failure', undefined, message);
+    return { success: false, error: message };
   }
 
   /*
@@ -695,64 +824,12 @@ export async function bulkUpdateCRMContacts({
     for (const candidate of addTags) {
       const parsed = tagSchema.safeParse(candidate);
       if (!parsed.success) {
-        return {
-          success: false,
-          error: `Invalid tag "${candidate.trim().slice(0, MAX_TAG_LENGTH)}"`,
-        };
+        const message = `Invalid tag "${candidate.trim().slice(0, MAX_TAG_LENGTH)}"`;
+        await auditBulkUpdate('failure', undefined, message);
+        return { success: false, error: message };
       }
     }
   }
-
-  const changedFields = [
-    ...(status ? ['status'] : []),
-    ...(district ? ['district'] : []),
-    ...(addTags?.length || removeTags?.length ? ['tags'] : []),
-    ...(consent ? ['consent'] : []),
-  ];
-  const auditFields: BulkAuditFieldSet = {
-    status: Boolean(status),
-    district: Boolean(district),
-    tags: Boolean(addTags?.length || removeTags?.length),
-    consent: Boolean(consent),
-  };
-  /*
-   * One operation-level audit row, not one per contact: a 5,000-row bulk would
-   * flood both the audit log and each timeline. The before/after snapshots carry
-   * only the fields this operation changed for each affected contact, so an
-   * admin can identify exactly what changed without copying full CRM profiles
-   * into the audit table.
-   */
-  const auditBulkUpdate = (
-    outcome: 'success' | 'failure',
-    updatedCount?: number,
-    error?: string,
-    changes: BulkContactChange[] = [],
-    affectedIds: string[] = changes.map((change) => change.id)
-  ) =>
-    recordCRMAudit(admin, {
-      action: 'crm.contact.bulk_update',
-      targetType: 'crm_contact',
-      targetId: contactIds.length === 1 ? contactIds[0] : 'bulk-update',
-      targetLabel: `${contactIds.length} selected contact${contactIds.length === 1 ? '' : 's'}`,
-      before: changes.length
-        ? { contact_ids: affectedIds, contacts: changes.map((change) => change.before) }
-        : null,
-      after: changes.length
-        ? { contact_ids: affectedIds, contacts: changes.map((change) => change.after) }
-        : null,
-      outcome,
-      error: error ?? null,
-      metadata: {
-        requested_count: contactIds.length,
-        requested_ids: contactIds,
-        ...(affectedIds.length
-          ? { affected_count: affectedIds.length, affected_ids: affectedIds }
-          : {}),
-        ...(updatedCount === undefined ? {} : { updated_count: updatedCount }),
-        changed_fields: changedFields,
-        field_changes: bulkAuditFieldChanges(changes, auditFields),
-      },
-    });
 
   const now = new Date().toISOString();
   const consentPatch: Record<string, string | boolean | null> =
@@ -773,20 +850,31 @@ export async function bulkUpdateCRMContacts({
       payload.status = status as Database['public']['Tables']['crm_contacts']['Update']['status'];
     if (district) payload.district = district;
 
-    // Capture the previous values before the write. The update returns the
-    // affected rows below, so this pair lets us record exactly which contacts
-    // changed and what they changed from.
-    const { data: beforeData } = await adminClient
+    // Capture the previous values before the write. A failed read aborts the
+    // operation: without it the audit cannot say what changed.
+    const { data: beforeData, error: beforeError } = await adminClient
       .from('crm_contacts')
       .select(BULK_AUDIT_CONTACT_COLUMNS)
-      .in('id', contactIds);
+      .in('id', requestedIds);
+    if (beforeError) {
+      await auditBulkUpdate('failure', undefined, beforeError.message);
+      return { success: false, error: beforeError.message };
+    }
     const beforeRows = (beforeData ?? []) as BulkAuditContact[];
     const beforeById = new Map(beforeRows.map((contact) => [contact.id, contact]));
 
-    const { error, count } = await adminClient
+    // Ask for the updated rows in the same statement. A separate read-back can
+    // fail after the write has committed, leaving the audit unable to say which
+    // contacts changed.
+    const {
+      data: afterData,
+      error,
+      count,
+    } = await adminClient
       .from('crm_contacts')
       .update(payload, { count: 'exact' })
-      .in('id', contactIds);
+      .in('id', requestedIds)
+      .select(BULK_AUDIT_CONTACT_COLUMNS);
 
     if (error) {
       await auditBulkUpdate('failure', undefined, error.message);
@@ -798,26 +886,30 @@ export async function bulkUpdateCRMContacts({
       return { success: false, error: message };
     }
 
-    // Read the affected rows back rather than projecting the request in memory:
-    // database defaults and triggers can change the stored values, and admins
-    // need the audit trail to match what actually landed.
-    const { data: afterData } = await adminClient
-      .from('crm_contacts')
-      .select(BULK_AUDIT_CONTACT_COLUMNS)
-      .in('id', contactIds);
-    const afterRows = (afterData ?? []) as BulkAuditContact[];
+    const afterRows = (
+      Array.isArray(afterData) ? afterData : afterData ? [afterData] : []
+    ) as BulkAuditContact[];
     const afterById = new Map(afterRows.map((contact) => [contact.id, contact]));
+    // Prefer the pre-write rows when they account for every updated row: they
+    // remain the affected set even if a read-back is partial or one of those
+    // contacts was deleted immediately afterwards. Never fall back to the raw
+    // request, which can contain IDs that never existed.
     const affectedIds =
-      afterRows.length > 0 ? afterRows.map((contact) => contact.id) : count ? contactIds : [];
+      beforeRows.length > 0 && (count === null || count === beforeRows.length)
+        ? beforeRows.map((contact) => contact.id)
+        : afterRows.map((contact) => contact.id);
     const changes: BulkContactChange[] = affectedIds.flatMap((id) => {
       const before = beforeById.get(id);
       if (!before) return [];
-      const after = afterById.get(id) ?? ({ ...before, ...payload } as BulkAuditContact);
+      // A missing row here is not evidence that the write left it unchanged;
+      // the response may simply be partial. Record the pre-write snapshot and
+      // omit the after value rather than projecting `before + payload`.
+      const after = afterById.get(id);
       return [
         {
           id,
           before: snapshotBulkContact(before, auditFields),
-          after: snapshotBulkContact(after, auditFields),
+          after: after ? snapshotBulkContact(after, auditFields) : null,
         },
       ];
     });
@@ -844,7 +936,7 @@ export async function bulkUpdateCRMContacts({
   const { data: contacts, error: fetchErr } = await adminClient
     .from('crm_contacts')
     .select(BULK_AUDIT_CONTACT_COLUMNS)
-    .in('id', contactIds);
+    .in('id', requestedIds);
 
   if (fetchErr) {
     await auditBulkUpdate('failure', undefined, fetchErr.message);
@@ -870,7 +962,7 @@ export async function bulkUpdateCRMContacts({
    */
   let updated = 0;
   const changes: BulkContactChange[] = [];
-  for (const c of contacts || []) {
+  for (const c of contacts) {
     let currentTags = Array.isArray(c.tags) ? c.tags : [];
     if (normRemove.size > 0) {
       currentTags = currentTags.filter((t) => !normRemove.has(t.toLowerCase()));
@@ -898,7 +990,7 @@ export async function bulkUpdateCRMContacts({
       const message =
         updated === 0
           ? updateError.message
-          : `${updateError.message} — ${updated} of ${contacts.length} selected contacts were updated before the failure; the rest were not.`;
+          : `${updateError.message} — ${updated} of ${requestedIds.length} selected contacts were updated before the failure; the rest were not.`;
       await auditBulkUpdate('failure', updated, message, changes);
       return { success: false, updatedCount: updated, error: message };
     }
@@ -906,7 +998,7 @@ export async function bulkUpdateCRMContacts({
       const message =
         updated === 0
           ? 'A selected contact no longer exists'
-          : `A selected contact no longer exists after ${updated} of ${contacts.length} selected contacts were updated; the rest were not.`;
+          : `A selected contact no longer exists after ${updated} of ${requestedIds.length} selected contacts were updated; the rest were not.`;
       await auditBulkUpdate('failure', updated, message, changes);
       return { success: false, updatedCount: updated, error: message };
     }
@@ -1035,24 +1127,37 @@ export async function addCRMNote({
   title: string;
   description: string;
 }): Promise<CRMResult> {
-  const { adminClient, adminUserId } = await requireCRMAdmin();
+  const admin = await requireCRMAdmin();
+  const { adminClient, adminUserId } = admin;
 
   const parsed = noteSchema.safeParse({ contactId, title, description });
   if (!parsed.success)
     return { success: false, error: parsed.error.issues[0]?.message ?? 'Invalid input' };
 
+  const noteDescription = parsed.data.description?.trim() || null;
   const { error } = await adminClient.from('crm_activities').insert({
     contact_id: parsed.data.contactId,
     type: 'note',
     title: parsed.data.title,
-    description: parsed.data.description?.trim() || null,
+    description: noteDescription,
     created_by: adminUserId,
   });
 
   if (error) return { success: false, error: error.message };
 
+  const auditResult = await recordCRMAudit(admin, {
+    action: 'crm.note.create',
+    targetType: 'crm_contact',
+    targetId: parsed.data.contactId,
+    targetLabel: parsed.data.title,
+    before: null,
+    after: { title: parsed.data.title, description: noteDescription },
+    outcome: 'success',
+  });
+  const warning = crmAuditLostWarning(auditResult, 'The note was added');
+
   revalidateCRMRoutes(parsed.data.contactId);
-  return { success: true };
+  return { success: true, ...(warning ? { warning } : {}) };
 }
 
 export async function updateCRMNote({
@@ -1064,44 +1169,81 @@ export async function updateCRMNote({
   title: string;
   description: string;
 }): Promise<CRMResult> {
-  const { adminClient } = await requireCRMAdmin();
+  const admin = await requireCRMAdmin();
+  const { adminClient } = admin;
 
   if (!title.trim()) return { success: false, error: 'Title is required' };
 
+  const nextTitle = title.trim();
+  const nextDescription = description.trim() || null;
   const { data, error } = await adminClient
     .from('crm_activities')
     .update({
-      title: title.trim(),
-      description: description.trim() || null,
+      title: nextTitle,
+      description: nextDescription,
     })
     .eq('id', activityId)
     .eq('type', 'note')
-    .select('contact_id')
+    .select('contact_id, title, description')
     .maybeSingle();
 
   if (error) return { success: false, error: error.message };
   if (!data) return { success: false, error: 'That note no longer exists' };
 
+  const auditResult = await recordCRMAudit(admin, {
+    action: 'crm.note.update',
+    targetType: 'crm_contact',
+    targetId: data.contact_id,
+    targetLabel: data.title ?? nextTitle,
+    before: null,
+    after: {
+      id: activityId,
+      title: data.title ?? nextTitle,
+      description: data.description ?? nextDescription,
+    },
+    outcome: 'success',
+    metadata: { note_id: activityId },
+  });
+  const warning = crmAuditLostWarning(auditResult, 'The note was updated');
+
   revalidateCRMRoutes(data.contact_id);
-  return { success: true };
+  return { success: true, ...(warning ? { warning } : {}) };
 }
 
 export async function deleteCRMNote(activityId: string): Promise<CRMResult> {
-  const { adminClient } = await requireCRMAdmin();
+  const admin = await requireCRMAdmin();
+  const { adminClient } = admin;
 
   const { data, error } = await adminClient
     .from('crm_activities')
     .delete()
     .eq('id', activityId)
     .eq('type', 'note')
-    .select('contact_id')
+    .select('contact_id, title, description')
     .maybeSingle();
 
   if (error) return { success: false, error: error.message };
   if (!data) return { success: false, error: 'That note no longer exists' };
 
+  const auditResult = await recordCRMAudit(admin, {
+    action: 'crm.note.delete',
+    targetType: 'crm_contact',
+    targetId: data.contact_id,
+    targetLabel: data.title ?? activityId,
+    before: {
+      id: activityId,
+      contact_id: data.contact_id,
+      title: data.title,
+      description: data.description,
+    },
+    after: { deleted: true },
+    outcome: 'success',
+    metadata: { note_id: activityId },
+  });
+  const warning = crmAuditLostWarning(auditResult, 'The note was deleted');
+
   revalidateCRMRoutes(data.contact_id);
-  return { success: true };
+  return { success: true, ...(warning ? { warning } : {}) };
 }
 
 /**
@@ -1125,10 +1267,22 @@ export async function setCRMEmailConsent({
   contactId: string;
   doNotEmail: ConsentDecision;
 }): Promise<CRMResult<{ warning?: string }>> {
-  const { adminClient, adminUserId } = await requireCRMAdmin();
+  const admin = await requireCRMAdmin();
+  const { adminClient, adminUserId } = admin;
   const now = new Date().toISOString();
 
   const storedValue = crmContactDoNotEmail(doNotEmail);
+
+  // Capture the prior consent state for the audit record. The UPDATE's
+  // representation is the new row, and the audit needs both ends of a decision
+  // that controls whether this person can be mailed.
+  const { data: before, error: beforeError } = await adminClient
+    .from('crm_contacts')
+    .select('id, email, do_not_email, unsubscribed_at')
+    .eq('id', contactId)
+    .maybeSingle();
+  if (beforeError) return { success: false, error: beforeError.message };
+  if (!before) return { success: false, error: 'That contact no longer exists' };
 
   /*
     Cast, because `src/types/supabase.ts` is generated from the live project and
@@ -1155,7 +1309,7 @@ export async function setCRMEmailConsent({
     .from('crm_contacts')
     .update(consentPayload)
     .eq('id', contactId)
-    .select('id')
+    .select('id, email, do_not_email, unsubscribed_at')
     .maybeSingle();
 
   if (error) return { success: false, error: error.message };
@@ -1184,10 +1338,25 @@ export async function setCRMEmailConsent({
     created_by: adminUserId,
   });
 
+  const auditResult = await recordCRMAudit(admin, {
+    action: 'crm.contact.consent',
+    targetType: 'crm_contact',
+    targetId: contactId,
+    targetLabel: before.email || null,
+    before: auditConsentValue(before as Record<string, unknown>),
+    after: auditConsentValue(updated as Record<string, unknown>),
+    outcome: 'success',
+    metadata: { decision: doNotEmail },
+  });
+  const warning = combineCRMWarnings(
+    activityError ? CRM_ACTIVITY_WARNING : null,
+    crmAuditLostWarning(auditResult, 'The email consent was updated')
+  );
+
   revalidateCRMRoutes(contactId);
   return {
     success: true,
-    ...(activityError ? { warning: CRM_ACTIVITY_WARNING } : {}),
+    ...(warning ? { warning } : {}),
   };
 }
 

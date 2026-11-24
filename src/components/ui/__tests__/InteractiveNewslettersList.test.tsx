@@ -419,7 +419,15 @@ describe('InteractiveNewslettersList', () => {
       edit?.click();
     });
 
-    const publishedAt = document.querySelector<HTMLInputElement>('#civic-news-published-at');
-    expect(publishedAt?.value).toBe('2026-09-30T17:00');
+    // The editor is a lazy chunk; it renders after the import resolves.
+    await act(async () => {
+      await vi.waitFor(
+        () => {
+          const publishedAt = document.querySelector<HTMLInputElement>('#civic-news-published-at');
+          expect(publishedAt?.value).toBe('2026-09-30T17:00');
+        },
+        { timeout: 2000 }
+      );
+    });
   });
 });

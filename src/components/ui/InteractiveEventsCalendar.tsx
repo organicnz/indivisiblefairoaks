@@ -1,23 +1,36 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { CivicEventEditorModal } from '@/components/admin/civic/CivicEventEditorModal';
-import { MobilizeImportModal } from '@/components/admin/civic/MobilizeImportModal';
+
+const CivicEventEditorModal = dynamic(
+  () =>
+    import('@/components/admin/civic/CivicEventEditorModal').then(
+      (module) => module.CivicEventEditorModal
+    ),
+  { ssr: false }
+);
+
+const MobilizeImportModal = dynamic(
+  () =>
+    import('@/components/admin/civic/MobilizeImportModal').then(
+      (module) => module.MobilizeImportModal
+    ),
+  { ssr: false }
+);
+
 import { useEditContext } from '@/components/layout/useEditContext';
-import { fetchWithTimeout } from '@/lib/service-fetch';
 import { CivicEventCard } from '@/components/ui/CivicEventCard';
-import {
-  EVENT_CATEGORIES,
-  EventsCalendarToolbar,
-} from '@/components/ui/EventsCalendarToolbar';
 import type { CivicEvent } from '@/components/ui/civic-event';
-import { EVENTS, withUpcomingFallback } from '@/components/ui/events-calendar-fallback';
 import { DataPoint } from '@/components/ui/DataPoint';
+import { EVENT_CATEGORIES, EventsCalendarToolbar } from '@/components/ui/EventsCalendarToolbar';
+import { EVENTS, withUpcomingFallback } from '@/components/ui/events-calendar-fallback';
 import { useDataPoints } from '@/hooks/useDataPoints';
 import { type CivicEventRecord, deleteCivicEvent } from '@/lib/actions/civic';
 import { instantToPacificBasic } from '@/lib/calendar-time';
 import { buildGoogleCalendarUrl, buildIcsCalendar } from '@/lib/civic-events';
+import { fetchWithTimeout } from '@/lib/service-fetch';
 
 export type { CivicEvent } from '@/components/ui/civic-event';
 
@@ -78,6 +91,11 @@ export function InteractiveEventsCalendar({
   }, []);
 
   useEffect(() => {
+    // The server already rendered the cached event list. Refetching it on every
+    // mount added a second request and could overwrite fresh server data with
+    // an older cached API response. Only a standalone mount without server
+    // data needs this fallback; admin refreshes call `refreshEvents` directly.
+    if (initialEvents !== undefined) return;
     let cancelled = false;
     async function loadEventsFromApi() {
       try {
@@ -96,7 +114,7 @@ export function InteractiveEventsCalendar({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [initialEvents]);
 
   const handleCategoryChange = useCallback((category: string) => {
     setActiveCategory(category);
@@ -269,7 +287,7 @@ export function InteractiveEventsCalendar({
         )}
       </div>
 
-      {/* Admin Event Edit Modal */}
+      {/* Admin Event Edit Modal — loaded only after an admin opens it. */}
       {isEditorModalOpen && (
         <CivicEventEditorModal
           isOpen={isEditorModalOpen}
@@ -280,13 +298,15 @@ export function InteractiveEventsCalendar({
       )}
 
       {/* Admin In-Page Mobilize Event Import Modal (issue #153) */}
-      <MobilizeImportModal
-        isOpen={isMobilizeModalOpen}
-        onClose={() => setIsMobilizeModalOpen(false)}
-        onSuccess={() => {
-          refreshEvents();
-        }}
-      />
+      {isMobilizeModalOpen && (
+        <MobilizeImportModal
+          isOpen
+          onClose={() => setIsMobilizeModalOpen(false)}
+          onSuccess={() => {
+            refreshEvents();
+          }}
+        />
+      )}
     </div>
   );
 }

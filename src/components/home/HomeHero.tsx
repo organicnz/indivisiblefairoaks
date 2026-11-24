@@ -1,4 +1,4 @@
-import { ArrowRight, Heart, Music, Sparkles } from 'lucide-react';
+import { ArrowRight, Heart, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { CopyRegion } from '@/components/cms/CopyRegion';
 import { HeroPhotoFrame } from '@/components/home/HeroPhotoFrame';
@@ -66,10 +66,10 @@ export function HomeHero({
                       initialData={dataPoints}
                       className="civic-hero-lede"
                     >
-                      The mission of the Fair Oaks-Carmichael chapter of Indivisible is to
-                      cultivate a non-violent grassroots movement to stop the rise of
-                      authoritarianism, to support and defend democratic norms, elect bold leaders,
-                      and secure progressive policies.
+                      The mission of the Fair Oaks-Carmichael chapter of Indivisible is to cultivate
+                      a non-violent grassroots movement to stop the rise of authoritarianism, to
+                      support and defend democratic norms, elect bold leaders, and secure
+                      progressive policies.
                     </DataPoint>
                   </div>
                 </div>
@@ -92,15 +92,6 @@ export function HomeHero({
                   <Heart size={15} className="fill-current" aria-hidden="true" />
                   <DataPoint as="span" name="home.hero.btn_support" initialData={dataPoints}>
                     Support Our Chapter
-                  </DataPoint>
-                </Link>
-                <Link
-                  href="/choir"
-                  className="inline-flex min-h-12 max-w-full items-center gap-2 border-b border-foreground/30 py-2 text-xs font-bold uppercase tracking-[0.14em] text-foreground transition-colors duration-300 hover:border-accent hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                >
-                  <Music size={15} aria-hidden="true" />
-                  <DataPoint as="span" name="home.hero.btn_choir" initialData={dataPoints}>
-                    Resistance Choir
                   </DataPoint>
                 </Link>
               </div>

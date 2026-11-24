@@ -26,7 +26,10 @@ export async function GET(request: Request) {
             const { data: profile } = await supabase
               .from('profiles')
               .select('is_admin')
-              .or(`id.eq.${user.id},user_id.eq.${user.id},email.eq.${user.email}`)
+              // Match the admin gates exactly. The email fallback could match
+              // a different profile and interpolated a user-controlled value
+              // into a raw PostgREST filter.
+              .or(`id.eq.${user.id},user_id.eq.${user.id}`)
               .maybeSingle();
 
             if (profile?.is_admin) {

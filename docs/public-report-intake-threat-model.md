@@ -217,7 +217,7 @@ Retention worker deletes raw rows and objects; a legal hold can stop deletion.
 
 **Shadow flows that must be designed, not ignored:** Vercel request logs,
 Supabase logs and backups, email provider message storage, Sentry breadcrumbs,
-PostHog events (disable on the form), browser autofill and local storage,
+PostHog events (session replay and autocapture disabled; named events only), browser autofill and local storage,
 moderator screenshots and downloads, support/ops chat, incident exports, and
 any vendor's support access.
 
@@ -379,7 +379,7 @@ accounts are prohibited.
 | ID | PII threat | Impact | Required controls |
 |---|---|---|---|
 | P1 | Reporter email or phone identifies them to an employer, abuser, or immigration authority | Retaliation, detention, violence | Contact optional; no account; plain-language warning; short retention; field-level encryption; access audit; no marketing use; no sharing with partners without explicit consent |
-| P2 | Reporter IP/device metadata is retained indefinitely in logs or analytics | Deanonymization, legal exposure | HMAC IP for rate limiting with rotating salt; no raw IP in application DB; disable analytics/session replay on the form; scrub provider logs where configurable; document what vendors still see |
+| P2 | Reporter IP/device metadata is retained indefinitely in logs or analytics | Deanonymization, legal exposure | HMAC IP for rate limiting with rotating salt; no raw IP in application DB; PostHog session replay and autocapture disabled, with no report content in analytics events; DNT/GPC gate PostHog; scrub provider logs where configurable; document what vendors still see |
 | P3 | Subject is named or identifiable through face, plate, address, tattoo, workplace, school, or a combination | Stalking, deportation, violence, wrongful accusation | Prohibited fields; redaction; no public media; do not ask for immigration status; reject reports that target a person rather than an event |
 | P4 | Precise location is published | Enables tracking, confrontation, obstruction | City-level only; no street address, intersection, map pin, or exact coordinates; fuzz/round any private location; warn reporters not to include addresses in free text |
 | P5 | Free-text narrative contains names, addresses, medical details, or status | Uncontrolled PII, legal exposure | Short max length; field-specific prompts; prohibited-content guidance; automated suggestion plus human review; redact before storage where possible; never copy raw text to public |
@@ -517,7 +517,7 @@ reflected in the privacy notice and in an executable job.
 | R3 | Deletion removes the row but not the object, thumbnail, email, or backup | False deletion promise | Object-first deletion; derived-object list; provider deletion procedure; backup expiry; restore test |
 | R4 | Legal hold is placed after the purge starts | Spoliation, legal risk | Hold check in the same transaction/claim; pause worker on hold; log race; manual review of borderline records |
 | R5 | Orphan objects from failed uploads remain forever | Hidden PII, cost | Quarantine ledger; orphan scan; daily reconciliation; delete unlinked objects |
-| R6 | Logs and analytics outlive the record | Reporter identification after deletion | Log only IDs; scrub vendor data; retention on logs; disable analytics on the form |
+| R6 | Logs and analytics outlive the record | Reporter identification after deletion | Log only IDs; scrub vendor data; retention on logs; PostHog session replay and autocapture disabled; no report content in analytics events |
 | R7 | Third parties (email, CAPTCHA, scanner, vendor support) keep copies | Data outside the chapter's control | DPA/subprocessor review; data minimization; no content in email; vendor retention terms; regional review |
 | R8 | Deletion requester is not verified, or verification collects more PII | Wrong deletion or new exposure | Receipt token or controlled email challenge; do not request ID documents; uniform response; legal-hold exception |
 | R9 | Public cache/search index keeps a removed report | Permanent harm | `no-store` for private; purge CDN; request search removal; correction page; monitor |
@@ -637,7 +637,7 @@ reflected in the privacy notice and in an executable job.
 | X11 | Cache/CDN serves a private page | Leak | Header tests; cache logs | `no-store`, `private`, no shared cache; purge on incident |
 | X12 | Search engine indexes a status/report page | Permanent exposure | Search console alerts; crawl tests | `noindex`, auth, robots, no sitemap; removal request |
 | X13 | Email link scanner/prefetch consumes a token | Reporter cannot use link | Token-use logs | GET must not mutate; exchange token for session; single-use with clear error |
-| X14 | Logs/Sentry/PostHog capture form data | Shadow PII | Log audit; vendor payload review | Scrubber; disable analytics/session replay on form; no content in errors |
+| X14 | Logs/Sentry/PostHog capture form data | Shadow PII | Log audit; vendor payload review | Scrubber; PostHog session replay and autocapture disabled; no form content in analytics events; no content in errors |
 | X15 | Backup restore resurrects deleted data | Privacy breach | Restore drill | Tombstone/replay deletions; backup retention; document limitation |
 | X16 | Legal hold and purge race | Spoliation or wrongful deletion | Hold audit; worker errors | Hold check in transaction; pause worker; manual review |
 | X17 | Admin account takeover | Mass publish/export | Anomaly alerts; MFA logs | SSO/MFA; short sessions; two-person manual publish; automatic path is template-only; no bulk export; revoke |
@@ -744,8 +744,9 @@ privacy boundary must exist before the form is exposed.
 - Alert a named owner; a cron that fails silently is a data-retention incident.
 - Never log request bodies, report text, contact details, tokens, signed URLs,
   or attachment names. Use report IDs and hashed correlation IDs.
-- Disable session replay and autocapture on the intake and moderation pages.
-  Scrub error-monitoring payloads before sending.
+- PostHog session replay and autocapture are disabled globally; keep analytics
+  events named and free of report content. Scrub error-monitoring payloads before
+  sending.
 
 ## 14. Launch checklist
 
@@ -781,8 +782,9 @@ control.
       in HTML, JSON, map state, metadata, or structured data.
 - [ ] Reporter notice is accurate about minimization, access, retention, legal
       requests, and the limits of anonymity.
-- [ ] Analytics/session replay disabled on intake and moderation; error reports
-      scrubbed; no raw PII in logs or email.
+- [ ] PostHog session replay and autocapture disabled globally; analytics events
+      carry no report content; error reports scrubbed; no raw PII in logs or
+      email.
 - [ ] Field-level encryption for contact/high-risk fields; keys separated from
       the database.
 - [ ] Access roles, MFA, reveal audit, no bulk export, and offboarding tested.

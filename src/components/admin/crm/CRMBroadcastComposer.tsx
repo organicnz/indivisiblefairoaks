@@ -484,6 +484,7 @@ export function CRMBroadcastComposer({
         toast.success(`Test sent to ${res.recipient}. Nobody else received it.`, {
           duration: 6000,
         });
+        if (res.warning) toast.warning(res.warning);
         startTransition(() => router.refresh());
       } else {
         toast.error(res.error || 'Test could not be sent');
@@ -544,6 +545,7 @@ export function CRMBroadcastComposer({
         return [row, ...current];
       });
       toast.success('Draft saved');
+      if (res.warning) toast.warning(res.warning);
       startTransition(() => router.refresh());
     } catch {
       // Without this, a dropped connection left the button reading
@@ -610,6 +612,7 @@ export function CRMBroadcastComposer({
       setDraftId((current) => (current === id ? null : current));
       setDrafts((current) => current.filter((d) => d.id !== id));
       toast.success('Draft discarded');
+      if (res.warning) toast.warning(res.warning);
       startTransition(() => router.refresh());
     } catch {
       // A transport rejection here used to leave the confirmation step with no
@@ -634,6 +637,7 @@ export function CRMBroadcastComposer({
         return;
       }
       toast.success('Campaign marked failed. Compose a new, narrower campaign for the rest.');
+      if (res.warning) toast.warning(res.warning);
       setProgress(null);
       startTransition(() => router.refresh());
     } catch (err) {

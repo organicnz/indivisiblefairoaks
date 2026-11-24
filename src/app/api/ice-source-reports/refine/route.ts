@@ -6,10 +6,15 @@ import {
   saveSourceReportRefinement,
 } from '@/lib/ice-crawl-store';
 import { isSafeSourceDigest, refineSourceReportWithAi } from '@/lib/ice-source-refine';
+import { clientKey, rateLimit } from '@/lib/rate-limit';
+import { readJsonBodyWithLimit } from '@/lib/request-body';
 
 export const maxDuration = 60;
 
 const REPORT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const MAX_JSON_BODY_BYTES = 2_048;
+const RATE_LIMIT_MAX = 20;
+const RATE_LIMIT_WINDOW_MS = 10 * 60_000;
 
 function json(body: unknown, status = 200) {
   return NextResponse.json(body, {
@@ -33,13 +38,37 @@ function json(body: unknown, status = 200) {
 export async function POST(request: Request) {
   await connection();
 
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return json({ ok: false, code: 'invalid-request', message: 'Invalid request.' }, 400);
+  // This route can call the paid summarizer on a cache miss. Keep the local
+  // gate ahead of the archive read so a flood cannot spend the AI budget even
+  // when the edge function's own limiter is unavailable.
+  const gate = rateLimit(
+    clientKey(request.headers, 'ice-source-report-refine'),
+    RATE_LIMIT_MAX,
+    RATE_LIMIT_WINDOW_MS
+  );
+  if (!gate.ok) {
+    const response = json(
+      {
+        ok: false,
+        code: 'rate-limited',
+        message: 'Too many summary requests. Try again shortly.',
+      },
+      429
+    );
+    response.headers.set('Retry-After', String(gate.retryAfterSec));
+    return response;
   }
 
+  // The only body field is a report id. Refuse an oversized payload while it
+  // streams instead of buffering it with `request.json()`.
+  const read = await readJsonBodyWithLimit(request, MAX_JSON_BODY_BYTES);
+  if (!read.ok) {
+    return read.code === 'too-large'
+      ? json({ ok: false, code: 'too-large', message: 'Request body is too large.' }, 413)
+      : json({ ok: false, code: 'invalid-request', message: 'Invalid request.' }, 400);
+  }
+
+  const body = read.value;
   const id =
     body && typeof body === 'object' && 'id' in body && typeof body.id === 'string'
       ? body.id.trim()
