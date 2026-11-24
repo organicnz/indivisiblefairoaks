@@ -412,10 +412,18 @@ jobs:
 
       # The base commit is a real reference for the immutability and SQL checks.
       # No step in this job receives a Supabase credential.
+      #
+      # On a pull request the base is the PR's base commit. On a push there is
+      # no PR base, and `github.sha` is the commit being tested — checking it out
+      # as the "base" makes the diff empty by construction, so the immutability,
+      # SQL and invariant checks all report "no changed migrations" on the path
+      # this repository actually ships by. `github.event.before` is the previous
+      # tip, which is the real base for a push; the `|| github.sha` fallback
+      # covers a first push to a branch, where `before` is all zeros.
       - name: Checkout trusted base scripts
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ github.event.pull_request.base.sha || github.sha }}
+          ref: ${{ github.event.pull_request.base.sha || github.event.before || github.sha }}
           path: trusted
           persist-credentials: false
 

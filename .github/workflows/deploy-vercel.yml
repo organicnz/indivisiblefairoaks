@@ -115,6 +115,27 @@ jobs:
             --out=vercel-logs \
             --site-url=${{ vars.NEXT_PUBLIC_SITE_URL }}
 
+      # The step above proves the deployment is READY and that the host serves a
+      # healthy app. It does not prove the host serves *this* build: the alias
+      # is a separate assignment, and a stale one answers 200 with the previous
+      # commit. `/api/health` reports the commit Vercel built, so compare it
+      # with the requested SHA. The retry absorbs alias propagation, which is
+      # not instant after `vercel alias set`.
+      - name: Assert the live build is the deployed commit
+        env:
+          EXPECTED_SHA: ${{ steps.commit.outputs.sha }}
+        run: |
+          live=""
+          for attempt in $(seq 1 12); do
+            body="$(curl -sS --max-time 10 https://test.indivisiblefairoaks.org/api/health || true)"
+            live="$(printf '%s' "$body" | bun -e 'const t = await Bun.stdin.text(); try { console.log(JSON.parse(t)?.deployment?.commit ?? "") } catch { console.log("") }')"
+            printf 'attempt %s/12: live=%s expected=%s\n' "$attempt" "${live:-none}" "$EXPECTED_SHA"
+            if [ "$live" = "$EXPECTED_SHA" ]; then exit 0; fi
+            sleep 10
+          done
+          echo "::error::/api/health reports '${live:-nothing}', not the deployed $EXPECTED_SHA — the host is serving a different build."
+          exit 1
+
       - name: List production environment variable names
         if: always()
         env:
