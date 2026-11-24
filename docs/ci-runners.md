@@ -608,7 +608,7 @@ queue long.
 
 | Gate | Command |
 |---|---|
-| 39 pre-commit guards | lefthook, on `git commit` |
+| 37 pre-commit guards | lefthook, on `git commit` |
 | documentation claims | `bun scripts/check-doc-claims.mjs` — guards, baseline, spec counts |
 | suppression ratchet | pre-push, baseline 31 |
 | lint | `bun run lint:check` |

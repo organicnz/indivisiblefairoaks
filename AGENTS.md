@@ -1421,14 +1421,17 @@ pre-commit gate, so drift fails at commit time rather than at 3am.
   are withheld from `pull_request` runs from forks, and `env.ts`'s `.default()`
   absorbed the empty value, so a fork PR built successfully against placeholder
   credentials.
-- **The hosted schema gate is the one deliberate `pull_request_target`
-  workflow.** `schema-check-trusted.yml` runs the base branch's scripts,
-  checks out only the merge ref's `supabase/migrations` as data, and copies it
-  into the trusted checkout; no PR code executes. Fork PRs therefore receive
-  the read-only Supabase token through that event, and a missing token fails
-  the job rather than skipping it. The token-free checks that inspect PR
-  source stay in `ci.yml` under `Schema checks (PR)`. See
-  [`docs/ci-separation-plan.md`](./docs/ci-separation-plan.md) §2.
+- **The schema gate is split by what each half can answer.**
+  `schema-check-trusted.yml` has two jobs. `Schema checks (PR, trusted)` runs
+  on `pull_request_target` with **no credential**: it executes the base
+  branch's scripts, checks out only the merge ref's `supabase/migrations` as
+  data, and checks immutability and SQL, so a PR cannot go red because the
+  hosted project is behind. `Migration History` holds the read-only Supabase
+  token and runs only when the `Supabase` workflow completes successfully on
+  `main`, at the commit it migrated — never on `push`, so the two workflows
+  cannot race. A missing token still fails the job rather than skipping it.
+  The token-free checks that inspect PR source also stay in `ci.yml` under
+  `Schema checks (PR)`. See [`docs/ci-separation-plan.md`](./docs/ci-separation-plan.md) §2.
 - **CI waits forever when no runner can take the job, and that is not always a label
   problem.** `runs-on: [self-hosted, linux, <frontend|backend>-runner]` is
   arch-neutral on purpose (2026-10-05): both registered runners carry those
@@ -1480,7 +1483,7 @@ pre-commit gate, so drift fails at commit time rather than at 3am.
      `workers: 1` in CI) to prevent multiple concurrent Chromium instances from fighting
      against Next.js (`next start`) and the mock server for memory.
 - **The local lefthook gates are therefore the real gates**, and they do run on
-  every push: 36 pre-commit guards, then lint → unit → coverage → types → build →
+  every push: 37 pre-commit guards, then lint → unit → coverage → types → build →
   peer-deps → 135 Playwright specs (135 + no running tests). Migrations and Edge Functions are **not**
   deployed by hand: `supabase.yml` is the only delivery path and a push touching
   `supabase/**` is its trigger, so the fix and the deploy are one action. It pushed
@@ -1629,7 +1632,7 @@ deployed green and broke silently.
 ## Delivery Gates (lefthook)
 
 - **pre-commit**: secrets, migration guards, RLS/SECURITY DEFINER, Biome, oxlint, typecheck, env contracts (local `.env`, the GitHub Actions inventory, and the secrets registry in `--offline` mode — no network, because a hook that needs a token is a hook that gets bypassed), lockfile pairing, data-points seed↔reader↔fallback consistency (`scripts/check-data-points.mjs` — a seed nobody reads, a read nobody seeds, and a wired fallback that disagrees with its seed all fail, with accepted findings annotated in `scripts/data-points-baseline.json`, and that ratchet only shrinks), documentation numeric claims (`scripts/check-doc-claims.mjs` re-derives guard counts, the suppression baseline, `lefthook.yml`'s length, spec totals and the two coverage floors from their sources of truth), the no-Node-runtime guard (`scripts/hooks/no-node-runtime.mjs` — a Node shebang, a second package manager or a `setup-node` step works on a laptop with Node installed and breaks on every runner this project has; and a local binary invoked as `bun <bin>` rather than `bun --bun <bin>`, which hands the program to Node.js wherever Node.js is installed and to Bun only where it is not — the same divergence, wearing a different hat. The rule reads the local bin set out of `node_modules/.bin`, so a dependency that arrives tomorrow is covered without the guard being edited. CI runs it over the **whole tree** with `--all`, not just the staged subset, so a violation that arrived by a merge is caught too), the test-environment guard (`scripts/hooks/vitest-environment.mjs` — **every** test file must declare its Vitest environment on its first line, because Vitest constructs an environment per file and jsdom's construction was 63% of the unit suite's time; the guard also requires the `node` environment on any test that reaches for `Bun.*`, directly or through an imported script, because Vitest's `jsdom` environment replaces the worker's global with the jsdom window's and the `Bun` global does not survive that swap on every platform), and `playwright test --list` when `e2e/**` changes (spec parse only — no browser launch).
-- **`lefthook.yml` is 668 lines of wiring; the logic is in `scripts/hooks/*.mjs`.** Every
+- **`lefthook.yml` is 684 lines of wiring; the logic is in `scripts/hooks/*.mjs`.** Every
   guard that was a `run: |` bash block is now a `bun scripts/hooks/<name>.mjs` call, and
   its rationale comment moved into that file's header — where it sits beside the code it
   explains rather than four hundred lines above it. `lefthook.yml` keeps what only it can

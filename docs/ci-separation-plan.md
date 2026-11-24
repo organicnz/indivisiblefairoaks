@@ -111,16 +111,22 @@ touch that path — enabling it would wedge the repository.
 (`supabase.yml:203-206`): *"function delivery must be verified even when
 migration push is blocked… Each job reports its own signal."* Not changed.
 
-So the gate is **`schema-check-trusted.yml`**, a `pull_request_target` workflow
-with a job named **`Migration History`**:
+So the gate is **`schema-check-trusted.yml`**, split by what each half can
+answer:
 
-- runs on **every** pull request, including forks, and on pushes to `main`,
-  **no path filter** — the only property a required check needs;
-- executes **base-branch copies** of the hosted checks. Only the merge tree's
-  migration directory is checked out, and it is copied into the trusted
-  checkout as data. No PR code is executed in this privileged workflow. The
-  token-free checks that need PR source stay in `ci.yml` as `Schema checks
-  (PR)`; they receive no credential and are not the hosted check;
+- **`Schema checks (PR, trusted)`** — `pull_request_target`, **no credential**.
+  Runs on **every** pull request, including forks, **no path filter** — the only
+  property a required check needs. It executes **base-branch copies** of the
+  migration checks; only the merge tree's migration directory is checked out,
+  and it is copied into the trusted checkout as data. No PR code is executed.
+  The token-free checks that need PR source also stay in `ci.yml` as `Schema
+  checks (PR)`;
+- **`Migration History`** — the hosted half, and the only job holding the
+  read-only token. It is triggered by the `Supabase` workflow completing
+  **successfully on `main`** (`workflow_run`, at the commit that run migrated),
+  **not by `push`**. That is what makes the gate deterministic: it can no
+  longer read the catalogue while another change is mid-apply, and it no longer
+  runs at all before this commit's migrations are applied;
 - **read-only**: compares repository migration filenames against
   `supabase_migrations.schema_migrations` on the hosted project, over the
   Management API that `scripts/apply-migrations.mjs` already proves works on

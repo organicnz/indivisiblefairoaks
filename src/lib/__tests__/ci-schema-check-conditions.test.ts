@@ -10,27 +10,31 @@ import { main as checkSchemaHygiene } from '../../../scripts/check-schema-hygien
 /**
  * The schema gate's trust boundary, pinned as behaviour.
  *
- * `schema-check-trusted.yml` owns the required `Migration History` check. It
- * runs on `pull_request_target` and `push`, executes base-branch scripts, and
- * checks out only the merge ref's migration directory as data. It has no
- * fork-only condition and no tokenless skip: a fork PR either runs the hosted
- * checks or fails.
+ * `schema-check-trusted.yml` is split by what each half can answer:
+ *
+ *   - `schema-pr` (name "Schema checks (PR, trusted)") runs on
+ *     `pull_request_target` and is **tokenless**. It executes the base branch's
+ *     scripts, checks out only the merge ref's migration directory as data, and
+ *     validates immutability and SQL. No secret, no network, no database, so it
+ *     cannot go red because the hosted project is behind.
+ *   - `schema` (name "Migration History") is the **hosted** half. It runs only
+ *     when the `Supabase` workflow completed successfully on `main`, at the
+ *     commit that run migrated. Only this half holds the read-only token.
+ *
+ * Four rules are load-bearing:
+ *
+ *   1. the hosted half never runs on `push` or on a PR — it is gated on
+ *      `workflow_run` plus `conclusion == 'success'`, so it cannot race the
+ *      migration workflow;
+ *   2. the tokenless half runs on every PR, receives no Supabase credential,
+ *      executes no PR script, and reads only `trusted/pr-migrations`;
+ *   3. the hosted half checks out the migrated commit, not the current default
+ *      branch tip;
+ *   4. schema hygiene still runs after a migration-history failure.
  *
  * `ci.yml` keeps the token-free checks that inspect PR source in a separate
  * `Schema checks (PR)` job. That job is deliberately not named "Migration
  * History", so its green result cannot stand in for the hosted check.
- *
- * Four rules are load-bearing:
- *
- *   1. every event that produces the required check — a fork PR, a same-repo
- *      PR, and a push to main — runs the hosted checks;
- *   2. the trusted workflow executes no PR script and reads only
- *      `trusted/pr-migrations`, never `pr/`;
- *   3. the token-free checks in `ci.yml` receive no credential and are not
- *      presented as the hosted check;
- *   4. the token-free trusted reconciliation checks run after a successful
- *      copy, even when a hosted check fails, while the job still fails; the
- *      hosted schema-hygiene check runs even when migration history fails.
  */
 
 const CI_WORKFLOW = `${process.cwd()}/.github/workflows/ci.yml`;
@@ -53,9 +57,10 @@ const TOKEN_FREE_PR_CHECKS = [
   'scripts/check-supabase-cli-pin.mjs',
 ];
 
-const TRUSTED_CHECKS = [...HOSTED_CHECKS, ...TRUSTED_MIGRATION_CHECKS];
+const PR_JOB_NAME = 'Schema checks (PR, trusted)';
+const HOSTED_JOB_NAME = 'Migration History';
 
-/** Run after a hosted failure, but never against a failed migration copy. */
+/** Run after a failed check, but never against a failed migration copy. */
 const RUN_AFTER_COPY = "always() && steps.copy_migrations.outcome == 'success'";
 
 /** Run even when the preceding hosted migration-history check failed. */
@@ -76,6 +81,7 @@ const PR_DIR = /(^|[/\\])pr([/\\]|$)/;
 type Trigger = {
   branches?: string[];
   types?: string[];
+  workflows?: string[];
 };
 
 type Step = {
@@ -106,12 +112,15 @@ type Workflow = {
 
 const ciWorkflow = Bun.YAML.parse(await Bun.file(CI_WORKFLOW).text()) as Workflow;
 const trustedWorkflow = Bun.YAML.parse(await Bun.file(TRUSTED_WORKFLOW).text()) as Workflow;
-const trustedJob = trustedWorkflow.jobs.schema;
-if (!trustedJob) throw new Error('schema-check-trusted.yml must have a "schema" job');
+const prJob = trustedWorkflow.jobs['schema-pr'];
+if (!prJob) throw new Error('schema-check-trusted.yml must have a "schema-pr" job');
+const hostedJob = trustedWorkflow.jobs.schema;
+if (!hostedJob) throw new Error('schema-check-trusted.yml must have a "schema" job');
 const ciJob = ciWorkflow.jobs['schema-pr-checks'];
 if (!ciJob) throw new Error('ci.yml must have a "schema-pr-checks" job');
 
-const trustedSteps = trustedJob.steps ?? [];
+const prSteps = prJob.steps ?? [];
+const hostedSteps = hostedJob.steps ?? [];
 const ciSteps = ciJob.steps ?? [];
 
 function label(step: Step): string {
@@ -155,7 +164,7 @@ function workingDirectory(step: Step, job: Job): string | undefined {
 
 /** The one step that copies PR migrations into the trusted checkout. */
 function migrationCopy(): Step {
-  const matches = trustedSteps.filter(
+  const matches = prSteps.filter(
     (step) =>
       (step.run ?? '').includes(PR_MIGRATIONS) && (step.run ?? '').includes(COPIED_MIGRATIONS)
   );
@@ -166,93 +175,121 @@ function migrationCopy(): Step {
   return match;
 }
 
+/** The job-level condition that selects an event. */
+function eventGate(job: Job): string {
+  return String(job.if ?? '');
+}
+
 describe('trusted schema workflow', () => {
-  it('is the required Migration History check for every PR and main push', () => {
+  it('splits into a tokenless PR check and a post-migration hosted check', () => {
     const events = Object.keys(trustedWorkflow.on ?? {}).sort();
-    expect(events).toEqual(['pull_request_target', 'push']);
-    expect(trustedWorkflow.on?.push?.branches).toEqual(['main']);
-    expect(trustedWorkflow.on?.pull_request_target?.branches).toEqual(['main']);
+    expect(events).toEqual(['pull_request_target', 'workflow_run']);
+    expect(trustedWorkflow.on?.push, 'a push would race the migration workflow').toBeUndefined();
     expect(trustedWorkflow.on?.pull_request).toBeUndefined();
 
-    expect(trustedJob.name).toBe('Migration History');
+    expect(trustedWorkflow.on?.pull_request_target?.branches).toEqual(['main']);
+    expect(trustedWorkflow.on?.workflow_run?.workflows).toEqual(['Supabase']);
+    expect(trustedWorkflow.on?.workflow_run?.types).toEqual(['completed']);
+    expect(trustedWorkflow.on?.workflow_run?.branches).toEqual(['main']);
+
+    expect(prJob.name).toBe(PR_JOB_NAME);
+    expect(hostedJob.name).toBe(HOSTED_JOB_NAME);
     expect(trustedWorkflow.permissions).toEqual({ contents: 'read' });
   });
 
-  it('has no level at which an unverified run can skip and stay green', () => {
-    // A job-level skip would remove the required check entirely; a step-level
-    // skip on the hosted pair would recreate the old fork-PR hole. Both are
-    // forbidden. The token-free reconciliation steps are one allowed
-    // condition: they run after a hosted failure, but only after a successful
-    // copy. Schema hygiene's `always()` is the other: it cannot suppress a
-    // result, only add the hygiene outcome after a history failure. A missing
-    // token still fails inside the scripts (below).
-    expect(trustedJob.if, 'the required job must not be conditionally skipped').toBeUndefined();
+  it('runs the hosted check only after a successful migration run on main', () => {
+    const gate = eventGate(hostedJob);
+    expect(gate).toContain("github.event_name == 'workflow_run'");
+    expect(gate).toContain("github.event.workflow_run.conclusion == 'success'");
+    expect(gate, 'the hosted half must not run on a PR').not.toContain('pull_request_target');
+
+    expect(eventGate(prJob)).toContain("github.event_name == 'pull_request_target'");
+
+    const checkout = hostedSteps.find((step) => (step.uses ?? '').startsWith('actions/checkout@'));
+    expect(checkout, 'the hosted job must check out a commit').toBeDefined();
     expect(
-      trustedJob['continue-on-error'],
-      'the required job must not be non-blocking'
-    ).toBeUndefined();
-    for (const step of trustedSteps) {
-      const script = TRUSTED_MIGRATION_CHECKS.find((candidate) =>
-        (step.run ?? '').includes(candidate)
-      );
-      if (script) {
-        expect(step.if, `${script} must run after a hosted failure`).toBe(RUN_AFTER_COPY);
-      } else if ((step.run ?? '').includes('scripts/check-schema-hygiene.mjs')) {
-        expect(step.if, 'schema hygiene must run after a history failure').toBe(RUN_ALWAYS);
-      } else {
-        expect(step.if, `${label(step)} must be unconditional`).toBeUndefined();
-      }
+      String(checkout?.with?.ref ?? ''),
+      'the hosted job must check out the migrated commit'
+    ).toContain('github.event.workflow_run.head_sha');
+    expect(checkout?.with?.path, 'the hosted job must not check out PR data').toBeUndefined();
+
+    for (const script of TRUSTED_MIGRATION_CHECKS) {
+      expect(
+        hostedSteps.some((step) => (step.run ?? '').includes(script)),
+        `${script} belongs to the tokenless PR half`
+      ).toBe(false);
     }
-    expect(
-      trustedSteps.filter((step) => (step.run ?? '').includes('::notice')),
-      'there must be no skip notice standing in for a check'
-    ).toEqual([]);
+    expect(hostedSteps.filter((step) => PR_PATH.test(step.run ?? ''))).toEqual([]);
+  });
+
+  it('keeps the tokenless PR half free of credentials and hosted checks', () => {
+    for (const step of prSteps) {
+      expect(
+        step.env?.SUPABASE_ACCESS_TOKEN,
+        `${label(step)} must not receive a Supabase token`
+      ).toBeUndefined();
+      expect(
+        JSON.stringify(step.env ?? {}),
+        `${label(step)} must not reference repository secrets`
+      ).not.toContain('secrets.');
+    }
+
+    for (const script of HOSTED_CHECKS) {
+      expect(
+        prSteps.some((step) => (step.run ?? '').includes(script)),
+        `${script} must not run at PR time`
+      ).toBe(false);
+    }
+
+    for (const script of TRUSTED_MIGRATION_CHECKS) {
+      const step = checkStep(prSteps, script);
+      expect(step.env?.SUPABASE_ACCESS_TOKEN, `${script} must be token-free`).toBeUndefined();
+      expect(blocking(step), `${script} must fail the job`).toBe(true);
+      expect(step.if, `${script} must run after a failed sibling`).toBe(RUN_AFTER_COPY);
+    }
   });
 
   it('checks out only the merge migration directory, as data', () => {
-    const prCheckout = checkoutAt(trustedSteps, 'pr');
+    const prCheckout = checkoutAt(prSteps, 'pr');
     const prRef = String(prCheckout.with?.ref ?? '');
     expect(prRef).toContain('refs/pull/');
     expect(prRef).toContain('/merge');
-    expect(prRef).toContain('github.sha');
     expect(prCheckout.with?.['sparse-checkout']).toBe('supabase/migrations');
     expect(prCheckout.with?.['persist-credentials']).toBe(false);
     expect(prCheckout.with?.['allow-unsafe-pr-checkout']).toBe(true);
 
-    const trusted = checkoutAt(trustedSteps, 'trusted');
+    const trusted = checkoutAt(prSteps, 'trusted');
     const trustedRef = String(trusted.with?.ref ?? '');
     expect(trustedRef).toContain('github.event.pull_request.base.sha');
-    expect(trustedRef).toContain('github.sha');
     expect(trusted.with?.['persist-credentials']).toBe(false);
   });
 
   it('does not execute any PR script in the privileged workflow', () => {
-    const runSteps = trustedSteps.filter((step) => step.run !== undefined);
-    for (const step of runSteps) {
+    for (const step of prSteps.filter((candidate) => candidate.run !== undefined)) {
       expect(
-        workingDirectory(step, trustedJob) ?? '',
+        workingDirectory(step, prJob) ?? '',
         `${label(step)} must not run from the PR`
       ).not.toMatch(PR_DIR);
     }
 
     const copy = migrationCopy();
-    expect(trustedSteps.filter((step) => PR_PATH.test(step.run ?? ''))).toEqual([copy]);
+    expect(prSteps.filter((step) => PR_PATH.test(step.run ?? ''))).toEqual([copy]);
 
     for (const script of [
       'scripts/check-migration-types.mjs',
       'scripts/check-supabase-cli-pin.mjs',
     ]) {
       expect(
-        trustedSteps.some((step) => (step.run ?? '').includes(script)),
+        prSteps.some((step) => (step.run ?? '').includes(script)),
         `${script} must stay out of the privileged workflow`
       ).toBe(false);
     }
   });
 
-  it('copies only the migration directory before every trusted check', () => {
+  it('copies only the migration directory before the tokenless checks', () => {
     const copy = migrationCopy();
     expect(copy.id).toBe('copy_migrations');
-    expect(copy.if, 'the copy must run on every event').toBeUndefined();
+    expect(copy.if, 'the copy must run on every PR event').toBeUndefined();
     expect(blocking(copy), 'the copy must fail the job').toBe(true);
     expect(copy.env?.SUPABASE_ACCESS_TOKEN).toBeUndefined();
     expect(copy.run).toContain('DEST="$GITHUB_WORKSPACE/trusted/pr-migrations"');
@@ -266,10 +303,10 @@ describe('trusted schema workflow', () => {
     );
     expect(copy.run, 'the copy must not invoke the scripts tree').not.toContain('scripts/');
 
-    const copyIndex = trustedSteps.indexOf(copy);
-    for (const script of TRUSTED_CHECKS) {
+    const copyIndex = prSteps.indexOf(copy);
+    for (const script of TRUSTED_MIGRATION_CHECKS) {
       expect(
-        trustedSteps.indexOf(checkStep(trustedSteps, script)),
+        prSteps.indexOf(checkStep(prSteps, script)),
         `${script} must run after the migration copy`
       ).toBeGreaterThan(copyIndex);
     }
@@ -300,18 +337,10 @@ describe('trusted schema workflow', () => {
     }
   });
 
-  it('runs the hosted checks from trusted against the copied merge set', () => {
+  it('runs the hosted checks with the read-only token at the migrated commit', () => {
     for (const script of HOSTED_CHECKS) {
-      const step = checkStep(trustedSteps, script);
-      expect(workingDirectory(step, trustedJob), `${script} must run from trusted`).toBe('trusted');
+      const step = checkStep(hostedSteps, script);
       expect(blocking(step), `${script} must fail the job`).toBe(true);
-      if (script === 'scripts/check-schema-hygiene.mjs') {
-        expect(step.if, 'schema hygiene must run after a migration-history failure').toBe(
-          RUN_ALWAYS
-        );
-      } else {
-        expect(step.if, `${script} must not be gated`).toBeUndefined();
-      }
       expect(step.run, `${script} must not execute from the PR`).not.toMatch(PR_PATH);
       expect(
         String(step.env?.MIGRATIONS_DIR ?? ''),
@@ -322,43 +351,33 @@ describe('trusted schema workflow', () => {
       );
     }
 
-    const history = checkStep(trustedSteps, 'scripts/check-migrations.mjs');
-    expect(String(history.env?.MIGRATIONS_DIR)).toContain(`/${COPIED_MIGRATIONS}`);
+    const history = checkStep(hostedSteps, 'scripts/check-migrations.mjs');
+    expect(
+      history.if,
+      'migration history must be unconditional inside the hosted job'
+    ).toBeUndefined();
+    expect(String(history.env?.MIGRATIONS_DIR)).toContain('/supabase/migrations');
   });
 
   it('runs schema hygiene even when migration history fails', () => {
-    const history = checkStep(trustedSteps, 'scripts/check-migrations.mjs');
-    const hygiene = checkStep(trustedSteps, 'scripts/check-schema-hygiene.mjs');
+    const history = checkStep(hostedSteps, 'scripts/check-migrations.mjs');
+    const hygiene = checkStep(hostedSteps, 'scripts/check-schema-hygiene.mjs');
 
-    expect(history.if, 'migration history must remain unconditional').toBeUndefined();
     expect(hygiene.if, 'schema hygiene must not be skipped after a history failure').toBe(
       RUN_ALWAYS
     );
-    expect(trustedSteps.indexOf(hygiene)).toBeGreaterThan(trustedSteps.indexOf(history));
+    expect(hostedSteps.indexOf(hygiene)).toBeGreaterThan(hostedSteps.indexOf(history));
     expect(blocking(history), 'migration history must fail the job').toBe(true);
     expect(blocking(hygiene), 'schema hygiene must fail the job').toBe(true);
-  });
-
-  it('runs the migration immutability and SQL checks from trusted base code', () => {
-    for (const script of TRUSTED_MIGRATION_CHECKS) {
-      const step = checkStep(trustedSteps, script);
-      expect(workingDirectory(step, trustedJob), `${script} must run from trusted`).toBe('trusted');
-      expect(blocking(step), `${script} must fail the job`).toBe(true);
-      expect(step.run, `${script} must not execute from the PR`).not.toMatch(PR_PATH);
-      expect(step.env?.SUPABASE_ACCESS_TOKEN, `${script} must be token-free`).toBeUndefined();
-      expect(String(step.env?.MIGRATIONS_DIR)).toContain(`/${COPIED_MIGRATIONS}`);
-      expect(String(step.env?.MIGRATIONS_DIR)).not.toContain(`/${PR_MIGRATIONS}`);
-      expect(String(step.env?.BASE_MIGRATIONS_DIR)).toContain('/trusted/supabase/migrations');
-    }
   });
 });
 
 describe('ci.yml', () => {
   it('no longer owns a Migration History job or a hosted check', () => {
     expect(ciWorkflow.jobs['schema-check']).toBeUndefined();
-    expect(
-      Object.values(ciWorkflow.jobs).filter((job) => job.name === 'Migration History')
-    ).toEqual([]);
+    expect(Object.values(ciWorkflow.jobs).filter((job) => job.name === HOSTED_JOB_NAME)).toEqual(
+      []
+    );
 
     for (const job of Object.values(ciWorkflow.jobs)) {
       for (const step of job.steps ?? []) {
