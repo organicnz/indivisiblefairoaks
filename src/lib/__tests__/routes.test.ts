@@ -1,12 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import { isLegacySlug, LEGACY_REDIRECTS } from '@/config/legacy-redirects';
-import {
-  getHeaderNavigation,
-  isActiveRoute,
-  NOT_FOUND_ROUTES,
-  ROUTES,
-} from '@/config/routes';
+import { getHeaderNavigation, isActiveRoute, NOT_FOUND_ROUTES, ROUTES } from '@/config/routes';
 
 describe('isActiveRoute', () => {
   it('matches an exact path', () => {
@@ -148,6 +143,27 @@ describe('ROUTES children (dropdown)', () => {
     expect(voterInfo.children?.length).toBeGreaterThan(0);
     // Anchors share the page pathname, so the parent stays highlighted.
     expect(isActiveRoute('/voter-info', voterInfo)).toBe(true);
+  });
+
+  it('keeps the voter action links on the overview, not in the dropdown', () => {
+    const voterInfo = ROUTES.find((route) => route.href === '/voter-info');
+    if (!voterInfo) throw new Error('ROUTES must contain a Voter Info entry');
+
+    expect(voterInfo.children?.map((child) => child.href)).toEqual([
+      '/voter-info',
+      '/voter-info#representatives',
+      '/voter-info#guides',
+      '/voter-info#hotlines',
+    ]);
+
+    const dropdownHrefs = voterInfo.children?.map((child) => child.href) ?? [];
+    for (const href of [
+      'https://registertovote.ca.gov',
+      'https://wheresmyballot.sos.ca.gov',
+      'https://elections.saccounty.gov',
+    ]) {
+      expect(dropdownHrefs).not.toContain(href);
+    }
   });
 
   it('keeps News active on the dedicated newsletters page', () => {

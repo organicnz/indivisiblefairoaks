@@ -70,6 +70,14 @@ describe('VoterInfoPage & 2026 Voter Guides', () => {
 
     const links = Array.from(container.querySelectorAll<HTMLAnchorElement>('a'));
 
+    for (const href of [
+      'https://registertovote.ca.gov',
+      'https://wheresmyballot.sos.ca.gov',
+      'https://elections.saccounty.gov',
+    ]) {
+      expect(links.some((a) => a.getAttribute('href') === href)).toBe(true);
+    }
+
     const voterGuideLink = links.find((a) => a.href.includes('10XEUyMoyGUI_UktPVwB0RJo-6w3lN0Uy'));
     expect(voterGuideLink).toBeDefined();
     expect(voterGuideLink?.target).toBe('_blank');
@@ -102,10 +110,14 @@ describe('VoterInfoPage & 2026 Voter Guides', () => {
     expect(fiveCallsLink).toBeDefined();
     expect(fiveCallsLink?.target).toBe('_blank');
 
-    const rightsRestoredLink = links.find((a) => a.href === 'https://www.sos.ca.gov/elections/voting-rights-restored');
+    const rightsRestoredLink = links.find(
+      (a) => a.href === 'https://www.sos.ca.gov/elections/voting-rights-restored'
+    );
     expect(rightsRestoredLink).toBeDefined();
 
-    const voterBillOfRightsLink = links.find((a) => a.href === 'https://www.sos.ca.gov/elections/voter-bill-rights');
+    const voterBillOfRightsLink = links.find(
+      (a) => a.href === 'https://www.sos.ca.gov/elections/voter-bill-rights'
+    );
     expect(voterBillOfRightsLink).toBeDefined();
 
     const unhousedVoterLink = links.find(
