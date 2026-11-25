@@ -7,10 +7,14 @@ import { IceCrawlPromotion } from '@/components/admin/IceCrawlPromotion';
 import { IceCrawlHeader } from '@/components/admin/ice/IceCrawlHeader';
 import { requireAdminPage } from '@/lib/admin-auth';
 import {
+  countCollapsedIceCrawlDiscoveries,
+  countReviewableIceCrawlDiscoveries,
   getIceCrawlStore,
+  type IceCrawlDiscoveryOrder,
   type IceCrawlStore,
   listIceCrawlDiscoveries,
   listIceCrawlSources,
+  listTopConfidenceIceCrawlDiscoveries,
   listUnconfirmedDiscoveryReports,
 } from '@/lib/ice-crawl-store';
 import type {
@@ -20,16 +24,30 @@ import type {
 
 export const instant = false;
 
+const DISCOVERY_PAGE_SIZE = 30;
+
 export const metadata: Metadata = {
   title: 'Web report crawler — Admin · Indivisible Fair Oaks',
   robots: { index: false, follow: false },
 };
 
-export default async function AdminIceCrawlPage() {
+export default async function AdminIceCrawlPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { adminClient } = await requireAdminPage('/admin/ice-crawl');
+  const params = await searchParams;
+  const rawPage = typeof params.discoveryPage === 'string' ? params.discoveryPage : '';
+  const page = Math.max(1, Number.parseInt(rawPage, 10) || 1);
+  const sort: IceCrawlDiscoveryOrder =
+    params.discoverySort === 'confidence' ? 'confidence' : 'oldest';
   const store = getIceCrawlStore();
   let sources: IceCrawlSource[] = [];
   let discoveries: IceCrawlDiscoveryRow[] = [];
+  let topConfidence: IceCrawlDiscoveryRow[] = [];
+  let discoveryTotal = 0;
+  let collapsedDuplicates = 0;
   let unconfirmed: Awaited<ReturnType<typeof listUnconfirmedDiscoveryReports>> = [];
   let loadError = false;
   let discoveryLoadError = false;
@@ -42,9 +60,27 @@ export default async function AdminIceCrawlPage() {
       loadError = true;
     }
     try {
-      discoveries = await listIceCrawlDiscoveries(crawlerStore, 'pending', 30);
+      const [rows, total] = await Promise.all([
+        listIceCrawlDiscoveries(crawlerStore, 'pending', DISCOVERY_PAGE_SIZE, {
+          offset: (page - 1) * DISCOVERY_PAGE_SIZE,
+          order: sort,
+        }),
+        countReviewableIceCrawlDiscoveries(crawlerStore),
+      ]);
+      discoveries = rows;
+      discoveryTotal = total;
     } catch {
       discoveryLoadError = true;
+    }
+    try {
+      collapsedDuplicates = await countCollapsedIceCrawlDiscoveries(crawlerStore);
+    } catch {
+      collapsedDuplicates = 0;
+    }
+    try {
+      topConfidence = await listTopConfidenceIceCrawlDiscoveries(crawlerStore, 5);
+    } catch {
+      topConfidence = [];
     }
     try {
       unconfirmed = await listUnconfirmedDiscoveryReports(crawlerStore, 10);
@@ -92,7 +128,16 @@ export default async function AdminIceCrawlPage() {
         wording, and deterministic extraction remains the fallback when AI is unavailable.
       </AdminNotice>
 
-      <IceCrawlDiscovery discoveries={discoveries} loadError={discoveryLoadError} />
+      <IceCrawlDiscovery
+        discoveries={discoveries}
+        topConfidence={topConfidence}
+        total={discoveryTotal}
+        collapsedDuplicates={collapsedDuplicates}
+        page={page}
+        pageSize={DISCOVERY_PAGE_SIZE}
+        sort={sort}
+        loadError={discoveryLoadError}
+      />
 
       <IceCrawlPromotion reports={unconfirmed} />
 

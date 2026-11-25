@@ -8,6 +8,8 @@ import {
 import type {
   IceCrawlDiscovery,
   IceCrawlDiscoveryStatus,
+  IceCrawlDiscoveryTriageConfidence,
+  IceCrawlDiscoveryTriageRelevance,
   IceCrawlSource,
   IceCrawlSourceStatus,
   IceSourceExtractionMethod,
@@ -89,6 +91,18 @@ export type IceSourceReportInput = {
   discovery_id?: string | null;
 };
 
+export type IceCrawlDiscoveryTriageRow = {
+  id: string;
+  score: number;
+  confidence: IceCrawlDiscoveryTriageConfidence;
+  relevance: IceCrawlDiscoveryTriageRelevance;
+  reason: string;
+  model: string;
+  duplicate_of: string | null;
+};
+
+export type IceCrawlDiscoveryOrder = 'oldest' | 'confidence';
+
 export type IceSourceReportRefinementRow = Pick<
   IceSourceReport,
   'id' | 'source_url' | 'source_title' | 'title' | 'text_content' | 'refined_text' | 'refined_at'
@@ -157,6 +171,13 @@ type IceCrawlDatabase = {
           reviewed_at: string | null;
           review_note: string | null;
           last_attempt_at: string | null;
+          triage_score: number | null;
+          triage_confidence: IceCrawlDiscoveryTriageConfidence | null;
+          triage_relevance: IceCrawlDiscoveryTriageRelevance | null;
+          triage_reason: string | null;
+          triage_model: string | null;
+          triaged_at: string | null;
+          duplicate_of: string | null;
         }>;
         Relationships: [];
       };
@@ -250,6 +271,10 @@ type IceCrawlDatabase = {
         };
         Returns: number;
       };
+      apply_ice_discovery_triage: {
+        Args: { p_rows: IceCrawlDiscoveryTriageRow[] };
+        Returns: number;
+      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
@@ -283,16 +308,92 @@ export async function listIceCrawlSources(store: IceCrawlStore) {
 export async function listIceCrawlDiscoveries(
   store: IceCrawlStore,
   status: IceCrawlDiscoveryStatus = 'pending',
-  limit = 30
+  limit = 30,
+  options: { offset?: number; order?: IceCrawlDiscoveryOrder } = {}
 ) {
-  const { data, error } = await store
+  const pageSize = Math.min(Math.max(1, limit), 100);
+  const offset = Math.max(0, Math.trunc(options.offset ?? 0));
+  let query = store
     .from('ice_crawl_discoveries')
     .select('*')
     .eq('status', status)
-    .order('discovered_at', { ascending: false })
-    .limit(Math.min(Math.max(1, limit), 100));
+    // A collapsed duplicate stays pending for audit, but the review queue is
+    // the canonical row only. Otherwise one story consumes several review slots.
+    .is('duplicate_of', null);
+
+  query =
+    options.order === 'confidence'
+      ? query
+          .order('triage_score', { ascending: false, nullsFirst: false })
+          .order('discovered_at', { ascending: true })
+      : query.order('discovered_at', { ascending: true }).order('id', { ascending: true });
+
+  const { data, error } = await query.range(offset, offset + pageSize - 1);
   if (error) throw new Error(`crawl discoveries failed: ${error.message}`);
   return (data ?? []) as IceCrawlDiscovery[];
+}
+
+export async function countReviewableIceCrawlDiscoveries(store: IceCrawlStore) {
+  const { count, error } = await store
+    .from('ice_crawl_discoveries')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'pending')
+    .is('duplicate_of', null);
+  if (error) throw new Error(`crawl reviewable discovery count failed: ${error.message}`);
+  return count ?? 0;
+}
+
+export async function countCollapsedIceCrawlDiscoveries(store: IceCrawlStore) {
+  const { count, error } = await store
+    .from('ice_crawl_discoveries')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'pending')
+    .not('duplicate_of', 'is', null);
+  if (error) throw new Error(`crawl collapsed discovery count failed: ${error.message}`);
+  return count ?? 0;
+}
+
+export async function listTopConfidenceIceCrawlDiscoveries(store: IceCrawlStore, limit = 5) {
+  const { data, error } = await store
+    .from('ice_crawl_discoveries')
+    .select('*')
+    .eq('status', 'pending')
+    .is('duplicate_of', null)
+    .gte('triage_score', 80)
+    .neq('triage_relevance', 'off_topic')
+    .order('triage_score', { ascending: false, nullsFirst: false })
+    .order('discovered_at', { ascending: true })
+    .limit(Math.min(Math.max(1, limit), 20));
+  if (error) throw new Error(`crawl top-confidence discoveries failed: ${error.message}`);
+  return (data ?? []) as IceCrawlDiscovery[];
+}
+
+/**
+ * Oldest-first triage input: untriaged rows first, then the oldest triaged row.
+ * Re-running triage re-ranks the backlog without starving rows that were
+ * already scored once.
+ */
+export async function listPendingIceCrawlDiscoveriesForTriage(store: IceCrawlStore, limit = 200) {
+  const { data, error } = await store
+    .from('ice_crawl_discoveries')
+    .select('*')
+    .eq('status', 'pending')
+    .is('duplicate_of', null)
+    .order('triaged_at', { ascending: true, nullsFirst: true })
+    .order('discovered_at', { ascending: true })
+    .limit(Math.min(Math.max(1, limit), 200));
+  if (error) throw new Error(`crawl triage discoveries failed: ${error.message}`);
+  return (data ?? []) as IceCrawlDiscovery[];
+}
+
+export async function applyIceCrawlDiscoveryTriage(
+  store: IceCrawlStore,
+  rows: IceCrawlDiscoveryTriageRow[]
+) {
+  if (rows.length === 0) return 0;
+  const { data, error } = await store.rpc('apply_ice_discovery_triage', { p_rows: rows });
+  if (error) throw new Error(`crawl discovery triage write failed: ${error.message}`);
+  return Number(data ?? 0);
 }
 
 export async function listPendingIceCrawlDiscoveries(store: IceCrawlStore, limit = 10) {
@@ -379,7 +480,9 @@ export async function listUnconfirmedDiscoveryReports(store: IceCrawlStore, limi
     .select('id, title, source_name, source_url, summary, published_at')
     .eq('provenance', 'discovery')
     .eq('rights_status', 'unconfirmed')
-    .order('published_at', { ascending: false })
+    // The rights queue drains oldest-first too: a summary admitted last week
+    // must not sit behind every newer auto-admission indefinitely.
+    .order('published_at', { ascending: true })
     .limit(Math.min(Math.max(1, limit), 50));
   if (error) throw new Error(`unconfirmed discovery reports failed: ${error.message}`);
   return data ?? [];
@@ -795,7 +898,10 @@ export async function getPublishedSourceReportCount(
     // The store uses the service-role key, so PostgREST does not apply the
     // anon RLS policy that hides future-dated rows. Every public read must
     // repeat that predicate or a scheduled report becomes visible early.
-    .lte('published_at', new Date().toISOString());
+    // `rights_status` is the second half of the same gate: discovery summaries
+    // are attributed abstracts, not rights-confirmed republications.
+    .lte('published_at', new Date().toISOString())
+    .eq('rights_status', 'confirmed');
 
   if (filters?.kind && filters.kind !== 'all') {
     query = query.eq('kind', filters.kind);
@@ -842,6 +948,7 @@ export async function getPublishedSourceReportCitySummary(
         'id, title, source_name, source_url, source_published_at, source_retrieved_at, kind, extraction_method, published_at, city, state_code'
       )
       .lte('published_at', new Date().toISOString())
+      .eq('rights_status', 'confirmed')
       .eq('state_code', stateCode)
       .ilike('city', city)
       .order('published_at', { ascending: false })
@@ -926,6 +1033,7 @@ export async function getPublishedSourceReports(
     .from('ice_source_reports')
     .select('*')
     .lte('published_at', new Date().toISOString())
+    .eq('rights_status', 'confirmed')
     .order('published_at', { ascending: false });
 
   if (filters?.kind && filters.kind !== 'all') {

@@ -28,8 +28,10 @@ export async function getSourceReportPlaces(): Promise<SourceReportPlace[]> {
       .from('ice_source_reports')
       .select('city, state_code')
       // `getIceCrawlStore()` uses the service-role key, so the anon RLS
-      // predicate that hides future-dated reports is bypassed here too.
+      // predicate that hides future-dated and rights-unconfirmed reports is
+      // bypassed here too. Repeat both halves of the public gate.
       .lte('published_at', publishedBefore)
+      .eq('rights_status', 'confirmed')
       .not('city', 'is', null)
       .not('state_code', 'is', null)
       .order('id', { ascending: true })

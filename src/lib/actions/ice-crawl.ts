@@ -20,6 +20,7 @@ import {
   updateIceCrawlSource,
 } from '@/lib/ice-crawl-store';
 import type { IceCrawlSource } from '@/lib/ice-crawl-types';
+import { triagePendingDiscoveries } from '@/lib/ice-discovery-triage';
 
 const sourceSchema = z.object({
   url: z
@@ -55,6 +56,15 @@ export type IceCrawlActionResult =
 
 export type IceCrawlPromotionActionResult =
   | { success: true; message: string }
+  | { success: false; error: string };
+
+export type IceCrawlTriageActionResult =
+  | {
+      success: true;
+      message: string;
+      warning?: string;
+      summary: Awaited<ReturnType<typeof triagePendingDiscoveries>>;
+    }
   | { success: false; error: string };
 
 function fail(error: string): IceCrawlActionResult {
@@ -186,6 +196,57 @@ export async function discoverIceCrawlCandidatesAction(): Promise<IceCrawlDiscov
     return discoveryFail(
       'Nationwide discovery failed. Check the public news and social feeds and try again.'
     );
+  }
+}
+
+/**
+ * Rank the pending discovery backlog without changing its review state. The
+ * action is bounded so a 60-second server action cannot be turned into an
+ * unbounded model bill; a backlog larger than one pass is finished by running
+ * it again, and the oldest rows are always first in line.
+ */
+export async function triageIceCrawlDiscoveriesAction(): Promise<IceCrawlTriageActionResult> {
+  const session = await requireAdmin('/admin/ice-crawl');
+
+  try {
+    const summary = await triagePendingDiscoveries(storeFrom(session), {
+      limit: 200,
+      deadline: Date.now() + 45_000,
+    });
+    revalidatePath('/admin/ice-crawl');
+
+    if (summary.triaged === 0) {
+      return {
+        success: true,
+        message:
+          summary.remaining === 0
+            ? 'No pending discovery candidates need triage.'
+            : 'No candidates were triaged before the batch deadline. Try again.',
+        summary,
+      };
+    }
+
+    const details = [
+      `${summary.triaged} candidate(s) ranked`,
+      `${summary.collapsedDuplicates} duplicate story/stories collapsed`,
+      `${summary.highConfidence} high-confidence ICE lead(s)`,
+      `${summary.remaining} still pending`,
+    ];
+    return {
+      success: true,
+      message: `AI triage: ${details.join('; ')}. Human rights approval is still required.`,
+      warning: summary.errors[0],
+      summary,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '';
+    if (/apply_ice_discovery_triage|triage_score|duplicate_of|schema cache/i.test(message)) {
+      return {
+        success: false,
+        error: 'The discovery triage migration has not been applied yet.',
+      };
+    }
+    return { success: false, error: 'AI triage failed. Try again in a moment.' };
   }
 }
 

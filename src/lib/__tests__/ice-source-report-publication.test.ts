@@ -46,6 +46,8 @@ function report(overrides: Record<string, unknown>) {
     extraction_method: 'feed',
     dedupe_key: 'report',
     published_at: PAST,
+    provenance: 'crawl',
+    rights_status: 'confirmed',
     refined_text: null,
     refined_at: null,
     ...overrides,
@@ -62,6 +64,15 @@ const rows = [
     published_at: FUTURE,
     dedupe_key: 'fresno',
   }),
+  report({
+    id: 'unconfirmed-discovery',
+    city: 'Oakland',
+    state_code: 'CA',
+    dedupe_key: 'unconfirmed',
+    provenance: 'discovery',
+    rights_status: 'unconfirmed',
+    summary: 'An attributed summary that still needs a human rights confirmation.',
+  }),
 ];
 
 function makeStore() {
@@ -74,13 +85,18 @@ beforeEach(() => {
   placesStore.current = makeStore();
 });
 
-describe('public source-report reads honour published_at', () => {
+describe('public source-report reads honour published_at and rights_status', () => {
   it('excludes a future-dated report from the archive', async () => {
     const reports = await getPublishedSourceReports(makeStore(), 50);
     expect(reports.map((row) => row.id)).toEqual(['past-sacramento', 'past-portland']);
   });
 
-  it('excludes a future-dated report from exact counts', async () => {
+  it('excludes an unconfirmed discovery summary from the archive', async () => {
+    const reports = await getPublishedSourceReports(makeStore(), 50);
+    expect(reports.map((row) => row.id)).not.toContain('unconfirmed-discovery');
+  });
+
+  it('excludes a future-dated or unconfirmed report from exact counts', async () => {
     expect(await getPublishedSourceReportCount(makeStore())).toBe(2);
   });
 

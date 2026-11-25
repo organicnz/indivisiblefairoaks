@@ -1266,6 +1266,7 @@ export type Database = {
       }
     }
     Functions: {
+      apply_ice_discovery_triage: { Args: { p_rows: Json }; Returns: number }
       crm_broadcast_followups: {
         Args: { p_broadcast_id: string; p_limit?: number; p_offset?: number }
         Returns: {

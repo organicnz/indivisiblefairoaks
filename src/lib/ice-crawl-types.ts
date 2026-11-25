@@ -44,6 +44,13 @@ export type IceSourceReport = {
 };
 
 export type IceCrawlDiscoveryStatus = 'pending' | 'approved' | 'rejected';
+export type IceCrawlDiscoveryTriageConfidence = 'high' | 'medium' | 'low';
+export type IceCrawlDiscoveryTriageRelevance =
+  | 'enforcement'
+  | 'detention'
+  | 'checkpoint'
+  | 'related'
+  | 'off_topic';
 
 export type IceCrawlDiscovery = {
   id: string;
@@ -59,7 +66,32 @@ export type IceCrawlDiscovery = {
   reviewed_at: string | null;
   review_note: string | null;
   last_attempt_at: string | null;
+  /** AI relevance score 0-100; null until the triage pass runs. */
+  triage_score: number | null;
+  triage_confidence: IceCrawlDiscoveryTriageConfidence | null;
+  triage_relevance: IceCrawlDiscoveryTriageRelevance | null;
+  triage_reason: string | null;
+  triage_model: string | null;
+  triaged_at: string | null;
+  /** Canonical pending discovery when this row is a collapsed duplicate. */
+  duplicate_of: string | null;
 };
+
+export function iceDiscoveryConfidenceLabel(confidence: IceCrawlDiscoveryTriageConfidence | null) {
+  if (confidence === 'high') return 'High confidence';
+  if (confidence === 'medium') return 'Medium confidence';
+  if (confidence === 'low') return 'Low confidence';
+  return 'Not triaged';
+}
+
+export function iceDiscoveryRelevanceLabel(relevance: IceCrawlDiscoveryTriageRelevance | null) {
+  if (relevance === 'enforcement') return 'ICE enforcement';
+  if (relevance === 'detention') return 'Detention';
+  if (relevance === 'checkpoint') return 'Checkpoint';
+  if (relevance === 'related') return 'Related';
+  if (relevance === 'off_topic') return 'Off topic';
+  return 'Unclassified';
+}
 
 export type IceCrawlSummary = {
   status: IceCrawlSourceStatus;
