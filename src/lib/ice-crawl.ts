@@ -27,6 +27,11 @@ import {
 } from '@/lib/ice-crawl-extract';
 import { ingestIcePageImages } from '@/lib/ice-crawl-images';
 import {
+  extractJusticeReleaseItems,
+  isJusticeReleaseApi,
+  justiceReleasePageUrls,
+} from '@/lib/ice-crawl-justice';
+import {
   deleteIceCrawlFrontier,
   getIceCrawlSource,
   getIceCrawlStore,
@@ -141,6 +146,11 @@ export function resolveCrawlUrls(rawUrl: string, now = new Date()): string[] {
     parsed = new URL(rawUrl);
   } catch {
     return [rawUrl];
+  }
+  // The DOJ source is served by a JSON API whose newest pages are the useful
+  // window; one seed becomes the first pages of that ordering.
+  if (parsed.pathname === '/api/v1/press_releases.json') {
+    return justiceReleasePageUrls(rawUrl);
   }
   const isStopIce = parsed.hostname === 'stopice.net' || parsed.hostname === 'www.stopice.net';
   if (!isStopIce || (parsed.pathname !== '/' && !parsed.searchParams.has('data'))) {
@@ -1010,7 +1020,12 @@ export async function crawlIceSource(
     pagesFetched += 1;
     const jsonFeed = isJsonFeed(page);
     const sitemap = isSitemapPage(page);
-    const feed = sitemap || isFeedResponse(page) || jsonFeed;
+    // The DOJ JSON API is not a JSON Feed; it is a department-wide release
+    // list whose items are admitted only through the source's beat filter.
+    const justiceItems = isJusticeReleaseApi(page.text)
+      ? extractJusticeReleaseItems(page.text, source.relevance_terms)
+      : null;
+    const feed = sitemap || isFeedResponse(page) || jsonFeed || justiceItems !== null;
     let reports: ExtractedReport[] = [];
     let method: 'feed' | 'html' | 'ai' | 'fallback' = 'fallback';
     let pageTitle = '';
@@ -1020,11 +1035,31 @@ export async function crawlIceSource(
         ? extractStopIceReports(page.text, page.finalUrl, cities)
         : [];
       const items =
-        stopIceItems.length > 0
-          ? stopIceItems
-          : jsonFeed
-            ? extractJsonFeedItems(page.text, page.finalUrl, cities)
-            : extractFeedItems(page.text, page.finalUrl, cities);
+        justiceItems !== null
+          ? justiceItems
+              .map((release) => {
+                const releaseText = readableText(release.body || release.teaser).slice(
+                  0,
+                  MAX_STORED_SOURCE_CHARS
+                );
+                const cityState = extractCityState(`${release.title}\n${releaseText}`, cities);
+                return {
+                  title: cleanTitle(release.title, 'DOJ press release'),
+                  text: releaseText,
+                  sourceUrl: release.url,
+                  publishedAt: release.date,
+                  city: cityState.city,
+                  stateCode: cityState.stateCode,
+                  kind: classifyReportKind(`${release.title}\n${releaseText}`),
+                  sourceTitle: 'U.S. Department of Justice',
+                };
+              })
+              .filter((release) => release.text.length >= 20)
+          : stopIceItems.length > 0
+            ? stopIceItems
+            : jsonFeed
+              ? extractJsonFeedItems(page.text, page.finalUrl, cities)
+              : extractFeedItems(page.text, page.finalUrl, cities);
       reports = items.map((item) => ({
         title: item.title,
         text: item.text,
@@ -1053,10 +1088,11 @@ export async function crawlIceSource(
           discovered += 1;
           queue.unshift({ url: link, depth: 0 });
         }
-      } else if (item.depth < MAX_DEPTH) {
+      } else if (justiceItems === null && item.depth < MAX_DEPTH) {
         // Atom/RSS pagination links and JSON Feed next_url are often the only
         // route to older entries. Follow them even though the feed itself is
-        // one response.
+        // one response. A release-API page has no useful links to follow:
+        // every page of that window is already a seed.
         const paginationLinks = [
           ...extractNextLinks(page.text, page.finalUrl),
           ...extractSameOriginLinks(page.text, page.finalUrl).filter((link) =>

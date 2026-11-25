@@ -12,6 +12,8 @@ export type IceCrawlSource = {
   last_error: string | null;
   last_page_count: number;
   last_report_count: number;
+  /** Optional beat filter for feed items; null admits everything. */
+  relevance_terms?: string[] | null;
   created_at: string;
   updated_at: string;
 };
