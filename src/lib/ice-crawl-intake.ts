@@ -264,43 +264,52 @@ export async function processPendingDiscoveries(
       // isReport=false for a page that is not an ICE case, and a grounded,
       // bounded paraphrase for one that is. Refuse to publish a full page or
       // an invented summary when the screen is unavailable.
-      let aiScreened = false;
-      let summary: string | null = null;
-      if (deadline - Date.now() > 15_000) {
-        const refined = await refineSourceTextWithAi({
-          text,
-          sourceUrl: page.finalUrl,
-          sourceTitle: title,
+      const refined =
+        deadline - Date.now() > 15_000
+          ? await refineSourceTextWithAi(
+              {
+                text,
+                sourceUrl: page.finalUrl,
+                sourceTitle: title,
+              },
+              { timeoutMs: 15_000 }
+            )
+          : null;
+      if (!refined) {
+        // Do not publish an unscreened page. Leave the candidate pending with a
+        // fresh attempt timestamp so it rotates to the back and the next run
+        // can finish the screen with a full budget.
+        await noteIceCrawlDiscoveryAttempt(
+          store,
+          discovery.id,
+          'auto retry: AI screen budget unavailable'
+        );
+        retried += 1;
+        outcomes.push({
+          id: discovery.id,
+          status: 'retry',
+          reason: 'AI screen did not complete; candidate left pending',
         });
-        if (refined) {
-          aiScreened = true;
-          if (!refined.isReport) {
-            await recordDecision(
-              store,
-              discovery,
-              null,
-              'rejected',
-              'auto: AI screen found no ICE case report'
-            );
-            rejected += 1;
-            outcomes.push({
-              id: discovery.id,
-              status: 'rejected',
-              reason: 'AI screen: not an ICE case report',
-            });
-            continue;
-          }
-          summary = refined.text;
-        }
-      }
-      summary = summary ?? discoverySummary(page.text, text, aiReports[0]?.text ?? null);
-      if (!summary) {
-        await recordDecision(store, discovery, null, 'rejected', 'auto: no usable summary');
-        rejected += 1;
-        outcomes.push({ id: discovery.id, status: 'rejected', reason: 'no usable summary' });
         continue;
       }
-      const method = aiScreened || aiReports.length > 0 ? 'ai' : 'fallback';
+      if (!refined.isReport) {
+        await recordDecision(
+          store,
+          discovery,
+          null,
+          'rejected',
+          'auto: AI screen found no ICE case report'
+        );
+        rejected += 1;
+        outcomes.push({
+          id: discovery.id,
+          status: 'rejected',
+          reason: 'AI screen: not an ICE case report',
+        });
+        continue;
+      }
+      const summary = refined.text;
+      const method = 'ai';
 
       const canonicalUrl = page.finalUrl || discovery.url;
       const now = new Date().toISOString();
@@ -385,15 +394,13 @@ export async function processPendingDiscoveries(
         discovery,
         source.id,
         'approved',
-        `auto: ${aiScreened ? 'AI' : 'deterministic'} ICE screen passed; attributed summary only`
+        'auto: AI ICE screen passed; attributed summary only'
       );
       reports += 1;
       outcomes.push({
         id: discovery.id,
         status: 'report',
-        reason: aiScreened
-          ? 'AI-screened attributed summary admitted'
-          : 'attributed summary admitted (deterministic fallback)',
+        reason: 'AI-screened attributed summary admitted',
       });
       console.info(
         JSON.stringify({

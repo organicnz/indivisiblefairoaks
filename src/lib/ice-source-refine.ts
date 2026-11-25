@@ -394,11 +394,14 @@ export async function refineSourceReportWithAi(input: {
   }
 }
 
-export async function refineSourceTextWithAi(input: {
-  text: string;
-  sourceUrl?: string | null;
-  sourceTitle?: string | null;
-}): Promise<SourceRefinement | null> {
+export async function refineSourceTextWithAi(
+  input: {
+    text: string;
+    sourceUrl?: string | null;
+    sourceTitle?: string | null;
+  },
+  options: { timeoutMs?: number } = {}
+): Promise<SourceRefinement | null> {
   const text = cleanSourceTextFallback(input.text);
   if (text.length < 40 || text.length > MAX_AI_REFINE_CHARS) return null;
 
@@ -420,7 +423,9 @@ export async function refineSourceTextWithAi(input: {
         sourceTitle: input.sourceTitle ?? null,
       }),
       cache: 'no-store',
-      signal: AbortSignal.timeout(REFINE_TIMEOUT_MS),
+      signal: AbortSignal.timeout(
+        Math.min(options.timeoutMs ?? REFINE_TIMEOUT_MS, REFINE_TIMEOUT_MS)
+      ),
     });
     if (!response.ok) return null;
 
