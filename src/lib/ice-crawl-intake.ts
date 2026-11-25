@@ -44,7 +44,9 @@ import { refineSourceTextWithAi } from '@/lib/ice-source-refine';
 
 export const DISCOVERY_INTAKE_MAX_PER_RUN = 8;
 export const DISCOVERY_SUMMARY_MAX = 900;
-const FETCH_ATTEMPTS = 2;
+// The scheduled route has one candidate budget; a retry is a fresh run, not a
+// second and third network timeout inside the same 60-second function.
+const FETCH_ATTEMPTS = 1;
 const RETRY_DELAY_MS = 400;
 const MIN_RELEVANT_TEXT = 80;
 
@@ -138,7 +140,7 @@ async function fetchWithRetry(url: string) {
   let lastError: unknown;
   for (let attempt = 0; attempt < FETCH_ATTEMPTS; attempt += 1) {
     try {
-      return await fetchCrawlDocument(url);
+      return await fetchCrawlDocument(url, { timeoutMs: 5_000, maxRedirects: 2 });
     } catch (error) {
       lastError = error;
       if (attempt < FETCH_ATTEMPTS - 1) {

@@ -283,24 +283,35 @@ export function validatePublicUrl(rawUrl: string) {
  * crawler. The discovery intake uses this so its URLs cannot reach a private
  * address or ignore a publisher's robots.txt.
  */
-export async function fetchCrawlDocument(rawUrl: string): Promise<CrawlDocument> {
+export async function fetchCrawlDocument(
+  rawUrl: string,
+  options: { timeoutMs?: number; maxRedirects?: number } = {}
+): Promise<CrawlDocument> {
   const target = await assertPublicUrl(rawUrl);
-  const robots = await readRobots(target);
+  const robots = await readRobots(target, options.timeoutMs);
   if (!robotsAllows(robots, target)) {
     throw new Error(`Blocked by robots.txt: ${target.toString()}`);
   }
-  return fetchPublicPage(target.toString());
+  return fetchPublicPage(
+    target.toString(),
+    MAX_BYTES,
+    DEFAULT_ACCEPT,
+    options.timeoutMs,
+    options.maxRedirects
+  );
 }
 
 async function fetchPublicPage(
   rawUrl: string,
   maxBytes = MAX_BYTES,
-  accept = DEFAULT_ACCEPT
+  accept = DEFAULT_ACCEPT,
+  timeoutMs = FETCH_TIMEOUT_MS,
+  maxRedirects = MAX_REDIRECTS
 ): Promise<FetchedPage> {
   let current = await assertPublicUrl(rawUrl);
 
-  for (let redirect = 0; redirect <= MAX_REDIRECTS; redirect += 1) {
-    const { controller, timer } = timeoutSignal();
+  for (let redirect = 0; redirect <= maxRedirects; redirect += 1) {
+    const { controller, timer } = timeoutSignal(timeoutMs);
     try {
       const response = await fetch(current, {
         redirect: 'manual',
@@ -394,12 +405,17 @@ function parseRobots(content: string): RobotsRules {
   return { disallow, sitemaps };
 }
 
-async function readRobots(target: URL): Promise<RobotsRules> {
+async function readRobots(target: URL, timeoutMs?: number): Promise<RobotsRules> {
   const origin = target.origin;
   let rules = robotsCache.get(origin);
   if (!rules) {
     try {
-      const response = await fetchPublicPage(`${origin}/robots.txt`, 120_000);
+      const response = await fetchPublicPage(
+        `${origin}/robots.txt`,
+        120_000,
+        DEFAULT_ACCEPT,
+        timeoutMs
+      );
       rules = parseRobots(response.text);
     } catch {
       rules = { disallow: [], sitemaps: [] };
