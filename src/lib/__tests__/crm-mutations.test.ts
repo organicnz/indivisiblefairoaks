@@ -1610,6 +1610,39 @@ describe('CRM mutation failure paths', () => {
       expect(tables.admin_audit_log.rows?.[0]?.metadata).not.toHaveProperty('updated_count');
     });
 
+    it('uses the returned rows when the exact count differs from the pre-read', async () => {
+      tables.crm_contacts = {
+        rows: [
+          { id: 'c1', status: 'supporter', tags: [] },
+          { id: 'c2', status: 'supporter', tags: [] },
+        ],
+        // PostgREST can report a different exact count than the pre-read when
+        // another writer touches the same rows. The audit must still name the
+        // rows the update returned, not the raw requested ids.
+        writeCount: 1,
+      };
+      tables.admin_audit_log = { rows: [] };
+
+      const res = await bulkUpdateCRMContacts({
+        contactIds: ['c1', 'c2'],
+        status: 'active_volunteer',
+      });
+
+      expect(res.success).toBe(true);
+      expect(res.updatedCount).toBe(1);
+      expect(tables.admin_audit_log.rows?.[0]).toMatchObject({
+        action: 'crm.contact.bulk_update',
+        outcome: 'success',
+        metadata: {
+          affected_ids: ['c1', 'c2'],
+          updated_count: 1,
+        },
+      });
+      expect(tables.admin_audit_log.rows?.[0]?.after).toMatchObject({
+        contact_ids: ['c1', 'c2'],
+      });
+    });
+
     it('performs bulk update on contacts without tag changes', async () => {
       tables.crm_contacts = {
         rows: [

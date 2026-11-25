@@ -341,6 +341,32 @@ describe('content-media actions', () => {
         error: 'fetch blew up',
       });
     });
+
+    it('reports a row that vanished after the update matched it', async () => {
+      const { updateContentMediaRow } = await import('@/lib/actions/content-media');
+      const audits: Record<string, unknown>[] = [];
+      configure({
+        content: { rows: [publishedRow(42)] },
+        content_media: {
+          rows: [mediaRow({ id: 'test-id', content_id: 42 })],
+          // PostgREST matched the row but returned no representation: the
+          // delete landed between the fetch and the update.
+          omitUpdateResponseIds: ['test-id'],
+        },
+        admin_audit_log: { rows: [], onInsert: (row) => audits.push(row) },
+      });
+
+      const result = await updateContentMediaRow('test-id', { alt_text: 'x' });
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Media row vanished during update');
+      expect(audits[0]).toMatchObject({
+        action: 'content.media.update',
+        target_id: 'test-id',
+        target_label: 'hero.jpg',
+        outcome: 'failure',
+        error: 'Media row vanished during update',
+      });
+    });
   });
 
   describe('deleteContentMediaRow', () => {

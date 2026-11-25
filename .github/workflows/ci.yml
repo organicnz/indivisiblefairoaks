@@ -507,7 +507,12 @@ jobs:
   build-e2e:
     name: Build + E2E
     runs-on: [self-hosted, linux]
-    needs: [changes, lint]
+    # The 1 GiB runner host cannot build Next and run the whole Vitest coverage
+    # suite at the same time. A 2026-11-25 run left both jobs frozen for 36
+    # minutes on their heavy steps, then deregistered the runners. Wait for the
+    # test verdict before starting the build; a red test blocks the build, which
+    # is the correct gate and also avoids spending 20 minutes on a failed tree.
+    needs: [changes, lint, test]
     if: needs.changes.outputs.runtime == 'true'
     timeout-minutes: 60
     env:
