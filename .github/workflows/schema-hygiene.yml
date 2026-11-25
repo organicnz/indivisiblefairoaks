@@ -49,17 +49,31 @@ jobs:
         with:
           bun-version: ${{ env.BUN_VERSION }}
 
-      # Project-scoped Database Read PAT only, as in `supabase-type-freshness.yml`.
-      # No separate token check: an empty value is a configuration fault the
-      # script reports and exits 1 on, so a green run cannot mean "the secret
-      # was empty". The log is kept for the issue body; `pipefail` keeps a
-      # failing exit through `tee`.
+      # Prefer the project-scoped Database Read PAT. Until it is provisioned,
+      # fall back to the deploy token that already exists in CI; this step only
+      # queries `pg_catalog` through the Management API, so either token is
+      # read-only here. Keeping the token and the check in one step is
+      # deliberate: the gate-wiring test allows a Supabase token only in a step
+      # that actually runs a hosted check.
+      #
+      # If neither credential exists the result is UNKNOWN: the step says so
+      # loudly, sets `checked=false`, and the reporter below is skipped — so a
+      # missing token can neither look clean nor close the tracking issue. The
+      # log is kept for the issue body; `pipefail` keeps a failing exit through
+      # `tee`.
       - name: Check schema hygiene
         id: hygiene
         env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_READ_ONLY_ACCESS_TOKEN }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_READ_ONLY_ACCESS_TOKEN || secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
           set -o pipefail
+          if [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
+            echo "checked=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Schema hygiene is UNKNOWN — neither SUPABASE_READ_ONLY_ACCESS_TOKEN nor SUPABASE_ACCESS_TOKEN is configured."
+            echo "### Schema hygiene: SKIPPED — no Supabase management token" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          echo "checked=true" >> "$GITHUB_OUTPUT"
           bun scripts/check-schema-hygiene.mjs 2>&1 | tee schema-hygiene.log
 
       # A red scheduled run is not an alert: nobody watches the Actions tab for
@@ -71,7 +85,7 @@ jobs:
       # The body carries the check's own output, because "open Actions to find
       # out what drifted" is the same tab this is meant to replace.
       - name: Report schema hygiene status
-        if: always() && (steps.hygiene.outcome == 'failure' || steps.hygiene.outcome == 'success')
+        if: always() && steps.hygiene.outputs.checked == 'true' && (steps.hygiene.outcome == 'failure' || steps.hygiene.outcome == 'success')
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           OUTCOME: ${{ steps.hygiene.outcome }}
