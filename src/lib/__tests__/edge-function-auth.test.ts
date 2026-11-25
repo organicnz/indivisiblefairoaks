@@ -71,6 +71,19 @@ const DEPLOYED = deployedInWorkflow();
  */
 const PUBLIC = ['data-points', 'health', 'notify-contact', 'search'];
 
+/**
+ * Functions that cannot use the gateway's JWT check because their caller has no
+ * JWT, and therefore authenticate the request themselves. `ice-scan` is
+ * triggered by pg_cron with a new-style `sb_secret_` key, which is not a JWT,
+ * so `verify_jwt` must be off; the function compares the presented key against
+ * the platform's secret set in constant time. The code assertions below are
+ * what keep this category from becoming a loophole: a function listed here
+ * must actually contain that gate and read the platform keys.
+ */
+const SELF_KEYED = ['ice-scan'];
+
+const ICE_SCAN_SOURCE = await Bun.file(`${ROOT}/supabase/functions/ice-scan/index.ts`).text();
+
 describe('edge function JWT posture', () => {
   it('parses both sources rather than silently finding nothing', () => {
     expect(DECLARED.size).toBeGreaterThan(0);
@@ -96,9 +109,22 @@ describe('edge function JWT posture', () => {
     }
   });
 
+  it('keeps self-keyed functions out of the gateway but guarded in code', () => {
+    for (const slug of SELF_KEYED) {
+      expect(DECLARED.get(slug), `${slug} in config.toml`).toBe(false);
+      expect(DEPLOYED.get(slug), `${slug} in supabase.yml`).toBe(false);
+    }
+
+    expect(ICE_SCAN_SOURCE).toContain("Deno.env.get('SUPABASE_SECRET_KEYS')");
+    expect(ICE_SCAN_SOURCE).toContain('function timingSafeEqual');
+    expect(ICE_SCAN_SOURCE).toMatch(
+      /if \(!authorized\(request\)\) \{\s*return json\(\{ ok: false, error: 'Unauthorized\.' \}, 401\);/
+    );
+  });
+
   it('keeps the credentialed functions verified in both places', () => {
     const keyed = [...DECLARED.entries()]
-      .filter(([slug]) => !PUBLIC.includes(slug))
+      .filter(([slug]) => !PUBLIC.includes(slug) && !SELF_KEYED.includes(slug))
       .map(([slug]) => slug);
 
     expect(keyed.length).toBeGreaterThan(0);

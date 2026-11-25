@@ -40,7 +40,10 @@ jobs:
           SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
-          bun x --bun supabase@3.2.0 functions deploy ice-scan \
+          # One source of truth: scripts/supabase-cli.mjs holds the only package
+          # literal, and this runner spreads it. Writing the pin here (or in a
+          # shell variable) fails the repository's pin and package-runner gates.
+          bun scripts/supabase-cli-run.mjs functions deploy ice-scan \
             --project-ref "$SUPABASE_PROJECT_REF" \
             --no-verify-jwt \
             --yes
