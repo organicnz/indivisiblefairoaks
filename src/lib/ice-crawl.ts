@@ -241,7 +241,32 @@ function timeoutSignal(timeoutMs = FETCH_TIMEOUT_MS) {
   return { controller, timer };
 }
 
-async function fetchPublicPage(rawUrl: string, maxBytes = MAX_BYTES): Promise<FetchedPage> {
+const DEFAULT_ACCEPT =
+  'text/html, application/xhtml+xml, application/rss+xml, application/xml, application/json;q=0.9, */*;q=0.5';
+
+/**
+ * DOJ's edge chooses the challenge page or the real JSON from the Accept
+ * header: an HTML-preferring Accept gets `200 text/html` with a `bm-verify`
+ * interstitial, while `application/json` gets the release feed. This is
+ * content negotiation, not an unreachable host, so the JSON API is asked for
+ * JSON explicitly.
+ */
+function acceptForUrl(rawUrl: string) {
+  try {
+    if (new URL(rawUrl).pathname === '/api/v1/press_releases.json') {
+      return 'application/json, */*;q=0.1';
+    }
+  } catch {
+    // Fall through to the normal document negotiation.
+  }
+  return DEFAULT_ACCEPT;
+}
+
+async function fetchPublicPage(
+  rawUrl: string,
+  maxBytes = MAX_BYTES,
+  accept = DEFAULT_ACCEPT
+): Promise<FetchedPage> {
   let current = await assertPublicUrl(rawUrl);
 
   for (let redirect = 0; redirect <= MAX_REDIRECTS; redirect += 1) {
@@ -251,8 +276,7 @@ async function fetchPublicPage(rawUrl: string, maxBytes = MAX_BYTES): Promise<Fe
         redirect: 'manual',
         signal: controller.signal,
         headers: {
-          Accept:
-            'text/html, application/xhtml+xml, application/rss+xml, application/xml, application/json;q=0.9, */*;q=0.5',
+          Accept: accept,
           'User-Agent': USER_AGENT,
         },
       });
@@ -1000,7 +1024,7 @@ export async function crawlIceSource(
 
     let page: FetchedPage;
     try {
-      page = await fetchPublicPage(item.url);
+      page = await fetchPublicPage(item.url, MAX_BYTES, acceptForUrl(item.url));
     } catch (error) {
       skipped += 1;
       const message = error instanceof Error ? error.message : 'Fetch failed.';
@@ -1025,6 +1049,13 @@ export async function crawlIceSource(
     const justiceItems = isJusticeReleaseApi(page.text)
       ? extractJusticeReleaseItems(page.text, source.relevance_terms)
       : null;
+    if (justiceItems === null && new URL(item.url).pathname === '/api/v1/press_releases.json') {
+      // Record the publisher's exact answer when even JSON negotiation gets
+      // the challenge page, rather than silently storing an empty run.
+      errors.push(
+        `${item.url}: expected JSON but received ${page.contentType || 'no content type'} HTTP ${page.status}`
+      );
+    }
     const feed = sitemap || isFeedResponse(page) || jsonFeed || justiceItems !== null;
     let reports: ExtractedReport[] = [];
     let method: 'feed' | 'html' | 'ai' | 'fallback' = 'fallback';
