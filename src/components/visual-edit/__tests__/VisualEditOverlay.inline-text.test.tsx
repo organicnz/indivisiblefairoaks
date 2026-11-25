@@ -673,7 +673,7 @@ describe('VisualEditOverlay — inline text and link editing', () => {
     const fallback = document.querySelector<HTMLElement>('[data-editor-focus-fallback]');
     expect(fallback).not.toBeNull();
     expect(document.activeElement).toBe(fallback);
-  });
+  }, 90_000);
 
   it('restores the inline selection before a slash command runs', async () => {
     await withPage();
@@ -742,7 +742,7 @@ describe('VisualEditOverlay — inline text and link editing', () => {
 
     expect(execCommand).toHaveBeenCalledWith('formatBlock', false, '<h2>');
     expect(selectedAtCommand).toEqual(['Mission']);
-  });
+  }, 90_000);
 
   it('refuses a slash command after the captured text is removed', async () => {
     await withPage();

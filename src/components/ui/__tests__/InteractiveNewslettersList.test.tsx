@@ -426,7 +426,9 @@ describe('InteractiveNewslettersList', () => {
           const publishedAt = document.querySelector<HTMLInputElement>('#civic-news-published-at');
           expect(publishedAt?.value).toBe('2026-09-30T17:00');
         },
-        { timeout: 2000 }
+        // The editor is a lazy import. Under the 1-vCPU CI runner the chunk can
+        // take several seconds to resolve; 2s turned that into a false failure.
+        { timeout: 15_000 }
       );
     });
   });
