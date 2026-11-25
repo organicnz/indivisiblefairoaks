@@ -223,6 +223,18 @@ jobs:
             --project-ref "$SUPABASE_PROJECT_REF" \
             --yes
 
+      # The admin discovery-triage action calls this with the platform secret
+      # key. JWT verification is off because new `sb_secret_` keys are not
+      # JWTs; the function performs its own constant-time key check.
+      - name: Deploy Edge Function — ice-discovery-triage
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          supabase_retry supabase functions deploy ice-discovery-triage \
+            --project-ref "$SUPABASE_PROJECT_REF" \
+            --no-verify-jwt \
+            --yes
+
       # The nationwide scanner. pg_cron presents a new-style `sb_secret_` key
       # on `apikey`; those keys are not JWTs, so the function runs with
       # verify_jwt = false and performs its own constant-time key check.
@@ -689,6 +701,7 @@ jobs:
           check_get wall-e-chat
           check_get ice-case-brief
           check_get ice-source-refine
+          check_post ice-discovery-triage 401 '{}'
           check_get ice-scan
           check_get walle-refresh
 

@@ -454,6 +454,14 @@ verify_jwt = true
 [functions.ice-source-refine]
 verify_jwt = true
 
+# The admin triage action calls this with the platform secret key on both
+# `authorization` and `apikey`. New `sb_secret_` keys are not JWTs, so the
+# gateway cannot verify them; the function does an exact constant-time check
+# against `SUPABASE_SECRET_KEYS` and the legacy service-role key instead. An
+# unauthenticated POST must never spend model credits.
+[functions.ice-discovery-triage]
+verify_jwt = false
+
 # pg_cron invokes this with a new-style `sb_secret_` key on the `apikey`
 # header. Those keys are not JWTs, so `verify_jwt` cannot authenticate them;
 # the function does an exact constant-time check against the platform's

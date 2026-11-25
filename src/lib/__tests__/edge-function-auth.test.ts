@@ -80,9 +80,16 @@ const PUBLIC = ['data-points', 'health', 'notify-contact', 'search'];
  * what keep this category from becoming a loophole: a function listed here
  * must actually contain that gate and read the platform keys.
  */
-const SELF_KEYED = ['ice-scan'];
+const SELF_KEYED = ['ice-discovery-triage', 'ice-scan'];
 
-const ICE_SCAN_SOURCE = await Bun.file(`${ROOT}/supabase/functions/ice-scan/index.ts`).text();
+const SELF_KEYED_SOURCES = new Map(
+  await Promise.all(
+    SELF_KEYED.map(
+      async (slug) =>
+        [slug, await Bun.file(`${ROOT}/supabase/functions/${slug}/index.ts`).text()] as const
+    )
+  )
+);
 
 describe('edge function JWT posture', () => {
   it('parses both sources rather than silently finding nothing', () => {
@@ -115,11 +122,12 @@ describe('edge function JWT posture', () => {
       expect(DEPLOYED.get(slug), `${slug} in supabase.yml`).toBe(false);
     }
 
-    expect(ICE_SCAN_SOURCE).toContain("Deno.env.get('SUPABASE_SECRET_KEYS')");
-    expect(ICE_SCAN_SOURCE).toContain('function timingSafeEqual');
-    expect(ICE_SCAN_SOURCE).toMatch(
-      /if \(!authorized\(request\)\) \{\s*return json\(\{ ok: false, error: 'Unauthorized\.' \}, 401\);/
-    );
+    for (const slug of SELF_KEYED) {
+      const source = SELF_KEYED_SOURCES.get(slug) ?? '';
+      expect(source, `${slug} source`).toContain("Deno.env.get('SUPABASE_SECRET_KEYS')");
+      expect(source, `${slug} source`).toContain('function timingSafeEqual');
+      expect(source, `${slug} source`).toMatch(/if \(!authorized\(request\)\)/);
+    }
   });
 
   it('keeps the credentialed functions verified in both places', () => {

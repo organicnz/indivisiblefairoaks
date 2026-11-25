@@ -148,6 +148,18 @@ export const FUNCTION_SECRETS = {
     // `ice-source-refine`. pg_cron stores its key in Vault, never in
     // `cron.job.command`.
   },
+  'ice-discovery-triage': {
+    ZAI_API_KEY: {
+      verify: false,
+      note: 'Primary model provider for discovery ranking. Falls back to Groq.',
+    },
+    GROQ_API_KEY: {
+      verify: false,
+      note: 'Fallback model provider. The Next action falls back to a deterministic ranker if both fail.',
+    },
+    ICE_ZAI_MODEL: { verify: false, note: 'Model name, not a credential.' },
+    ICE_GROQ_MODEL: { verify: false, note: 'Model name, not a credential.' },
+  },
   'ice-source-refine': {
     ZAI_API_KEY: {
       verify: false,
@@ -196,6 +208,7 @@ export const SHARED = {
     'walle-refresh',
     'wall-e-chat',
     'ice-case-brief',
+    'ice-discovery-triage',
     'ice-source-refine',
     'ice-scan',
     'data-points',

@@ -1,11 +1,18 @@
 // @vitest-environment node
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   collapseDuplicateDiscoveries,
   heuristicTriageDecision,
   mergeTriageDecisions,
   parseAiTriageResponse,
 } from '@/lib/ice-discovery-triage';
+import { asFetch } from './fetch-mock';
+
+vi.hoisted(() => {
+  process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://project.supabase.co';
+  process.env.SUPABASE_SECRET_KEY = 'test-secret';
+  delete process.env.ZAI_API_KEY;
+});
 
 function candidate(overrides: Record<string, unknown>) {
   return {
@@ -216,8 +223,15 @@ describe('triagePendingDiscoveries', () => {
     storeState.applied.length = 0;
   });
 
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it('falls back deterministically and persists collapsed duplicates', async () => {
-    vi.stubEnv('ZAI_API_KEY', '');
+    vi.stubGlobal(
+      'fetch',
+      asFetch(vi.fn().mockRejectedValue(new Error('triage endpoint unavailable')))
+    );
     const { triagePendingDiscoveries } = await import('@/lib/ice-discovery-triage');
 
     const summary = await triagePendingDiscoveries({} as never, {
@@ -231,5 +245,51 @@ describe('triagePendingDiscoveries', () => {
     expect(summary.remaining).toBe(5);
     expect(storeState.applied).toHaveLength(2);
     expect(storeState.applied.find((row) => row.id === 'copy')?.duplicate_of).toBe('oldest');
+  });
+
+  it('sends the batch to the Supabase triage edge function', async () => {
+    const fetchMock = vi.fn(
+      async (_url: string, _init: RequestInit) =>
+        new Response(
+          JSON.stringify({
+            model: 'glm-4.5-flash',
+            results: [
+              {
+                id: 'oldest',
+                score: 96,
+                confidence: 'high',
+                relevance: 'enforcement',
+                reason: 'Specific warehouse raid with arrests.',
+                duplicate_of: null,
+              },
+              {
+                id: 'copy',
+                score: 94,
+                confidence: 'high',
+                relevance: 'enforcement',
+                reason: 'Syndicated copy of the same raid.',
+                duplicate_of: 'oldest',
+              },
+            ],
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        )
+    );
+    vi.stubGlobal('fetch', asFetch(fetchMock));
+    const { triagePendingDiscoveries } = await import('@/lib/ice-discovery-triage');
+
+    const summary = await triagePendingDiscoveries({} as never, {
+      limit: 10,
+      deadline: Date.now() + 5_000,
+    });
+
+    expect(summary.aiTriaged).toBe(2);
+    expect(summary.heuristicTriaged).toBe(0);
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('https://project.supabase.co/functions/v1/ice-discovery-triage');
+    expect(JSON.parse(String(init.body)).candidates).toHaveLength(2);
+    expect(storeState.applied.every((row) => row.duplicate_of === null || row.id === 'copy')).toBe(
+      true
+    );
   });
 });

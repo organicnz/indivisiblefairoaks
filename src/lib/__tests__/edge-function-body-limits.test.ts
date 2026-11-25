@@ -22,6 +22,7 @@ const ROOT = process.cwd();
 const BODY_READERS = [
   'crm-broadcast-send',
   'ice-case-brief',
+  'ice-discovery-triage',
   'ice-source-refine',
   'notify-contact',
   'search',
