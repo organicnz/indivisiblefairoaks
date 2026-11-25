@@ -64,6 +64,8 @@ export const UNTYPED_TABLES = new Set([
   'ice_alert_subscribers',
   'ice_alert_surge_events',
   'ice_crawl_discoveries',
+  'ice_crawl_frontier',
+  'ice_crawl_page_images',
   'ice_crawl_pages',
   'ice_crawl_sources',
   'ice_heatmap_cities',

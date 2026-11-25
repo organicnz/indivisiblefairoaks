@@ -71,7 +71,13 @@ export async function POST(req: Request) {
   }
 
   try {
-    const results = await crawlAllIceSources({ limit });
+    // 35 seconds leaves room for the page in flight, its extraction and the
+    // summary write inside the 60-second function ceiling. The rest of the
+    // source's queue is persisted for the next tick.
+    const results = await crawlAllIceSources({
+      limit,
+      timeBudgetMs: sourcesOnly ? 35_000 : undefined,
+    });
     return json({
       ok: true,
       mode: sourcesOnly ? 'sources' : 'all',

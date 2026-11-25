@@ -25,13 +25,17 @@ import {
   readableText,
   verbatimExcerpt,
 } from '@/lib/ice-crawl-extract';
+import { ingestIcePageImages } from '@/lib/ice-crawl-images';
 import {
+  deleteIceCrawlFrontier,
   getIceCrawlSource,
   getIceCrawlStore,
   type IceCrawlStore,
   insertIceSourceReports,
   listIceCityPoints,
+  listIceCrawlFrontier,
   listIceCrawlSources,
+  saveIceCrawlFrontier,
   updateIceCrawlPageReportCount,
   updateIceCrawlSource,
   upsertIceCrawlPage,
@@ -704,7 +708,8 @@ export async function extractWithAi(
   pageUrl: string,
   pageTitle: string,
   pagePublishedAt: string | null,
-  cities: readonly CityPoint[] = []
+  cities: readonly CityPoint[] = [],
+  options: { deadline?: number } = {}
 ): Promise<ExtractedReport[]> {
   const key = env.ZAI_API_KEY;
   if (!key) return [];
@@ -714,6 +719,12 @@ export async function extractWithAi(
   let reports: ExtractedReport[] = [];
   let consecutiveFailures = 0;
   for (let index = 0; index < chunks.length; index += 1) {
+    // A chunk call has its own 30-second timeout. Starting one without room
+    // for it is how a budgeted tick becomes a 504 instead of a partial run;
+    // the deterministic extractor still covers the page.
+    if (options.deadline !== undefined && options.deadline - Date.now() < AI_TIMEOUT_MS + 2_000) {
+      break;
+    }
     const entries = await requestAiChunk(
       key,
       chunks[index],
@@ -747,7 +758,8 @@ async function publishReports(
   pageId: string,
   pageUrl: string,
   reports: ExtractedReport[],
-  method: 'feed' | 'html' | 'ai' | 'fallback'
+  method: 'feed' | 'html' | 'ai' | 'fallback',
+  deadline?: number
 ) {
   const retrievedAt = new Date().toISOString();
   const seen = new Set<string>();
@@ -765,7 +777,9 @@ async function publishReports(
     if (method === 'html' || method === 'fallback') {
       const rawText = text;
       text = cleanSourceTextFallback(text);
-      if (shouldRefineSourceText(method, rawText)) {
+      const refinementFitsBudget =
+        deadline === undefined || deadline - Date.now() >= AI_TIMEOUT_MS + 2_000;
+      if (refinementFitsBudget && shouldRefineSourceText(method, rawText)) {
         const refined = await refineSourceTextWithAi({
           text,
           sourceUrl: report.sourceUrl,
@@ -874,24 +888,37 @@ async function loadCrawlCities(store: IceCrawlStore): Promise<CityPoint[]> {
 
 export async function crawlIceSource(
   source: IceCrawlSource,
-  cities: readonly CityPoint[] = []
+  cities: readonly CityPoint[] = [],
+  options: { deadline?: number } = {}
 ): Promise<IceCrawlSummary> {
   const store = getIceCrawlStore();
   if (!store) throw new Error('Crawler storage is not configured.');
 
   const now = new Date().toISOString();
   const startUrls = resolveCrawlUrls(source.url);
-  const queue: QueueItem[] = startUrls.map((url) => ({ url, depth: 0 }));
-  const queued = new Set(startUrls);
+  const budgeted = options.deadline !== undefined;
+  // A budgeted tick resumes the persisted queue; an unbudgeted (manual) run
+  // still starts from the source's seed and walks it in one go.
+  const frontier = budgeted ? await listIceCrawlFrontier(store, source.id) : [];
+  const queue: QueueItem[] =
+    frontier.length > 0
+      ? frontier.map((item) => ({ url: item.url, depth: item.depth }))
+      : startUrls.map((url) => ({ url, depth: 0 }));
+  const queued = new Set(queue.map((item) => item.url));
   const visited = new Set<string>();
   const errors: string[] = [];
   let pagesFetched = 0;
   let reportsFound = 0;
   let skipped = 0;
-  let discovered = startUrls.length;
+  let discovered = queue.length;
+  let budgetExhausted = false;
 
   while (queue.length > 0) {
     if (pagesFetched >= source.max_pages) break;
+    if (options.deadline !== undefined && Date.now() >= options.deadline) {
+      budgetExhausted = true;
+      break;
+    }
     const item = queue.shift();
     if (!item) break;
     if (visited.has(item.url)) {
@@ -1030,7 +1057,9 @@ export async function crawlIceSource(
       pageTitle = extractTitle(page.text);
       const text = pageTextForStorage(page.text);
       const publishedAt = extractPublishedAt(page.text);
-      const aiReports = await extractWithAi(text, page.finalUrl, pageTitle, publishedAt, cities);
+      const aiReports = await extractWithAi(text, page.finalUrl, pageTitle, publishedAt, cities, {
+        deadline: options.deadline,
+      });
       // Do not fall back to the entire <body> when the model already found
       // reports; a full page is not a report. Article/main extraction still
       // runs so complete article text can replace a shorter AI excerpt.
@@ -1123,13 +1152,37 @@ export async function crawlIceSource(
           pageId,
           page.finalUrl,
           reports,
-          method
+          method,
+          options.deadline
         );
         reportsFound += inserted;
       } catch (error) {
         errors.push(
           `${item.url}: ${error instanceof Error ? error.message : 'Reports could not be stored.'}`
         );
+      }
+    }
+    // Evidence images are captured only for pages that produced at least one
+    // report, so the bucket holds material tied to an ICE activity rather than
+    // every logo and stock photo the crawler happens to pass.
+    if (
+      reports.length > 0 &&
+      !feed &&
+      (options.deadline === undefined || options.deadline - Date.now() > 10_000)
+    ) {
+      try {
+        const images = await ingestIcePageImages({
+          store,
+          sourceId: source.id,
+          pageId,
+          pageUrl: page.finalUrl,
+          html: page.text,
+          isPublicUrl: assertPublicUrl,
+          hash: sha256,
+        });
+        if (images.errors.length > 0) errors.push(...images.errors.slice(0, 2));
+      } catch {
+        errors.push(`${item.url}: evidence images could not be stored.`);
       }
     }
     try {
@@ -1139,17 +1192,33 @@ export async function crawlIceSource(
     }
   }
 
+  if (budgeted) {
+    // Persist the frontier before reporting, so the next tick resumes exactly
+    // where this one stopped even if the summary write below fails.
+    try {
+      if (queue.length > 0) await saveIceCrawlFrontier(store, source.id, queue);
+      if (visited.size > 0) await deleteIceCrawlFrontier(store, source.id, [...visited]);
+    } catch (error) {
+      errors.push(
+        `Crawl frontier could not be saved: ${error instanceof Error ? error.message : 'unknown error'}`
+      );
+    }
+  }
+
   if (queue.length > 0) {
     skipped += queue.length;
-    errors.push(
-      `Page limit reached with ${queue.length} discovered URL(s) not fetched. Increase the source page limit to continue.`
-    );
+    if (!budgetExhausted) {
+      errors.push(
+        `Page limit reached with ${queue.length} discovered URL(s) not fetched. Increase the source page limit to continue.`
+      );
+    }
   }
 
   const status: IceCrawlSummary['status'] =
     pagesFetched === 0 && errors.length > 0 ? 'error' : skipped > 0 ? 'partial' : 'ok';
-  const note =
-    status === 'ok'
+  const note = budgetExhausted
+    ? `Time budget reached; ${queue.length} URL(s) queued for the next tick.`
+    : status === 'ok'
       ? `Fetched ${pagesFetched} page(s) and stored ${reportsFound} source report(s).`
       : status === 'partial'
         ? `Fetched ${pagesFetched} page(s); ${skipped} discovered URL(s) were skipped or left unfetched.`
@@ -1206,17 +1275,27 @@ export function selectCrawlRotation<T extends { last_crawled_at: string | null }
     .slice(0, Math.max(1, Math.floor(limit)));
 }
 
-export async function crawlAllIceSources(options: { limit?: number } = {}) {
+export async function crawlAllIceSources(options: { limit?: number; timeBudgetMs?: number } = {}) {
   const store = getIceCrawlStore();
   if (!store) throw new Error('Crawler storage is not configured.');
   const allSources = (await listIceCrawlSources(store)).filter((source) => source.enabled);
   const sources = selectCrawlRotation(allSources, options.limit);
   const cities = await loadCrawlCities(store);
+  const deadline =
+    options.timeBudgetMs && options.timeBudgetMs > 0
+      ? Date.now() + options.timeBudgetMs
+      : undefined;
   const results: Array<{ source: string; summary: IceCrawlSummary | { error: string } }> = [];
 
   for (const source of sources) {
+    // Leave the rest of the rotation for the next tick rather than starting a
+    // source that cannot finish.
+    if (deadline !== undefined && Date.now() >= deadline) break;
     try {
-      results.push({ source: source.label, summary: await crawlIceSource(source, cities) });
+      results.push({
+        source: source.label,
+        summary: await crawlIceSource(source, cities, { deadline }),
+      });
     } catch (error) {
       results.push({
         source: source.label,

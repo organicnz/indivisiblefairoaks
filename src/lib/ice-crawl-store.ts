@@ -192,6 +192,42 @@ type IceCrawlDatabase = {
         Update: never;
         Relationships: [];
       };
+      ice_crawl_frontier: {
+        Row: { source_id: string; url: string; depth: number; queued_at: string };
+        Insert: { source_id: string; url: string; depth?: number; queued_at?: string };
+        Update: Partial<{ depth: number }>;
+        Relationships: [];
+      };
+      ice_crawl_page_images: {
+        Row: {
+          id: string;
+          source_id: string;
+          page_id: string;
+          image_url: string;
+          storage_path: string;
+          mime_type: 'image/webp';
+          width: number | null;
+          height: number | null;
+          bytes: number | null;
+          dedupe_key: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          source_id: string;
+          page_id: string;
+          image_url: string;
+          storage_path: string;
+          mime_type: 'image/webp';
+          width?: number | null;
+          height?: number | null;
+          bytes?: number | null;
+          dedupe_key: string;
+          created_at?: string;
+        };
+        Update: never;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -453,6 +489,93 @@ export async function insertIceSourceReports(store: IceCrawlStore, rows: IceSour
     inserted += data?.length ?? 0;
   }
   return inserted;
+}
+
+/**
+ * Load the persisted crawl queue for a source. Budgeted ticks resume here so a
+ * source larger than one function-time budget is walked to its page limit over
+ * several ticks instead of re-fetching its seed on every run.
+ */
+export async function listIceCrawlFrontier(
+  store: IceCrawlStore,
+  sourceId: string,
+  limit = 400
+): Promise<Array<{ url: string; depth: number }>> {
+  const { data, error } = await store
+    .from('ice_crawl_frontier')
+    .select('url, depth')
+    .eq('source_id', sourceId)
+    .order('queued_at', { ascending: true })
+    .limit(limit);
+  if (error) throw new Error(`crawl frontier read failed: ${error.message}`);
+  return data ?? [];
+}
+
+export async function saveIceCrawlFrontier(
+  store: IceCrawlStore,
+  sourceId: string,
+  items: ReadonlyArray<{ url: string; depth: number }>
+) {
+  if (items.length === 0) return 0;
+  const unique = new Map<string, { source_id: string; url: string; depth: number }>();
+  for (const item of items) {
+    if (!unique.has(item.url)) {
+      unique.set(item.url, { source_id: sourceId, url: item.url, depth: item.depth });
+    }
+  }
+  const rows = [...unique.values()];
+  let saved = 0;
+  for (let offset = 0; offset < rows.length; offset += 200) {
+    const chunk = rows.slice(offset, offset + 200);
+    const { error } = await store
+      .from('ice_crawl_frontier')
+      .upsert(chunk, { onConflict: 'source_id,url', ignoreDuplicates: true });
+    if (error) throw new Error(`crawl frontier write failed: ${error.message}`);
+    saved += chunk.length;
+  }
+  return saved;
+}
+
+export async function deleteIceCrawlFrontier(
+  store: IceCrawlStore,
+  sourceId: string,
+  urls: readonly string[]
+) {
+  for (let offset = 0; offset < urls.length; offset += 200) {
+    const chunk = urls.slice(offset, offset + 200);
+    if (chunk.length === 0) continue;
+    const { error } = await store
+      .from('ice_crawl_frontier')
+      .delete()
+      .eq('source_id', sourceId)
+      .in('url', chunk);
+    if (error) throw new Error(`crawl frontier cleanup failed: ${error.message}`);
+  }
+}
+
+export type IceCrawlPageImageInput = {
+  source_id: string;
+  page_id: string;
+  image_url: string;
+  storage_path: string;
+  mime_type: 'image/webp';
+  width?: number | null;
+  height?: number | null;
+  bytes?: number | null;
+  dedupe_key: string;
+};
+
+export async function insertIceCrawlPageImages(
+  store: IceCrawlStore,
+  rows: readonly IceCrawlPageImageInput[]
+) {
+  if (rows.length === 0) return 0;
+  const { data, error } = await store
+    .from('ice_crawl_page_images')
+    .upsert([...rows], { onConflict: 'dedupe_key', ignoreDuplicates: true })
+    .select('id');
+  if (error) throw new Error(`crawl image insert failed: ${error.message}`);
+  return data?.length ?? 0;
 }
 
 function sourceReportSearchTerm(filters?: IceSourceReportFilters) {
