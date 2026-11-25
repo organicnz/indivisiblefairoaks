@@ -61,6 +61,15 @@ const MAX_REDIRECTS = 3;
 const MAX_DEPTH = 2;
 const MAX_QUEUE_LINKS = 200;
 const MAX_SITEMAP_LINKS = 1_000;
+// A scheduled tick is bounded by wall-clock, not by a page count: a source
+// that fetches quickly should drain more pages than one that does not. This
+// ceiling is only a runaway guard; the deadline is the real budget.
+const MAX_TICK_PAGES = 400;
+// Discovery intake per source per tick. A newsroom page exposes up to 200
+// same-origin links, so unbounded intake grows the frontier faster than a
+// 60-second tick can drain it. The cap keeps the queue trending down while
+// still following the highest-priority links first.
+const MAX_TICK_INTAKE = 40;
 const AI_CHUNK_CHARS = 24_000;
 const AI_CHUNK_OVERLAP = 2_000;
 const MAX_AI_CHUNKS = 40;
@@ -912,9 +921,16 @@ export async function crawlIceSource(
   let skipped = 0;
   let discovered = queue.length;
   let budgetExhausted = false;
+  let intakeAdded = 0;
+  const takeIntake = () => {
+    if (budgeted && intakeAdded >= MAX_TICK_INTAKE) return false;
+    intakeAdded += 1;
+    return true;
+  };
+  const pageLimit = budgeted ? MAX_TICK_PAGES : source.max_pages;
 
   while (queue.length > 0) {
-    if (pagesFetched >= source.max_pages) break;
+    if (pagesFetched >= pageLimit) break;
     if (options.deadline !== undefined && Date.now() >= options.deadline) {
       budgetExhausted = true;
       break;
@@ -950,6 +966,8 @@ export async function crawlIceSource(
     // Put the source's own inventory ahead of generic navigation.
     for (let index = robotSitemaps.length - 1; index >= 0; index -= 1) {
       const sitemapUrl = robotSitemaps[index];
+      if (queued.has(sitemapUrl)) continue;
+      if (!takeIntake()) break;
       queued.add(sitemapUrl);
       discovered += 1;
       queue.unshift({ url: sitemapUrl, depth: 0 });
@@ -1030,6 +1048,7 @@ export async function crawlIceSource(
         for (let index = sitemapLinks.length - 1; index >= 0; index -= 1) {
           const link = sitemapLinks[index];
           if (queued.has(link)) continue;
+          if (!takeIntake()) break;
           queued.add(link);
           discovered += 1;
           queue.unshift({ url: link, depth: 0 });
@@ -1048,6 +1067,7 @@ export async function crawlIceSource(
         if (jsonNext) paginationLinks.push(jsonNext);
         for (const link of paginationLinks) {
           if (queued.has(link)) continue;
+          if (!takeIntake()) break;
           queued.add(link);
           discovered += 1;
           queue.push({ url: link, depth: item.depth + 1 });
@@ -1101,6 +1121,7 @@ export async function crawlIceSource(
 
       for (const link of extractFeedLinks(page.text, page.finalUrl).slice(0, 5)) {
         if (!queued.has(link)) {
+          if (!takeIntake()) break;
           queued.add(link);
           discovered += 1;
           queue.push({ url: link, depth: 0 });
@@ -1114,6 +1135,7 @@ export async function crawlIceSource(
           .slice(0, MAX_QUEUE_LINKS);
         for (const link of links) {
           if (!queued.has(link)) {
+            if (!takeIntake()) break;
             queued.add(link);
             discovered += 1;
             queue.push({ url: link, depth: item.depth + 1 });
@@ -1281,20 +1303,27 @@ export async function crawlAllIceSources(options: { limit?: number; timeBudgetMs
   const allSources = (await listIceCrawlSources(store)).filter((source) => source.enabled);
   const sources = selectCrawlRotation(allSources, options.limit);
   const cities = await loadCrawlCities(store);
-  const deadline =
-    options.timeBudgetMs && options.timeBudgetMs > 0
-      ? Date.now() + options.timeBudgetMs
+  const totalBudget = options.timeBudgetMs && options.timeBudgetMs > 0 ? options.timeBudgetMs : 0;
+  const deadline = totalBudget > 0 ? Date.now() + totalBudget : undefined;
+  // Share the tick across the selected sources: without a per-source slice the
+  // first source consumes the whole wall-clock budget and the others starve,
+  // which is how a "limit of two" still crawls only one source.
+  const share =
+    totalBudget > 0 && sources.length > 1
+      ? Math.max(10_000, Math.floor(totalBudget / sources.length))
       : undefined;
   const results: Array<{ source: string; summary: IceCrawlSummary | { error: string } }> = [];
 
   for (const source of sources) {
     // Leave the rest of the rotation for the next tick rather than starting a
     // source that cannot finish.
-    if (deadline !== undefined && Date.now() >= deadline) break;
+    if (deadline !== undefined && deadline - Date.now() < 6_000) break;
+    const sourceDeadline =
+      deadline === undefined ? undefined : Math.min(deadline, Date.now() + (share ?? totalBudget));
     try {
       results.push({
         source: source.label,
-        summary: await crawlIceSource(source, cities, { deadline }),
+        summary: await crawlIceSource(source, cities, { deadline: sourceDeadline }),
       });
     } catch (error) {
       results.push({

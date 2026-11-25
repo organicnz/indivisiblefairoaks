@@ -137,7 +137,9 @@ begin
 
   -- Crawl one approved public source every ten minutes. A 60-second function
   -- budget only fits a bounded tick; mode=sources skips nationwide discovery
-  -- (which has its own job) and limit=1 keeps the run inside that budget.
+  -- (which has its own job) and limit=2 doubles coverage per tick while the
+  -- route shares its wall-clock budget between the two sources. The frontier
+  -- makes a source safely resumable, so a short slice is progress, not loss.
   -- Ordering by last_crawled_at rotates the set, so every enabled source is
   -- refreshed roughly every (sources x 10) minutes, and a new source goes first.
   perform cron.schedule(
@@ -146,7 +148,7 @@ begin
     $job$
     select net.http_post(
       url := (select decrypted_secret from vault.decrypted_secrets where name = 'ice_alert_app_url')
-             || '/api/ice-crawl/run?mode=sources&limit=1',
+             || '/api/ice-crawl/run?mode=sources&limit=2',
       headers := jsonb_build_object(
         'Content-Type', 'application/json',
         'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'ice_alert_cron_secret')
