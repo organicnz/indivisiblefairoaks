@@ -76,6 +76,21 @@ describe('extractJusticeReleaseItems', () => {
     expect(items?.[0].date).toBe('2026-11-24T12:00:00.000Z');
   });
 
+  it('does not admit a release whose beat term appears only in the body', () => {
+    const bodyOnly = JSON.stringify({
+      results: [
+        {
+          url: 'https://www.justice.gov/usao-x/pr/drug-conspiracy',
+          title: 'Six indicted in a drug-trafficking conspiracy',
+          teaser: 'Federal grand jury returns indictment',
+          body: '<p>One defendant is a noncitizen facing removal proceedings.</p>',
+          date: '1795521600',
+        },
+      ],
+    });
+    expect(extractJusticeReleaseItems(bodyOnly, TERMS)).toEqual([]);
+  });
+
   it('admits nothing when the source has no relevance terms', () => {
     expect(extractJusticeReleaseItems(RELEASES, null)).toEqual([]);
     expect(extractJusticeReleaseItems(RELEASES, [])).toEqual([]);

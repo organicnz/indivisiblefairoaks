@@ -97,7 +97,11 @@ export function extractJusticeReleaseItems(
   for (const entry of parsed.results) {
     const item = releaseItem(entry);
     if (!item || seen.has(item.url)) continue;
-    if (!pattern.test(`${item.title}\n${item.teaser}\n${item.body}`)) continue;
+    // Title and teaser only. Body mentions are how a drug-conspiracy release
+    // that happens to say "immigration" once gets misfiled as ICE activity;
+    // the headline is the publisher's own statement of what the release is
+    // about, and it is the precision/recall line this beat needs.
+    if (!pattern.test(`${item.title}\n${item.teaser}`)) continue;
     seen.add(item.url);
     items.push(item);
   }
