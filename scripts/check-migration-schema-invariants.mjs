@@ -343,77 +343,84 @@ export function buildSchemaState(migrations) {
       if (alter) {
         if (!isOurs(alter[1])) continue;
         const tableName = normalizeTable(alter[1]);
-        const action = alter[2].trim();
 
-        const addConstraint =
-          /^add\s+(?:constraint\s+([A-Za-z_][A-Za-z0-9_$]*)\s+)?foreign\s+key\s*\(([\s\S]*?)\)\s*references/i.exec(
-            action
-          );
-        if (addConstraint) {
-          const columns = parseColumns(addConstraint[2]);
-          if (columns) {
-            addForeignKey({
-              name: addConstraint[1] ?? `${tableName}_${columns.join('_')}_fkey`,
-              table: tableName,
+        // Postgres allows several comma-separated actions in one ALTER TABLE.
+        // Model each independently: a regex over the whole list would attribute
+        // a later `references` clause to the first column.
+        for (const rawAction of splitTopLevel(alter[2])) {
+          const action = rawAction.trim();
+          if (!action) continue;
+
+          const addConstraint =
+            /^add\s+(?:constraint\s+([A-Za-z_][A-Za-z0-9_$]*)\s+)?foreign\s+key\s*\(([\s\S]*?)\)\s*references/i.exec(
+              action
+            );
+          if (addConstraint) {
+            const columns = parseColumns(addConstraint[2]);
+            if (columns) {
+              addForeignKey({
+                name: addConstraint[1] ?? `${tableName}_${columns.join('_')}_fkey`,
+                table: tableName,
+                columns,
+                file,
+                line,
+              });
+            }
+            continue;
+          }
+
+          const addKey =
+            /^add\s+(?:constraint\s+([A-Za-z_][A-Za-z0-9_$]*)\s+)?(primary\s+key|unique)\s*\(([\s\S]*?)\)/i.exec(
+              action
+            );
+          if (addKey) {
+            const columns = parseColumns(addKey[3]);
+            const primary = /^primary/i.test(addKey[2]);
+            addUniqueIndex(
+              tableName,
               columns,
+              addKey[1] ??
+                (primary ? `${tableName}_pkey` : `${tableName}_${(columns ?? []).join('_')}_key`),
+              file,
+              line
+            );
+            continue;
+          }
+
+          const addColumn =
+            /^add\s+column\s+(?:if\s+not\s+exists\s+)?([A-Za-z_][A-Za-z0-9_$]*)\s+[\s\S]*\breferences\b/i.exec(
+              action
+            );
+          if (addColumn) {
+            addForeignKey({
+              name: `${tableName}_${addColumn[1].toLowerCase()}_fkey`,
+              table: tableName,
+              columns: [addColumn[1].toLowerCase()],
               file,
               line,
             });
+            continue;
           }
-          continue;
-        }
 
-        const addKey =
-          /^add\s+(?:constraint\s+([A-Za-z_][A-Za-z0-9_$]*)\s+)?(primary\s+key|unique)\s*\(([\s\S]*?)\)/i.exec(
+          const dropConstraint = /^drop\s+constraint\s+(?:if\s+exists\s+)?([A-Za-z_][A-Za-z0-9_$]*)/i.exec(
             action
           );
-        if (addKey) {
-          const columns = parseColumns(addKey[3]);
-          const primary = /^primary/i.test(addKey[2]);
-          addUniqueIndex(
-            tableName,
-            columns,
-            addKey[1] ??
-              (primary ? `${tableName}_pkey` : `${tableName}_${(columns ?? []).join('_')}_key`),
-            file,
-            line
-          );
-          continue;
-        }
+          if (dropConstraint) {
+            foreignKeys.delete(`${tableName}:${dropConstraint[1].toLowerCase()}`);
+            continue;
+          }
 
-        const addColumn =
-          /^add\s+column\s+(?:if\s+not\s+exists\s+)?([A-Za-z_][A-Za-z0-9_$]*)\s+[\s\S]*\breferences\b/i.exec(
+          const dropColumn = /^drop\s+column\s+(?:if\s+exists\s+)?([A-Za-z_][A-Za-z0-9_$]*)/i.exec(
             action
           );
-        if (addColumn) {
-          addForeignKey({
-            name: `${tableName}_${addColumn[1].toLowerCase()}_fkey`,
-            table: tableName,
-            columns: [addColumn[1].toLowerCase()],
-            file,
-            line,
-          });
-          continue;
-        }
-
-        const dropConstraint = /^drop\s+constraint\s+(?:if\s+exists\s+)?([A-Za-z_][A-Za-z0-9_$]*)/i.exec(
-          action
-        );
-        if (dropConstraint) {
-          foreignKeys.delete(`${tableName}:${dropConstraint[1].toLowerCase()}`);
-          continue;
-        }
-
-        const dropColumn = /^drop\s+column\s+(?:if\s+exists\s+)?([A-Za-z_][A-Za-z0-9_$]*)/i.exec(
-          action
-        );
-        if (dropColumn) {
-          const column = dropColumn[1].toLowerCase();
-          for (const [key, fact] of indexes) {
-            if (fact.table === tableName && fact.columns?.includes(column)) indexes.delete(key);
-          }
-          for (const [key, fact] of foreignKeys) {
-            if (fact.table === tableName && fact.columns.includes(column)) foreignKeys.delete(key);
+          if (dropColumn) {
+            const column = dropColumn[1].toLowerCase();
+            for (const [key, fact] of indexes) {
+              if (fact.table === tableName && fact.columns?.includes(column)) indexes.delete(key);
+            }
+            for (const [key, fact] of foreignKeys) {
+              if (fact.table === tableName && fact.columns.includes(column)) foreignKeys.delete(key);
+            }
           }
         }
         continue;

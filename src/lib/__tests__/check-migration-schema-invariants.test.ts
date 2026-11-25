@@ -225,6 +225,26 @@ describe('check-migration-schema-invariants', () => {
       });
       expect(code).toBe(1);
     });
+
+    it('reads each action of a multi-action ALTER TABLE independently', async () => {
+      const { code, output } = await check({
+        [BASE_FILE]: 'CREATE TABLE public.children (label text);\n',
+        [NEW_FILE]:
+          'ALTER TABLE public.children ADD COLUMN IF NOT EXISTS score smallint, ADD COLUMN IF NOT EXISTS parent_id uuid REFERENCES public.parents(id);\n',
+      });
+      expect(code).toBe(1);
+      expect(output).toContain('parent_id');
+      expect(output).not.toContain('children(score)');
+    });
+
+    it('passes a multi-action ALTER TABLE when an index leads the FK', async () => {
+      const { code } = await check({
+        [BASE_FILE]: 'CREATE TABLE public.children (label text);\n',
+        [NEW_FILE]:
+          'ALTER TABLE public.children ADD COLUMN IF NOT EXISTS score smallint, ADD COLUMN IF NOT EXISTS parent_id uuid REFERENCES public.parents(id);\nCREATE INDEX children_parent_idx ON public.children (parent_id);\n',
+      });
+      expect(code).toBe(0);
+    });
   });
 
   describe('scope and escape hatch', () => {
