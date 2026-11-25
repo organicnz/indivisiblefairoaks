@@ -1069,6 +1069,33 @@ export type Database = {
       }
     }
     Views: {
+      ice_cron_health: {
+        Row: {
+          active: boolean | null
+          jobid: number | null
+          jobname: string | null
+          last_end: string | null
+          last_message: string | null
+          last_start: string | null
+          last_status: string | null
+          schedule: string | null
+        }
+        Relationships: []
+      }
+      ice_scan_health: {
+        Row: {
+          checked_at: string | null
+          evidence_images: number | null
+          last_discovery_at: string | null
+          last_failed_at: string | null
+          last_finished_at: string | null
+          last_image_at: string | null
+          last_intake_at: string | null
+          pending_discoveries: number | null
+          unconfirmed_reports: number | null
+        }
+        Relationships: []
+      }
       legacy_public_assets: {
         Row: {
           alt_text: string | null
@@ -1317,6 +1344,11 @@ export type Database = {
         }
         Returns: string
       }
+      ice_scan_claim: {
+        Args: { p_job: string; p_lease_seconds?: number }
+        Returns: boolean
+      }
+      ice_scan_release: { Args: { p_job: string }; Returns: undefined }
       insert_ice_crawl_discoveries: { Args: { p_rows: Json }; Returns: number }
       is_admin: { Args: never; Returns: boolean }
       log_audit: {
@@ -1338,6 +1370,13 @@ export type Database = {
       merge_crm_contacts_legacy: {
         Args: { p_actor_id?: string; p_keep_id: string; p_remove_id: string }
         Returns: string
+      }
+      record_ice_discovery_attempt: {
+        Args: { p_id: string; p_max_attempts?: number; p_note: string }
+        Returns: {
+          attempt_count: number
+          status: string
+        }[]
       }
       replace_mfa_recovery_codes: {
         Args: { p_code_hashes: string[]; p_user_id: string }
