@@ -19,6 +19,7 @@ export type ExtractedReport = {
   stateCode: string | null;
   kind: IceSourceReportKind;
   sourceTitle?: string | null;
+  imageUrl?: string | null;
 };
 
 export type FeedExtraction = {
@@ -30,6 +31,7 @@ export type FeedExtraction = {
   stateCode: string | null;
   kind: IceSourceReportKind;
   sourceTitle: string;
+  imageUrl?: string | null;
 };
 
 const BLOCK_END = /<\/(?:p|div|li|h[1-6]|blockquote|article|section|tr|td|th)>|<br\s*\/?>/gi;
@@ -593,6 +595,7 @@ export function extractFeedItems(
       stateCode,
       kind: classifyReportKind(`${title} ${text}`),
       sourceTitle: title,
+      imageUrl: feedImageUrl(block, feedUrl),
     });
   }
   return items;
@@ -670,10 +673,61 @@ export function extractJsonFeedItems(
       stateCode,
       kind: classifyReportKind(`${title} ${text}`),
       sourceTitle: title,
+      imageUrl: jsonFeedImageUrl(item, feedUrl),
     });
   }
 
   return extracted;
+}
+
+function absoluteImageUrl(raw: string | undefined, baseUrl: string) {
+  if (!raw) return null;
+  try {
+    const url = new URL(raw, baseUrl);
+    return url.protocol === 'https:' || url.protocol === 'http:' ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+/** RSS/Atom image carriers, in the order publishers actually use them. */
+function feedImageUrl(block: string, baseUrl: string) {
+  const tags = [...block.matchAll(/<(?:media:content|media:thumbnail|enclosure|image)\b[^>]*>/gi)];
+  for (const [tag] of tags) {
+    const type = /\btype\s*=\s*["']([^"']+)["']/i.exec(tag)?.[1] ?? '';
+    if (type && !type.toLowerCase().startsWith('image/')) continue;
+    const raw =
+      /\burl\s*=\s*["']([^"']+)["']/i.exec(tag)?.[1] ??
+      /\bhref\s*=\s*["']([^"']+)["']/i.exec(tag)?.[1];
+    const resolved = absoluteImageUrl(raw, baseUrl);
+    if (resolved) return resolved;
+  }
+  const nested = /<image\b[^>]*>[\s\S]*?<url>([^<]+)<\/url>/i.exec(block)?.[1];
+  return absoluteImageUrl(nested, baseUrl);
+}
+
+function jsonFeedImageUrl(item: Record<string, unknown>, baseUrl: string) {
+  const direct =
+    (typeof item.image === 'string' && item.image) ||
+    (typeof item.banner_image === 'string' && item.banner_image) ||
+    (item.image && typeof item.image === 'object'
+      ? typeof (item.image as Record<string, unknown>).url === 'string'
+        ? ((item.image as Record<string, unknown>).url as string)
+        : null
+      : null);
+  const resolved = absoluteImageUrl(direct || undefined, baseUrl);
+  if (resolved) return resolved;
+  const attachments = Array.isArray(item.attachments) ? item.attachments : [];
+  for (const attachment of attachments) {
+    if (!attachment || typeof attachment !== 'object') continue;
+    const row = attachment as Record<string, unknown>;
+    if (typeof row.mime_type === 'string' && !row.mime_type.startsWith('image/')) continue;
+    if (typeof row.url === 'string') {
+      const candidate = absoluteImageUrl(row.url, baseUrl);
+      if (candidate) return candidate;
+    }
+  }
+  return null;
 }
 
 export function extractHtmlReport(

@@ -16,6 +16,7 @@ const RELEASES = JSON.stringify({
       body: '<p>U.S. Immigration and Customs Enforcement removed 40 noncitizens.</p>',
       teaser: 'ICE operation',
       date: '1795521600',
+      image: 'https://www.justice.gov/sites/default/files/ice-operation.jpg',
     },
     {
       url: 'https://www.justice.gov/opa/pr/justice-award',
@@ -74,6 +75,7 @@ describe('extractJusticeReleaseItems', () => {
       'https://www.justice.gov/opa/pr/immigration-fraud',
     ]);
     expect(items?.[0].date).toBe('2026-11-24T12:00:00.000Z');
+    expect(items?.[0].image).toBe('https://www.justice.gov/sites/default/files/ice-operation.jpg');
   });
 
   it('does not admit a release whose beat term appears only in the body', () => {

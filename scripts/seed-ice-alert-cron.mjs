@@ -164,7 +164,9 @@ begin
 
   -- Nationwide discovery runs hourly on its own route, so the ten-minute crawl
   -- tick no longer pays for it. Candidates land in the ice_crawl_discoveries
-  -- table for admin review; discovery never publishes a story on its own.
+  -- table, and the intake job below admits a bounded, AI-screened batch as
+  -- attributed summary reports. Full text and rights promotion stay an admin
+  -- action.
   perform cron.schedule(
     'ice-nationwide-discovery',
     '23 * * * *',
@@ -172,6 +174,29 @@ begin
     select net.http_post(
       url := (select decrypted_secret from vault.decrypted_secrets where name = 'ice_alert_app_url')
              || '/api/ice-crawl/discover',
+      headers := jsonb_build_object(
+        'Content-Type', 'application/json',
+        'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'ice_alert_cron_secret')
+      ),
+      body := '{}'::jsonb,
+      timeout_milliseconds := 55000
+    )
+    where exists (
+      select 1 from vault.decrypted_secrets where name = 'ice_alert_cron_secret'
+    );
+    $job$
+  );
+
+  -- Discovery intake runs every ten minutes, offset from the crawl tick so the
+  -- two routes do not contend for the same Vercel invocation. It drains the
+  -- oldest pending candidates first and is capped inside the route.
+  perform cron.schedule(
+    'ice-discovery-intake',
+    '5-59/10 * * * *',
+    $job$
+    select net.http_post(
+      url := (select decrypted_secret from vault.decrypted_secrets where name = 'ice_alert_app_url')
+             || '/api/ice-crawl/intake?limit=8',
       headers := jsonb_build_object(
         'Content-Type', 'application/json',
         'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'ice_alert_cron_secret')

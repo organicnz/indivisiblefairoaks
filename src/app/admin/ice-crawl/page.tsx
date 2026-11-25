@@ -3,6 +3,7 @@ import { AdminNotice } from '@/components/admin/AdminNotice';
 import { AdminStatGrid } from '@/components/admin/AdminStatGrid';
 import { IceCrawlDiscovery } from '@/components/admin/IceCrawlDiscovery';
 import { IceCrawlManager } from '@/components/admin/IceCrawlManager';
+import { IceCrawlPromotion } from '@/components/admin/IceCrawlPromotion';
 import { IceCrawlHeader } from '@/components/admin/ice/IceCrawlHeader';
 import { requireAdminPage } from '@/lib/admin-auth';
 import {
@@ -10,6 +11,7 @@ import {
   type IceCrawlStore,
   listIceCrawlDiscoveries,
   listIceCrawlSources,
+  listUnconfirmedDiscoveryReports,
 } from '@/lib/ice-crawl-store';
 import type {
   IceCrawlDiscovery as IceCrawlDiscoveryRow,
@@ -28,6 +30,7 @@ export default async function AdminIceCrawlPage() {
   const store = getIceCrawlStore();
   let sources: IceCrawlSource[] = [];
   let discoveries: IceCrawlDiscoveryRow[] = [];
+  let unconfirmed: Awaited<ReturnType<typeof listUnconfirmedDiscoveryReports>> = [];
   let loadError = false;
   let discoveryLoadError = false;
 
@@ -42,6 +45,11 @@ export default async function AdminIceCrawlPage() {
       discoveries = await listIceCrawlDiscoveries(crawlerStore, 'pending', 30);
     } catch {
       discoveryLoadError = true;
+    }
+    try {
+      unconfirmed = await listUnconfirmedDiscoveryReports(crawlerStore, 10);
+    } catch {
+      unconfirmed = [];
     }
   } else {
     loadError = true;
@@ -85,6 +93,8 @@ export default async function AdminIceCrawlPage() {
       </AdminNotice>
 
       <IceCrawlDiscovery discoveries={discoveries} loadError={discoveryLoadError} />
+
+      <IceCrawlPromotion reports={unconfirmed} />
 
       {loadError ? (
         <div role="alert" className="border border-accent/40 bg-accent/10 p-5 text-sm">

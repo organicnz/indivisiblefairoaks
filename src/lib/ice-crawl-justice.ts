@@ -27,6 +27,7 @@ export type JusticeReleaseItem = {
   body: string;
   teaser: string;
   date: string | null;
+  image: string | null;
 };
 
 function escapeRegExp(value: string) {
@@ -72,7 +73,9 @@ function releaseItem(entry: unknown): JusticeReleaseItem | null {
   const seconds = Number(row.date);
   const date =
     Number.isFinite(seconds) && seconds > 0 ? new Date(seconds * 1000).toISOString() : null;
-  return { url, title: title.trim(), body, teaser, date };
+  const image =
+    typeof row.image === 'string' && /^https:\/\//.test(row.image.trim()) ? row.image.trim() : null;
+  return { url, title: title.trim(), body, teaser, date, image };
 }
 
 export function isJusticeReleaseApi(text: string): boolean {

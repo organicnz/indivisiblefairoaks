@@ -1,10 +1,10 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
+import type { IceSourceReport } from '@/lib/ice-crawl-types';
 import {
   escapeIceSourceReportXml,
   serializeIceSourceReportsXml,
 } from '@/lib/ice-source-report-export';
-import type { IceSourceReport } from '@/lib/ice-crawl-types';
 
 const REPORT: IceSourceReport = {
   id: 'report-1',
@@ -22,13 +22,15 @@ const REPORT: IceSourceReport = {
   kind: 'enforcement',
   extraction_method: 'feed',
   published_at: '2026-11-16T19:00:01.000Z',
+  provenance: 'crawl',
+  rights_status: 'confirmed',
+  summary: null,
+  discovery_id: null,
 };
 
 describe('source report XML export', () => {
   it('escapes XML metacharacters', () => {
-    expect(escapeIceSourceReportXml(`<&>"'`)).toBe(
-      '&lt;&amp;&gt;&quot;&apos;'
-    );
+    expect(escapeIceSourceReportXml(`<&>"'`)).toBe('&lt;&amp;&gt;&quot;&apos;');
   });
 
   it('includes attribution fields and readable source text', () => {
@@ -43,9 +45,7 @@ describe('source report XML export', () => {
     });
 
     expect(xml).toContain('<source_name>Example Source</source_name>');
-    expect(xml).toContain(
-      '<source_url>https://example.org/report?x=1&amp;y=2</source_url>'
-    );
+    expect(xml).toContain('<source_url>https://example.org/report?x=1&amp;y=2</source_url>');
     expect(xml).toContain('<source_published_at>2026-11-15T20:55:09.000Z</source_published_at>');
     expect(xml).toContain('<text_content>Line one &amp; line two');
     expect(xml).toContain('Line three &quot;quoted&quot;.');
@@ -55,13 +55,10 @@ describe('source report XML export', () => {
   });
 
   it('emits empty optional elements instead of dropping fields', () => {
-    const xml = serializeIceSourceReportsXml(
-      [{ ...REPORT, source_title: null, city: null }],
-      {
-        generatedAt: '2026-11-16T20:00:00.000Z',
-        filters: { query: '', kind: 'all', stateCode: '', city: '' },
-      }
-    );
+    const xml = serializeIceSourceReportsXml([{ ...REPORT, source_title: null, city: null }], {
+      generatedAt: '2026-11-16T20:00:00.000Z',
+      filters: { query: '', kind: 'all', stateCode: '', city: '' },
+    });
 
     expect(xml).toContain('<source_title />');
     expect(xml).toContain('<city />');

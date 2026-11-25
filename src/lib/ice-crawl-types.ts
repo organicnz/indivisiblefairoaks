@@ -37,6 +37,10 @@ export type IceSourceReport = {
   kind: IceSourceReportKind;
   extraction_method: IceSourceExtractionMethod;
   published_at: string;
+  provenance: 'crawl' | 'discovery';
+  rights_status: 'confirmed' | 'unconfirmed';
+  summary: string | null;
+  discovery_id: string | null;
 };
 
 export type IceCrawlDiscoveryStatus = 'pending' | 'approved' | 'rejected';

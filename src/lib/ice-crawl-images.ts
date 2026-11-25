@@ -1,5 +1,5 @@
 import type { IceCrawlStore } from '@/lib/ice-crawl-store';
-import { insertIceCrawlPageImages } from '@/lib/ice-crawl-store';
+import { hasIceCrawlPageImage, insertIceCrawlPageImages } from '@/lib/ice-crawl-store';
 
 /**
  * Evidence-image capture for crawled ICE pages.
@@ -66,23 +66,72 @@ export function extractEvidenceImageUrls(
 ): string[] {
   const found: string[] = [];
   const seen = new Set<string>();
+  const add = (value: string) => {
+    if (found.length >= limit) return;
+    let url: URL;
+    try {
+      url = new URL(decodeEntities(value).trim(), baseUrl);
+    } catch {
+      return;
+    }
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') return;
+    const href = url.toString();
+    if (seen.has(href)) return;
+    seen.add(href);
+    found.push(href);
+  };
   for (const tag of html.match(/<meta\b[^>]*>/gi) ?? []) {
     const key = (attribute(tag, 'property') ?? attribute(tag, 'name') ?? '').toLowerCase();
     if (!META_IMAGE_KEYS.has(key)) continue;
     const content = attribute(tag, 'content');
-    if (!content) continue;
-    let url: URL;
-    try {
-      url = new URL(decodeEntities(content).trim(), baseUrl);
-    } catch {
-      continue;
-    }
-    if (url.protocol !== 'https:' && url.protocol !== 'http:') continue;
-    const href = url.toString();
-    if (seen.has(href)) continue;
-    seen.add(href);
-    found.push(href);
+    if (content) add(content);
     if (found.length >= limit) break;
+  }
+
+  // JSON-LD `image` is common on news sites that omit og:image. Accept a
+  // string, an array, or the {url} form schema.org allows.
+  for (const match of html.matchAll(
+    /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi
+  )) {
+    if (found.length >= limit) break;
+    try {
+      const parsed: unknown = JSON.parse(decodeEntities(match[1]).trim());
+      const values = Array.isArray(parsed) ? parsed : [parsed];
+      for (const value of values) {
+        if (!value || typeof value !== 'object') continue;
+        const image = (value as Record<string, unknown>).image;
+        const candidates = Array.isArray(image) ? image : [image];
+        for (const candidate of candidates) {
+          if (typeof candidate === 'string') add(candidate);
+          else if (candidate && typeof candidate === 'object') {
+            const url = (candidate as Record<string, unknown>).url;
+            if (typeof url === 'string') add(url);
+          }
+        }
+      }
+    } catch {
+      // A malformed JSON-LD block is not an image source.
+    }
+  }
+
+  // Last resort: the first content-sized <img>, never an icon, logo, sprite or
+  // tracking pixel. This is what gives listing/feed pages without metadata a
+  // usable preview instead of silently storing nothing.
+  if (found.length < limit) {
+    for (const tag of html.match(/<img\b[^>]*>/gi) ?? []) {
+      const src = attribute(tag, 'src');
+      if (!src) continue;
+      if (/^data:|logo|icon|sprite|avatar|pixel|tracking|badge/i.test(src)) continue;
+      const width = Number(attribute(tag, 'width') ?? '');
+      const height = Number(attribute(tag, 'height') ?? '');
+      if (
+        (Number.isFinite(width) && width > 0 && width < 200) ||
+        (Number.isFinite(height) && height > 0 && height < 200)
+      )
+        continue;
+      add(src);
+      if (found.length >= limit) break;
+    }
   }
   return found;
 }
@@ -186,13 +235,24 @@ export type IngestImagesDeps = {
   hash: (value: string) => Promise<string>;
 };
 
-export async function ingestIcePageImages(deps: IngestImagesDeps) {
-  const urls = extractEvidenceImageUrls(deps.html, deps.pageUrl);
+export type IngestImageUrlsDeps = Pick<
+  IngestImagesDeps,
+  'store' | 'sourceId' | 'pageId' | 'isPublicUrl' | 'hash'
+>;
+
+export async function ingestIcePageImageUrls(deps: IngestImageUrlsDeps, urls: readonly string[]) {
   let stored = 0;
+  let skipped = 0;
   const errors: string[] = [];
 
   for (const imageUrl of urls) {
     try {
+      // The URL is the idempotence key. A page can be revisited for its text
+      // without downloading and re-encoding a preview already in the bucket.
+      if (await hasIceCrawlPageImage(deps.store, imageUrl)) {
+        skipped += 1;
+        continue;
+      }
       const download = await downloadImage(imageUrl, deps.isPublicUrl);
       if (!download) {
         errors.push(`${imageUrl}: image could not be downloaded.`);
@@ -236,5 +296,10 @@ export async function ingestIcePageImages(deps: IngestImagesDeps) {
     }
   }
 
-  return { stored, errors, bucket: BUCKET, attempted: urls.length };
+  return { stored, skipped, errors, bucket: BUCKET, attempted: urls.length };
+}
+
+export async function ingestIcePageImages(deps: IngestImagesDeps) {
+  const urls = extractEvidenceImageUrls(deps.html, deps.pageUrl);
+  return ingestIcePageImageUrls(deps, urls);
 }

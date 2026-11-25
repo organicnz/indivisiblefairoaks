@@ -8,17 +8,18 @@ import {
   canonicalizeDiscoveryUrl,
   discoverNationwideIceCandidates,
 } from '@/lib/ice-crawl-discovery';
-import type { IceCrawlSource } from '@/lib/ice-crawl-types';
+import { promoteDiscoveryReportById } from '@/lib/ice-crawl-intake';
 import {
   getIceCrawlDiscovery,
   getIceCrawlSourceByUrl,
+  type IceCrawlStore,
   insertIceCrawlDiscoveries,
   insertIceCrawlSource,
   listIceCrawlSources,
   reviewIceCrawlDiscovery,
   updateIceCrawlSource,
-  type IceCrawlStore,
 } from '@/lib/ice-crawl-store';
+import type { IceCrawlSource } from '@/lib/ice-crawl-types';
 
 const sourceSchema = z.object({
   url: z
@@ -50,6 +51,10 @@ export type IceCrawlDiscoveryActionResult =
 
 export type IceCrawlActionResult =
   | { success: true; summary?: Awaited<ReturnType<typeof crawlIceSourceById>> }
+  | { success: false; error: string };
+
+export type IceCrawlPromotionActionResult =
+  | { success: true; message: string }
   | { success: false; error: string };
 
 function fail(error: string): IceCrawlActionResult {
@@ -236,7 +241,9 @@ export async function approveIceCrawlDiscoveryAction(
         return discoveryFail('Could not check the source after a duplicate insert.');
       }
       if (!source) {
-        return discoveryFail('The source was inserted concurrently but is not visible yet. Try again.');
+        return discoveryFail(
+          'The source was inserted concurrently but is not visible yet. Try again.'
+        );
       }
     }
   }
@@ -360,4 +367,30 @@ export async function setIceCrawlSourceEnabledAction(
 
   revalidatePath('/admin/ice-crawl');
   return { success: true };
+}
+
+/**
+ * Promote an automatically admitted discovery summary to full text after an
+ * admin has confirmed republication rights. The provenance/rights fields are
+ * what make this operation auditable; it is not a cosmetic edit.
+ */
+export async function promoteIceCrawlReportAction(
+  input: unknown
+): Promise<IceCrawlPromotionActionResult> {
+  const session = await requireAdmin('/admin/ice-crawl');
+  const parsed = idSchema.safeParse(input);
+  if (!parsed.success) return { success: false, error: 'Check the discovery report.' };
+
+  try {
+    await promoteDiscoveryReportById(storeFrom(session), parsed.data.id);
+    revalidatePath('/admin/ice-crawl');
+    revalidatePath('/ice-alerts');
+    revalidatePath('/ice-alerts/web-reports');
+    return { success: true, message: 'Rights confirmed; full source text promoted.' };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'The promotion failed.',
+    };
+  }
 }

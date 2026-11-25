@@ -43,6 +43,27 @@ describe('extractEvidenceImageUrls', () => {
     ]);
   });
 
+  it('reads JSON-LD images and a content-sized first image', () => {
+    const html = [
+      '<script type="application/ld+json">',
+      JSON.stringify({ '@type': 'NewsArticle', image: { url: 'https://cdn.example.org/ld.jpg' } }),
+      '</script>',
+      '<img src="/logo.png" width="80" height="80">',
+      '<img src="https://cdn.example.org/content.jpg" width="800" height="450">',
+    ].join('\n');
+    expect(extractEvidenceImageUrls(html, 'https://news.example.org/story', 3)).toEqual([
+      'https://cdn.example.org/ld.jpg',
+      'https://cdn.example.org/content.jpg',
+    ]);
+  });
+
+  it('ignores a sub-200px image and data URLs when no metadata exists', () => {
+    const html =
+      '<img src="data:image/png;base64,AAAA">' +
+      '<img src="https://cdn.example.org/pixel.gif" width="1" height="1">';
+    expect(extractEvidenceImageUrls(html, 'https://news.example.org/story')).toEqual([]);
+  });
+
   it('returns nothing for a page with no preview image', () => {
     expect(
       extractEvidenceImageUrls('<html><body>No image</body></html>', 'https://x.test/')

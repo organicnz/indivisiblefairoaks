@@ -83,6 +83,10 @@ export type IceSourceReportInput = {
   extraction_method: IceSourceExtractionMethod;
   dedupe_key: string;
   published_at?: string;
+  provenance?: 'crawl' | 'discovery';
+  rights_status?: 'confirmed' | 'unconfirmed';
+  summary?: string | null;
+  discovery_id?: string | null;
 };
 
 export type IceSourceReportRefinementRow = Pick<
@@ -252,6 +256,9 @@ type IceCrawlDatabase = {
 
 export type IceCrawlStore = SupabaseClient<IceCrawlDatabase>;
 
+export const DISCOVERY_SOURCE_URL = 'https://www.ice.gov/';
+export const DISCOVERY_SOURCE_LABEL = 'Nationwide web discovery';
+
 export function getIceCrawlStore(): IceCrawlStore | null {
   const url = env.NEXT_PUBLIC_SUPABASE_URL;
   const key = env.SUPABASE_SECRET_KEY;
@@ -284,6 +291,125 @@ export async function listIceCrawlDiscoveries(
     .limit(Math.min(Math.max(1, limit), 100));
   if (error) throw new Error(`crawl discoveries failed: ${error.message}`);
   return (data ?? []) as IceCrawlDiscovery[];
+}
+
+export async function listPendingIceCrawlDiscoveries(store: IceCrawlStore, limit = 10) {
+  const { data, error } = await store
+    .from('ice_crawl_discoveries')
+    .select('*')
+    .eq('status', 'pending')
+    .order('discovered_at', { ascending: true })
+    .limit(Math.min(Math.max(1, limit), 100));
+  if (error) throw new Error(`crawl pending discoveries failed: ${error.message}`);
+  return (data ?? []) as IceCrawlDiscovery[];
+}
+
+export async function countPendingIceCrawlDiscoveries(store: IceCrawlStore) {
+  const { count, error } = await store
+    .from('ice_crawl_discoveries')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'pending');
+  if (error) throw new Error(`crawl pending discovery count failed: ${error.message}`);
+  return count ?? 0;
+}
+
+export async function noteIceCrawlDiscoveryAttempt(store: IceCrawlStore, id: string, note: string) {
+  const { error } = await store
+    .from('ice_crawl_discoveries')
+    .update({ review_note: note.slice(0, 500), reviewed_at: null })
+    .eq('id', id)
+    .eq('status', 'pending');
+  if (error) throw new Error(`crawl discovery attempt note failed: ${error.message}`);
+}
+
+export async function getOrCreateDiscoverySource(store: IceCrawlStore): Promise<IceCrawlSource> {
+  const { data, error } = await store
+    .from('ice_crawl_sources')
+    .select('*')
+    .eq('url', DISCOVERY_SOURCE_URL)
+    .maybeSingle();
+  if (error) throw new Error(`discovery source read failed: ${error.message}`);
+  if (data) return data as IceCrawlSource;
+
+  const { data: inserted, error: insertError } = await store
+    .from('ice_crawl_sources')
+    .insert({
+      url: DISCOVERY_SOURCE_URL,
+      label: DISCOVERY_SOURCE_LABEL,
+      enabled: false,
+      max_pages: 1,
+      rights_confirmed_at: new Date().toISOString(),
+    })
+    .select('*')
+    .single();
+  if (insertError) throw new Error(`discovery source insert failed: ${insertError.message}`);
+  return inserted as IceCrawlSource;
+}
+
+export async function getSourceReportByUrl(store: IceCrawlStore, sourceUrl: string) {
+  const { data, error } = await store
+    .from('ice_source_reports')
+    .select('id')
+    .eq('source_url', sourceUrl)
+    .limit(1);
+  if (error) throw new Error(`source report lookup failed: ${error.message}`);
+  return data?.[0] ?? null;
+}
+
+export async function hasIceCrawlPageImage(store: IceCrawlStore, imageUrl: string) {
+  const { data, error } = await store
+    .from('ice_crawl_page_images')
+    .select('id')
+    .eq('image_url', imageUrl)
+    .limit(1);
+  if (error) throw new Error(`crawl image lookup failed: ${error.message}`);
+  return (data?.length ?? 0) > 0;
+}
+
+export async function listUnconfirmedDiscoveryReports(store: IceCrawlStore, limit = 10) {
+  const { data, error } = await store
+    .from('ice_source_reports')
+    .select('id, title, source_name, source_url, summary, published_at')
+    .eq('provenance', 'discovery')
+    .eq('rights_status', 'unconfirmed')
+    .order('published_at', { ascending: false })
+    .limit(Math.min(Math.max(1, limit), 50));
+  if (error) throw new Error(`unconfirmed discovery reports failed: ${error.message}`);
+  return data ?? [];
+}
+
+export async function getDiscoveryReportForPromotion(store: IceCrawlStore, id: string) {
+  const { data, error } = await store
+    .from('ice_source_reports')
+    .select('id, title, source_url, summary')
+    .eq('id', id)
+    .eq('provenance', 'discovery')
+    .eq('rights_status', 'unconfirmed')
+    .maybeSingle();
+  if (error) throw new Error(`discovery report promotion read failed: ${error.message}`);
+  return data;
+}
+
+export async function promoteDiscoveryReport(
+  store: IceCrawlStore,
+  id: string,
+  textContent: string
+) {
+  const { data, error } = await store
+    .from('ice_source_reports')
+    .update({
+      text_content: textContent.slice(0, 500_000),
+      summary: null,
+      provenance: 'crawl',
+      rights_status: 'confirmed',
+      extraction_method: 'html',
+    })
+    .eq('id', id)
+    .eq('provenance', 'discovery')
+    .eq('rights_status', 'unconfirmed')
+    .select('id');
+  if (error) throw new Error(`discovery report promotion failed: ${error.message}`);
+  return (data?.length ?? 0) > 0;
 }
 
 export async function getIceCrawlDiscovery(store: IceCrawlStore, id: string) {
@@ -774,6 +900,10 @@ function toPublicSourceReport(row: IceSourceReport): IceSourceReport {
     kind: row.kind,
     extraction_method: row.extraction_method,
     published_at: row.published_at,
+    provenance: row.provenance ?? 'crawl',
+    rights_status: row.rights_status ?? 'confirmed',
+    summary: row.summary ?? null,
+    discovery_id: row.discovery_id ?? null,
   };
 }
 

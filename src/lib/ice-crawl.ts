@@ -25,7 +25,11 @@ import {
   readableText,
   verbatimExcerpt,
 } from '@/lib/ice-crawl-extract';
-import { ingestIcePageImages } from '@/lib/ice-crawl-images';
+import {
+  extractEvidenceImageUrls,
+  ingestIcePageImages,
+  ingestIcePageImageUrls,
+} from '@/lib/ice-crawl-images';
 import {
   extractJusticeReleaseItems,
   isJusticeReleaseApi,
@@ -75,6 +79,11 @@ const MAX_TICK_PAGES = 400;
 // 60-second tick can drain it. The cap keeps the queue trending down while
 // still following the highest-priority links first.
 const MAX_TICK_INTAKE = 40;
+// Feed items have no article HTML of their own. Opening a bounded handful of
+// article pages for og:image/JSON-LD is what lets a feed report carry a
+// preview without turning one 35-second tick into a second crawl.
+const MAX_FEED_IMAGE_LOOKUPS = 4;
+const MAX_IMAGES_PER_FEED_PAGE = 2;
 const AI_CHUNK_CHARS = 24_000;
 const AI_CHUNK_OVERLAP = 2_000;
 const MAX_AI_CHUNKS = 40;
@@ -260,6 +269,27 @@ function acceptForUrl(rawUrl: string) {
     // Fall through to the normal document negotiation.
   }
   return DEFAULT_ACCEPT;
+}
+
+export type CrawlDocument = FetchedPage;
+
+/** Public-URL assertion for callers that fetch an already-admitted URL. */
+export function validatePublicUrl(rawUrl: string) {
+  return assertPublicUrl(rawUrl);
+}
+
+/**
+ * Fetch one document under the same SSRF/robots rules as the approved-source
+ * crawler. The discovery intake uses this so its URLs cannot reach a private
+ * address or ignore a publisher's robots.txt.
+ */
+export async function fetchCrawlDocument(rawUrl: string): Promise<CrawlDocument> {
+  const target = await assertPublicUrl(rawUrl);
+  const robots = await readRobots(target);
+  if (!robotsAllows(robots, target)) {
+    throw new Error(`Blocked by robots.txt: ${target.toString()}`);
+  }
+  return fetchPublicPage(target.toString());
 }
 
 async function fetchPublicPage(
@@ -954,6 +984,7 @@ export async function crawlIceSource(
   let reportsFound = 0;
   let skipped = 0;
   let discovered = queue.length;
+  let feedImageLookups = 0;
   let budgetExhausted = false;
   let intakeAdded = 0;
   const takeIntake = () => {
@@ -1083,6 +1114,7 @@ export async function crawlIceSource(
                   stateCode: cityState.stateCode,
                   kind: classifyReportKind(`${release.title}\n${releaseText}`),
                   sourceTitle: 'U.S. Department of Justice',
+                  imageUrl: release.image,
                 };
               })
               .filter((release) => release.text.length >= 20)
@@ -1100,6 +1132,7 @@ export async function crawlIceSource(
         stateCode: item.stateCode,
         kind: item.kind,
         sourceTitle: item.sourceTitle,
+        imageUrl: item.imageUrl ?? null,
       }));
       method = 'feed';
       pageTitle = extractTitle(page.text) || items[0]?.sourceTitle || '';
@@ -1253,23 +1286,58 @@ export async function crawlIceSource(
     }
     // Evidence images are captured only for pages that produced at least one
     // report, so the bucket holds material tied to an ICE activity rather than
-    // every logo and stock photo the crawler happens to pass.
+    // every logo and stock photo the crawler happens to pass. Feed/listing
+    // items carry their own image metadata; when they do not, a bounded number
+    // of article pages is opened for og:image/JSON-LD instead of skipping the
+    // preview entirely.
     if (
       reports.length > 0 &&
-      !feed &&
       (options.deadline === undefined || options.deadline - Date.now() > 10_000)
     ) {
       try {
-        const images = await ingestIcePageImages({
-          store,
-          sourceId: source.id,
-          pageId,
-          pageUrl: page.finalUrl,
-          html: page.text,
-          isPublicUrl: assertPublicUrl,
-          hash: sha256,
-        });
-        if (images.errors.length > 0) errors.push(...images.errors.slice(0, 2));
+        if (!feed) {
+          const images = await ingestIcePageImages({
+            store,
+            sourceId: source.id,
+            pageId,
+            pageUrl: page.finalUrl,
+            html: page.text,
+            isPublicUrl: assertPublicUrl,
+            hash: sha256,
+          });
+          if (images.errors.length > 0) errors.push(...images.errors.slice(0, 2));
+        } else {
+          const urls = reports
+            .map((report) => report.imageUrl)
+            .filter((url): url is string => Boolean(url));
+          if (urls.length === 0) {
+            for (const report of reports) {
+              if (feedImageLookups >= MAX_FEED_IMAGE_LOOKUPS) break;
+              if (!report.sourceUrl || report.sourceUrl === page.finalUrl) continue;
+              if (options.deadline !== undefined && options.deadline - Date.now() < 12_000) break;
+              feedImageLookups += 1;
+              try {
+                const article = await fetchCrawlDocument(report.sourceUrl);
+                urls.push(...extractEvidenceImageUrls(article.text, article.finalUrl, 1));
+              } catch {
+                // A challenged or image-less article is not a crawl failure.
+              }
+            }
+          }
+          if (urls.length > 0) {
+            const images = await ingestIcePageImageUrls(
+              {
+                store,
+                sourceId: source.id,
+                pageId,
+                isPublicUrl: assertPublicUrl,
+                hash: sha256,
+              },
+              [...new Set(urls)].slice(0, MAX_IMAGES_PER_FEED_PAGE)
+            );
+            if (images.errors.length > 0) errors.push(...images.errors.slice(0, 2));
+          }
+        }
       } catch {
         errors.push(`${item.url}: evidence images could not be stored.`);
       }
