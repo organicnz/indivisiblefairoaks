@@ -22,15 +22,16 @@
  *
  * or Dashboard → Project Settings → Edge Functions → Secrets.
  *
- * ## Supabase Vault: not used
+ * ## Supabase Vault: pg_cron credentials only
  *
- * Vault (`vault.decrypted_secrets`) is available on this project but nothing
- * queries it. Secrets here are injected as environment variables, which is the
- * right model at this size: every consumer is an edge function in this
- * repository, and the values must be readable at cold start without a query.
- * Vault would be worth revisiting if a *server-side* consumer ever needed a
- * secret — a Postgres function or trigger, say — because a function that only
- * reads env vars can never use it.
+ * Edge Functions read credentials from environment variables at cold start.
+ * Vault holds the values that database-side pg_cron/pg_net jobs need: the app
+ * URL, the Next.js cron bearer, the Functions base URL, and the scan key. The
+ * seed script upserts those rows and reads `vault.decrypted_secrets` inside
+ * each scheduled command, so no credential is stored in `cron.job.command`.
+ *
+ * A Postgres-only consumer cannot read an edge function's environment; that
+ * separation is why both stores exist.
  */
 
 /** Injected by the Supabase platform; not settable, not listed by `secrets list`. */
@@ -139,6 +140,14 @@ export const FUNCTION_SECRETS = {
     ICE_AI_RATE_LIMIT_MAX: { verify: false, note: 'Defaults in code.' },
     ICE_AI_RATE_LIMIT_WINDOW_MIN: { verify: false, note: 'Defaults in code.' },
   },
+  'ice-scan': {
+    // Only platform-injected values are read here: `SUPABASE_SECRET_KEYS`
+    // authenticates pg_cron's `apikey` header, and the legacy
+    // `SUPABASE_SERVICE_ROLE_KEY` backs the DB client and the server-to-server
+    // call to `ice-source-refine`. The AI provider keys stay in
+    // `ice-source-refine`. pg_cron stores its key in Vault, never in
+    // `cron.job.command`.
+  },
   'ice-source-refine': {
     ZAI_API_KEY: {
       verify: false,
@@ -188,6 +197,7 @@ export const SHARED = {
     'wall-e-chat',
     'ice-case-brief',
     'ice-source-refine',
+    'ice-scan',
     'data-points',
   ],
 }

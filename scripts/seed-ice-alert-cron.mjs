@@ -1,23 +1,29 @@
 #!/usr/bin/env bun
 /**
- * Install the ICE surge notification and subscriber-retention jobs.
+ * Install the ICE alert, approved-source crawl and Supabase edge scan jobs.
  *
- * Vercel's free tier does not run sub-daily cron. This uses Supabase
- * `pg_cron` -> `pg_net` to POST `/api/ice-rapid/notify` every five minutes and
- * `/api/ice-rapid/purge` daily. The app URL and bearer secret live in Supabase
- * Vault, not in `cron.job.command`, so a database reader cannot recover the
- * secret.
+ * Vercel's free tier does not run sub-daily cron. The scan itself now lives in
+ * the `ice-scan` Supabase Edge Function, so pg_cron drives the edge endpoint
+ * directly and the Next.js discovery/intake routes become manual fallbacks.
+ * Every URL and credential is read from Supabase Vault at run time, never
+ * embedded in `cron.job.command`.
+ *
+ * The script is idempotent and self-healing: Vault secrets are updated in
+ * place (never delete-then-create), old duplicate Vercel jobs are removed, and
+ * the run fails loudly if any secret or job is missing afterwards. That is the
+ * failure this script exists to prevent: a schedule that still runs while its
+ * Vault secret is absent looks alive in cron and does nothing.
  *
  *   bun scripts/seed-ice-alert-cron.mjs            # apply
  *   bun scripts/seed-ice-alert-cron.mjs --dry-run  # print the statement, masked
  *
- * Requires CRON_SECRET (same value configured on the Next deployment) and
- * either:
- *   - `--db-url <postgres-url>` or `SUPABASE_DB_URL`, or
- *   - `SUPABASE_ACCESS_TOKEN` for the Management API.
- *
- * The app URL defaults to NEXT_PUBLIC_SITE_URL. Until this runs (or if the
- * migration is not applied), neither job exists.
+ * Requires:
+ *   - CRON_SECRET (the same value configured on the Next deployment),
+ *   - SUPABASE_SECRET_KEY (service-role key; edge scan auth + Vault),
+ *   - NEXT_PUBLIC_SUPABASE_URL (or SUPABASE_URL),
+ *   - NEXT_PUBLIC_SITE_URL (or APP_URL / ICE_ALERT_APP_URL),
+ *   - either `--db-url <postgres-url>` / SUPABASE_DB_URL, or
+ *     SUPABASE_ACCESS_TOKEN for the Management API.
  */
 
 import { runAsync } from './bun-exec.mjs';
@@ -41,13 +47,15 @@ function dbUrlFlag() {
 
 const dbUrl = (dbUrlFlag() || env('SUPABASE_DB_URL')).trim();
 const token = env('SUPABASE_ACCESS_TOKEN');
-const supabaseUrl = env('SUPABASE_URL') || env('NEXT_PUBLIC_SUPABASE_URL');
+const supabaseUrl = (env('SUPABASE_URL') || env('NEXT_PUBLIC_SUPABASE_URL')).replace(/\/+$/, '');
+const functionsUrl = supabaseUrl ? `${supabaseUrl}/functions/v1` : '';
 const appUrl = (
   env('ICE_ALERT_APP_URL') ||
   env('APP_URL') ||
   env('NEXT_PUBLIC_SITE_URL')
 ).replace(/\/+$/, '');
 const cronSecret = env('CRON_SECRET') || env('ICE_ALERT_CRON_SECRET');
+const serviceKey = env('SUPABASE_SECRET_KEY') || env('SUPABASE_SERVICE_ROLE_KEY');
 
 function projectRef() {
   const explicit = env('SUPABASE_PROJECT_REF');
@@ -85,8 +93,20 @@ if (!dryRun) {
     console.error('ERROR: set ICE_ALERT_APP_URL, APP_URL, or NEXT_PUBLIC_SITE_URL.');
     process.exit(1);
   }
+  if (!supabaseUrl || !/^https?:\/\//.test(supabaseUrl)) {
+    console.error('ERROR: set SUPABASE_URL or NEXT_PUBLIC_SUPABASE_URL.');
+    process.exit(1);
+  }
   if (!cronSecret || cronSecret.length < 16) {
     console.error('ERROR: CRON_SECRET must be set (16+ characters).');
+    process.exit(1);
+  }
+  if (!serviceKey || serviceKey.length < 20) {
+    console.error('ERROR: SUPABASE_SECRET_KEY must be set (service-role key).');
+    process.exit(1);
+  }
+  if (!dbUrl && !token) {
+    console.error('ERROR: set SUPABASE_DB_URL or SUPABASE_ACCESS_TOKEN to apply the schedule.');
     process.exit(1);
   }
   if (!ref) {
@@ -97,23 +117,80 @@ if (!dryRun) {
 
 const quote = (value) => `'${String(value).replaceAll("'", "''")}'`;
 
+/**
+ * Vault upsert. `update_secret` keeps the secret id and avoids the window in
+ * which a delete-then-create leaves pg_cron reading a missing secret.
+ */
+const vaultUpsert = (name, value, description) => `
+  select id into secret_id from vault.secrets where name = ${quote(name)} limit 1;
+  if secret_id is null then
+    perform vault.create_secret(${quote(value)}, ${quote(name)}, ${quote(description)});
+  else
+    perform vault.update_secret(secret_id, ${quote(value)}, ${quote(name)}, ${quote(description)});
+    -- Vault does not enforce a unique name. Remove any legacy duplicate after
+    -- the update so a scheduled scalar subquery cannot return two rows.
+    delete from vault.secrets where name = ${quote(name)} and id <> secret_id;
+  end if;`;
+
 const sql = `
 do $seed$
+declare
+  secret_id uuid;
+  job_record record;
 begin
-  delete from vault.secrets
-   where name in ('ice_alert_app_url', 'ice_alert_cron_secret');
-
-  perform vault.create_secret(
-    ${quote(appUrl)},
+  ${vaultUpsert(
     'ice_alert_app_url',
-    'Public origin used by pg_cron to call ICE alert routes.'
-  );
+    appUrl,
+    'Public origin used by pg_cron to call ICE alert and crawl routes.',
+  )}
 
-  perform vault.create_secret(
-    ${quote(cronSecret)},
+  ${vaultUpsert(
     'ice_alert_cron_secret',
-    'Bearer secret for ICE alert cron routes.'
-  );
+    cronSecret,
+    'Bearer secret for the Next.js ICE alert and approved-source crawl routes.',
+  )}
+
+  ${vaultUpsert(
+    'supabase_functions_url',
+    functionsUrl,
+    'Supabase Edge Functions base URL used by pg_cron.',
+  )}
+
+  ${vaultUpsert(
+    'ice_scan_service_key',
+    serviceKey,
+    'Service-role bearer used by pg_cron to invoke the ice-scan edge function.',
+  )}
+
+  if not exists (select 1 from vault.decrypted_secrets where name = 'ice_alert_app_url') then
+    raise exception 'Vault secret ice_alert_app_url was not installed';
+  end if;
+  if not exists (select 1 from vault.decrypted_secrets where name = 'ice_alert_cron_secret') then
+    raise exception 'Vault secret ice_alert_cron_secret was not installed';
+  end if;
+  if not exists (select 1 from vault.decrypted_secrets where name = 'supabase_functions_url') then
+    raise exception 'Vault secret supabase_functions_url was not installed';
+  end if;
+  if not exists (select 1 from vault.decrypted_secrets where name = 'ice_scan_service_key') then
+    raise exception 'Vault secret ice_scan_service_key was not installed';
+  end if;
+  if exists (
+    select name from vault.secrets
+     where name in ('ice_alert_app_url', 'ice_alert_cron_secret', 'supabase_functions_url', 'ice_scan_service_key')
+     group by name
+    having count(*) > 1
+  ) then
+    raise exception 'duplicate Vault secrets remain';
+  end if;
+
+  -- These two jobs called the Next.js discovery/intake routes. The edge scan
+  -- now owns that work; keeping both would double-spend model calls.
+  for job_record in
+    select jobname from cron.job
+     where jobname in ('ice-nationwide-discovery', 'ice-discovery-intake')
+  loop
+    perform cron.unschedule(job_record.jobname);
+  end loop;
 
   perform cron.schedule(
     'ice-rapid-surge-notify',
@@ -128,20 +205,12 @@ begin
       ),
       body := '{}'::jsonb,
       timeout_milliseconds := 30000
-    )
-    where exists (
-      select 1 from vault.decrypted_secrets where name = 'ice_alert_cron_secret'
     );
     $job$
   );
 
   -- Crawl one approved public source every ten minutes. A 60-second function
-  -- budget only fits a bounded tick; mode=sources skips nationwide discovery
-  -- (which has its own job) and limit=2 doubles coverage per tick while the
-  -- route shares its wall-clock budget between the two sources. The frontier
-  -- makes a source safely resumable, so a short slice is progress, not loss.
-  -- Ordering by last_crawled_at rotates the set, so every enabled source is
-  -- refreshed roughly every (sources x 10) minutes, and a new source goes first.
+  -- budget only fits a bounded tick; the frontier makes a source resumable.
   perform cron.schedule(
     'ice-source-crawl',
     '*/10 * * * *',
@@ -155,57 +224,47 @@ begin
       ),
       body := '{}'::jsonb,
       timeout_milliseconds := 55000
-    )
-    where exists (
-      select 1 from vault.decrypted_secrets where name = 'ice_alert_cron_secret'
     );
     $job$
   );
 
-  -- Nationwide discovery runs hourly on its own route, so the ten-minute crawl
-  -- tick no longer pays for it. Candidates land in the ice_crawl_discoveries
-  -- table, and the intake job below admits a bounded, AI-screened batch as
-  -- attributed summary reports. Full text and rights promotion stay an admin
-  -- action.
+  -- Nationwide discovery runs in Supabase, against Supabase. Fifteen minutes
+  -- keeps GDELT inside its published rate limit while the rotating regional
+  -- query widens local coverage across the day.
   perform cron.schedule(
-    'ice-nationwide-discovery',
-    '23 * * * *',
+    'ice-scan-discover',
+    '*/15 * * * *',
     $job$
     select net.http_post(
-      url := (select decrypted_secret from vault.decrypted_secrets where name = 'ice_alert_app_url')
-             || '/api/ice-crawl/discover',
+      url := (select decrypted_secret from vault.decrypted_secrets where name = 'supabase_functions_url')
+             || '/ice-scan?mode=discover',
       headers := jsonb_build_object(
         'Content-Type', 'application/json',
-        'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'ice_alert_cron_secret')
+        'apikey', (select decrypted_secret from vault.decrypted_secrets where name = 'ice_scan_service_key')
       ),
       body := '{}'::jsonb,
-      timeout_milliseconds := 55000
-    )
-    where exists (
-      select 1 from vault.decrypted_secrets where name = 'ice_alert_cron_secret'
+      timeout_milliseconds := 110000
     );
     $job$
   );
 
-  -- Discovery intake runs every ten minutes, offset from the crawl tick so the
-  -- two routes do not contend for the same Vercel invocation. It drains the
-  -- oldest pending candidates first and is capped inside the route.
+  -- Intake drains the oldest pending candidates first, with a bounded batch
+  -- and a Postgres lease. Five-minute cadence is the "always on" loop; the
+  -- function itself refuses overlapping work, so a slow publisher cannot stack
+  -- runs on top of each other.
   perform cron.schedule(
-    'ice-discovery-intake',
-    '5-59/10 * * * *',
+    'ice-scan-intake',
+    '2-59/5 * * * *',
     $job$
     select net.http_post(
-      url := (select decrypted_secret from vault.decrypted_secrets where name = 'ice_alert_app_url')
-             || '/api/ice-crawl/intake?limit=8',
+      url := (select decrypted_secret from vault.decrypted_secrets where name = 'supabase_functions_url')
+             || '/ice-scan?mode=intake&limit=9',
       headers := jsonb_build_object(
         'Content-Type', 'application/json',
-        'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'ice_alert_cron_secret')
+        'apikey', (select decrypted_secret from vault.decrypted_secrets where name = 'ice_scan_service_key')
       ),
       body := '{}'::jsonb,
-      timeout_milliseconds := 55000
-    )
-    where exists (
-      select 1 from vault.decrypted_secrets where name = 'ice_alert_cron_secret'
+      timeout_milliseconds := 110000
     );
     $job$
   );
@@ -225,26 +284,31 @@ begin
       ),
       body := '{}'::jsonb,
       timeout_milliseconds := 30000
-    )
-    where exists (
-      select 1 from vault.decrypted_secrets where name = 'ice_alert_cron_secret'
     );
     $job$
   );
+
+  if (
+    select count(*) from cron.job
+     where jobname in ('ice-scan-discover', 'ice-scan-intake')
+  ) <> 2 then
+    raise exception 'ICE scan jobs were not scheduled';
+  end if;
 end
 $seed$;
 `;
 
 if (dryRun) {
-  const masked = cronSecret
-    ? sql.replaceAll(cronSecret, '<CRON_SECRET>')
-    : sql;
+  const masked = sql
+    .replaceAll(cronSecret || '\u0000', '<CRON_SECRET>')
+    .replaceAll(serviceKey || '\u0000', '<SUPABASE_SECRET_KEY>');
   console.log(`-- transport: ${dbUrl ? 'db-url' : token ? 'management-api' : 'none configured'}`);
   console.log(`-- project:   ${ref || '(unknown)'}`);
   console.log(`-- app:       ${appUrl || '(unknown)'}`);
+  console.log(`-- functions: ${functionsUrl || '(unknown)'}`);
   console.log(masked.trimStart());
-  if (!cronSecret) {
-    console.log('\n-- NOTE: CRON_SECRET is not set, so nothing was masked.');
+  if (!cronSecret || !serviceKey) {
+    console.log('\n-- NOTE: a secret is unset, so the statement was not fully masked.');
   }
   process.exit(0);
 }
@@ -285,6 +349,7 @@ if (dbUrl) {
   await viaManagementApi();
 }
 
-console.log(`✅ ICE surge cron installed for project ${ref}`);
-console.log('   Endpoints: /api/ice-rapid/notify, /api/ice-rapid/purge');
-console.log('   Schedules: notify every 5 minutes; retention daily at 04:17 via pg_cron → pg_net');
+console.log(`✅ ICE scan and alert cron installed for project ${ref}`);
+console.log('   Edge scan:    /functions/v1/ice-scan (discover */15, intake 2-59/5)');
+console.log('   Next routes:  /api/ice-rapid/notify (*/5), /api/ice-crawl/run (*/10), /api/ice-rapid/purge (daily)');
+console.log('   Secrets:      Supabase Vault (app URL, cron secret, functions URL, service key)');

@@ -30,7 +30,10 @@ import {
   ALL_NAMES,
   FUNCTION_SECRETS,
   PLATFORM_INJECTED,
+  PLATFORM_INJECTED_PLURAL,
 } from '../supabase/functions/secrets.manifest.mjs';
+
+const PLATFORM_NAMES = { ...PLATFORM_INJECTED, ...PLATFORM_INJECTED_PLURAL };
 
 const FUNCTIONS_DIR = 'supabase/functions';
 const EXAMPLE = `${FUNCTIONS_DIR}/env.example.md`;
@@ -38,7 +41,9 @@ const LIST_ONLY = process.argv.includes('--list');
 
 // ── What the code actually reads ─────────────────────────────────────────────
 const files = (await readdir(FUNCTIONS_DIR, { withFileTypes: true }))
-  .filter((entry) => entry.isDirectory())
+  // `deno check` can materialize a local npm cache here; it is not a
+  // deployable function and must not be reported as one.
+  .filter((entry) => entry.isDirectory() && entry.name !== 'node_modules')
   .map((entry) => entry.name)
   .filter((name) => name !== '_shared');
 
@@ -75,7 +80,7 @@ for (const [fn, secrets] of Object.entries(FUNCTION_SECRETS)) {
 
 if (LIST_ONLY) {
   console.log('\nPlatform-injected (not settable, not listed by `secrets list`)');
-  for (const [name, note] of Object.entries(PLATFORM_INJECTED)) {
+  for (const [name, note] of Object.entries(PLATFORM_NAMES)) {
     console.log(`  ${name}\n      ${note}`);
   }
   console.log('\nOperator-managed, per function');
@@ -101,7 +106,7 @@ const problems = [];
 
 // 1. Read by code, absent from the manifest.
 for (const [name, fns] of readByCode) {
-  if (name in PLATFORM_INJECTED || declared.has(name)) continue;
+  if (name in PLATFORM_NAMES || declared.has(name)) continue;
   problems.push(
     `code reads ${name} but it is not in the manifest` +
       `\n    read by: ${[...fns].join(', ')}` +

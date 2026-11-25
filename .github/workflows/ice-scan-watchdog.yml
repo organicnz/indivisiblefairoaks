@@ -1,0 +1,43 @@
+name: ICE scan watchdog
+
+# pg_cron is the primary scheduler, but a single scheduler is a single point
+# of failure: the incident this workflow closes started with pg_cron silently
+# doing nothing while both HTTP routes still answered. This independent tick
+# wakes the same idempotent edge function and then asserts Supabase-side
+# freshness, pending backlog and the actual pg_cron job state.
+#
+# The edge function's Postgres lease makes a collision with the primary cron
+# harmless: the second caller gets a clear "lease held" answer instead of
+# double-spending model calls.
+
+on:
+  schedule:
+    - cron: '*/20 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ice-scan-watchdog
+  cancel-in-progress: false
+
+jobs:
+  tick:
+    name: Wake and verify the ICE scanner
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: canary
+
+      - name: Trigger one bounded scan and verify health
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: bun scripts/check-ice-scan-health.mjs --trigger --require-runs --max-age-min 60

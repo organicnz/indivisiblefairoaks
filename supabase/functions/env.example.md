@@ -23,9 +23,13 @@ Not settable and not listed by `supabase secrets list`. Declared here so the
 SUPABASE_URL=https://<your-project-ref>.supabase.co
 SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
+SUPABASE_SECRET_KEYS={"default":"sb_secret_..."}
 ```
 
-`SUPABASE_SERVICE_ROLE_KEY` bypasses RLS. Never expose it to a client.
+`SUPABASE_SERVICE_ROLE_KEY` and every value in `SUPABASE_SECRET_KEYS` bypass
+RLS. Never expose them to a client. The plural variable is a JSON dictionary
+keyed by key name; `ice-scan` accepts its values on the `apikey` header because
+new `sb_secret_` keys are not JWTs and cannot be checked by `verify_jwt`.
 
 ---
 
@@ -102,16 +106,18 @@ document the caller that needs it.
 
 ---
 
-## Supabase Vault: not used
+## Supabase Vault: used by pg_cron only
 
-`vault.decrypted_secrets` is available on this project and nothing queries it —
-only a commented-out `[db.vault]` block in `supabase/config.toml`.
+Edge Functions still read their credentials from environment variables at cold
+start. Supabase Vault holds the values that **pg_cron / pg_net** need at run
+time: the app URL, the Next.js cron bearer, the Functions base URL, and the
+scan key. `scripts/seed-ice-alert-cron.mjs` upserts those rows and reads them
+from `vault.decrypted_secrets` inside each scheduled command, so no secret is
+stored in `cron.job.command`.
 
-Environment injection is the right model at this size: every consumer is an edge
-function in this repository, and the values must be readable at cold start without
-a database round trip. Vault earns its place when a **server-side** consumer needs
-a secret — a Postgres function or a trigger, say — because a function that only
-reads environment variables can never use it.
+That separation is deliberate: a database-side consumer cannot read an edge
+function's environment, and an edge function should not need a database round
+trip just to learn a job credential.
 
 ---
 

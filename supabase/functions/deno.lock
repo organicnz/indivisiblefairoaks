@@ -3,6 +3,7 @@
   "specifiers": {
     "jsr:@hono/hono@*": "4.13.14",
     "jsr:@supabase/functions-js@*": "2.118.0",
+    "npm:@imagemagick/magick-wasm@0.0.46": "0.0.46",
     "npm:@supabase/supabase-js@2": "2.118.0",
     "npm:openai@^4.52.5": "4.104.0",
     "npm:stripe@17": "17.7.0"
@@ -19,6 +20,9 @@
     }
   },
   "npm": {
+    "@imagemagick/magick-wasm@0.0.46": {
+      "integrity": "sha512-0HKJmmqUTFwXm6Z/1lGtOx7JE/FpZiJg8sXBnAho1NgzunEOkgUILU7rskUnYbtdG/hJiFe9viVatWuWDZ9S0g=="
+    },
     "@supabase/auth-js@2.118.0": {
       "integrity": "sha512-xWfPXyhS2KDSfAneMtI6p/tBnbdiz/5vaRKXEqUfzfC9WCniKr2Ds5o5G7RIGig0bom4z6wUY9zaV07WDVTfnQ==",
       "dependencies": [

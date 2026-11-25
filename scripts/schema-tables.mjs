@@ -48,6 +48,8 @@ export const APP_TABLES = new Set([
  *     browser's generated client.
  *   - The `ice_*` tables are read through hand-written row types in the ICE
  *     surfaces, which carry narrower public shapes than the storage tables.
+ *     `ice_scan_runs` and `ice_scan_leases` are service-only operational
+ *     state for the edge scanner and are never read by the browser client.
  *   - The `legacy_*` tables exist only for the one-way content archive import.
  *   - `mfa_recovery_codes` and the `mobilize_*` tables are accessed through
  *     explicitly untyped admin clients.
@@ -75,6 +77,8 @@ export const UNTYPED_TABLES = new Set([
   'ice_report_intake',
   'ice_reunification_requests',
   'ice_source_reports',
+  'ice_scan_leases',
+  'ice_scan_runs',
   'legacy_assets',
   'legacy_documents',
   'legacy_import_runs',

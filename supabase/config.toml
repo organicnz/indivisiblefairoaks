@@ -454,6 +454,14 @@ verify_jwt = true
 [functions.ice-source-refine]
 verify_jwt = true
 
+# pg_cron invokes this with a new-style `sb_secret_` key on the `apikey`
+# header. Those keys are not JWTs, so `verify_jwt` cannot authenticate them;
+# the function does an exact constant-time check against the platform's
+# `SUPABASE_SECRET_KEYS` dictionary (and the legacy service-role JWT). An
+# unauthenticated POST must never start a scan or spend model credits.
+[functions.ice-scan]
+verify_jwt = false
+
 [functions.walle-refresh]
 verify_jwt = true
 

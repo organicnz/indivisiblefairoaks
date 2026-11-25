@@ -323,10 +323,20 @@ Deno.serve(async (request) => {
   const input = parsePayload(payload)
   if (!input) return json({ error: 'Invalid source text.' }, 400, responseHeaders)
 
+  // The scan calls this function server-to-server on every admitted batch.
+  // Its requests arrive from the edge runtime's shared egress address, so the
+  // per-IP bucket would treat one scheduled batch as one abusive client and
+  // throttle the pipeline. A caller that already presents the service-role
+  // key has passed the gateway's JWT verification and is the trusted scan.
+  const authorization = request.headers.get('authorization') ?? ''
+  const apikey = request.headers.get('apikey') ?? ''
+  const serviceCall =
+    Boolean(SERVICE_KEY) && (authorization === `Bearer ${SERVICE_KEY}` || apikey === SERVICE_KEY)
+
   const ip = requestIp(request).slice(0, 80)
   const client = createClient<any>(SUPABASE_URL, SERVICE_KEY)
   try {
-    if (!(await checkRateLimit(client, ip))) {
+    if (!serviceCall && !(await checkRateLimit(client, ip))) {
       return json({ error: 'Too many requests. Please try again later.' }, 429, responseHeaders)
     }
   } catch (error) {
