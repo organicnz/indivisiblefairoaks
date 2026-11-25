@@ -204,7 +204,10 @@ export async function ingestIcePageImages(deps: IngestImagesDeps) {
         continue;
       }
       const dedupeKey = await deps.hash(`${imageUrl}|${download.bytes.byteLength}`);
-      const storagePath = `${deps.sourceId}/${deps.pageId}/${dedupeKey}.webp`;
+      // The path is keyed by the image, not the page: a publisher's preview
+      // image appears on many pages, and a per-page path would store the same
+      // bytes once per page while the unique dedupe_key kept only one row.
+      const storagePath = `${deps.sourceId}/${dedupeKey}.webp`;
       const { error } = await deps.store.storage.from(BUCKET).upload(storagePath, compressed.data, {
         contentType: 'image/webp',
         cacheControl: '31536000',
