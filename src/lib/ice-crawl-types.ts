@@ -58,6 +58,7 @@ export type IceCrawlDiscovery = {
   discovered_at: string;
   reviewed_at: string | null;
   review_note: string | null;
+  last_attempt_at: string | null;
 };
 
 export type IceCrawlSummary = {

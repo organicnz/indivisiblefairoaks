@@ -149,12 +149,14 @@ type IceCrawlDatabase = {
           source_id?: string | null;
           reviewed_at?: string | null;
           review_note?: string | null;
+          last_attempt_at?: string | null;
         };
         Update: Partial<{
           status: IceCrawlDiscoveryStatus;
           source_id: string | null;
           reviewed_at: string | null;
           review_note: string | null;
+          last_attempt_at: string | null;
         }>;
         Relationships: [];
       };
@@ -298,6 +300,7 @@ export async function listPendingIceCrawlDiscoveries(store: IceCrawlStore, limit
     .from('ice_crawl_discoveries')
     .select('*')
     .eq('status', 'pending')
+    .order('last_attempt_at', { ascending: true, nullsFirst: true })
     .order('discovered_at', { ascending: true })
     .limit(Math.min(Math.max(1, limit), 100));
   if (error) throw new Error(`crawl pending discoveries failed: ${error.message}`);
@@ -316,7 +319,11 @@ export async function countPendingIceCrawlDiscoveries(store: IceCrawlStore) {
 export async function noteIceCrawlDiscoveryAttempt(store: IceCrawlStore, id: string, note: string) {
   const { error } = await store
     .from('ice_crawl_discoveries')
-    .update({ review_note: note.slice(0, 500), reviewed_at: null })
+    .update({
+      review_note: note.slice(0, 500),
+      reviewed_at: null,
+      last_attempt_at: new Date().toISOString(),
+    })
     .eq('id', id)
     .eq('status', 'pending');
   if (error) throw new Error(`crawl discovery attempt note failed: ${error.message}`);
