@@ -233,11 +233,13 @@ export type IngestImagesDeps = {
   html: string;
   isPublicUrl: (raw: string) => Promise<URL>;
   hash: (value: string) => Promise<string>;
+  /** Wall-clock budget shared with a bounded cron route. */
+  deadline?: number;
 };
 
 export type IngestImageUrlsDeps = Pick<
   IngestImagesDeps,
-  'store' | 'sourceId' | 'pageId' | 'isPublicUrl' | 'hash'
+  'store' | 'sourceId' | 'pageId' | 'isPublicUrl' | 'hash' | 'deadline'
 >;
 
 export async function ingestIcePageImageUrls(deps: IngestImageUrlsDeps, urls: readonly string[]) {
@@ -246,6 +248,10 @@ export async function ingestIcePageImageUrls(deps: IngestImageUrlsDeps, urls: re
   const errors: string[] = [];
 
   for (const imageUrl of urls) {
+    if (deps.deadline !== undefined && Date.now() >= deps.deadline) {
+      errors.push('image capture stopped at the route deadline.');
+      break;
+    }
     try {
       // The URL is the idempotence key. A page can be revisited for its text
       // without downloading and re-encoding a preview already in the bucket.

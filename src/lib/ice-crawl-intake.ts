@@ -25,7 +25,7 @@ import {
   isIceReportText,
   readableText,
 } from '@/lib/ice-crawl-extract';
-import { ingestIcePageImages } from '@/lib/ice-crawl-images';
+import { extractEvidenceImageUrls, ingestIcePageImageUrls } from '@/lib/ice-crawl-images';
 import type { IceCrawlStore } from '@/lib/ice-crawl-store';
 import {
   countPendingIceCrawlDiscoveries,
@@ -359,20 +359,23 @@ export async function processPendingDiscoveries(
       // image simply leaves the report without one; the pipeline never invents
       // a placeholder.
       try {
-        await ingestIcePageImages({
-          store,
-          sourceId: source.id,
-          pageId: pageRow.id,
-          pageUrl: canonicalUrl,
-          html: page.text,
-          isPublicUrl: validatePublicUrl,
-          hash: async (value) => {
-            const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
-            return Array.from(new Uint8Array(digest), (byte) =>
-              byte.toString(16).padStart(2, '0')
-            ).join('');
+        const imageUrls = extractEvidenceImageUrls(page.text, canonicalUrl, 1);
+        await ingestIcePageImageUrls(
+          {
+            store,
+            sourceId: source.id,
+            pageId: pageRow.id,
+            isPublicUrl: validatePublicUrl,
+            deadline,
+            hash: async (value) => {
+              const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
+              return Array.from(new Uint8Array(digest), (byte) =>
+                byte.toString(16).padStart(2, '0')
+              ).join('');
+            },
           },
-        });
+          imageUrls
+        );
       } catch {
         // The report is already stored; an image failure is isolated.
       }
