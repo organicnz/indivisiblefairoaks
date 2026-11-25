@@ -40,6 +40,7 @@ import {
   upsertIceCrawlPage,
 } from '@/lib/ice-crawl-store';
 import type { IceCrawlDiscovery, IceSourceReportKind } from '@/lib/ice-crawl-types';
+import { refineSourceTextWithAi } from '@/lib/ice-source-refine';
 
 export const DISCOVERY_INTAKE_MAX_PER_RUN = 8;
 export const DISCOVERY_SUMMARY_MAX = 900;
@@ -258,13 +259,48 @@ export async function processPendingDiscoveries(
           deadline: Math.min(deadline, Date.now() + 25_000),
         }
       );
-      const summary = discoverySummary(page.text, text, aiReports[0]?.text ?? null);
+
+      // The edge function is the authoritative AI screen: it returns
+      // isReport=false for a page that is not an ICE case, and a grounded,
+      // bounded paraphrase for one that is. Refuse to publish a full page or
+      // an invented summary when the screen is unavailable.
+      let aiScreened = false;
+      let summary: string | null = null;
+      if (deadline - Date.now() > 15_000) {
+        const refined = await refineSourceTextWithAi({
+          text,
+          sourceUrl: page.finalUrl,
+          sourceTitle: title,
+        });
+        if (refined) {
+          aiScreened = true;
+          if (!refined.isReport) {
+            await recordDecision(
+              store,
+              discovery,
+              null,
+              'rejected',
+              'auto: AI screen found no ICE case report'
+            );
+            rejected += 1;
+            outcomes.push({
+              id: discovery.id,
+              status: 'rejected',
+              reason: 'AI screen: not an ICE case report',
+            });
+            continue;
+          }
+          summary = refined.text;
+        }
+      }
+      summary = summary ?? discoverySummary(page.text, text, aiReports[0]?.text ?? null);
       if (!summary) {
         await recordDecision(store, discovery, null, 'rejected', 'auto: no usable summary');
         rejected += 1;
         outcomes.push({ id: discovery.id, status: 'rejected', reason: 'no usable summary' });
         continue;
       }
+      const method = aiScreened || aiReports.length > 0 ? 'ai' : 'fallback';
 
       const canonicalUrl = page.finalUrl || discovery.url;
       const now = new Date().toISOString();
@@ -275,7 +311,7 @@ export async function processPendingDiscoveries(
         content_type: page.contentType,
         title: title.slice(0, 500),
         text_content: summary,
-        extraction_method: aiReports.length > 0 ? 'ai' : 'fallback',
+        extraction_method: method,
         fetched_at: now,
       });
 
@@ -298,7 +334,7 @@ export async function processPendingDiscoveries(
           city: aiReports[0]?.city ?? null,
           state_code: aiReports[0]?.stateCode ?? null,
           kind,
-          extraction_method: aiReports.length > 0 ? 'ai' : 'fallback',
+          extraction_method: method,
           dedupe_key: `discovery:${canonicalUrl}`,
           published_at: now,
           provenance: 'discovery',
@@ -346,10 +382,16 @@ export async function processPendingDiscoveries(
         discovery,
         source.id,
         'approved',
-        `auto: ${aiReports.length > 0 ? 'AI' : 'deterministic'} ICE screen passed; attributed summary only`
+        `auto: ${aiScreened ? 'AI' : 'deterministic'} ICE screen passed; attributed summary only`
       );
       reports += 1;
-      outcomes.push({ id: discovery.id, status: 'report', reason: 'attributed summary admitted' });
+      outcomes.push({
+        id: discovery.id,
+        status: 'report',
+        reason: aiScreened
+          ? 'AI-screened attributed summary admitted'
+          : 'attributed summary admitted (deterministic fallback)',
+      });
       console.info(
         JSON.stringify({
           event: 'ice_discovery_intake',
