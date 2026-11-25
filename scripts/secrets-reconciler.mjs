@@ -18,6 +18,9 @@ export const SEVERITY_ORDER = { critical: 0, high: 1, medium: 2, low: 3, info: 4
 export const REPEATS_ACROSS_STORES = new Set([
   'RESEND_API_KEY',
   'SUPABASE_SECRET_KEY',
+  // Build-time source-map upload runs in both GitHub Actions and Vercel, so
+  // each runtime needs its own copy of the same Sentry token.
+  'SENTRY_AUTH_TOKEN',
 ]);
 
 export function buildDeclared() {

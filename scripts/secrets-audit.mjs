@@ -6,6 +6,7 @@
  *   bun scripts/secrets-audit.mjs --offline   # contract-only, no network
  *   bun scripts/secrets-audit.mjs --json      # machine-readable
  *   bun scripts/secrets-audit.mjs --store=edge-secret
+ *   bun scripts/secrets-audit.mjs --no-local  # CI: no developer .env.local exists
  *
  * ## The gap this closes
  *
@@ -111,6 +112,11 @@ const JSON_OUT = argv.includes('--json');
 const STRICT = argv.includes('--strict');
 let STORE_FILTER = argv.find((a) => a.startsWith('--store='))?.slice(8);
 const UPDATE_BASELINE = argv.includes('--update-baseline');
+// A CI checkout has no developer `.env.local`, and reporting that absence as an
+// unreachable *store* makes every scheduled run red for a condition that is
+// correct there. The probe stays on by default so a local audit still notices a
+// missing file; the workflow is the only caller that passes this.
+const NO_LOCAL = argv.includes('--no-local');
 const VERIFY = argv.find((a) => a.startsWith('--verify='))?.slice(9);
 const BASELINE_PATH = 'scripts/secrets-baseline.json';
 
@@ -256,7 +262,7 @@ async function audit() {
   if (!STORE_FILTER || STORE_FILTER.startsWith('vercel')) {
     probes.push(...(await probeVercel()));
   }
-  probes.push(await probeLocal());
+  if (!NO_LOCAL) probes.push(await probeLocal());
 
   return Promise.all(probes).then((results) => {
     for (const r of results.flat()) {
