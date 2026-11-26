@@ -1,7 +1,7 @@
 // @deno-types="npm:@supabase/supabase-js@^2.0.0"
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2';
-import { isSafeSourceDigest } from '../_shared/ice-digest.ts';
+import { isAttributedSourceDigest } from '../_shared/ice-digest.ts';
 import { discoverNationwideCandidates } from '../_shared/ice-scan-discovery.ts';
 import {
   fetchCrawlDocument,
@@ -18,6 +18,7 @@ import {
   readableText,
   shortError,
   type DiscoveryCandidate,
+  type ProviderHealthMap,
 } from '../_shared/ice-scan-logic.ts';
 
 /**
@@ -165,7 +166,7 @@ type SourceRow = {
   label: string;
 };
 
-type OutcomeStatus = 'report' | 'duplicate' | 'rejected' | 'retry' | 'deferred';
+type OutcomeStatus = 'report' | 'duplicate' | 'rejected' | 'retry' | 'exhausted' | 'deferred';
 
 type IntakeOutcome = {
   id: string;
@@ -242,12 +243,47 @@ async function ensureDiscoverySource(client: SupabaseClient<any>): Promise<Sourc
   return retry.data as SourceRow;
 }
 
+/**
+ * A provider cooldown is persisted with the previous completed run, not in an
+ * isolate-local map. Edge workers are recycled, and a 403 would otherwise be
+ * retried every fifteen minutes after every cold start.
+ */
+async function loadProviderHealth(client: SupabaseClient<any>): Promise<ProviderHealthMap> {
+  const prior = await client
+    .from('ice_scan_runs')
+    .select('details')
+    .in('job', ['discover', 'both'])
+    .neq('status', 'running')
+    .order('started_at', { ascending: false })
+    .limit(5);
+  if (prior.error) {
+    log('ice_scan_provider_health_read_failed', { error: prior.error.message });
+    return {};
+  }
+  // A skipped or failed discovery run has no providerHealth field. Look past
+  // it rather than resetting every publisher's cooldown on the next tick.
+  for (const row of Array.isArray(prior.data) ? prior.data : []) {
+    const value = row?.details?.providerHealth;
+    if (
+      value &&
+      typeof value === 'object' &&
+      !Array.isArray(value) &&
+      Object.keys(value).length > 0
+    ) {
+      return value as ProviderHealthMap;
+    }
+  }
+  return {};
+}
+
 async function runDiscovery(
   client: SupabaseClient<any>,
   deadline: number,
 ): Promise<PhaseResult> {
+  const providerHealth = await loadProviderHealth(client);
   const discovery = await discoverNationwideCandidates({
     deadline: Math.min(deadline, Date.now() + DISCOVERY_BUDGET_MS),
+    providerHealth,
   });
   const rows = discovery.candidates.map((candidate: DiscoveryCandidate) => ({
     url: candidate.url,
@@ -276,6 +312,8 @@ async function runDiscovery(
     found: discovery.candidates.length,
     queued,
     providers: discovery.providers,
+    fallbacks: discovery.fallbacks.map((fallback) => fallback.feed),
+    warnings: discovery.warnings.length,
     errors: errors.length,
   });
 
@@ -283,6 +321,9 @@ async function runDiscovery(
     found: discovery.candidates.length,
     queued,
     providers: discovery.providers,
+    fallbacks: discovery.fallbacks,
+    warnings: discovery.warnings.slice(0, 20),
+    providerHealth: discovery.providerHealth,
     errors: errors.slice(0, 20),
   };
 }
@@ -292,6 +333,7 @@ async function listPending(client: SupabaseClient<any>, limit: number) {
     .from('ice_crawl_discoveries')
     .select('*')
     .eq('status', 'pending')
+    .lt('attempt_count', MAX_ATTEMPTS)
     .order('last_attempt_at', { ascending: true, nullsFirst: true })
     .order('discovered_at', { ascending: true })
     .limit(Math.min(100, limit * 4));
@@ -314,7 +356,8 @@ async function countPending(client: SupabaseClient<any>) {
   const { count, error } = await client
     .from('ice_crawl_discoveries')
     .select('id', { count: 'exact', head: true })
-    .eq('status', 'pending');
+    .eq('status', 'pending')
+    .lt('attempt_count', MAX_ATTEMPTS);
   if (error) return null;
   return count ?? 0;
 }
@@ -353,7 +396,8 @@ async function recordAttempt(client: SupabaseClient<any>, id: string, note: stri
   });
   if (!error) {
     const row = Array.isArray(data) ? data[0] : data;
-    return row?.status === 'rejected' ? 'exhausted' : 'retry';
+    const attemptCount = Number(row?.attempt_count ?? 0);
+    return attemptCount >= MAX_ATTEMPTS ? 'exhausted' : 'retry';
   }
 
   // A project that has not applied the attempt RPC still gets the old
@@ -513,7 +557,7 @@ async function processCandidate(
     );
     return {
       id: discovery.id,
-      status: state === 'exhausted' ? 'rejected' : 'retry',
+      status: state === 'exhausted' ? 'exhausted' : 'retry',
       reason:
         state === 'exhausted'
           ? 'retry limit reached after repeated AI screen failures'
@@ -535,18 +579,18 @@ async function processCandidate(
   // The edge screen is authoritative, but the same public-panel grounding
   // check the Next intake applies still runs here: a provider bug must not
   // publish copied prose, markup or an invented number from either path.
-  if (summary.length < 120 || !isSafeSourceDigest(text, summary)) {
+  if (!isAttributedSourceDigest(text, summary, title)) {
     await recordDecision(
       client,
       discovery.id,
       null,
       'rejected',
-      'auto: AI screen returned an ungrounded digest',
+      'auto: AI screen returned a title-only, copied, or unattributed digest',
     );
     return {
       id: discovery.id,
       status: 'rejected',
-      reason: 'AI screen returned an ungrounded digest',
+      reason: 'AI screen returned a title-only, copied, or unattributed digest',
     };
   }
 
@@ -693,7 +737,7 @@ async function runIntake(
           const state = await recordAttempt(client, discovery.id, `auto retry: ${message}`);
           outcomes.push({
             id: discovery.id,
-            status: state === 'exhausted' ? 'rejected' : 'retry',
+            status: state === 'exhausted' ? 'exhausted' : 'retry',
             reason:
               state === 'exhausted'
                 ? `retry limit reached: ${message}`
@@ -713,7 +757,7 @@ async function runIntake(
   });
 
   const decided = outcomes.filter((outcome) =>
-    ['report', 'duplicate', 'rejected'].includes(outcome.status),
+    ['report', 'duplicate', 'rejected', 'exhausted'].includes(outcome.status),
   ).length;
   const aiOutages = outcomes.filter((outcome) => outcome.aiUnavailable).length;
   const aiFatal = outcomes.length > 0 && decided === 0 && aiOutages === outcomes.length;
@@ -726,6 +770,7 @@ async function runIntake(
     duplicates: outcomes.filter((outcome) => outcome.status === 'duplicate').length,
     rejected: outcomes.filter((outcome) => outcome.status === 'rejected').length,
     retried: outcomes.filter((outcome) => outcome.status === 'retry').length,
+    exhausted: outcomes.filter((outcome) => outcome.status === 'exhausted').length,
     deferred: outcomes.filter((outcome) => outcome.status === 'deferred').length,
     images: outcomes.reduce((total, outcome) => total + (outcome.images ?? 0), 0),
     remaining: await countPending(client),
@@ -744,6 +789,7 @@ async function runIntake(
     duplicates: summary.duplicates,
     rejected: summary.rejected,
     retried: summary.retried,
+    exhausted: summary.exhausted,
     deferred: summary.deferred,
     images: summary.images,
     remaining: summary.remaining,
@@ -892,7 +938,14 @@ Deno.serve(async (request) => {
           errors: [...new Set([...errors, ...phaseErrors])].slice(0, 20),
           details: {
             providers: discovery.providers ?? [],
+            fallbacks: discovery.fallbacks ?? [],
+            warnings: discovery.warnings ?? [],
+            providerHealth:
+              discovery.providerHealth && typeof discovery.providerHealth === 'object'
+                ? discovery.providerHealth
+                : {},
             publication: PUBLICATION_STATUS,
+            exhausted: Number(intake.exhausted ?? 0),
             deferred: Number(intake.deferred ?? 0),
             skipped: [discovery.skipped, intake.skipped].filter(Boolean),
           },

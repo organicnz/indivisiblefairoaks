@@ -1,3 +1,7 @@
+/**
+ * Approved-source crawl pipeline: tick budget, persisted frontier, DOJ cursor,
+ * extraction, and evidence-image capture. See `docs/ice-source-crawl.md`.
+ */
 import { createHash } from 'node:crypto';
 import { lookup } from 'node:dns/promises';
 import type { CityPoint } from '@/components/ice-alerts/types';
@@ -34,6 +38,9 @@ import {
 import {
   extractJusticeReleaseItems,
   isJusticeReleaseApi,
+  JUSTICE_RELEASE_PAGE_WINDOW,
+  justiceReleaseHasNextPage,
+  justiceReleasePageNumber,
   justiceReleasePageUrls,
 } from '@/lib/ice-crawl-justice';
 import {
@@ -105,6 +112,23 @@ type FetchedPage = {
 };
 
 type QueueItem = { url: string; depth: number };
+
+/** Keep a persisted DOJ window in page order; frontier timestamps can tie. */
+function orderJusticePages(items: QueueItem[]) {
+  const justicePages = items.filter((item) => justiceReleasePageNumber(item.url) !== null);
+  if (justicePages.length < 2) return;
+  justicePages.sort(
+    (left, right) =>
+      (justiceReleasePageNumber(left.url) ?? 0) - (justiceReleasePageNumber(right.url) ?? 0)
+  );
+  let next = 0;
+  for (let index = 0; index < items.length; index += 1) {
+    if (justiceReleasePageNumber(items[index].url) !== null) {
+      items[index] = justicePages[next];
+      next += 1;
+    }
+  }
+}
 
 type AiReport = {
   title?: unknown;
@@ -1005,6 +1029,32 @@ export async function crawlIceSource(
     frontier.length > 0
       ? frontier.map((item) => ({ url: item.url, depth: item.depth }))
       : startUrls.map((url) => ({ url, depth: 0 }));
+  // A frontier may hold one cursor URL rather than a whole window: after a
+  // DOJ window drains, only its next page is persisted. Expand that page into
+  // the same 12-page window a fresh seed uses, so older releases continue
+  // without changing the per-tick page budget. A partial frontier is already
+  // that window and is left alone.
+  const justiceFrontierPages = queue
+    .map((item) => justiceReleasePageNumber(item.url))
+    .filter((page): page is number => page !== null);
+  if (justiceFrontierPages.length === 1) {
+    const cursorPage = justiceFrontierPages[0];
+    if (cursorPage >= JUSTICE_RELEASE_PAGE_WINDOW) {
+      const cursorIndex = queue.findIndex(
+        (item) => justiceReleasePageNumber(item.url) === cursorPage
+      );
+      if (cursorIndex >= 0) {
+        queue.splice(
+          cursorIndex,
+          1,
+          ...justiceReleasePageUrls(source.url, JUSTICE_RELEASE_PAGE_WINDOW, cursorPage).map(
+            (url) => ({ url, depth: 0 })
+          )
+        );
+      }
+    }
+  }
+  orderJusticePages(queue);
   const queued = new Set(queue.map((item) => item.url));
   const visited = new Set<string>();
   const errors: string[] = [];
@@ -1013,6 +1063,11 @@ export async function crawlIceSource(
   let skipped = 0;
   let discovered = queue.length;
   let budgetExhausted = false;
+  // The highest parsed DOJ page and whether it names a successor determine
+  // the cursor after this tick. A failed or empty page does not advance it;
+  // the last successful page is retried on the next tick.
+  let justiceFurthestPage: number | null = null;
+  let justiceFurthestHasNext = false;
   let intakeAdded = 0;
   const takeIntake = () => {
     if (budgeted && intakeAdded >= MAX_TICK_INTAKE) return false;
@@ -1107,6 +1162,16 @@ export async function crawlIceSource(
     const justiceItems = isJusticeReleaseApi(page.text)
       ? extractJusticeReleaseItems(page.text, source.relevance_terms)
       : null;
+    if (justiceItems !== null) {
+      const releasePage = justiceReleasePageNumber(item.url);
+      if (
+        releasePage !== null &&
+        (justiceFurthestPage === null || releasePage > justiceFurthestPage)
+      ) {
+        justiceFurthestPage = releasePage;
+        justiceFurthestHasNext = justiceReleaseHasNextPage(page.text);
+      }
+    }
     if (justiceItems === null && new URL(item.url).pathname === '/api/v1/press_releases.json') {
       // Record the publisher's exact answer when even JSON negotiation gets
       // the challenge page, rather than silently storing an empty run.
@@ -1331,6 +1396,7 @@ export async function crawlIceSource(
             html: page.text,
             isPublicUrl: assertPublicUrl,
             hash: sha256,
+            deadline: options.deadline,
           });
           if (images.errors.length > 0) errors.push(...images.errors.slice(0, 2));
         } else {
@@ -1383,12 +1449,28 @@ export async function crawlIceSource(
     }
   }
 
+  let cursorQueued = 0;
   if (budgeted) {
     // Persist the frontier before reporting, so the next tick resumes exactly
     // where this one stopped even if the summary write below fails.
     try {
       if (queue.length > 0) await saveIceCrawlFrontier(store, source.id, queue);
       if (visited.size > 0) await deleteIceCrawlFrontier(store, source.id, [...visited]);
+
+      // A DOJ window that finished with older pages still available leaves one
+      // page in the frontier. That URL is the cursor: the next tick expands it
+      // back into a full window. Saving after the visited cleanup also retries
+      // the first page that failed to parse.
+      const hasQueuedJusticePage = queue.some(
+        (item) => justiceReleasePageNumber(item.url) !== null
+      );
+      if (!hasQueuedJusticePage && justiceFurthestPage !== null && justiceFurthestHasNext) {
+        const [cursorUrl] = justiceReleasePageUrls(source.url, 1, justiceFurthestPage + 1);
+        if (cursorUrl) {
+          await saveIceCrawlFrontier(store, source.id, [{ url: cursorUrl, depth: 0 }]);
+          cursorQueued = 1;
+        }
+      }
     } catch (error) {
       errors.push(
         `Crawl frontier could not be saved: ${error instanceof Error ? error.message : 'unknown error'}`
@@ -1396,6 +1478,7 @@ export async function crawlIceSource(
     }
   }
 
+  const queuedForNextTick = queue.length + cursorQueued;
   if (queue.length > 0) {
     skipped += queue.length;
     if (!budgetExhausted) {
@@ -1408,7 +1491,7 @@ export async function crawlIceSource(
   const status: IceCrawlSummary['status'] =
     pagesFetched === 0 && errors.length > 0 ? 'error' : skipped > 0 ? 'partial' : 'ok';
   const note = budgetExhausted
-    ? `Time budget reached; ${queue.length} URL(s) queued for the next tick.`
+    ? `Time budget reached; ${queuedForNextTick} URL(s) queued for the next tick.`
     : status === 'ok'
       ? `Fetched ${pagesFetched} page(s) and stored ${reportsFound} source report(s).`
       : status === 'partial'

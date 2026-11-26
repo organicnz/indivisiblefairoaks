@@ -24,8 +24,10 @@ import {
   triageIceCrawlDiscoveriesAction,
 } from '@/lib/actions/ice-crawl';
 import {
+  ICE_DISCOVERY_MAX_ATTEMPTS,
   type IceCrawlDiscovery as IceCrawlDiscoveryRow,
   type IceCrawlDiscoveryTriageConfidence,
+  iceDiscoveryAttemptsExhausted,
   iceDiscoveryConfidenceLabel,
   iceDiscoveryRelevanceLabel,
 } from '@/lib/ice-crawl-types';
@@ -56,6 +58,7 @@ export function IceCrawlDiscovery({
   discoveries,
   topConfidence = [],
   total = discoveries.length,
+  exhaustedTotal = 0,
   collapsedDuplicates = 0,
   page = 1,
   pageSize = 30,
@@ -65,6 +68,7 @@ export function IceCrawlDiscovery({
   discoveries: IceCrawlDiscoveryRow[];
   topConfidence?: IceCrawlDiscoveryRow[];
   total?: number;
+  exhaustedTotal?: number;
   collapsedDuplicates?: number;
   page?: number;
   pageSize?: number;
@@ -113,6 +117,8 @@ export function IceCrawlDiscovery({
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   function discoveryRow(discovery: IceCrawlDiscoveryRow, keyPrefix = 'queue') {
+    const attempts = discovery.attempt_count ?? 0;
+    const exhausted = iceDiscoveryAttemptsExhausted(attempts);
     return (
       <article key={`${keyPrefix}-${discovery.id}`} className="p-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
@@ -121,6 +127,16 @@ export function IceCrawlDiscovery({
               <span className="border border-accent/35 bg-accent/5 px-1.5 py-0.5 font-mono text-[8px] font-bold uppercase tracking-[0.08em] text-accent">
                 Rights review required
               </span>
+              {exhausted ? (
+                <span className="inline-flex items-center gap-1 border border-accent/50 bg-accent/10 px-1.5 py-0.5 font-mono text-[8px] font-bold uppercase tracking-[0.08em] text-accent">
+                  <AlertTriangle className="size-2.5" aria-hidden="true" />
+                  Retry limit reached · {attempts}/{ICE_DISCOVERY_MAX_ATTEMPTS}
+                </span>
+              ) : attempts > 0 ? (
+                <span className="border border-border bg-background px-1.5 py-0.5 font-mono text-[8px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
+                  Retry {attempts}/{ICE_DISCOVERY_MAX_ATTEMPTS} used
+                </span>
+              ) : null}
               <span className="border border-border bg-background px-1.5 py-0.5 font-mono text-[8px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
                 {discovery.publisher || hostname(discovery.url)}
               </span>
@@ -167,6 +183,19 @@ export function IceCrawlDiscovery({
               <p className="mt-2 max-w-3xl text-[11px] leading-relaxed text-muted-foreground">
                 <Sparkles className="mr-1 inline size-3 text-primary" aria-hidden="true" />
                 {discovery.triage_reason}
+              </p>
+            ) : null}
+            {discovery.review_note ? (
+              <p
+                className={`mt-2 max-w-3xl break-words text-[11px] leading-relaxed ${
+                  exhausted ? 'text-accent' : 'text-muted-foreground'
+                }`}
+              >
+                <AlertTriangle className="mr-1 inline size-3 shrink-0" aria-hidden="true" />
+                <span className="font-semibold">
+                  {exhausted ? 'Retry stopped:' : 'Last automatic attempt:'}
+                </span>{' '}
+                {discovery.review_note}
               </p>
             ) : null}
           </div>
@@ -218,6 +247,12 @@ export function IceCrawlDiscovery({
               <span className="border border-primary/30 bg-primary/10 px-1.5 py-0.5 font-mono text-[8px] font-bold uppercase tracking-[0.08em] text-primary-ink dark:text-primary-on-dark">
                 {total} pending
               </span>
+              {exhaustedTotal > 0 ? (
+                <span className="inline-flex items-center gap-1 border border-accent/45 bg-accent/10 px-1.5 py-0.5 font-mono text-[8px] font-bold uppercase tracking-[0.08em] text-accent">
+                  <AlertTriangle className="size-2.5" aria-hidden="true" />
+                  {exhaustedTotal} at retry limit
+                </span>
+              ) : null}
               {collapsedDuplicates > 0 ? (
                 <span className="border border-border bg-background px-1.5 py-0.5 font-mono text-[8px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
                   {collapsedDuplicates} duplicate story/stories collapsed

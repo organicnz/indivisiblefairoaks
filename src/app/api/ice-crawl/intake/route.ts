@@ -35,9 +35,9 @@ export async function POST(req: Request) {
   try {
     const summary = await processPendingDiscoveries(store, {
       limit,
-      // Leave headroom for the last candidate's AI call (25s) and one image
-      // download (8s). The function ceiling is 60s; a 45s deadline could
-      // start that work at 44s and turn the run into a 504.
+      // Leave headroom for the last candidate's AI screen (15s) and one image
+      // download (8s). The function ceiling is 60s; a later deadline could
+      // start that work too close to the ceiling and turn the run into a 504.
       deadline: Date.now() + 32_000,
     });
     return json({ ok: true, ...summary });

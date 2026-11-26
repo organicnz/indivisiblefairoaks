@@ -200,6 +200,58 @@ describe('source text refinement', () => {
     expect(await refineSourceTextWithAi({ text: ICE_PAGE })).toBeNull();
   });
 
+  it('rejects headline-and-byline, copied and single-sentence outputs, but accepts a real attributed digest', async () => {
+    const { digestIsTitleOnly, isAttributedSourceDigest } = await import('@/lib/ice-source-refine');
+    const title = 'ICE Boston operation takes 8 dangerous alien gang members off the streets';
+    const byline = `${title}\nBy Jane Doe, Staff Writer | November 16, 2026 | Updated 4:15 p.m. ET`;
+    const singleSentence =
+      'Federal immigration authorities took eight people into custody in Boston, Massachusetts, during a coordinated operation, officials said, and the action followed a months-long inquiry while several federal and local partners took part with no injuries reported.';
+    const copied = LONG_ICE_PAGE.split('\n').slice(6, 10).join(' ');
+
+    expect(byline.length).toBeGreaterThan(120);
+    expect(digestIsTitleOnly(title, byline)).toBe(true);
+    expect(isAttributedSourceDigest(LONG_ICE_PAGE, byline, title)).toBe(false);
+    expect(isAttributedSourceDigest(LONG_ICE_PAGE, singleSentence, title)).toBe(false);
+    expect(isAttributedSourceDigest(LONG_ICE_PAGE, copied, title)).toBe(false);
+    expect(isAttributedSourceDigest(LONG_ICE_PAGE, GOOD_DIGEST, title)).toBe(true);
+  });
+
+  it('requests digest mode and raises a typed rejection for a headline-only response', async () => {
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://project.supabase.co');
+    vi.stubEnv('SUPABASE_SECRET_KEY', 'service-key');
+    vi.resetModules();
+    const title = 'ICE Boston operation takes 8 dangerous alien gang members off the streets';
+    const fetchMock = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) =>
+        new Response(
+          JSON.stringify({
+            isReport: true,
+            text: `${title}\nBy Jane Doe, Staff Writer | November 16, 2026 | Updated 4:15 p.m. ET`,
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        )
+    );
+    installFetchMock(fetchMock);
+
+    const { InvalidSourceDigestError, refineSourceTextWithAi } = await import(
+      '@/lib/ice-source-refine'
+    );
+    await expect(
+      refineSourceTextWithAi(
+        {
+          text: LONG_ICE_PAGE,
+          sourceUrl: 'https://www.ice.gov/news/releases/example',
+          sourceTitle: title,
+        },
+        { mode: 'refine', rejectInvalidDigest: true }
+      )
+    ).rejects.toBeInstanceOf(InvalidSourceDigestError);
+
+    const [, init] = fetchMock.mock.calls[0] ?? [];
+    const body = JSON.parse(String((init as RequestInit | undefined)?.body ?? '{}'));
+    expect(body.mode).toBe('refine');
+  });
+
   it('requests a paraphrased digest and accepts it only after safety checks', async () => {
     vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://project.supabase.co');
     vi.stubEnv('SUPABASE_SECRET_KEY', 'service-key');

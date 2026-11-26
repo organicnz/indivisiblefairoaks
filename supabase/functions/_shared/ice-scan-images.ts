@@ -114,9 +114,7 @@ export async function compressEvidenceImage(
   }
 }
 
-type Download = { bytes: Uint8Array; finalUrl: string };
-
-async function downloadImage(rawUrl: string): Promise<Download | null> {
+async function downloadImage(rawUrl: string): Promise<Uint8Array | null> {
   let current = rawUrl;
   for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
     const target = await assertPublicUrl(current);
@@ -165,7 +163,7 @@ async function downloadImage(rawUrl: string): Promise<Download | null> {
       chunks.push(value);
     }
     if (total === 0) return null;
-    return { bytes: joinChunks(chunks, total), finalUrl: response.url || target.toString() };
+    return joinChunks(chunks, total);
   }
   return null;
 }
@@ -182,8 +180,6 @@ export type StoreEvidenceImagesDeps = {
 
 export type StoreEvidenceImagesResult = {
   stored: number;
-  skipped: number;
-  attempted: number;
   errors: string[];
 };
 
@@ -197,7 +193,6 @@ export async function storeEvidenceImages(
 ): Promise<StoreEvidenceImagesResult> {
   const urls = extractEvidenceImageUrls(deps.html, deps.pageUrl, MAX_IMAGES_PER_PAGE);
   let stored = 0;
-  let skipped = 0;
   const errors: string[] = [];
 
   for (const imageUrl of urls) {
@@ -217,23 +212,20 @@ export async function storeEvidenceImages(
         errors.push(`image lookup: ${existing.error.message}`);
         continue;
       }
-      if ((existing.data?.length ?? 0) > 0) {
-        skipped += 1;
-        continue;
-      }
+      if ((existing.data?.length ?? 0) > 0) continue;
 
       const download = await downloadImage(imageUrl);
       if (!download) {
         errors.push(`${imageUrl}: image could not be downloaded.`);
         continue;
       }
-      const compressed = await compressEvidenceImage(download.bytes);
+      const compressed = await compressEvidenceImage(download);
       if (!compressed) {
         errors.push(`${imageUrl}: image could not be compressed.`);
         continue;
       }
 
-      const dedupeKey = await sha256Hex(`${imageUrl}|${download.bytes.byteLength}`);
+      const dedupeKey = await sha256Hex(`${imageUrl}|${download.byteLength}`);
       // Keyed by the image, not the page: a publisher's preview appears on
       // many pages, and a per-page path would store the same bytes repeatedly.
       const storagePath = `${deps.sourceId}/${dedupeKey}.webp`;
@@ -276,11 +268,10 @@ export async function storeEvidenceImages(
       }
       const linked = insert.data?.length ?? 0;
       if (linked > 0) stored += linked;
-      else skipped += 1;
     } catch (error) {
       errors.push(`${imageUrl}: ${shortError(error)}`);
     }
   }
 
-  return { stored, skipped, attempted: urls.length, errors };
+  return { stored, errors };
 }

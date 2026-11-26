@@ -19,6 +19,8 @@ import { hasIceCrawlPageImage, insertIceCrawlPageImages } from '@/lib/ice-crawl-
  * - `sharp` is a native module and the deployed runtime is Bun on Vercel. It
  *   is imported dynamically and every failure is caught: an image problem
  *   must never take down the text crawl that found the report.
+ *
+ * Path and orphan-cleanup contract: `docs/ice-source-crawl.md`.
  */
 
 const BUCKET = 'ice-evidence';
@@ -149,12 +151,10 @@ function joinChunks(chunks: readonly Uint8Array[], total: number) {
   return out;
 }
 
-type Download = { bytes: Uint8Array; finalUrl: string };
-
 async function downloadImage(
   url: string,
   isPublicUrl: (raw: string) => Promise<URL>
-): Promise<Download | null> {
+): Promise<Uint8Array | null> {
   let current = url;
   for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
     const target = await isPublicUrl(current);
@@ -194,7 +194,7 @@ async function downloadImage(
       chunks.push(value);
     }
     if (total === 0) return null;
-    return { bytes: joinChunks(chunks, total), finalUrl: response.url || target.toString() };
+    return joinChunks(chunks, total);
   }
   return null;
 }
@@ -267,12 +267,12 @@ export async function ingestIcePageImageUrls(deps: IngestImageUrlsDeps, urls: re
         errors.push(`${imageUrl}: image could not be downloaded.`);
         continue;
       }
-      const compressed = await compressEvidenceImage(download.bytes);
+      const compressed = await compressEvidenceImage(download);
       if (!compressed) {
         errors.push(`${imageUrl}: image could not be compressed.`);
         continue;
       }
-      const dedupeKey = await deps.hash(`${imageUrl}|${download.bytes.byteLength}`);
+      const dedupeKey = await deps.hash(`${imageUrl}|${download.byteLength}`);
       // The path is keyed by the image, not the page: a publisher's preview
       // image appears on many pages, and a per-page path would store the same
       // bytes once per page while the unique dedupe_key kept only one row.
@@ -319,7 +319,7 @@ export async function ingestIcePageImageUrls(deps: IngestImageUrlsDeps, urls: re
     }
   }
 
-  return { stored, skipped, errors, bucket: BUCKET, attempted: urls.length };
+  return { stored, skipped, errors };
 }
 
 export async function ingestIcePageImages(deps: IngestImagesDeps) {

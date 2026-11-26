@@ -230,7 +230,7 @@ async function mapWithConcurrency<T, R>(
 
 async function refineSingle(input: RefineInput): Promise<RefineResult | null> {
   return callWithFallback(buildMessages(input), (raw) =>
-    parseRefineResponse(raw, input.text, input.mode ?? 'clean')
+    parseRefineResponse(raw, input.text, input.mode ?? 'clean', input.sourceTitle)
   )
 }
 
@@ -285,7 +285,7 @@ async function refineChunked(input: RefineInput): Promise<RefineResult | null> {
   if (reportNotes.length === 0) return { isReport: false, text: '' }
 
   return callWithFallback(buildSynthesisMessages(input, reportNotes), (raw) =>
-    parseRefineResponse(raw, input.text, 'refine')
+    parseRefineResponse(raw, input.text, 'refine', input.sourceTitle)
   )
 }
 

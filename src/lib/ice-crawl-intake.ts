@@ -5,8 +5,9 @@
  * bounded batch into the report pipeline with three deliberate limits:
  *
  * - The page is fetched through the crawler's SSRF and robots checks.
- * - A deterministic ICE check and the existing AI extractor must agree that
- *   the page is about ICE enforcement; otherwise the candidate is rejected.
+ * - A deterministic ICE check gates the page, then the `ice-source-refine`
+ *   endpoint makes the authoritative report decision and returns the grounded
+ *   digest that is stored.
  * - What is stored is an attributed summary, never the publisher's full text:
  *   `provenance = 'discovery'` and `rights_status = 'unconfirmed'`. An admin
  *   can later promote the row after confirming republication rights.
@@ -17,7 +18,7 @@
  */
 
 import { env } from '@/lib/env';
-import { extractWithAi, fetchCrawlDocument, validatePublicUrl } from '@/lib/ice-crawl';
+import { fetchCrawlDocument, validatePublicUrl } from '@/lib/ice-crawl';
 import {
   classifyReportKind,
   extractHtmlReports,
@@ -35,24 +36,21 @@ import {
   getSourceReportByUrl,
   insertIceSourceReports,
   listPendingIceCrawlDiscoveries,
-  noteIceCrawlDiscoveryAttempt,
   promoteDiscoveryReport,
+  recordIceCrawlDiscoveryAttempt,
   reviewIceCrawlDiscovery,
   upsertIceCrawlPage,
 } from '@/lib/ice-crawl-store';
-import type { IceCrawlDiscovery, IceSourceReportKind } from '@/lib/ice-crawl-types';
+import type { IceCrawlDiscovery } from '@/lib/ice-crawl-types';
 import {
   discoveryPublicationStatus,
   parseIceDiscoveryAutoPublish,
 } from '@/lib/ice-discovery-publication';
-import { refineSourceTextWithAi } from '@/lib/ice-source-refine';
+import { InvalidSourceDigestError, refineSourceTextWithAi } from '@/lib/ice-source-refine';
 
 export const DISCOVERY_INTAKE_MAX_PER_RUN = 8;
-export const DISCOVERY_SUMMARY_MAX = 900;
-// The scheduled route has one candidate budget; a retry is a fresh run, not a
-// second and third network timeout inside the same 60-second function.
-const FETCH_ATTEMPTS = 1;
-const RETRY_DELAY_MS = 400;
+// One bounded attempt per candidate; a retry is a fresh scheduled run.
+const DISCOVERY_FETCH_OPTIONS = { timeoutMs: 5_000, maxRedirects: 2 } as const;
 const MIN_RELEVANT_TEXT = 80;
 
 /**
@@ -77,7 +75,7 @@ export const DISCOVERY_RELEVANCE_TERMS = [
 
 export type DiscoveryIntakeOutcome = {
   id: string;
-  status: 'report' | 'duplicate' | 'rejected' | 'retry';
+  status: 'report' | 'duplicate' | 'rejected' | 'retry' | 'exhausted';
   reason: string;
   reportId?: string;
 };
@@ -88,6 +86,7 @@ export type DiscoveryIntakeSummary = {
   duplicates: number;
   rejected: number;
   retried: number;
+  exhausted: number;
   remaining: number;
   /** `draft` unless ICE_DISCOVERY_AUTO_PUBLISH is explicitly enabled. */
   publicationMode: 'draft' | 'published';
@@ -103,34 +102,6 @@ export function discoveryRelevance(title: string, text: string) {
   return hasTerm && isIceReportText(`${title}\n${text}`);
 }
 
-/** Prefer the page's own description; fall back to the first readable lines. */
-export function discoverySummary(
-  html: string,
-  text: string,
-  aiText?: string | null
-): string | null {
-  if (aiText && aiText.trim().length >= 20) {
-    return aiText.trim().slice(0, DISCOVERY_SUMMARY_MAX);
-  }
-  const description =
-    /<meta[^>]+(?:property|name)=["'](?:og:description|twitter:description|description)["'][^>]*content=["']([^"']+)["']/i.exec(
-      html
-    )?.[1] ??
-    /<meta[^>]+content=["']([^"']+)["'][^>]*(?:property|name)=["'](?:og:description|twitter:description|description)["']/i.exec(
-      html
-    )?.[1] ??
-    '';
-  const decoded = description
-    .replace(/&amp;/g, '&')
-    .replace(/&#39;/g, "'")
-    .replace(/&quot;/g, '"')
-    .replace(/\s+/g, ' ')
-    .trim();
-  const summary = decoded.length >= 20 ? decoded : text.trim();
-  if (summary.length < 20) return null;
-  return summary.slice(0, DISCOVERY_SUMMARY_MAX);
-}
-
 export function isPermanentDiscoveryFailure(message: string) {
   if (/robots\.txt|Only public|embedded credentials|standard public web ports/i.test(message)) {
     return true;
@@ -141,21 +112,6 @@ export function isPermanentDiscoveryFailure(message: string) {
     return code >= 400 && code < 500 && code !== 429;
   }
   return false;
-}
-
-async function fetchWithRetry(url: string) {
-  let lastError: unknown;
-  for (let attempt = 0; attempt < FETCH_ATTEMPTS; attempt += 1) {
-    try {
-      return await fetchCrawlDocument(url, { timeoutMs: 5_000, maxRedirects: 2 });
-    } catch (error) {
-      lastError = error;
-      if (attempt < FETCH_ATTEMPTS - 1) {
-        await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS * (attempt + 1)));
-      }
-    }
-  }
-  throw lastError instanceof Error ? lastError : new Error('Discovery fetch failed.');
 }
 
 function publisherName(discovery: IceCrawlDiscovery, canonicalUrl: string) {
@@ -204,6 +160,7 @@ export async function processPendingDiscoveries(
   let duplicates = 0;
   let rejected = 0;
   let retried = 0;
+  let exhausted = 0;
 
   for (const discovery of pending) {
     if (Date.now() >= deadline) break;
@@ -221,20 +178,7 @@ export async function processPendingDiscoveries(
         continue;
       }
 
-      const page = await fetchWithRetry(discovery.url);
-      if (page.status >= 400 && page.status !== 429) {
-        const reason = `HTTP ${page.status}`;
-        if (isPermanentDiscoveryFailure(`HTTP ${page.status}`)) {
-          await recordDecision(store, discovery, null, 'rejected', `auto: ${reason}`);
-          rejected += 1;
-          outcomes.push({ id: discovery.id, status: 'rejected', reason });
-        } else {
-          await noteIceCrawlDiscoveryAttempt(store, discovery.id, `auto retry: ${reason}`);
-          retried += 1;
-          outcomes.push({ id: discovery.id, status: 'retry', reason });
-        }
-        continue;
-      }
+      const page = await fetchCrawlDocument(discovery.url, DISCOVERY_FETCH_OPTIONS);
 
       const title = extractTitle(page.text) || discovery.title;
       const text = readableText(page.text);
@@ -262,17 +206,6 @@ export async function processPendingDiscoveries(
         continue;
       }
 
-      const aiReports = await extractWithAi(
-        text,
-        page.finalUrl,
-        title,
-        extractPublishedAt(page.text),
-        [],
-        {
-          deadline: Math.min(deadline, Date.now() + 25_000),
-        }
-      );
-
       // The edge function is the authoritative AI screen: it returns
       // isReport=false for a page that is not an ICE case, and a grounded,
       // bounded paraphrase for one that is. Refuse to publish a full page or
@@ -285,24 +218,39 @@ export async function processPendingDiscoveries(
                 sourceUrl: page.finalUrl,
                 sourceTitle: title,
               },
-              { timeoutMs: 15_000 }
+              { timeoutMs: 15_000, mode: 'refine', rejectInvalidDigest: true }
             )
           : null;
       if (!refined) {
-        // Do not publish an unscreened page. Leave the candidate pending with a
-        // fresh attempt timestamp so it rotates to the back and the next run
-        // can finish the screen with a full budget.
-        await noteIceCrawlDiscoveryAttempt(
-          store,
-          discovery.id,
-          'auto retry: AI screen budget unavailable'
-        );
-        retried += 1;
-        outcomes.push({
-          id: discovery.id,
-          status: 'retry',
-          reason: 'AI screen did not complete; candidate left pending',
-        });
+        // Do not publish an unscreened page. Spend one bounded attempt; at the
+        // ceiling the candidate stays pending for human review instead of
+        // consuming every future run.
+        let retryExhausted = false;
+        try {
+          const attempt = await recordIceCrawlDiscoveryAttempt(
+            store,
+            discovery.id,
+            'auto retry: AI screen budget unavailable'
+          );
+          retryExhausted = attempt.outcome === 'exhausted';
+        } catch {
+          // A failed attempt write must not stop the batch; leave it retryable.
+        }
+        if (retryExhausted) {
+          exhausted += 1;
+          outcomes.push({
+            id: discovery.id,
+            status: 'exhausted',
+            reason: 'retry limit reached; candidate left pending for human review',
+          });
+        } else {
+          retried += 1;
+          outcomes.push({
+            id: discovery.id,
+            status: 'retry',
+            reason: 'AI screen did not complete; candidate left pending',
+          });
+        }
         continue;
       }
       if (!refined.isReport) {
@@ -339,9 +287,6 @@ export async function processPendingDiscoveries(
 
       const publisher = publisherName(discovery, canonicalUrl);
       const sourceText = `${summary}\n\nAttributed summary from ${publisher}. Read the full report at ${canonicalUrl}`;
-      const kind: IceSourceReportKind =
-        (aiReports[0]?.kind as IceSourceReportKind | undefined) ??
-        classifyReportKind(`${title}\n${text}`);
       const inserted = await insertIceSourceReports(store, [
         {
           source_id: source.id,
@@ -353,9 +298,9 @@ export async function processPendingDiscoveries(
           source_retrieved_at: now,
           title: title.slice(0, 240),
           text_content: sourceText,
-          city: aiReports[0]?.city ?? null,
-          state_code: aiReports[0]?.stateCode ?? null,
-          kind,
+          city: null,
+          state_code: null,
+          kind: classifyReportKind(`${title}\n${text}`),
           extraction_method: method,
           dedupe_key: `discovery:${canonicalUrl}`,
           published_at: now,
@@ -422,18 +367,43 @@ export async function processPendingDiscoveries(
           decision: 'report',
           discoveryId: discovery.id,
           host: new URL(canonicalUrl).hostname,
-          aiReports: aiReports.length,
           publication: publicationStatus,
         })
       );
     } catch (error) {
+      if (error instanceof InvalidSourceDigestError) {
+        try {
+          await recordDecision(
+            store,
+            discovery,
+            null,
+            'rejected',
+            'auto: AI screen returned a title-only, copied, or unattributed digest'
+          );
+        } catch {
+          // A failed review write must not stop the rest of the batch.
+        }
+        rejected += 1;
+        outcomes.push({
+          id: discovery.id,
+          status: 'rejected',
+          reason: 'AI screen returned a title-only, copied, or unattributed digest',
+        });
+        continue;
+      }
       const message = error instanceof Error ? error.message : 'Discovery intake failed.';
       const permanent = isPermanentDiscoveryFailure(message);
+      let attemptOutcome: 'retry' | 'exhausted' = 'retry';
       try {
         if (permanent) {
           await recordDecision(store, discovery, null, 'rejected', `auto: ${message}`);
         } else {
-          await noteIceCrawlDiscoveryAttempt(store, discovery.id, `auto retry: ${message}`);
+          const attempt = await recordIceCrawlDiscoveryAttempt(
+            store,
+            discovery.id,
+            `auto retry: ${message}`
+          );
+          attemptOutcome = attempt.outcome;
         }
       } catch {
         // A failed review write must not stop the rest of the batch.
@@ -441,6 +411,13 @@ export async function processPendingDiscoveries(
       if (permanent) {
         rejected += 1;
         outcomes.push({ id: discovery.id, status: 'rejected', reason: message.slice(0, 200) });
+      } else if (attemptOutcome === 'exhausted') {
+        exhausted += 1;
+        outcomes.push({
+          id: discovery.id,
+          status: 'exhausted',
+          reason: `retry limit reached: ${message}`.slice(0, 200),
+        });
       } else {
         retried += 1;
         outcomes.push({ id: discovery.id, status: 'retry', reason: message.slice(0, 200) });
@@ -448,7 +425,7 @@ export async function processPendingDiscoveries(
       console.info(
         JSON.stringify({
           event: 'ice_discovery_intake',
-          decision: permanent ? 'rejected' : 'retry',
+          decision: permanent ? 'rejected' : attemptOutcome,
           discoveryId: discovery.id,
           error: message.slice(0, 160),
         })
@@ -465,6 +442,7 @@ export async function processPendingDiscoveries(
       duplicates,
       rejected,
       retried,
+      exhausted,
       remaining,
       publication: publicationStatus,
     })
@@ -475,6 +453,7 @@ export async function processPendingDiscoveries(
     duplicates,
     rejected,
     retried,
+    exhausted,
     remaining,
     publicationMode: publicationStatus,
     outcomes,
@@ -489,10 +468,7 @@ export async function processPendingDiscoveries(
 export async function promoteDiscoveryReportById(store: IceCrawlStore, id: string) {
   const report = await getDiscoveryReportForPromotion(store, id);
   if (!report) throw new Error('That discovery report is no longer unconfirmed.');
-  const page = await fetchWithRetry(report.source_url);
-  if (page.status >= 400 && page.status !== 429) {
-    throw new Error(`Source returned HTTP ${page.status}.`);
-  }
+  const page = await fetchCrawlDocument(report.source_url, DISCOVERY_FETCH_OPTIONS);
   const extracted = extractHtmlReports(page.text, page.finalUrl, [], true);
   const fullText =
     extracted.map((entry) => entry.text).sort((a, b) => b.length - a.length)[0] ||

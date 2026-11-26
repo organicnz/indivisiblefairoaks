@@ -11,16 +11,17 @@ import {
   type IceCrawlTickSummary,
   summarizeIceCrawlTick,
 } from '@/lib/ice-crawl-health';
-import type {
-  IceCrawlDiscovery,
-  IceCrawlDiscoveryStatus,
-  IceCrawlDiscoveryTriageConfidence,
-  IceCrawlDiscoveryTriageRelevance,
-  IceCrawlSource,
-  IceCrawlSourceStatus,
-  IceSourceExtractionMethod,
-  IceSourceReport,
-  IceSourceReportKind,
+import {
+  ICE_DISCOVERY_MAX_ATTEMPTS,
+  type IceCrawlDiscovery,
+  type IceCrawlDiscoveryStatus,
+  type IceCrawlDiscoveryTriageConfidence,
+  type IceCrawlDiscoveryTriageRelevance,
+  type IceCrawlSource,
+  type IceCrawlSourceStatus,
+  type IceSourceExtractionMethod,
+  type IceSourceReport,
+  type IceSourceReportKind,
 } from '@/lib/ice-crawl-types';
 import type { IceSourceReportPublicationStatus } from '@/lib/ice-discovery-publication';
 import {
@@ -354,6 +355,10 @@ type IceCrawlDatabase = {
         Args: { p_rows: IceCrawlDiscoveryTriageRow[] };
         Returns: number;
       };
+      record_ice_discovery_attempt: {
+        Args: { p_id: string; p_note: string; p_max_attempts?: number };
+        Returns: Array<{ status: string; attempt_count: number }>;
+      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
@@ -458,6 +463,7 @@ export async function listPendingIceCrawlDiscoveriesForTriage(store: IceCrawlSto
     .select('*')
     .eq('status', 'pending')
     .is('duplicate_of', null)
+    .lt('attempt_count', ICE_DISCOVERY_MAX_ATTEMPTS)
     .order('triaged_at', { ascending: true, nullsFirst: true })
     .order('discovered_at', { ascending: true })
     .limit(Math.min(Math.max(1, limit), 200));
@@ -480,6 +486,7 @@ export async function listPendingIceCrawlDiscoveries(store: IceCrawlStore, limit
     .from('ice_crawl_discoveries')
     .select('*')
     .eq('status', 'pending')
+    .lt('attempt_count', ICE_DISCOVERY_MAX_ATTEMPTS)
     .order('last_attempt_at', { ascending: true, nullsFirst: true })
     .order('discovered_at', { ascending: true })
     .limit(Math.min(Math.max(1, limit), 100));
@@ -491,13 +498,56 @@ export async function countPendingIceCrawlDiscoveries(store: IceCrawlStore) {
   const { count, error } = await store
     .from('ice_crawl_discoveries')
     .select('id', { count: 'exact', head: true })
-    .eq('status', 'pending');
+    .eq('status', 'pending')
+    .lt('attempt_count', ICE_DISCOVERY_MAX_ATTEMPTS);
   if (error) throw new Error(`crawl pending discovery count failed: ${error.message}`);
   return count ?? 0;
 }
 
-export async function noteIceCrawlDiscoveryAttempt(store: IceCrawlStore, id: string, note: string) {
-  const { error } = await store
+export async function countExhaustedIceCrawlDiscoveries(store: IceCrawlStore) {
+  const { count, error } = await store
+    .from('ice_crawl_discoveries')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'pending')
+    .is('duplicate_of', null)
+    .gte('attempt_count', ICE_DISCOVERY_MAX_ATTEMPTS);
+  if (error) throw new Error(`crawl exhausted discovery count failed: ${error.message}`);
+  return count ?? 0;
+}
+
+export type IceCrawlDiscoveryAttempt = {
+  outcome: 'retry' | 'exhausted';
+  attemptCount: number;
+};
+
+/**
+ * Spend one transient-fetch attempt. The SQL function owns the ceiling so the
+ * Next intake and the edge scan cannot disagree. The row stays `pending`: the
+ * automatic retry budget is spent, but the candidate remains available for a
+ * human approve/reject decision.
+ */
+export async function recordIceCrawlDiscoveryAttempt(
+  store: IceCrawlStore,
+  id: string,
+  note: string
+): Promise<IceCrawlDiscoveryAttempt> {
+  const { data, error } = await store.rpc('record_ice_discovery_attempt', {
+    p_id: id,
+    p_note: note,
+    p_max_attempts: ICE_DISCOVERY_MAX_ATTEMPTS,
+  });
+  if (!error) {
+    const row = Array.isArray(data) ? data[0] : data;
+    const attemptCount = Number(row?.attempt_count ?? 0);
+    return {
+      outcome: attemptCount >= ICE_DISCOVERY_MAX_ATTEMPTS ? 'exhausted' : 'retry',
+      attemptCount,
+    };
+  }
+
+  // A project that has not applied the attempt RPC still gets the old
+  // rotation behaviour: record the timestamp, leave the row pending.
+  const fallback = await store
     .from('ice_crawl_discoveries')
     .update({
       review_note: note.slice(0, 500),
@@ -506,7 +556,8 @@ export async function noteIceCrawlDiscoveryAttempt(store: IceCrawlStore, id: str
     })
     .eq('id', id)
     .eq('status', 'pending');
-  if (error) throw new Error(`crawl discovery attempt note failed: ${error.message}`);
+  if (fallback.error) throw new Error(`crawl discovery attempt failed: ${fallback.error.message}`);
+  return { outcome: 'retry', attemptCount: 0 };
 }
 
 export async function getOrCreateDiscoverySource(store: IceCrawlStore): Promise<IceCrawlSource> {

@@ -15,11 +15,17 @@
  * The API is oldest-first by default; the source URL carries
  * `sort_by=created&sort_order=DESC`, and `justiceReleasePageUrls` expands one
  * seed into the first pages of that ordering so a tick reads more than the
- * single newest page.
+ * single newest page. The crawl frontier stores the page after a drained
+ * window as a cursor, so later ticks can walk older releases without widening
+ * the per-tick window.
+ *
+ * Operational details and the cleanup runbook: `docs/ice-source-crawl.md`.
  */
 
 const API_PATH = '/api/v1/press_releases.json';
-const DEFAULT_PAGES = 12;
+export const JUSTICE_RELEASE_PAGE_WINDOW = 12;
+const DEFAULT_PAGES = JUSTICE_RELEASE_PAGE_WINDOW;
+const API_PAGE_SIZE_FALLBACK = 20;
 
 export type JusticeReleaseItem = {
   url: string;
@@ -52,6 +58,66 @@ function parseApi(text: string): { results: unknown[] } | null {
   const results = (parsed as { results?: unknown }).results;
   if (!Array.isArray(results) || results.length === 0) return null;
   return { results };
+}
+
+function nonNegativeInteger(value: unknown): number | null {
+  const number = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(number) && number >= 0 ? Math.floor(number) : null;
+}
+
+/**
+ * Whether the API says another page exists. `metadata.resultset` carries the
+ * total count, page size and zero-based page number; when a response omits
+ * that metadata, a full page is the only signal that there is more to read.
+ */
+export function justiceReleaseHasNextPage(text: string): boolean {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return false;
+  }
+  if (!parsed || typeof parsed !== 'object') return false;
+  const metadata = (parsed as { metadata?: unknown }).metadata;
+  if (metadata && typeof metadata === 'object') {
+    const resultset = (metadata as { resultset?: unknown }).resultset;
+    if (resultset && typeof resultset === 'object') {
+      const row = resultset as Record<string, unknown>;
+      const page = nonNegativeInteger(row.page);
+      const pagesize = nonNegativeInteger(row.pagesize);
+      const count = nonNegativeInteger(row.count);
+      if (page !== null && pagesize !== null && pagesize > 0 && count !== null) {
+        return (page + 1) * pagesize < count;
+      }
+    }
+  }
+  const results = (parsed as { results?: unknown }).results;
+  return Array.isArray(results) && results.length >= API_PAGE_SIZE_FALLBACK;
+}
+
+function justiceReleaseApiUrl(rawUrl: string): URL | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    return null;
+  }
+  if (parsed.hostname !== 'www.justice.gov' && parsed.hostname !== 'justice.gov') return null;
+  if (parsed.pathname !== API_PATH) return null;
+  return parsed;
+}
+
+/**
+ * The zero-based API page a URL names. The source seed has no `page`
+ * parameter and therefore means page 0; every other source URL returns null.
+ */
+export function justiceReleasePageNumber(rawUrl: string): number | null {
+  const url = justiceReleaseApiUrl(rawUrl);
+  if (!url) return null;
+  const raw = url.searchParams.get('page');
+  if (raw === null || raw.trim() === '') return 0;
+  const page = Number(raw);
+  return Number.isInteger(page) && page >= 0 ? page : null;
 }
 
 function releaseItem(entry: unknown): JusticeReleaseItem | null {
@@ -112,25 +178,22 @@ export function extractJusticeReleaseItems(
 }
 
 /**
- * Expand the API seed into its newest pages. The API returns 20 releases per
- * page and the source's stored URL already carries the descending sort, so
- * this is a bounded newest-first window rather than a walk of all 13k pages.
+ * Expand the API seed into a window of pages starting at `startPage`. The
+ * default is the newest 12 pages; the crawler passes the next unvisited page
+ * to resume older releases without widening the per-tick window.
  */
-export function justiceReleasePageUrls(rawUrl: string, pages = DEFAULT_PAGES): string[] {
-  let base: URL;
-  try {
-    base = new URL(rawUrl);
-  } catch {
-    return [rawUrl];
-  }
-  if (base.hostname !== 'www.justice.gov' && base.hostname !== 'justice.gov') {
-    return [rawUrl];
-  }
-  if (base.pathname !== API_PATH) return [rawUrl];
-  const count = Math.max(1, Math.floor(pages));
-  return Array.from({ length: count }, (_, page) => {
+export function justiceReleasePageUrls(
+  rawUrl: string,
+  pages = DEFAULT_PAGES,
+  startPage = 0
+): string[] {
+  const base = justiceReleaseApiUrl(rawUrl);
+  if (!base) return [rawUrl];
+  const count = Number.isFinite(pages) ? Math.max(1, Math.floor(pages)) : DEFAULT_PAGES;
+  const first = Number.isFinite(startPage) ? Math.max(0, Math.floor(startPage)) : 0;
+  return Array.from({ length: count }, (_, offset) => {
     const url = new URL(base.toString());
-    url.searchParams.set('page', String(page));
+    url.searchParams.set('page', String(first + offset));
     return url.toString();
   });
 }

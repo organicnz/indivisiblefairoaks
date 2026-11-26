@@ -4,6 +4,9 @@
 optional surge subscription layer. It does not change the public feed or the
 historical FOIA map.
 
+The approved-source crawler, DOJ cursor, and `ice-evidence` bucket are separate;
+see [`docs/ice-source-crawl.md`](./ice-source-crawl.md).
+
 ## What triggers an alert
 
 `src/lib/ice-rapid-surges.ts` computes three signals from the community feed

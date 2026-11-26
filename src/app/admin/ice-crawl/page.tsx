@@ -10,6 +10,7 @@ import { requireAdminPage } from '@/lib/admin-auth';
 import { env } from '@/lib/env';
 import {
   countCollapsedIceCrawlDiscoveries,
+  countExhaustedIceCrawlDiscoveries,
   countReviewableIceCrawlDiscoveries,
   getIceCrawlStore,
   getPublishedSourceReports,
@@ -53,6 +54,7 @@ export default async function AdminIceCrawlPage({
   let discoveries: IceCrawlDiscoveryRow[] = [];
   let topConfidence: IceCrawlDiscoveryRow[] = [];
   let discoveryTotal = 0;
+  let discoveryExhaustedTotal = 0;
   let collapsedDuplicates = 0;
   let unconfirmed: Awaited<ReturnType<typeof listUnconfirmedDiscoveryReports>> = [];
   let confirmedDrafts: Awaited<ReturnType<typeof listRightsConfirmedDrafts>> = [];
@@ -91,6 +93,11 @@ export default async function AdminIceCrawlPage({
       collapsedDuplicates = await countCollapsedIceCrawlDiscoveries(crawlerStore);
     } catch {
       collapsedDuplicates = 0;
+    }
+    try {
+      discoveryExhaustedTotal = await countExhaustedIceCrawlDiscoveries(crawlerStore);
+    } catch {
+      discoveryExhaustedTotal = 0;
     }
     try {
       topConfidence = await listTopConfidenceIceCrawlDiscoveries(crawlerStore, 5);
@@ -182,6 +189,7 @@ export default async function AdminIceCrawlPage({
         discoveries={discoveries}
         topConfidence={topConfidence}
         total={discoveryTotal}
+        exhaustedTotal={discoveryExhaustedTotal}
         collapsedDuplicates={collapsedDuplicates}
         page={page}
         pageSize={DISCOVERY_PAGE_SIZE}

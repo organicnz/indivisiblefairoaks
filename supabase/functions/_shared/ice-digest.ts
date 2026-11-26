@@ -21,6 +21,11 @@ const MAX_REPORT_DIGEST_CHARS = 5_000;
 const COPY_SHINGLE_WORDS = 7;
 const MAX_COPY_RUN_WORDS = 14;
 const MAX_COPIED_RATIO = 0.25;
+const MIN_ATTRIBUTED_DIGEST_WORDS = 30;
+const MIN_ATTRIBUTED_DIGEST_SENTENCES = 2;
+const MIN_DIGEST_WORDS_BEYOND_TITLE = 24;
+const ATTRIBUTION_PATTERN =
+  /\b(?:said|says|according to|reported|reports|announced|announces|stated|states|confirmed|confirms|testified|testifies|told|tells|argued|argues|claimed|claims|wrote|writes|noted|notes|described|describes|show|shows|showed)\b/i;
 
 function digestWords(value: string) {
   return value
@@ -35,6 +40,35 @@ function numberTokens(value: string) {
   return [...value.matchAll(/\d[\d,.]*/g)]
     .map((match) => match[0].replace(/[.,]+$/g, '').replace(/,/g, ''))
     .filter(Boolean);
+}
+
+function sentenceCount(value: string) {
+  const withoutAbbreviations = value
+    .replace(
+      /\b(?:U\.S\.(?:A\.)?|D\.C\.|Mr\.|Mrs\.|Ms\.|Dr\.|Gov\.|Sen\.|Rep\.|Inc\.|Corp\.|Co\.|No\.|vs\.|etc\.|e\.g\.|i\.e\.|a\.m\.|p\.m\.|Jan\.|Feb\.|Mar\.|Apr\.|Jun\.|Jul\.|Aug\.|Sep\.|Sept\.|Oct\.|Nov\.|Dec\.)/gi,
+      (match) => match.replace(/\./g, '')
+    )
+    .replace(/\b(?:[A-Za-z]\.){2,}/g, (match) => match.replace(/\./g, ''));
+
+  return withoutAbbreviations
+    .split(/[.!?]+(?=\s|$)/)
+    .map((sentence) => sentence.trim())
+    .filter((sentence) => digestWords(sentence).length >= 4).length;
+}
+
+/** A headline plus byline is not a digest, even when it passes the length floor. */
+export function digestIsTitleOnly(title: string, digest: string) {
+  const titleWords = digestWords(title);
+  const digestWordList = digestWords(digest);
+  if (titleWords.length < 3 || digestWordList.length === 0) return false;
+
+  const digestSet = new Set(digestWordList);
+  const matchedTitleWords = titleWords.filter((word) => digestSet.has(word)).length;
+  const titleCoverage = matchedTitleWords / titleWords.length;
+  const titleSet = new Set(titleWords);
+  const wordsBeyondTitle = digestWordList.filter((word) => !titleSet.has(word)).length;
+
+  return titleCoverage >= 0.8 && wordsBeyondTitle < MIN_DIGEST_WORDS_BEYOND_TITLE;
 }
 
 /** A digest must not contain an invented statistic, date or identifier. */
@@ -107,4 +141,17 @@ export function isSafeSourceDigest(source: string, digest: string) {
   if (/(?:\*\*|__|```|^\s*[-*#]\s)/m.test(digest)) return false;
   if (digestInventsNumber(source, digest)) return false;
   return !digestRepeatsSource(source, digest);
+}
+
+/**
+ * A public discovery summary must be a real digest, not just the page's
+ * headline and byline: at least two sentences, enough original prose to stand
+ * on its own, a reporting attribution, no title-only output and no copied run.
+ */
+export function isAttributedSourceDigest(source: string, digest: string, title?: string | null) {
+  if (!isSafeSourceDigest(source, digest)) return false;
+  if (digestWords(digest).length < MIN_ATTRIBUTED_DIGEST_WORDS) return false;
+  if (sentenceCount(digest) < MIN_ATTRIBUTED_DIGEST_SENTENCES) return false;
+  if (title && digestIsTitleOnly(title, digest)) return false;
+  return ATTRIBUTION_PATTERN.test(digest);
 }

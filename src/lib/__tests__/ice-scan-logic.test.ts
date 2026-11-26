@@ -3,6 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildGdeltDiscoveryUrl,
+  buildSiteScopedSearchQuery,
   canonicalizeDiscoveryUrl,
   decodeEntities,
   dedupeCandidates,
@@ -10,12 +11,19 @@ import {
   discoveryStoryKey,
   extractEvidenceImageUrls,
   extractTitle,
+  isBlockedProviderError,
   isPrivateAddress,
+  isSiteScopedHost,
   mentionsIceEnforcement,
   parseBingNewsPayload,
   parseGdeltArticles,
   parseMastodonPayload,
   parseNewsFeedPayload,
+  parseSiteScopedBingPayload,
+  providerBackoffDelayMs,
+  providerCoolingDown,
+  providerHealthAfterFailure,
+  providerHealthAfterSuccess,
   readableText,
   withinDiscoveryWindow,
 } from '../../../supabase/functions/_shared/ice-scan-logic';
@@ -162,6 +170,63 @@ describe('ice scan provider parsing', () => {
       'ICE raid California'
     );
     expect(rows[0].discovery_query).toBe('ICE raid California');
+  });
+
+  it('builds a site-scoped fallback and keeps only that publisher’s hosts', () => {
+    const xml = `<rss><channel>
+      <item>
+        <title>ICE arrests 8 in Contra Costa County</title>
+        <link>https://www.bing.com/news/apiclick.aspx?url=https%3A%2F%2Fexample.com%2Fice-arrests</link>
+        <description>Federal agents detained workers.</description>
+        <pubDate>Wed, 25 Nov 2026 14:56:00 GMT</pubDate>
+      </item>
+      <item>
+        <title>ICE arrests 8 in Contra Costa County</title>
+        <link>https://www.bing.com/news/apiclick.aspx?url=https%3A%2F%2Fwww.mercurynews.com%2F2026%2F11%2F25%2Fice-arrests%2F</link>
+        <description>Federal agents detained workers.</description>
+        <pubDate>Wed, 25 Nov 2026 14:56:00 GMT</pubDate>
+        <News:Source>The Mercury News</News:Source>
+      </item>
+    </channel></rss>`;
+
+    const query = buildSiteScopedSearchQuery('mercurynews.com');
+    expect(query).toContain('site:mercurynews.com');
+    expect(query).toContain('287(g)');
+    expect(isSiteScopedHost('https://www.mercurynews.com/ice', ['mercurynews.com'])).toBe(true);
+    expect(isSiteScopedHost('https://mercurynews.com.evil.example/ice', ['mercurynews.com'])).toBe(
+      false
+    );
+
+    const rows = parseSiteScopedBingPayload(
+      xml,
+      { id: 'mercury-news', label: 'The Mercury News', domains: ['mercurynews.com'] },
+      query
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      url: 'https://mercurynews.com/2026/11/25/ice-arrests',
+      publisher: 'The Mercury News',
+      discovery_query: 'site-search:mercury-news',
+    });
+  });
+
+  it('backs off blocked publishers longer than transient failures', () => {
+    const now = Date.parse('2026-11-26T12:00:00.000Z');
+    expect(providerBackoffDelayMs(1, 'transient')).toBe(15 * 60 * 1_000);
+    expect(providerBackoffDelayMs(1, 'blocked')).toBe(6 * 60 * 60 * 1_000);
+    expect(providerBackoffDelayMs(9, 'blocked')).toBe(24 * 60 * 60 * 1_000);
+    expect(isBlockedProviderError('Source returned HTTP 404.')).toBe(true);
+    expect(isBlockedProviderError('Source returned HTTP 503.')).toBe(false);
+
+    const blocked = providerHealthAfterFailure(undefined, 'HTTP 403', now, 'blocked');
+    expect(blocked.failures).toBe(1);
+    expect(blocked.next_attempt_at).toBe(new Date(now + 6 * 60 * 60 * 1_000).toISOString());
+    expect(providerCoolingDown(blocked, now + 1)).toBe(true);
+    expect(providerCoolingDown(blocked, now + 6 * 60 * 60 * 1_000)).toBe(false);
+
+    const success = providerHealthAfterSuccess(blocked, now + 7 * 60 * 60 * 1_000);
+    expect(success).toMatchObject({ failures: 0, next_attempt_at: null, last_error: null });
+    expect(success.last_success_at).toBe(new Date(now + 7 * 60 * 60 * 1_000).toISOString());
   });
 
   it('resolves Bing News redirect links to the publisher', () => {

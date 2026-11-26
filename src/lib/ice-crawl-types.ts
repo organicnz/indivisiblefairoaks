@@ -47,6 +47,8 @@ export type IceSourceReport = {
 };
 
 export type IceCrawlDiscoveryStatus = 'pending' | 'approved' | 'rejected';
+/** Automatic fetch retries stop here; the row stays pending for human review. */
+export const ICE_DISCOVERY_MAX_ATTEMPTS = 6;
 export type IceCrawlDiscoveryTriageConfidence = 'high' | 'medium' | 'low';
 export type IceCrawlDiscoveryTriageRelevance =
   | 'enforcement'
@@ -69,6 +71,8 @@ export type IceCrawlDiscovery = {
   reviewed_at: string | null;
   review_note: string | null;
   last_attempt_at: string | null;
+  /** Transient fetch attempts; at the limit the row is review-only. */
+  attempt_count: number;
   /** AI relevance score 0-100; null until the triage pass runs. */
   triage_score: number | null;
   triage_confidence: IceCrawlDiscoveryTriageConfidence | null;
@@ -79,6 +83,10 @@ export type IceCrawlDiscovery = {
   /** Canonical pending discovery when this row is a collapsed duplicate. */
   duplicate_of: string | null;
 };
+
+export function iceDiscoveryAttemptsExhausted(attemptCount: number | null | undefined) {
+  return (attemptCount ?? 0) >= ICE_DISCOVERY_MAX_ATTEMPTS;
+}
 
 export function iceDiscoveryConfidenceLabel(confidence: IceCrawlDiscoveryTriageConfidence | null) {
   if (confidence === 'high') return 'High confidence';

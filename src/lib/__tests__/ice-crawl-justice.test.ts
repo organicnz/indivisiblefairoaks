@@ -4,6 +4,8 @@ import {
   buildRelevancePattern,
   extractJusticeReleaseItems,
   isJusticeReleaseApi,
+  justiceReleaseHasNextPage,
+  justiceReleasePageNumber,
   justiceReleasePageUrls,
 } from '@/lib/ice-crawl-justice';
 
@@ -43,6 +45,18 @@ const RELEASES = JSON.stringify({
 });
 
 const TERMS = ['ICE', 'immigration', 'immigrant', 'asylum', 'visa fraud'];
+
+const LAST_RELEASE_PAGE = JSON.stringify({
+  metadata: { resultset: { count: '276667', pagesize: 20, page: 13833 } },
+  results: [
+    {
+      url: 'https://www.justice.gov/opa/pr/oldest-release',
+      title: 'ICE release from the oldest page',
+      teaser: 'ICE release',
+      date: '1795521600',
+    },
+  ],
+});
 
 describe('buildRelevancePattern', () => {
   it('matches acronyms and phrases on word boundaries', () => {
@@ -103,6 +117,43 @@ describe('extractJusticeReleaseItems', () => {
   });
 });
 
+describe('justiceReleasePageNumber', () => {
+  it('reads the zero-based page from an API URL', () => {
+    expect(
+      justiceReleasePageNumber(
+        'https://www.justice.gov/api/v1/press_releases.json?sort_by=created&sort_order=DESC'
+      )
+    ).toBe(0);
+    expect(
+      justiceReleasePageNumber(
+        'https://www.justice.gov/api/v1/press_releases.json?sort_by=created&sort_order=DESC&page=12'
+      )
+    ).toBe(12);
+  });
+
+  it('returns null for a non-API URL or an invalid page', () => {
+    expect(justiceReleasePageNumber('https://www.ice.gov/newsroom')).toBeNull();
+    expect(
+      justiceReleasePageNumber('https://www.justice.gov/api/v1/press_releases.json?page=next')
+    ).toBeNull();
+  });
+});
+
+describe('justiceReleaseHasNextPage', () => {
+  it('uses the API result count to stop at the oldest page', () => {
+    expect(justiceReleaseHasNextPage(RELEASES)).toBe(true);
+    expect(justiceReleaseHasNextPage(LAST_RELEASE_PAGE)).toBe(false);
+  });
+
+  it('falls back to the page size when metadata is absent', () => {
+    expect(
+      justiceReleaseHasNextPage(JSON.stringify({ results: Array.from({ length: 20 }, () => ({})) }))
+    ).toBe(true);
+    expect(justiceReleaseHasNextPage(JSON.stringify({ results: [{}] }))).toBe(false);
+    expect(justiceReleaseHasNextPage('not json')).toBe(false);
+  });
+});
+
 describe('justiceReleasePageUrls', () => {
   it('expands the seed into the first pages, preserving the descending sort', () => {
     const urls = justiceReleasePageUrls(
@@ -115,6 +166,19 @@ describe('justiceReleasePageUrls', () => {
       expect(parsed.searchParams.get('page')).toBe(String(index));
       expect(parsed.searchParams.get('sort_by')).toBe('created');
       expect(parsed.searchParams.get('sort_order')).toBe('DESC');
+    }
+  });
+
+  it('starts an older window at the cursor page', () => {
+    const urls = justiceReleasePageUrls(
+      'https://www.justice.gov/api/v1/press_releases.json?sort_by=created&sort_order=DESC',
+      3,
+      12
+    );
+    expect(urls.map((url) => new URL(url).searchParams.get('page'))).toEqual(['12', '13', '14']);
+    for (const url of urls) {
+      expect(new URL(url).searchParams.get('sort_by')).toBe('created');
+      expect(new URL(url).searchParams.get('sort_order')).toBe('DESC');
     }
   });
 

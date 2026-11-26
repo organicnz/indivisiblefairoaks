@@ -86,6 +86,21 @@ describe('ice-source-refine digest mode', () => {
     expect(result).toEqual({ isReport: true, text: GOOD_DIGEST });
   });
 
+  it('rejects a headline and byline instead of admitting title-only output', () => {
+    const title = 'ICE Los Angeles operation takes 12 people into custody';
+    const byline = `${title}\nBy Jane Doe, Staff Writer | November 16, 2026 | Updated 4:15 p.m. ET`;
+
+    expect(byline.length).toBeGreaterThan(120);
+    expect(
+      parseRefineResponse(
+        JSON.stringify({ isReport: true, text: byline }),
+        DIGEST_SOURCE,
+        'refine',
+        title
+      )
+    ).toBeNull();
+  });
+
   it('rejects a digest assembled mainly from a source passage', () => {
     const copied = `${DIGEST_SOURCE.split('\n')[0]} Additional context written separately to reach the minimum digest length for this test.`;
     expect(

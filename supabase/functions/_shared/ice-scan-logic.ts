@@ -45,6 +45,105 @@ export type DiscoveryCandidate = {
   discovery_query: string;
 };
 
+/**
+ * Per-provider state persisted with the scan run. A blocked publisher should
+ * not be hammered every fifteen minutes just because the cron is healthy; the
+ * next run reads this state and uses the site-scoped fallback while the direct
+ * feed cools down. The state is data, not a process-local cache, so it also
+ * survives a cold edge isolate.
+ */
+export type ProviderHealthState = {
+  failures: number;
+  next_attempt_at: string | null;
+  last_error: string | null;
+  last_success_at: string | null;
+};
+
+export type ProviderHealthMap = Record<string, ProviderHealthState>;
+
+const TRANSIENT_BACKOFF_BASE_MS = 15 * 60 * 1_000;
+const TRANSIENT_BACKOFF_MAX_MS = 2 * 60 * 60 * 1_000;
+const BLOCKED_BACKOFF_BASE_MS = 6 * 60 * 60 * 1_000;
+const BLOCKED_BACKOFF_MAX_MS = 24 * 60 * 60 * 1_000;
+
+/** Exponential with a hard ceiling; no unbounded retry schedule. */
+export function providerBackoffDelayMs(
+  failures: number,
+  kind: 'blocked' | 'transient' = 'transient',
+) {
+  const base = kind === 'blocked' ? BLOCKED_BACKOFF_BASE_MS : TRANSIENT_BACKOFF_BASE_MS;
+  const max = kind === 'blocked' ? BLOCKED_BACKOFF_MAX_MS : TRANSIENT_BACKOFF_MAX_MS;
+  const exponent = Math.min(6, Math.max(0, Math.floor(failures) - 1));
+  return Math.min(max, base * 2 ** exponent);
+}
+
+export function providerCoolingDown(
+  state: ProviderHealthState | undefined,
+  now = Date.now(),
+) {
+  if (!state?.next_attempt_at) return false;
+  const next = Date.parse(state.next_attempt_at);
+  return !Number.isNaN(next) && next > now;
+}
+
+export function providerHealthAfterFailure(
+  state: ProviderHealthState | undefined,
+  message: string,
+  now = Date.now(),
+  kind: 'blocked' | 'transient' = 'transient',
+): ProviderHealthState {
+  const failures = (state?.failures ?? 0) + 1;
+  return {
+    failures,
+    next_attempt_at: new Date(now + providerBackoffDelayMs(failures, kind)).toISOString(),
+    last_error: message.replace(/\s+/g, ' ').trim().slice(0, 300),
+    last_success_at: state?.last_success_at ?? null,
+  };
+}
+
+export function providerHealthAfterSuccess(
+  state: ProviderHealthState | undefined,
+  now = Date.now(),
+): ProviderHealthState {
+  return {
+    failures: 0,
+    next_attempt_at: null,
+    last_error: null,
+    last_success_at: new Date(now).toISOString(),
+  };
+}
+
+/** 403/404 is a publisher-side refusal, not a transient network fault. */
+export function isBlockedProviderError(message: string) {
+  return /HTTP\s+(?:403|404|410)\b/i.test(message);
+}
+
+export type SiteScopedFeed = {
+  id: string;
+  label: string;
+  domains: readonly string[];
+};
+
+const SITE_SEARCH_TERMS =
+  '("ICE" OR "ICE agents" OR "ICE raid" OR "ICE arrests" OR "ICE detention" OR "ICE checkpoint" OR "immigration raid" OR "immigration arrests" OR "immigration enforcement" OR "287(g)")';
+
+/** Bing News supports `site:`; the publisher domain is the scope. */
+export function buildSiteScopedSearchQuery(domain: string) {
+  return `site:${domain} ${SITE_SEARCH_TERMS}`;
+}
+
+export function isSiteScopedHost(rawUrl: string, domains: readonly string[]) {
+  try {
+    const host = new URL(rawUrl).hostname.toLowerCase().replace(/^www\./, '').replace(/\.$/, '');
+    return domains.some((domain) => {
+      const normalized = domain.toLowerCase().replace(/^www\./, '').replace(/\.$/, '');
+      return host === normalized || host.endsWith(`.${normalized}`);
+    });
+  } catch {
+    return false;
+  }
+}
+
 type GdeltArticle = {
   url?: unknown;
   title?: unknown;
@@ -690,13 +789,18 @@ function bingTarget(link: string) {
   }
 }
 
-export function parseBingNewsPayload(xml: string, query: string) {
+export function parseBingNewsPayload(
+  xml: string,
+  query: string,
+  options: { domains?: readonly string[] } = {},
+) {
   const candidates: DiscoveryCandidate[] = [];
   for (const item of parseRssItems(xml)) {
     const target = bingTarget(item.link);
     if (!target) continue;
     const url = canonicalizeDiscoveryUrl(target);
     if (!url) continue;
+    if (options.domains && !isSiteScopedHost(url, options.domains)) continue;
     const title = stripMarkup(item.title).slice(0, MAX_TITLE);
     if (!title || !mentionsIceEnforcement(`${title} ${item.description}`)) continue;
     const rawPublisher = stripMarkup(item.source);
@@ -709,6 +813,26 @@ export function parseBingNewsPayload(xml: string, query: string) {
       discovery_query: `bing:${query}`.slice(0, 120),
     });
   }
+  return dedupeCandidates(candidates);
+}
+
+/**
+ * Bing's site-scoped result can still contain a stray syndicated link. Keep
+ * only the publisher's own hosts before attributing the result to that outlet.
+ */
+export function parseSiteScopedBingPayload(
+  xml: string,
+  feed: SiteScopedFeed,
+  query = buildSiteScopedSearchQuery(feed.domains[0] ?? ''),
+) {
+  if (feed.domains.length === 0) return [];
+  const candidates = parseBingNewsPayload(xml, query, { domains: feed.domains }).map(
+    (candidate) => ({
+      ...candidate,
+      publisher: feed.label,
+      discovery_query: `site-search:${feed.id}`.slice(0, 120),
+    }),
+  );
   return dedupeCandidates(candidates);
 }
 

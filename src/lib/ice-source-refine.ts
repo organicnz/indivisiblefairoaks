@@ -1,13 +1,24 @@
 import { env } from '@/lib/env';
 import type { IceSourceExtractionMethod } from '@/lib/ice-crawl-types';
-import { isSafeSourceDigest } from '../../supabase/functions/_shared/ice-digest';
+import {
+  isAttributedSourceDigest,
+  isSafeSourceDigest,
+} from '../../supabase/functions/_shared/ice-digest';
 
 export {
   digestCopyProfile,
   digestInventsNumber,
+  digestIsTitleOnly,
   digestRepeatsSource,
+  isAttributedSourceDigest,
 } from '../../supabase/functions/_shared/ice-digest';
 export { isSafeSourceDigest };
+export class InvalidSourceDigestError extends Error {
+  constructor() {
+    super('AI screen returned a title-only, copied, or unattributed digest.');
+    this.name = 'InvalidSourceDigestError';
+  }
+}
 
 /**
  * The crawler stores readable page text, but government newsroom pages wrap
@@ -291,7 +302,7 @@ export async function refineSourceReportWithAi(input: {
     if (typeof payload.text !== 'string') return null;
 
     const digest = normalizeText(payload.text);
-    if (!isSafeSourceDigest(text, digest)) return null;
+    if (!isAttributedSourceDigest(text, digest, input.sourceTitle)) return null;
     return { isReport: true, text: digest };
   } catch {
     return null;
@@ -304,8 +315,13 @@ export async function refineSourceTextWithAi(
     sourceUrl?: string | null;
     sourceTitle?: string | null;
   },
-  options: { timeoutMs?: number } = {}
+  options: {
+    timeoutMs?: number;
+    mode?: 'clean' | 'refine';
+    rejectInvalidDigest?: boolean;
+  } = {}
 ): Promise<SourceRefinement | null> {
+  const mode = options.mode ?? 'clean';
   const text = cleanSourceTextFallback(input.text);
   if (text.length < 40 || text.length > MAX_AI_REFINE_CHARS) return null;
 
@@ -325,6 +341,7 @@ export async function refineSourceTextWithAi(
         text,
         sourceUrl: input.sourceUrl ?? null,
         sourceTitle: input.sourceTitle ?? null,
+        mode,
       }),
       cache: 'no-store',
       signal: AbortSignal.timeout(
@@ -341,10 +358,20 @@ export async function refineSourceTextWithAi(
     if (!payload.isReport) return { isReport: false, text: '' };
     if (typeof payload.text !== 'string') return null;
 
+    if (mode === 'refine') {
+      const digest = normalizeText(payload.text);
+      if (!isAttributedSourceDigest(text, digest, input.sourceTitle)) {
+        if (options.rejectInvalidDigest) throw new InvalidSourceDigestError();
+        return null;
+      }
+      return { isReport: true, text: digest };
+    }
+
     const refined = cleanSourceTextFallback(payload.text);
     if (refined.length < 40 || !groundedRefinement(text, refined)) return null;
     return { isReport: true, text: refined };
-  } catch {
+  } catch (error) {
+    if (error instanceof InvalidSourceDigestError) throw error;
     return null;
   }
 }
