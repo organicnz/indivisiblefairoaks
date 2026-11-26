@@ -234,6 +234,76 @@ describe('check-vercel-deploy exit-code contract', () => {
     expect(await run()).toBe(0);
   });
 
+  it('prefers a READY deployment when another deployment for the SHA failed', async () => {
+    // A cache-poisoned git build can leave an ERROR deployment for a SHA while
+    // a later cache-free deploy of the same commit is READY. The first entry is
+    // newest, so blindly taking `found[0]` would report a shipped commit as
+    // unshipped. Ready is authoritative.
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ status: 'ok' })));
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const exit = await run({
+      deployments: [
+        deployment({ uid: 'dpl_error', state: 'ERROR', errorCode: 'BUILD_FAILED' }),
+        deployment({ uid: 'dpl_ready', state: 'READY' }),
+      ],
+    });
+    expect(exit).toBe(0);
+    expect(logSpy.mock.calls.flat().join(' ')).toMatch(/reports READY/i);
+    logSpy.mockRestore();
+  });
+
+  it('accepts a live production commit when Vercel lists no deployment for the SHA', async () => {
+    // This is the manual/cache-free-deploy case: the deployment may not appear
+    // in the SHA-filtered list, but `/api/health` names the exact commit the
+    // live app built. A matching commit is verified deployment evidence.
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(jsonResponse({ status: 'ok', deployment: { commit: SHA } }))
+    );
+
+    const exit = await checkDeploy({
+      env: env(),
+      shaArg: SHA,
+      budget: 1,
+      interval: 0,
+      healthBudget: 1,
+      siteUrl: 'https://test.indivisiblefairoaks.org',
+      listDeployments: async () => [],
+      getBuildLog: async () => '',
+      getFullBuildLog: async () => ({ text: '', truncated: false, eventCount: 0 }),
+    });
+
+    expect(exit).toBe(0);
+    expect(logSpy.mock.calls.flat().join(' ')).toMatch(/serving it/i);
+    logSpy.mockRestore();
+  });
+
+  it('rejects a live commit that does not match the requested SHA', async () => {
+    const other = 'b'.repeat(40);
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(jsonResponse({ status: 'ok', deployment: { commit: other } }))
+    );
+
+    const exit = await checkDeploy({
+      env: env(),
+      shaArg: SHA,
+      budget: 1,
+      interval: 0,
+      healthBudget: 1,
+      siteUrl: 'https://test.indivisiblefairoaks.org',
+      listDeployments: async () => [],
+      getBuildLog: async () => '',
+      getFullBuildLog: async () => ({ text: '', truncated: false, eventCount: 0 }),
+    });
+
+    expect(exit).toBe(1);
+    expect(err.mock.calls.flat().join(' ')).toMatch(/Live production reports/i);
+    err.mockRestore();
+  });
+
   it('exits 0 on 503 — deployed and serving, database degraded', async () => {
     // The distinction the old job also got right and is worth keeping: 503 is
     // not a deploy failure, and failing here would send someone to look at

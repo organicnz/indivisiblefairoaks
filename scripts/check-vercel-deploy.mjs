@@ -32,6 +32,11 @@
  * reach the database with production environment values. Vercel reporting
  * `READY` means the code compiled, not that the site works.
  *
+ * If the deployments list has no entry for the SHA but production's
+ * `/api/health` names the same commit, that is a verified live deployment, not
+ * a missing one. This covers a cache-free manual deploy whose Vercel metadata
+ * is not exposed through the SHA filter.
+ *
  * The probe targets the deployment URL first — that proves *this build*
  * serves. Team SSO protection gates `*.vercel.app` behind a vercel.com login,
  * so on exactly that redirect (and only that one) the check falls back to the
@@ -62,6 +67,7 @@
  * ## Exit codes — each failure mode is distinguishable
  *
  *   0  READY, and health returned 200 (503 is a warning: up, DB degraded)
+ *   0  no deployment for this SHA, but live production reports this commit
  *   0  no deployment for this SHA, but a newer SHA has one (superseded push)
  *   0  deployment CANCELED, but a newer SHA has one (superseded, not failed)
  *   1  deployment ERROR/CANCELED/BLOCKED — Vercel's own build text is printed
@@ -119,8 +125,20 @@ async function probeHealth(origin) {
         typeof res.headers?.get === 'function' ? (res.headers.get('location') ?? '') : '';
       return { ok: false, reason: `redirected (HTTP ${res.status}) — this host does not serve the app`, location };
     }
-    if (res.status === 200) return { ok: true, degraded: false };
-    if (res.status === 503) return { ok: true, degraded: true };
+    if (res.status === 200 || res.status === 503) {
+      // `/api/health` reports the commit Vercel built (next.config.ts inlines
+      // it). Carry it out of the probe: when the deployments list is empty or
+      // ordered around a failed deployment, a live commit that matches the SHA
+      // is the strongest evidence that this commit actually shipped.
+      let commit = null;
+      try {
+        const body = await res.json();
+        commit = body?.deployment?.commit ?? null;
+      } catch {
+        // A 200 with a non-JSON body still proves serving, just not identity.
+      }
+      return { ok: true, degraded: res.status === 503, commit };
+    }
     return { ok: false, reason: `unexpected status HTTP ${res.status}` };
   } catch (err) {
     return { ok: false, reason: err?.name === 'TimeoutError' ? 'timed out' : String(err?.message ?? err) };
@@ -142,6 +160,20 @@ function isSsoRedirect(location) {
 /** The git SHA Vercel built a deployment from, whatever field carries it. */
 function deploymentSha(d) {
   return d?.gitSource?.sha ?? d?.meta?.githubCommitSha ?? d?.gitCommitSha ?? null;
+}
+
+/**
+ * Pick the deployment that represents a successful outcome.
+ *
+ * Vercel returns newest first, but a SHA can have more than one deployment:
+ * a git build that failed from a poisoned cache, followed by a cache-free
+ * deploy of the same commit. Failing because `found[0]` is the older ERROR
+ * would report the commit as unshipped even though a READY deployment (and
+ * production) serves it. A READY deployment is authoritative; otherwise keep
+ * the newest entry so its failure state and Vercel error text are surfaced.
+ */
+function selectDeployment(found) {
+  return found.find((d) => d.state === 'READY') ?? found[0];
 }
 
 export async function main(deps = {}) {
@@ -325,7 +357,7 @@ const note = (line) => summary.push(line);
         const found = await list(creds.projectId, creds.teamId, creds.token, { sha });
         apiErrors = 0;
         if (found.length > 0) {
-          deployment = found[0];
+          deployment = selectDeployment(found);
           if (TERMINAL_STATES.has(deployment.state)) break;
           lastSeen = deployment.state;
           console.log(`   … ${deployment.state} (build in progress)`);
@@ -361,8 +393,22 @@ const note = (line) => summary.push(line);
         note(`- No deployment for this SHA — superseded by ${by}. Not a failure.`);
         return await finish(0);
       }
+      // A deployment can be absent from the list while production is already
+      // serving the commit — for example after a manual cache-free deploy that
+      // Vercel did not expose through the SHA filter. The health payload names
+      // the exact commit the deployment built, so a match is not an inference.
+      const live = siteUrl ? await probeHealth(siteUrl) : null;
+      if (live?.ok && live.commit === sha) {
+        console.log(`✅ No deployment listed for ${short}, but ${siteUrl} is serving it.`);
+        console.log(`   ${live.degraded ? 'Database degraded (503)' : 'Database reachable'}.`);
+        note(`- No deployment listed for ${short} after ${Math.round(budget / 1000)}s, but live production at ${siteUrl} reports this commit (${live.degraded ? '503 database degraded' : '200 OK'}). Treating the verified live deployment as satisfied.`);
+        return await finish(0);
+      }
       console.error(`✖  No deployment for ${short} after ${Math.round(budget / 1000)}s.`);
       console.error('   Either Vercel has not started one, or it was superseded by a newer push.');
+      if (siteUrl && live?.commit) {
+        console.error(`   Live production reports ${live.commit.slice(0, 8)}, not ${short}.`);
+      }
       note(`- No deployment for this SHA after ${Math.round(budget / 1000)}s, and none newer. Vercel never started one.`);
       return await finish(1);
     }

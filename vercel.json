@@ -1,5 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "bunVersion": "1.4.x",
-  "buildCommand": "bun run build"
+  "buildCommand": "rm -rf .next/cache && bun run build"
 }
