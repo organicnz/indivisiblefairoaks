@@ -69,8 +69,8 @@ Two things about that worth keeping:
 
 | Name | Scope | Used by |
 |---|---|---|
-| `SUPABASE_ACCESS_TOKEN` | Account PAT | `supabase.yml` — edge function deploys, migration apply; fallback for read-only Management API checks in `schema-check-trusted.yml` and `supabase.yml` |
-| `SUPABASE_READ_ONLY_ACCESS_TOKEN` | Scoped PAT — one project, Database Read | `schema-check-trusted.yml` migration-history and schema-hygiene checks; `supabase.yml` types job; `supabase-type-freshness.yml` (required there); optional fallback elsewhere while provisioning |
+| `SUPABASE_ACCESS_TOKEN` | Account PAT | `supabase.yml` — edge function deploys, migration apply; read-only Management API checks in `schema-check-trusted.yml`, `schema-hygiene.yml`, and `supabase-type-freshness.yml` when the scoped token is absent |
+| `SUPABASE_READ_ONLY_ACCESS_TOKEN` | Scoped PAT — one project, Database Read | Optional preferred token for `schema-check-trusted.yml` migration-history and schema-hygiene checks, `supabase.yml` types job, and `supabase-type-freshness.yml` |
 | `SUPABASE_DB_PASSWORD` | Database role password | `supabase.yml` — advisory-lock migration path |
 | `SUPABASE_POOLER_URL` | Supavisor connection string | `supabase.yml` — pooled migration path |
 | `SUPABASE_SECRET_KEY` | Service-role key (**bypasses RLS**) | `walle-refresh.yml` |
@@ -82,11 +82,10 @@ only. The generated-types endpoint and the database-query endpoint both accept
 **Database Read** (queries run read-only), so a project-scoped PAT with that
 single permission is sufficient for `check-supabase-types`, `check-migrations`
 and `check-schema-hygiene`; it cannot deploy functions or apply migrations. It
-is optional while the repository transitions: `schema-check-trusted.yml` and the
-`supabase.yml` types job fall back to `SUPABASE_ACCESS_TOKEN` until it is
-provisioned. The
-scheduled freshness workflow requires it and fails closed without it. Create
-it under [Account → Access Tokens](https://supabase.com/dashboard/account/tokens) with
+is optional while the repository transitions: every read-only check falls back
+to `SUPABASE_ACCESS_TOKEN`, and the scheduled freshness workflow reports an
+explicit UNKNOWN skip only when neither credential is configured. Create it
+under [Account → Access Tokens](https://supabase.com/dashboard/account/tokens) with
 the canonical project selected and only **Database → Read** enabled.
 
 ### The one that will hurt you

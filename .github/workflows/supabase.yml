@@ -9,8 +9,9 @@ name: Supabase
 #   - push to main touching supabase/** or this workflow
 #   - manual dispatch (e.g. redeploy after a secret rotation)
 #
-# Runners: backend-runner ONLY ([self-hosted, linux, backend-runner]).
-# Frontend jobs must never land here; see ci.yml (frontend-runner).
+# Runners: [self-hosted, linux]. The role labels were retired; every pool host
+# carries both, so do not pin this to backend-runner. Frontend jobs still live
+# in ci.yml.
 
 on:
   push:
@@ -105,10 +106,13 @@ jobs:
 
           # One source of truth: scripts/supabase-cli.mjs pins the version used
           # by `bun x`. Derive it here rather than writing 3.2.0 a second time.
+          # -m1 stops grep at the first match. A pipe to `head` would also stop
+          # the producer early, and under pipefail that SIGPIPE is a failed
+          # step instead of a version string.
           SUPABASE_CLI_VERSION="$(
-            grep -oE "supabase@[0-9]+\.[0-9]+\.[0-9]+" scripts/supabase-cli.mjs \
-              | head -n 1 | cut -d@ -f2
+            grep -m1 -oE 'supabase@[0-9]+\.[0-9]+\.[0-9]+' scripts/supabase-cli.mjs || true
           )"
+          SUPABASE_CLI_VERSION="${SUPABASE_CLI_VERSION#*@}"
           test -n "$SUPABASE_CLI_VERSION" || {
             echo "::error::Could not read the pinned Supabase CLI version from scripts/supabase-cli.mjs"
             exit 1
@@ -139,7 +143,8 @@ jobs:
           fi
 
           tar -xzf "$TMP/$TARBALL" -C "$BIN" supabase
-          INSTALLED="$(supabase --version | head -n1 | tr -d '[:space:]')"
+          supabase --version > "$TMP/supabase-version.txt"
+          INSTALLED="$(head -n1 "$TMP/supabase-version.txt" | tr -d '[:space:]')"
           if [ "$INSTALLED" != "$SUPABASE_CLI_VERSION" ]; then
             echo "::error::Supabase CLI version mismatch: expected $SUPABASE_CLI_VERSION, got $INSTALLED"
             exit 1
@@ -396,10 +401,13 @@ jobs:
 
           # One source of truth: scripts/supabase-cli.mjs pins the version used
           # by `bun x`. Derive it here rather than writing 3.2.0 a second time.
+          # -m1 stops grep at the first match. A pipe to `head` would also stop
+          # the producer early, and under pipefail that SIGPIPE is a failed
+          # step instead of a version string.
           SUPABASE_CLI_VERSION="$(
-            grep -oE "supabase@[0-9]+\.[0-9]+\.[0-9]+" scripts/supabase-cli.mjs \
-              | head -n 1 | cut -d@ -f2
+            grep -m1 -oE 'supabase@[0-9]+\.[0-9]+\.[0-9]+' scripts/supabase-cli.mjs || true
           )"
+          SUPABASE_CLI_VERSION="${SUPABASE_CLI_VERSION#*@}"
           test -n "$SUPABASE_CLI_VERSION" || {
             echo "::error::Could not read the pinned Supabase CLI version from scripts/supabase-cli.mjs"
             exit 1
@@ -430,7 +438,8 @@ jobs:
           fi
 
           tar -xzf "$TMP/$TARBALL" -C "$BIN" supabase
-          INSTALLED="$(supabase --version | head -n1 | tr -d '[:space:]')"
+          supabase --version > "$TMP/supabase-version.txt"
+          INSTALLED="$(head -n1 "$TMP/supabase-version.txt" | tr -d '[:space:]')"
           if [ "$INSTALLED" != "$SUPABASE_CLI_VERSION" ]; then
             echo "::error::Supabase CLI version mismatch: expected $SUPABASE_CLI_VERSION, got $INSTALLED"
             exit 1
@@ -446,10 +455,20 @@ jobs:
         id: route
         env:
           SUPABASE_POOLER_URL: ${{ secrets.SUPABASE_POOLER_URL }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: |
           if timeout 10 bash -c "cat < /dev/null > /dev/tcp/db.${SUPABASE_PROJECT_REF}.supabase.co/5432"; then
-            echo "✅ Direct DB reachable — pushing via project-ref"
-            echo "route=direct" >> "$GITHUB_OUTPUT"
+            if [ -z "${SUPABASE_DB_PASSWORD:-}" ]; then
+              # The direct host is reachable, but the CLI cannot authenticate
+              # without the database password. Skip the CLI path rather than
+              # letting the dry-run go red before the Management-API fallback
+              # below has a chance to converge the schema.
+              echo "::warning::Direct DB reachable but SUPABASE_DB_PASSWORD is not set — CLI push skipped, Management-API applier takes over."
+              echo "route=none" >> "$GITHUB_OUTPUT"
+            else
+              echo "✅ Direct DB reachable — pushing via project-ref"
+              echo "route=direct" >> "$GITHUB_OUTPUT"
+            fi
           elif [ -n "$SUPABASE_POOLER_URL" ]; then
             echo "Direct DB unreachable (IPv6-only host) — pushing via pooler --db-url"
             echo "route=pooler" >> "$GITHUB_OUTPUT"

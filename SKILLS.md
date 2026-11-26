@@ -8,8 +8,14 @@
 
 ## How skills are loaded
 
-Skills are installed via `bunx --bun skills add` from `vercel-labs/agent-skills` and `vercel-labs/vgpu`.
-Hashes are pinned in `skills-lock.json`. Do not re-install or modify individual skill files.
+Vendored skills are installed via `bunx --bun skills add` from
+`vercel-labs/agent-skills` and `vercel-labs/vgpu`. Their hashes are pinned in
+`skills-lock.json`; do not re-install or modify those files.
+
+Three skills are **project-specific**, not vendored, and not in the lockfile:
+`cms-editor-and-crm`, `self-hosted-runner-ci`, and `ice-crawl-and-evidence`.
+They are written for this codebase and should be edited when an invariant
+changes.
 
 ```
 bunx --bun skills update                # update all to latest
@@ -120,6 +126,36 @@ Project-specific context:
 - Observability Plus is not enabled on the free tier — the skill will surface this and offer a limited code-only audit path.
 
 Entry: `.agents/skills/vercel-optimize/SKILL.md`
+
+---
+
+### `self-hosted-runner-ci`
+**Load when:** editing any `.github/workflows` file, runner setup or health
+checks, `next.config.ts` e2e build tuning, Playwright CI concurrency, or
+diagnosing queued, cancelled, or `Set up job` failures.
+
+**Project-specific, not vendored.** This one is not pinned in
+`skills-lock.json`; it can be edited when the runner contract changes.
+
+Project-specific context:
+- `runs-on: [self-hosted, linux]` is the whole selector. Do **not** add
+  `frontend-runner`, `backend-runner`, `X64`, or `ARM64`; the three ghrunner
+  hosts each carry both role labels, so a role pin is a single point of failure.
+- Never switch a job to `ubuntu-latest`, add `actions/setup-node`, or add a V8
+  `NODE_OPTIONS` heap cap. The jobs run on Bun, which ignores
+  `--max-old-space-size`; the real controls are `experimental.cpus: 1` and
+  Playwright `--workers=1`.
+- `build-e2e-build` and `build-e2e-test` are split so each gets a fresh 1 GiB
+  container; `build-e2e` is the stable aggregate check name. The e2e build
+  disables the Turbopack build cache, compression, and the type check; the
+  production build keeps all three.
+- `runner-health.yml` watches **in-progress job** age (>50 min), not run age,
+  because a run can wait 38 minutes in the queue before its first job starts.
+- Read `docs/ci-runners.md` before changing a `runs-on:` line or diagnosing a
+  queue. A queued job and an unservable selector look identical in the run list.
+
+Entry: `.agents/skills/self-hosted-runner-ci/SKILL.md`
+Full context: [`docs/ci-runners.md`](./docs/ci-runners.md)
 
 ---
 
@@ -237,12 +273,47 @@ Full context: [`docs/content-editor.md`](./docs/content-editor.md), [`docs/crm-o
 
 ---
 
+### `ice-crawl-and-evidence`
+**Load when:** touching `src/lib/ice-crawl*.ts`,
+`src/app/api/ice-crawl/run/route.ts`, the `ice_crawl_*` tables or migrations,
+the DOJ source, the `ice-evidence` bucket, or the crawl schedule in
+`scripts/seed-ice-alert-cron.mjs`.
+
+**Project-specific, not vendored.** It is not pinned in `skills-lock.json`; it
+can be edited when an invariant changes.
+
+Project-specific context:
+- A scheduled tick has 35 seconds inside a 60-second function. `MAX_TICK_PAGES`
+  is a runaway guard; the deadline is the budget. Do not widen the 12-page DOJ
+  window to reach older releases.
+- The DOJ cursor is one URL in `ice_crawl_frontier` for the next page. A drained
+  window saves `highest parsed page + 1`; the next tick expands a lone page at
+  or beyond 12 back into a 12-page window. There is no numeric cursor column.
+- DOJ relevance matches title and teaser only. The API is department-wide; an
+  empty relevance list returns nothing, not the unfiltered feed.
+- Current evidence paths are `ice-evidence/<source_id>/<dedupe_key>.webp`.
+  Pre-fix paths have a `<page_id>/` segment and are valid where a row references
+  them. An orphan is an object with no exact `storage_path` row, not merely a
+  pre-fix shape.
+- Delete exact paths through the Storage API, never a folder or
+  `storage.objects` directly. Re-query the exact candidate paths immediately
+  before deletion and abort on any row.
+- The completed 2026-11-26 audit removed 27 orphan objects / 973,674 bytes and
+  kept 10 referenced pre-fix objects. The row count was unchanged.
+
+Entry: `.agents/skills/ice-crawl-and-evidence/SKILL.md`
+Full runbook: [`docs/ice-source-crawl.md`](./docs/ice-source-crawl.md)
+
+---
+
 ## Quick trigger reference
 
 | Task | Load |
 |---|---|
 | Write/refactor a React component | `vercel-react-best-practices`, `vercel-composition-patterns` |
 | **Content editor, CRM, or anything that can send email** | **`cms-editor-and-crm`** |
+| **ICE crawler, DOJ cursor, or `ice-evidence`** | **`ice-crawl-and-evidence`** |
+| **CI workflow, runner, or e2e build tuning** | **`self-hosted-runner-ci`** |
 | Add page/route animation | `vercel-react-view-transitions` |
 | UI or a11y audit | `web-design-guidelines` |
 | Deploy or preview | `deploy-to-vercel` |

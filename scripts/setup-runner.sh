@@ -47,7 +47,25 @@ done
 [[ -z "$RUNNER_LABELS" ]] && { echo "ERROR: --labels is required"; exit 1; }
 [[ -z "$REG_TOKEN"     ]] && { echo "ERROR: --token is required";  exit 1; }
 
-RUNNER_ARCH="arm64"
+# Match the runner and the Supabase CLI to the host rather than assuming the
+# Apple-silicon architecture. The documented fleet host is x86_64; installing
+# an arm64 runner there produces a binary the kernel cannot execute, and the
+# service then crash-loops instead of registering a runner.
+case "$(uname -m)" in
+  x86_64|amd64)
+    RUNNER_ARCH="x64"
+    SUPABASE_ARCH="amd64"
+    ;;
+  aarch64|arm64)
+    RUNNER_ARCH="arm64"
+    SUPABASE_ARCH="arm64"
+    ;;
+  *)
+    echo "ERROR: unsupported CPU architecture: $(uname -m)" >&2
+    exit 1
+    ;;
+esac
+
 TARBALL="actions-runner-linux-${RUNNER_ARCH}-${RUNNER_VERSION}.tar.gz"
 DOWNLOAD_URL="https://github.com/actions/runner/releases/download/v${RUNNER_VERSION}/${TARBALL}"
 
@@ -132,7 +150,7 @@ fi
 # Supabase CLI
 if ! command -v supabase &>/dev/null; then
   log "  Installing Supabase CLI…"
-  curl -fsSL https://github.com/supabase/cli/releases/latest/download/supabase_linux_arm64.tar.gz \
+  curl -fsSL "https://github.com/supabase/cli/releases/latest/download/supabase_linux_${SUPABASE_ARCH}.tar.gz" \
     | sudo tar -xz -C /usr/local/bin supabase
 else
   log "  Supabase CLI $(supabase --version 2>&1 | head -1) already installed"

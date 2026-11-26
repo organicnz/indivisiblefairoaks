@@ -996,7 +996,41 @@ canonical URL, every `og:url`, `sitemap.xml`, `robots.txt`, and all JSON-LD
   unsupported or disabled, so `signInWithOAuth` cannot complete until one is
   configured. `signInWithOtp` and `resetPasswordForEmail` have a working mailer
   behind them and are limited by whether the address has an account.
-- **RLS role-repair pattern**: after project restore/re-provisioning, policy→role OID references can orphan (`pg_policies` shows `{public}` but matches nobody). Playbook: `DROP POLICY … ; CREATE POLICY … TO authenticated …`. There is no dedicated migration for this — the pattern responds to a re-provisioning event rather than a schema change, so it lives in `scripts/rls-role-repair.mjs` and not in `migrations/`.
+- **RLS role-repair pattern**: after project restore/re-provisioning, policy→role OID references can orphan (`pg_policies` shows `{public}` but matches nobody). Playbook: `DROP POLICY … ; CREATE POLICY … TO authenticated …`. There is no dedicated migration for this — the pattern responds to a re-provisioning event rather than a schema change, so it lives in   `scripts/rls-role-repair.mjs` and not in `migrations/`.
+
+### ICE source crawl and evidence images
+- **The approved-source crawler is separate from surge alerts.** It reads
+  enabled rows in `ice_crawl_sources`, stores reports in `ice_source_reports`,
+  records page provenance in `ice_crawl_pages`, and uses `ice_crawl_frontier` as
+  its resumable queue. Nationwide discovery queues candidates for admin
+  confirmation; it does not publish an unapproved source. Surges are computed
+  from the community feed only (`docs/ice-alert-notifications.md`).
+- **A scheduled tick has 35 seconds inside a 60-second function.**
+  `MAX_TICK_PAGES = 400` is a runaway guard, not a target. Do not raise the 12-page DOJ window to
+  reach older releases; that is what the cursor is for. The `*/10` cron asks for
+  `mode=sources&limit=2` and rotates by `last_crawled_at`.
+- **The DOJ API is department-wide and relevance-filtered at extraction.**
+  `https://www.justice.gov/api/v1/press_releases.json?sort_by=created&sort_order=DESC`
+  is the only un-challenged entry point; the HTML pages and sitemap sit behind
+  Akamai. The filter matches title and teaser only, never body text. No terms
+  means no reports, not the unfiltered feed.
+- **The DOJ cursor is one URL in `ice_crawl_frontier`.** A drained 12-page
+  window saves `highest parsed page + 1`; the next tick expands a lone page at
+  or beyond 12 into the next 12-page window. At the API end no cursor is saved
+  and the following tick re-seeds the newest window. Do not add a numeric cursor
+  column or a second queue. The cursor is a high-water mark, not a gap-repair
+  ledger, and backfill ticks do not re-fetch the newest window until the walk
+  ends.
+- **Evidence images live in the private `ice-evidence` bucket.** Current paths
+  are `<source_id>/<dedupe_key>.webp`; pre-fix paths have a `<page_id>/`
+  segment. A pre-fix object is not an orphan just because current code would not
+  create that shape — only an object with no exact
+  `ice_crawl_page_images.storage_path` row is. Delete exact paths through the
+  Storage API, never a folder or `storage.objects` directly, and re-query the
+  candidate paths immediately before deletion.
+
+  Full runbook, SQL audit, and the 2026-11-26 cleanup record:
+  [`docs/ice-source-crawl.md`](./docs/ice-source-crawl.md).
 
 ### Commerce
 - **There is no online checkout: the storefront is a catalog.** The legacy cart,
@@ -1437,12 +1471,13 @@ pre-commit gate, so drift fails at commit time rather than at 3am.
   each register one runner, and every one of them carries both
   `frontend-runner` and `backend-runner`, so the role split never separated
   capacity — it only implied a distinction that did not exist. The role labels
-  were dropped from `runs-on` on 2026-11-24; the hosts keep them, so either
-  spelling matches. Do not re-add an `X64`/`ARM64` token to pin jobs to one
-  runner: that is a single point of failure, and it is what took the pipeline
-  down on 2026-10-05. `ci.yml` carries a concurrency group with
-  `cancel-in-progress: true`, so a newer push to `main` cancels the older
-  six-job run instead of stacking it in front of the newest commit;
+  were dropped from `runs-on` on 2026-11-24; the hosts keep them, so asking for
+  a role would still match, but do not add one. Do not re-add an
+  `X64`/`ARM64` token to pin jobs to one runner either: that is a single point
+  of failure, and it is what took the pipeline down on 2026-10-05. `ci.yml`
+  keeps the branch-scoped group with `cancel-in-progress: true` for pull
+  requests, and keys push runs by unique run id so a newer commit queues behind
+  a run already testing an earlier one instead of cancelling it;
   `deploy-vercel.yml` and `supabase.yml` are separate and never cancel.
 
   Every job here sat `queued` for weeks because that container never registered.
@@ -1976,8 +2011,10 @@ Skills are installed in `.agents/skills/` (symlinked for discovery at `.claude/s
 The vendored ones are pinned in `skills-lock.json` — load on demand, do not load
 all skills upfront, do not re-install manually.
 
-`cms-editor-and-crm` is **not** vendored. It is written for this codebase, is not
-in the lockfile, and is meant to be edited when an invariant changes.
+Three skills are **not** vendored: `cms-editor-and-crm`,
+`self-hosted-runner-ci`, and `ice-crawl-and-evidence`. They are written for this
+codebase, are not in the lockfile, and are meant to be edited when an invariant
+changes.
 
 Full usage guide with project-specific context for each skill: **[SKILLS.md](./SKILLS.md)**
 
@@ -1986,6 +2023,8 @@ Quick trigger table:
 | Skill | Load when |
 |---|---|
 | `cms-editor-and-crm` | **Any change to the content editor, the CRM, `sanitize.ts`, or anything that can send email** |
+| `ice-crawl-and-evidence` | **ICE crawler, DOJ cursor, `ice_crawl_*` schema, or `ice-evidence` bucket** |
+| `self-hosted-runner-ci` | **CI workflows, runner health/setup, e2e build tuning, Playwright concurrency** |
 | `vercel-react-best-practices` | Writing or refactoring any React / Next.js code |
 | `vercel-composition-patterns` | Component API design, compound components, boolean-prop refactors |
 | `web-design-guidelines` | UI or a11y audits |

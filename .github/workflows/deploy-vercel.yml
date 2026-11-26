@@ -41,6 +41,19 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Validate deploy configuration
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+          SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
+        run: |
+          set -euo pipefail
+          test -n "$VERCEL_TOKEN" || { echo "::error::secrets.VERCEL_TOKEN is not set."; exit 1; }
+          test -n "$VERCEL_ORG_ID" || { echo "::error::vars.VERCEL_ORG_ID is not set."; exit 1; }
+          test -n "$VERCEL_PROJECT_ID" || { echo "::error::vars.VERCEL_PROJECT_ID is not set."; exit 1; }
+          test -n "$SITE_URL" || { echo "::error::vars.NEXT_PUBLIC_SITE_URL is not set."; exit 1; }
+
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
@@ -75,7 +88,7 @@ jobs:
           VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
         run: |
-          set -o pipefail
+          set -euo pipefail
           bun --bun node_modules/.bin/vercel deploy \
             --prod \
             --force \
@@ -143,18 +156,25 @@ jobs:
           VERCEL_ORG_ID: team_G8IMZRRSHw7ti3HLUs3aWmPS
           VERCEL_PROJECT_ID: prj_8RtMjuARvtBuUnepj9oEVyovXyb5
         run: |
+          # Informational evidence, not a gate. A failed listing after a
+          # successful deploy must not turn the job red.
+          set +e
           curl -sS -H "Authorization: Bearer $VERCEL_TOKEN" \
-            "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID/env?teamId=$VERCEL_ORG_ID" -o env.json
-          bun -e 'const r=JSON.parse(await Bun.file("env.json").text()); for (const e of r.envs??[]) console.log([e.key,(e.target||[]).join(","),e.type].join("\t"))'
+            "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID/env?teamId=$VERCEL_ORG_ID" -o env.json || true
+          bun -e 'const r=JSON.parse(await Bun.file("env.json").text()); for (const e of r.envs??[]) console.log([e.key,(e.target||[]).join(","),e.type].join("\t"))' || true
 
       - name: Show the production health response
         if: always()
         run: |
+          # Informational only. Do not let a slow probe or a closed pipe turn
+          # this evidence step into a red job after a successful deploy.
+          set +e
           for p in / /robots.txt /manifest.webmanifest /api/health; do
             printf "%s " "$p"
-            curl -sS -o /dev/null -w "%{http_code}\n" --max-time 20 "https://test.indivisiblefairoaks.org$p"
+            curl -sS -o /dev/null -w "%{http_code}\n" --max-time 20 "https://test.indivisiblefairoaks.org$p" || true
           done
-          curl -sS -D - --max-time 20 https://test.indivisiblefairoaks.org/api/health | head -30
+          curl -sS -D /tmp/health-headers -o /dev/null --max-time 20 https://test.indivisiblefairoaks.org/api/health || true
+          head -30 /tmp/health-headers 2>/dev/null || true
 
       - name: Show runtime errors for the new deployment
         if: always() && steps.deploy.outputs.url != ''

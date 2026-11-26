@@ -150,6 +150,7 @@ scripts/          # Bun utilities (gen-types, ai-review, etc.)
 - **[docs/ci-runners.md](./docs/ci-runners.md)** — which runner serves this repository, the five stacked defects that made it look unservable, why a green runner list is not evidence a job ran, and the host capacity ceiling.
 - **[docs/content-editor.md](./docs/content-editor.md)** — the block editor: model, autosave, undo, revisions, preview, and the invariants behind them.
 - **[docs/crm-operations.md](./docs/crm-operations.md)** — the broadcast state machine, what keeps test traffic out of real inboxes, and recovery from a stuck send.
+- **[docs/ice-source-crawl.md](./docs/ice-source-crawl.md)** — the approved-source crawler, the DOJ resumable cursor, and the audit/cleanup runbook for the private `ice-evidence` bucket.
 - **[docs/apex-cutover-runbook.md](./docs/apex-cutover-runbook.md)** — moving from `test.` to the apex, with verification and rollback.
 
 ---

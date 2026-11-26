@@ -89,15 +89,14 @@ on:
 # shared `ci-refs/heads/main` group can silently drop pushes. Key every
 # non-PR run by its unique run id; PRs keep their branch-scoped group and
 # still cancel.
-# A newer run supersedes an older one for the same ref: a push to main already
-# contains the previous commit's work, and on a three-slot fleet every stacked
-# run is a full six-job backlog in front of the newest merge. Per-run groups on
-# push were the 50-minute wait. Deployments (`deploy-vercel.yml`, `supabase.yml`)
-# are separate workflows and never share this group, so nothing here can cancel
-# a delivery.
+# Per-run groups on push mean a newer commit queues behind a run already
+# testing an earlier commit instead of killing it. That is deliberate: a
+# cancelled run never reports whether the commit it was testing was good.
+# Deployments (`deploy-vercel.yml`, `supabase.yml`) are separate workflows and
+# never share this group, so nothing here can cancel a delivery.
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read

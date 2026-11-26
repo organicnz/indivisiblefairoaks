@@ -26,6 +26,7 @@ jobs:
           SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
         run: |
+          set -euo pipefail
           test -n "$SUPABASE_URL" || { echo "::error::NEXT_PUBLIC_SUPABASE_URL secret is empty"; exit 1; }
           test -n "$SUPABASE_SERVICE_ROLE_KEY" || { echo "::error::SUPABASE_SECRET_KEY secret is empty"; exit 1; }
           HTTP=$(curl -s -o /tmp/walle-refresh.json -w '%{http_code}' \

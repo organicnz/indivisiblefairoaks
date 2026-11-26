@@ -349,9 +349,9 @@ export const REGISTRY = {
     owner: OWNERS.platform,
     stores: ['github-secret'],
     note:
-      'Project-scoped PAT with Database Read only. Used by read-only Management API ' +
-      'checks; required by supabase-type-freshness, with fallback elsewhere while ' +
-      'provisioning. Cannot deploy functions or apply migrations.',
+      'Project-scoped PAT with Database Read only. Preferred by read-only Management ' +
+      'API checks; they fall back to SUPABASE_ACCESS_TOKEN when it is unset. ' +
+      'Cannot deploy functions or apply migrations.',
   },
   SUPABASE_DB_PASSWORD: {
     exposure: EXPOSURE.privileged,

@@ -1,7 +1,9 @@
 # CI runners
 
 > What actually runs this repository's workflows, what stops them, and how to
-> tell the difference. Read this before changing a `runs-on:` line.
+> tell the difference. Read this before changing a `runs-on:` line. The
+> operating contract is also summarized in
+> [`.agents/skills/self-hosted-runner-ci/SKILL.md`](../.agents/skills/self-hosted-runner-ci/SKILL.md).
 
 ## The short version
 
@@ -26,21 +28,21 @@ personal-organicnz, frontend-runner, backend-runner`. The distinction between
 `frontend-runner` and `backend-runner` was already collapsed on the host side,
 so it is collapsed here too.
 
-**The wait is queue depth against the slots, not a label.** `ci.yml` now
-carries a concurrency group with `cancel-in-progress: true`, so a newer push to
-`main` cancels the older run instead of leaving its six jobs queued in front of
-the newest commit. Deployments are separate workflows and are never cancelled
-by it.
+**The wait is queue depth against the slots, not a label.** `ci.yml` keys
+production pushes by their unique run id, so a newer push queues behind a run
+already testing an earlier commit instead of cancelling it; pull-request runs
+keep the branch-scoped group and still cancel their predecessors. Deployments
+are separate workflows and are never affected.
 
-**Measured 2026-11-24, queue drained to a single run:** `Change scope`,
-`Schema checks (PR)`, `Tests & Coverage` and `Lint & Types` ran at the same
-time on `pool-ghrunner-1`, `pool-ghrunner-2` and `pool-backend` — the slots are
-real and the fleet serves jobs concurrently. Before the concurrency group,
-three runs (six jobs each) were queued at once and the newest commit waited
-behind all of them; cancelling the stale ones is what shortened the wait.
+**Measured 2026-11-24:** `Change scope`, `Schema checks (PR)`,
+`Tests & Coverage` and `Lint & Types` ran at the same time on
+`pool-ghrunner-1`, `pool-ghrunner-2` and `pool-backend` — the slots are real and
+the fleet serves jobs concurrently. The queue can still be long on a busy day;
+per-run groups mean each accepted push is eventually tested rather than being
+dropped by the next one.
 
-The host is **`ghrunner-1`**, an x86_64 Linux box reached over Tailscale. Its
-labels are:
+The measurements below use **`ghrunner-1`**, one of the three x86_64 Linux hosts
+reached over Tailscale. Its labels are:
 
 ```
 self-hosted, Linux, X64, ghrunner, personal, personal-organicnz, frontend-runner, backend-runner
@@ -170,15 +172,21 @@ tests a minified bundle. Production builds keep the cache and the minifier.
 
 ### Never switch to `ubuntu-latest`
 
-Workflows in this repository run exclusively on self-hosted runners (`[self-hosted, linux, <role>-runner]`).
-Do not switch jobs to `ubuntu-latest`. When optimizing `build-e2e-build` on the self-hosted host:
+Workflows in this repository run exclusively on self-hosted runners (`[self-hosted, linux]`).
+Do not add a role or architecture label, and do not switch jobs to `ubuntu-latest`.
+When optimizing `build-e2e-build` on the self-hosted host:
 1. **Single-worker Next.js builds**: `next.config.ts` sets `experimental.cpus: 1` during `NEXT_E2E_BUILD`
-   so page collection and static generation run sequentially with 1 worker rather than spawning multiple
-   V8 processes that compete for physical memory and cause swap thrashing.
+   so page collection and static generation run sequentially with one worker rather than spawning one
+   build worker per host CPU the container does not have.
 2. **Extended static page timeout**: `staticPageGenerationTimeout: 180` in `next.config.ts` prevents
    Next.js from failing prerender passes after the default 60 seconds and triggering 3-attempt retry spirals.
 3. **Single-worker Playwright**: Playwright runs with `--workers=1` in CI, preventing multiple Chromium
    browser processes from fighting against the Next.js server for RAM.
+
+`NODE_OPTIONS` is not one of these controls. Bun ignores
+`--max-old-space-size`, and the old V8 heap caps were removed when the pipeline
+moved to Bun. `experimental.cpus: 1` and `--workers=1` are the levers that
+actually bound the working set.
 
 ## Where the runners come from
 
@@ -733,35 +741,44 @@ verified live by attempting the insert it exists to forbid:
 That is a stronger guarantee than any unit test, and it is the shape of evidence
 to aim for when the pipeline cannot run.
 
-## Aggressive Build Memory & Cache Management on Self-Hosted Runners
+## Current build memory and cache controls
 
-The self-hosted fleet runs on a 887 MB RAM VPS backed by 6143 MB swap. Building Next.js
-and running Playwright tests requires specific memory tuning:
+The host is ~887 MiB RAM with ~6 GiB swap; each runner container is capped at
+1024 MiB with 4096 MiB swap and 1.5 CPU. The current controls are Bun-native:
 
-1. **V8 Heap Ceiling (`--max-old-space-size=2048`)**:
-   - Setting `max-old-space-size=3584` allowed V8 to balloon heap into swap (`VmSwap: 1.75 GB`).
-   - Every GC pass traversed 1.75 GB in swap, causing >1,100 page faults every 2s (>110 MB/s swap I/O)
-     and locking CPU at **91% I/O wait (`wa: 91%`)**.
-   - Capping `--max-old-space-size=2048` triggers young-generation GCs earlier, keeping the active
-     working set hot in physical RAM and eliminating swap thrashing.
-
-2. **Prerender Slug Pruning (`NEXT_E2E_BUILD=true`)**:
-   - In production builds (`NEXT_E2E_BUILD !== 'true'`), Next.js prerenders all catalog products and CMS articles.
-   - In throwaway E2E builds (`NEXT_E2E_BUILD === 'true'`), `getAllProductSlugs()` and `getAllPublishedSlugs()`
-     return only test fixture routes (`defend-democracy-yard-sign`, `privacy-policy`, `terms-and-conditions`).
-   - Next.js dynamic routing (`dynamicParams = true`) handles any unprerendered route dynamically at runtime.
-   - This drops prerender routes from 66 down to ~20, saving minutes of WAN network latency and swap writes.
-
-3. **Single CPU Worker & Asset Compression**:
-   - `experimental: { cpus: 1 }` prevents concurrent V8 compiler threads from contending for RAM.
-   - `compress: !isE2EBuild` disables Gzip/Brotli compression for localhost E2E test fixtures.
-
-4. **Quadlet Volume Mount vs WAN Cache**:
-   - The Quadlet container maps `%h/dev/ghrunner/cache/bun` directly to `/home/runner/.bun/install/cache`.
-   - `actions/cache@v4` on bun dependencies is bypassed on self-hosted runners (`!contains(runner.labels, 'self-hosted')`),
-     saving ~45s of WAN download/upload of a 1.5 GB directory already present on the host SSD.
-
-5. **Playwright Multi-Viewport Test Resilience**:
-   - Tests that iterate sequentially over 8+ viewport sizes (e.g. `header-fit.spec.ts`) use `test.slow()`
-     to triple the test timeout from 60s to 180s, preventing timeouts on single-worker execution.
+1. **`NODE_OPTIONS` is not a memory control.** Bun ignores
+   `--max-old-space-size` (measured on 1.4.4, the heap limit is ~48 MB whether
+   the value is 768, 1280, 3584, or absent). Do not reintroduce the old V8 caps;
+   they read as safety rails over a heap that no longer exists.
+2. **Serial prerender.** `experimental.cpus: 1` during `NEXT_E2E_BUILD` makes
+   page collection and static generation sequential instead of one worker per
+   host CPU the container does not have. `staticPageGenerationTimeout: 180`
+   keeps a swap-pressured prerender from entering the default-60s retry spiral.
+3. **Split build and test.** `build-e2e-build` (45-minute ceiling) builds and
+   uploads a compressed `.next` artifact without `.next/cache`;
+   `build-e2e-test` (40-minute ceiling) restores it in a fresh container and
+   runs the suite with `--workers=1`. `build-e2e` is the stable aggregate check.
+4. **E2E-only build switches.** The throwaway bundle sets
+   `typescript.ignoreBuildErrors: true` (types are gated separately), disables
+   compression, and disables `turbopackFileSystemCacheForBuild` (no warm cache
+   exists in the fresh container; keeping the snapshot resident measured
+   2.87 GiB peak RSS versus 2.16 GiB without it). Production keeps all three.
+5. **Prerender slug pruning.** In `NEXT_E2E_BUILD`, `getAllProductSlugs()` and
+   `getAllPublishedSlugs()` return a few fixture routes instead of the full
+   catalog and CMS set; `dynamicParams = true` still serves unprerendered routes
+   at runtime. This drops the e2e prerender set to ~20 routes.
+6. **E2E gallery fixtures.** `src/lib/e2e-image-loader.ts` resolves remote
+   gallery media through local `public/images/gallery` fixtures, so the browser
+   suite does not wait on a slow Supabase Storage fetch. Production keeps Next's
+   default loader and the real media.
+7. **Host caches.** The Quadlet container maps
+   `%h/dev/ghrunner/cache/bun` onto `/home/runner/.bun/install/cache`; do not
+   upload that ~1.5 GB cache over WAN from a self-hosted runner. Gate the Bun
+   dependency `actions/cache` step with
+   `if: "!contains(runner.labels, 'self-hosted')"`. Playwright browsers cache at
+   `~/.cache/ms-playwright`; `.next/cache` is keyed on `bun.lock`, but the e2e
+   artifact deliberately excludes it.
+8. **Playwright timeouts.** CI uses `--workers=1`; tests that iterate over 8+
+   viewport sizes (for example `header-fit.spec.ts`) declare `test.slow()` so
+   serial execution does not hit the standard 60-second timeout.
 

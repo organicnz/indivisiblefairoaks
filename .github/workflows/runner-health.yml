@@ -42,22 +42,25 @@ jobs:
       backend_status: ${{ steps.check.outputs.backend_status }}
       all_ok: ${{ steps.check.outputs.all_ok }}
     steps:
-      - name: Ensure gh + jq available
+      - name: Check gh + jq availability
+        id: tools
         run: |
-          if ! command -v gh &>/dev/null; then
-            echo "gh not found — installing via apt"
-            sudo apt-get update -qq
-            sudo apt-get install -y -qq gh
+          # This is the precision layer, not the primary liveness signal. The
+          # runner host is rootless and has no sudoers entry, so an apt-get
+          # install here would fail the whole job before the smoke checks ran.
+          # If either CLI is absent, skip only this API check and let the smoke
+          # jobs answer the question; a missing optional CLI is not an outage.
+          if ! command -v gh &>/dev/null || ! command -v jq &>/dev/null; then
+            echo "::warning::gh or jq is not installed on this runner; skipping the runner API check. The smoke jobs below remain the liveness signal."
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
-          if ! command -v jq &>/dev/null; then
-            echo "jq not found — installing via apt"
-            sudo apt-get update -qq
-            sudo apt-get install -y -qq jq
-          fi
+          echo "available=true" >> "$GITHUB_OUTPUT"
           gh --version
           jq --version
 
       - name: Check runner registration + status
+        if: steps.tools.outputs.available == 'true'
         id: check
         env:
           # Listing runners needs Administration:read, which the default
@@ -79,36 +82,26 @@ jobs:
           echo "Registered runners:"
           echo "$RUNNERS" | jq -r '.[] | "  \(.name): \(.status) (busy=\(.busy))"'
 
-          FRONTEND=$(echo "$RUNNERS" | jq -r '.[] | select(.labels[] | test("frontend-runner")) | .status' || echo "missing")
-          BACKEND=$(echo "$RUNNERS"  | jq -r '.[] | select(.labels[] | test("backend-runner"))  | .status' || echo "missing")
-
-          # Fallback: if no labeled runners, check by name
-          [[ -z "$FRONTEND" ]] && FRONTEND=$(echo "$RUNNERS" | jq -r '.[] | select(.name == "frontend-runner") | .status' || echo "missing")
-          [[ -z "$BACKEND"  ]] && BACKEND=$(echo "$RUNNERS"  | jq -r '.[] | select(.name == "backend-runner")  | .status' || echo "missing")
-
-          echo "frontend_status=${FRONTEND:-missing}" >> "$GITHUB_OUTPUT"
-          echo "backend_status=${BACKEND:-missing}"   >> "$GITHUB_OUTPUT"
-
-          if [[ "$FRONTEND" == "online" && "$BACKEND" == "online" ]]; then
+          # Every fleet runner carries both role labels, so any online runner
+          # that has both is a healthy fleet. Do not compare a multi-line
+          # status to the literal "online": several online runners made the
+          # old check fail even though the fleet was healthy.
+          ONLINE=$(echo "$RUNNERS" | jq '[.[] | select(.status == "online" and any(.labels[]; . == "frontend-runner") and any(.labels[]; . == "backend-runner"))] | length')
+          REGISTERED=$(echo "$RUNNERS" | jq 'length')
+          if [[ "${ONLINE:-0}" -gt 0 ]]; then
+            FRONTEND=online
+            BACKEND=online
             echo "all_ok=true" >> "$GITHUB_OUTPUT"
-            echo "✅ Both runners online"
+            echo "✅ ${ONLINE}/${REGISTERED} registered runners online with both role labels"
           else
+            FRONTEND=missing
+            BACKEND=missing
             echo "all_ok=false" >> "$GITHUB_OUTPUT"
-            echo "❌ Runner problem — frontend=$FRONTEND backend=$BACKEND"
+            echo "❌ No online runner carries both frontend-runner and backend-runner (registered=${REGISTERED})"
           fi
 
-      - name: Probe health endpoints (via Tailscale IPs)
-        run: |
-          # Runs on a self-hosted runner inside the Tailscale network, so
-          # these probes return real health data (not silent skips).
-          # Informational only — a changed Tailscale IP must not fail CI.
-          for IP in "100.92.38.119" "100.99.241.23"; do
-            RESULT=$(curl -fsSL --max-time 5 "http://${IP}:9100" 2>/dev/null || echo '{"ok":false,"error":"unreachable"}')
-            echo "  ${IP}: $RESULT"
-            case "$RESULT" in
-              *unreachable*) echo "::warning::Runner host ${IP}:9100 unreachable — verify the Tailscale IP is current" ;;
-            esac
-          done
+          echo "frontend_status=${FRONTEND}" >> "$GITHUB_OUTPUT"
+          echo "backend_status=${BACKEND}"   >> "$GITHUB_OUTPUT"
 
       - name: Fail if any runner offline
         # Only when the API actually answered — without data this step must
@@ -206,6 +199,7 @@ jobs:
       # job even began, so the watchdog cancelled a perfectly healthy e2e job
       # at 26 minutes of work. A queued run is not wedged.
       - name: Cancel wedged in_progress runs (>50 min of job time)
+        if: steps.tools.outputs.available == 'true'
         env:
           GH_TOKEN: ${{ secrets.RUNNERS_TOKEN || secrets.GITHUB_TOKEN }}
         run: |

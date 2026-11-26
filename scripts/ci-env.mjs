@@ -83,13 +83,13 @@ export const SECRETS = {
    * endpoint and the database-query endpoint accept `database_read` (queries
    * run read-only), so this token can run the type, migration-history and
    * schema-hygiene checks but cannot deploy functions or apply migrations.
-   * Optional while it is being provisioned: `schema-check-trusted.yml` and the
-   * `supabase.yml` types job fall back to SUPABASE_ACCESS_TOKEN, while the
-   * scheduled freshness workflow requires it and fails closed.
+   * Optional while it is being provisioned: every read-only Management API
+   * check falls back to SUPABASE_ACCESS_TOKEN. The scheduled freshness workflow
+   * reports an explicit UNKNOWN skip only when neither credential exists.
    */
   SUPABASE_READ_ONLY_ACCESS_TOKEN: {
     required: false,
-    note: 'Scoped PAT, one project, Database Read. Used by read-only Management API checks; required by supabase-type-freshness, with fallback elsewhere while provisioning.',
+    note: 'Scoped PAT, one project, Database Read. Preferred by read-only Management API checks; falls back to SUPABASE_ACCESS_TOKEN when unset.',
   },
   /** Direct Postgres password, used with the pooler for advisory-lock migrations. */
   SUPABASE_DB_PASSWORD: {
