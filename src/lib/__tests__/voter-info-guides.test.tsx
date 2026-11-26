@@ -27,7 +27,14 @@ vi.mock('@/components/ui/SacramentoRepresentativeFinder', () => ({
   SacramentoRepresentativeFinder: () => <div data-testid="rep-finder" />,
 }));
 
-describe('VoterInfoPage & 2026 Voter Guides', () => {
+const VOTER_GUIDE_DRIVE_IDS = [
+  '10XEUyMoyGUI_UktPVwB0RJo-6w3lN0Uy',
+  '1JW2rg5dVBZBqezG3hd9QBu0znt3XsMaN',
+  '11Cv8yyuI_jtNet_IFSYHDN5xFr1axfg2',
+  '1XyqCKsSKaQqrrzX7CSl3G3v0ChUtH98U',
+] as const;
+
+describe('VoterInfoPage & archived 2026 voter guides', () => {
   let container: HTMLDivElement;
   let root: Root;
 
@@ -49,24 +56,29 @@ describe('VoterInfoPage & 2026 Voter Guides', () => {
     expect(metadata.description).toContain('Sacramento County');
   });
 
-  it('renders official 2026 voter guide, toolkit, and key-date links', async () => {
+  it('keeps the evergreen rights guides and points 2026 material to the archive', async () => {
     const page = await VoterInfoPage();
     await act(async () => {
       root.render(page);
     });
 
-    expect(container.textContent).toContain('2026 Voter Guide & Ballot Recommendations');
-    expect(container.textContent).toContain('Sacramento Voter Guide');
-    expect(container.textContent).toContain('Ballot Recommendations');
-    expect(container.textContent).toContain('Hands Off Our Vote 2026 Toolkit');
-    expect(container.textContent).toContain('Key Dates for the Election');
-    // No candidate-specific document exists in the archive; do not resurrect
-    // the old Candidate & Measure Brief label around an unrelated file.
-    expect(container.textContent).not.toContain('Candidate & Measure Brief');
-    expect(container.textContent).not.toContain('Voter Information Doc');
+    expect(container.textContent).toContain('Voter Rights & Educational Guides');
+    expect(container.textContent).toContain('Who Represents You?');
+    expect(container.textContent).toContain('Pre-Register at 16, Vote at 18');
+    expect(container.textContent).toContain('Voting Rights Restoration');
+    expect(container.textContent).toContain('Unhoused Voter Procedures');
+
+    // The 2026 featured block belongs to /archive now. Its DataPoint keys are
+    // reused there, so this page must not render them even when the CMS is empty.
+    expect(container.textContent).not.toContain('2026 Voter Guide & Ballot Recommendations');
+    expect(container.textContent).not.toContain('Sacramento Voter Guide');
+    expect(container.textContent).not.toContain('Hands Off Our Vote 2026 Toolkit');
+    expect(container.textContent).not.toContain('Key Dates for the Election');
+    expect(container.textContent).not.toContain('Understanding the SAVE America Act');
+    expect(container.textContent).not.toContain('Analysis by Lawyer Oyer');
+
     expect(container.textContent).toContain('Voter Information Archives');
     expect(container.textContent).toContain('not a live election guide');
-    expect(container.textContent).not.toContain('Voter guides from the old site');
 
     const links = Array.from(container.querySelectorAll<HTMLAnchorElement>('a'));
 
@@ -78,33 +90,9 @@ describe('VoterInfoPage & 2026 Voter Guides', () => {
       expect(links.some((a) => a.getAttribute('href') === href)).toBe(true);
     }
 
-    const voterGuideLink = links.find((a) => a.href.includes('10XEUyMoyGUI_UktPVwB0RJo-6w3lN0Uy'));
-    expect(voterGuideLink).toBeDefined();
-    expect(voterGuideLink?.target).toBe('_blank');
-    expect(voterGuideLink?.rel).toContain('noopener');
-
-    const ballotRecLink = links.find((a) => a.href.includes('1JW2rg5dVBZBqezG3hd9QBu0znt3XsMaN'));
-    expect(ballotRecLink).toBeDefined();
-    expect(ballotRecLink?.target).toBe('_blank');
-    expect(ballotRecLink?.rel).toContain('noopener');
-
-    const briefLink = links.find((a) => a.href.includes('11Cv8yyuI_jtNet_IFSYHDN5xFr1axfg2'));
-    expect(briefLink).toBeDefined();
-    expect(briefLink?.target).toBe('_blank');
-    expect(briefLink?.textContent).toContain('Hands Off Our Vote 2026 Toolkit');
-    expect(briefLink?.textContent).toContain(
-      'National election protection and ballot measure toolkit for the 2026 election.'
-    );
-    expect(briefLink?.textContent).toContain('Download Toolkit');
-
-    const docLink = links.find((a) => a.href.includes('1XyqCKsSKaQqrrzX7CSl3G3v0ChUtH98U'));
-    expect(docLink).toBeDefined();
-    expect(docLink?.target).toBe('_blank');
-    expect(docLink?.textContent).toContain('Key Dates for the Election');
-    expect(docLink?.textContent).toContain(
-      'Official election deadline schedule, including voter registration, vote-by-mail, and Election Day dates.'
-    );
-    expect(docLink?.textContent).toContain('View Key Dates');
+    for (const driveId of VOTER_GUIDE_DRIVE_IDS) {
+      expect(links.some((a) => a.href.includes(driveId))).toBe(false);
+    }
 
     const fiveCallsLink = links.find((a) => a.href.includes('5calls.org'));
     expect(fiveCallsLink).toBeDefined();
@@ -127,36 +115,8 @@ describe('VoterInfoPage & 2026 Voter Guides', () => {
     );
     expect(unhousedVoterLink).toBeDefined();
 
-    const archiveLink = links.find((a) => a.getAttribute('href') === '/archive#voter-information');
+    const archiveLink = links.find((a) => a.getAttribute('href') === '/archive#voter-guides-2026');
     expect(archiveLink).toBeDefined();
     expect(archiveLink?.textContent).toContain('Open the 2026 voter archive');
-  });
-
-  it('renders the SAVE America Act spotlight as a click-to-load video', async () => {
-    const page = await VoterInfoPage();
-    await act(async () => {
-      root.render(page);
-    });
-
-    expect(container.textContent).toContain('Understanding the SAVE America Act');
-    expect(container.textContent).toContain('Analysis by Lawyer Oyer');
-
-    // The raw iframe loaded YouTube before the reader asked for it and left a
-    // black box whenever the player was blocked. Assert the local poster and
-    // intent gate instead.
-    const playButton = container.querySelector<HTMLButtonElement>(
-      'button[aria-label*="Play film"][aria-label*="SAVE America Act"]'
-    );
-    expect(playButton).not.toBeNull();
-    expect(container.querySelector('iframe')).toBeNull();
-
-    await act(async () => {
-      playButton?.click();
-    });
-
-    const iframe = container.querySelector<HTMLIFrameElement>('iframe[src*="0a9zLvWVqgQ"]');
-    expect(iframe).not.toBeNull();
-    expect(iframe?.title).toContain('The SAVE America Act');
-    expect(iframe?.allowFullscreen).toBe(true);
   });
 });

@@ -140,8 +140,11 @@ assets, 20 documents, 27 links, 49 public assets, and 17 public documents.
 ## Current integration points
 
 - `/archive` is the public index.
-- `/voter-info` resolves its four old Drive cards through the archive when a
-  document row exists, otherwise it keeps the existing link.
+- `/archive#voter-guides-2026` is the home for the 2026 voter guides and
+  recommendations. Its four document links resolve through
+  `legacy_public_documents` when a row exists, otherwise they fall back to the
+  original Drive URL. `/voter-info` keeps the evergreen voter-rights guides and
+  links readers to the archived 2026 material.
 - `/newsletters` adds legacy newsletter PDFs.
 - `/choir` adds the old feature article, Instagram, Mobilize and film/document
   records.

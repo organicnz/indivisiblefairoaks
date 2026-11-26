@@ -4,8 +4,15 @@ import { ArchiveEmptyState } from '@/components/archive/ArchiveEmptyState';
 import { ArchiveFooter } from '@/components/archive/ArchiveFooter';
 import { ArchiveMasthead } from '@/components/archive/ArchiveMasthead';
 import { ArchiveNav } from '@/components/archive/ArchiveNav';
+import { CopyRegion } from '@/components/cms/CopyRegion';
+import { VoterGuidesSection } from '@/components/voter-info/VoterGuidesSection';
 import { pageMetadata } from '@/lib/metadata';
-import { getLegacyArchive } from '@/lib/queries/legacy';
+import { getDataPoints } from '@/lib/queries/civic';
+import {
+  getLegacyArchive,
+  legacyDocumentForDriveId,
+  legacyDocumentUrl,
+} from '@/lib/queries/legacy';
 
 export const metadata: Metadata = pageMetadata({
   title: 'Chapter Archive',
@@ -15,7 +22,14 @@ export const metadata: Metadata = pageMetadata({
 });
 
 export default async function ArchivePage() {
-  const { pages, assets, links, documents } = await getLegacyArchive();
+  const [{ pages, assets, links, documents }, dataPoints] = await Promise.all([
+    getLegacyArchive(),
+    getDataPoints('voter'),
+  ]);
+  const legacyHref = (driveId: string, fallback: string) => {
+    const document = legacyDocumentForDriveId(documents, driveId);
+    return document ? (legacyDocumentUrl(document) ?? fallback) : fallback;
+  };
   const assetsByPage = new Map<string, typeof assets>();
   for (const asset of assets) {
     const list = assetsByPage.get(asset.source_page_path) ?? [];
@@ -60,6 +74,10 @@ export default async function ArchivePage() {
             <ArchiveNav pages={pages} />
 
             <div className="space-y-12">
+              <CopyRegion id="archive-voter-guides">
+                <VoterGuidesSection dataPoints={dataPoints} legacyHref={legacyHref} mode="2026" />
+              </CopyRegion>
+
               {pages.map((page, pageIndex) => (
                 <ArchiveArticle
                   key={page.id}

@@ -1,10 +1,7 @@
 import { Vote } from 'lucide-react';
 import type { Metadata } from 'next';
-import {
-  MASTHEAD_INTRO,
-  MASTHEAD_TITLE,
-  PageMasthead,
-} from '@/components/layout/PageMasthead';
+import { CopyRegion } from '@/components/cms/CopyRegion';
+import { MASTHEAD_INTRO, MASTHEAD_TITLE, PageMasthead } from '@/components/layout/PageMasthead';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { SacramentoRepresentativeFinder } from '@/components/ui/SacramentoRepresentativeFinder';
 import { VoterActionCards } from '@/components/voter-info/VoterActionCards';
@@ -78,7 +75,9 @@ export default async function VoterInfoPage() {
           <SacramentoRepresentativeFinder initialData={dataPoints} />
         </div>
 
-        <VoterGuidesSection dataPoints={dataPoints} legacyHref={legacyHref} />
+        <CopyRegion id="voter-guides">
+          <VoterGuidesSection dataPoints={dataPoints} legacyHref={legacyHref} />
+        </CopyRegion>
         <VoterHotlinesSection dataPoints={dataPoints} />
         <VoterArchiveSection />
       </div>

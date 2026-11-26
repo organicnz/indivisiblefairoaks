@@ -81,7 +81,7 @@ export const PAGE_COPY_REGIONS: Readonly<Record<string, readonly CopyRegionDefin
     { id: 'about-nonviolence', label: 'Nonviolence Commitment' },
   ],
   '/voter-info': [
-    { id: 'voter-guides', label: 'Voter Rights & Guides' },
+    { id: 'voter-guides', label: 'Voter Rights & Educational Guides' },
     { id: 'voter-hotlines', label: 'Elections & Hotlines' },
     { id: 'voter-archive', label: 'Voter Information Archive' },
   ],
@@ -90,6 +90,7 @@ export const PAGE_COPY_REGIONS: Readonly<Record<string, readonly CopyRegionDefin
   '/events': [{ id: 'events-trainings', label: 'Trainings & Action Labs' }],
   '/links': [{ id: 'links-archive', label: 'Link Tree Archive Callout' }],
   '/archive': [
+    { id: 'archive-voter-guides', label: '2026 Voter Guides & Recommendations' },
     { id: 'archive-intro', label: 'Archive Introduction' },
     { id: 'archive-empty', label: 'Empty Archive Notice' },
   ],
