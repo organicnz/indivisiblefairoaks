@@ -1,5 +1,31 @@
 import { connection, NextResponse } from 'next/server';
 import { env } from '@/lib/env';
+import { evaluateIceCrawlHealth, type IceCrawlHealthRow } from '@/lib/ice-crawl-health';
+
+/**
+ * Read the crawl health view with the service key. The view is intentionally
+ * not browser-readable: alert messages are operational state, not public data.
+ * A missing view or key reports `unknown` instead of failing site health.
+ */
+async function readCrawlHealth(): Promise<IceCrawlHealthRow | null> {
+  const key = env.SUPABASE_SECRET_KEY;
+  if (!key) return null;
+  try {
+    const res = await fetch(`${env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/ice_crawl_health?select=*`, {
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${key}`,
+      },
+      cache: 'no-store',
+      signal: AbortSignal.timeout(4000),
+    });
+    if (!res.ok) return null;
+    const rows = (await res.json()) as IceCrawlHealthRow[];
+    return rows[0] ?? null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Uptime-monitor anchor. Always evaluated at request time (connection()
@@ -10,6 +36,10 @@ export async function GET() {
   await connection();
 
   const startedAt = Date.now();
+  // Start the crawl-health read alongside the database probe; neither gates
+  // the other. Site availability (`status`) stays database-only, while a stale
+  // scheduled crawl is reported as `crawl.status: "stale"` plus its alert.
+  const crawlHealthPromise = readCrawlHealth();
   let db: 'up' | 'degraded' | 'down' = 'down';
   try {
     const res = await fetch(`${env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/events?select=slug&limit=1`, {
@@ -25,6 +55,7 @@ export async function GET() {
     db = 'down';
   }
 
+  const crawlHealth = evaluateIceCrawlHealth(await crawlHealthPromise);
   const latencyMs = Date.now() - startedAt;
   const status = db === 'up' ? 'ok' : 'degraded';
 
@@ -40,6 +71,17 @@ export async function GET() {
       deployment: {
         commit: env.DEPLOYMENT_COMMIT_SHA,
         builtAt: env.DEPLOYMENT_BUILT_AT,
+      },
+      // The last successful scheduled tick for each pipeline, from the same
+      // view the watchdog reads. `unknown` means the view was unavailable, not
+      // that the crawler is healthy.
+      crawl: {
+        status: crawlHealth.status,
+        lastSuccessfulTickAt: crawlHealth.lastSuccessfulTickAt,
+        sourceCrawl: crawlHealth.sourceCrawl,
+        discovery: crawlHealth.discovery,
+        alerts: crawlHealth.alerts,
+        checkedAt: crawlHealth.checkedAt,
       },
     },
     {

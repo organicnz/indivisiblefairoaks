@@ -4,7 +4,9 @@ name: ICE scan watchdog
 # of failure: the incident this workflow closes started with pg_cron silently
 # doing nothing while both HTTP routes still answered. This independent tick
 # wakes the same idempotent edge function and then asserts Supabase-side
-# freshness, pending backlog and the actual pg_cron job state.
+# freshness, pending backlog and the actual pg_cron job state. It also checks
+# the approved-source crawl and discovery windows and upserts a durable
+# `ice_operational_alerts` row (shown by /api/health) for each stale schedule.
 #
 # The edge function's Postgres lease makes a collision with the primary cron
 # harmless: the second caller gets a clear "lease held" answer instead of
@@ -36,8 +38,8 @@ jobs:
         with:
           bun-version: canary
 
-      - name: Trigger one bounded scan and verify health
+      - name: Trigger one bounded scan and verify pipeline health
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
-        run: bun scripts/check-ice-scan-health.mjs --trigger --require-runs --max-age-min 60
+        run: bun scripts/check-ice-scan-health.mjs --trigger --require-runs --max-age-min 60 --crawl-age-min 45 --discovery-age-min 60

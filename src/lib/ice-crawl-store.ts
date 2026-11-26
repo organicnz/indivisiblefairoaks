@@ -5,6 +5,12 @@ import {
   dedupeDiscoveryCandidates,
   discoveryStoryKey,
 } from '@/lib/ice-crawl-discovery';
+import {
+  type IceCrawlTickSourceResult,
+  type IceCrawlTickStatus,
+  type IceCrawlTickSummary,
+  summarizeIceCrawlTick,
+} from '@/lib/ice-crawl-health';
 import type {
   IceCrawlDiscovery,
   IceCrawlDiscoveryStatus,
@@ -272,6 +278,60 @@ type IceCrawlDatabase = {
           created_at?: string;
         };
         Update: never;
+        Relationships: [];
+      };
+      ice_crawl_ticks: {
+        Row: {
+          id: string;
+          status: IceCrawlTickStatus;
+          started_at: string;
+          finished_at: string;
+          duration_ms: number;
+          sources: number;
+          reports: number;
+          errors: string[];
+          created_at: string;
+        };
+        Insert: {
+          status: IceCrawlTickStatus;
+          started_at: string;
+          finished_at?: string;
+          duration_ms: number;
+          sources?: number;
+          reports?: number;
+          errors?: string[];
+        };
+        Update: never;
+        Relationships: [];
+      };
+      ice_operational_alerts: {
+        Row: {
+          id: string;
+          fingerprint: string;
+          kind: string;
+          severity: 'warning' | 'critical';
+          message: string;
+          details: Record<string, unknown>;
+          first_seen_at: string;
+          last_seen_at: string;
+          resolved_at: string | null;
+        };
+        Insert: {
+          fingerprint: string;
+          kind: string;
+          severity: 'warning' | 'critical';
+          message: string;
+          details?: Record<string, unknown>;
+          first_seen_at?: string;
+          last_seen_at?: string;
+          resolved_at?: string | null;
+        };
+        Update: Partial<{
+          message: string;
+          details: Record<string, unknown>;
+          last_seen_at: string;
+          resolved_at: string | null;
+        }>;
         Relationships: [];
       };
     };
@@ -1154,4 +1214,59 @@ export async function getPublishedSourceReports(
   const { data, error } = await query.range(from, to);
   if (error) throw new Error(`source reports failed: ${error.message}`);
   return ((data ?? []) as IceSourceReport[]).map(toPublicSourceReport);
+}
+
+/**
+ * Persist one scheduled crawl tick. The insert is the evidence the watchdog
+ * reads, so a failed write must be visible to the caller; callers that already
+ * completed a crawl should log it rather than discard the crawl result.
+ */
+export async function recordIceCrawlTick(
+  store: IceCrawlStore,
+  results: readonly IceCrawlTickSourceResult[],
+  startedAt: number,
+  finishedAt = Date.now()
+): Promise<IceCrawlTickSummary> {
+  const summary = summarizeIceCrawlTick(results);
+  const { error } = await store.from('ice_crawl_ticks').insert({
+    status: summary.status,
+    started_at: new Date(startedAt).toISOString(),
+    finished_at: new Date(finishedAt).toISOString(),
+    duration_ms: Math.max(0, Math.round(finishedAt - startedAt)),
+    sources: summary.sources,
+    reports: summary.reports,
+    errors: summary.errors,
+  });
+  if (error) throw new Error(`crawl tick write failed: ${error.message}`);
+
+  // Recovery should clear the stale alert immediately instead of waiting for
+  // the next watchdog run. A resolve failure is not worth failing the crawl;
+  // the watchdog will retry the resolution.
+  if (summary.status === 'ok' || summary.status === 'degraded') {
+    try {
+      await resolveIceOperationalAlerts(store, ['stale-source-crawl']);
+    } catch (resolveError) {
+      console.error(
+        JSON.stringify({
+          event: 'ice_crawl_alert_resolve_failed',
+          error: resolveError instanceof Error ? resolveError.message : String(resolveError),
+        })
+      );
+    }
+  }
+
+  return summary;
+}
+
+export async function resolveIceOperationalAlerts(
+  store: IceCrawlStore,
+  fingerprints: readonly string[]
+): Promise<void> {
+  if (fingerprints.length === 0) return;
+  const { error } = await store
+    .from('ice_operational_alerts')
+    .update({ resolved_at: new Date().toISOString() })
+    .in('fingerprint', [...fingerprints])
+    .is('resolved_at', null);
+  if (error) throw new Error(`operational alert resolve failed: ${error.message}`);
 }

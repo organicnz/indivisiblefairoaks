@@ -45,6 +45,7 @@ import {
   listIceCityPoints,
   listIceCrawlFrontier,
   listIceCrawlSources,
+  recordIceCrawlTick,
   saveIceCrawlFrontier,
   updateIceCrawlPageReportCount,
   updateIceCrawlSource,
@@ -1466,6 +1467,7 @@ export function selectCrawlRotation<T extends { last_crawled_at: string | null }
 }
 
 export async function crawlAllIceSources(options: { limit?: number; timeBudgetMs?: number } = {}) {
+  const startedAt = Date.now();
   const store = getIceCrawlStore();
   if (!store) throw new Error('Crawler storage is not configured.');
   const allSources = (await listIceCrawlSources(store)).filter((source) => source.enabled);
@@ -1505,6 +1507,20 @@ export async function crawlAllIceSources(options: { limit?: number; timeBudgetMs
         summary: { error: error instanceof Error ? error.message : 'Crawl failed.' },
       });
     }
+  }
+
+  try {
+    await recordIceCrawlTick(store, results, startedAt);
+  } catch (error) {
+    // The pages were already fetched; a tick-write failure must not turn a
+    // successful crawl into an HTTP 503. The stale watchdog will surface the
+    // missing success if this persists.
+    console.error(
+      JSON.stringify({
+        event: 'ice_crawl_tick_record_failed',
+        error: error instanceof Error ? error.message : String(error),
+      })
+    );
   }
 
   return results;
