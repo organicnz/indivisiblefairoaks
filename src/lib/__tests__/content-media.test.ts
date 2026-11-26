@@ -367,6 +367,32 @@ describe('content-media actions', () => {
         error: 'Media row vanished during update',
       });
     });
+
+    it('reports an update query failure without calling it a vanished row', async () => {
+      const { updateContentMediaRow } = await import('@/lib/actions/content-media');
+      const audits: Record<string, unknown>[] = [];
+      configure({
+        content: { rows: [publishedRow(42)] },
+        content_media: {
+          rows: [mediaRow({ id: 'test-id', content_id: 42 })],
+          // The read succeeded; the write itself failed. The audit must keep
+          // the database message rather than inventing the deletion branch.
+          updateError: { message: 'update blew up' },
+        },
+        admin_audit_log: { rows: [], onInsert: (row) => audits.push(row) },
+      });
+
+      const result = await updateContentMediaRow('test-id', { alt_text: 'x' });
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('update blew up');
+      expect(audits[0]).toMatchObject({
+        action: 'content.media.update',
+        target_id: 'test-id',
+        target_label: 'hero.jpg',
+        outcome: 'failure',
+        error: 'update blew up',
+      });
+    });
   });
 
   describe('deleteContentMediaRow', () => {
