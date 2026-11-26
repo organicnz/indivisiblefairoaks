@@ -163,12 +163,13 @@ A green result means "history is coherent", not "this migration is safe".
 
 ## 3. `build` is a fixture, not a gate
 
-`ci.yml`'s `build` header now says in capitals: **do not add this to branch
+`ci.yml`'s `build-e2e` header now says in capitals: **do not add this to branch
 protection.** Vercel builds the same tree on far more compute and a compile
-failure there already blocks the deploy. This job exists so `e2e` has an
-artifact, and it is the most memory-hungry job in the pipeline — the one the
-container's 1024 MiB ceiling kills first. On the critical path of every PR it
-would be the least reliable job there.
+failure there already blocks the deploy. The `build-e2e-build` /
+`build-e2e-test` pair exists so `e2e` has an artifact, and it is the most
+memory-hungry path in the pipeline — the one the container's 1024 MiB ceiling
+kills first. On the critical path of every PR it would be the least reliable
+job there.
 
 **It is not redundant with Vercel's build.** E2E compiles with the e2e flags that
 make sending impossible (`isE2EMode()` requires `NEXT_E2E_BUILD` **and**

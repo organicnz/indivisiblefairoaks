@@ -490,10 +490,12 @@ jobs:
   # ── 4. Build + E2E — E2E's fixture, NOT a merge gate ──────────────────────
   # DO NOT add this to branch protection's required checks.
   #
-  # Previously `build` then `e2e` as separate jobs: each did checkout +
-  # setup-bun + full `bun install`, plus a whole-.next artifact upload and
-  # download — on one serial runner. Merged: one setup, one install, the suite
-  # runs against the build in the same container, no artefact round-trip.
+  # The build and the browser suite are deliberately separate jobs again. They
+  # were merged to avoid an artifact round-trip, but the merged job is the one
+  # the 1 GiB container kills: its build step ran 42 minutes on 2026-11-26 and
+  # never reached the suite. Isolation is worth the handoff. The artifact is
+  # compressed and excludes `.next/cache`; the build command and the full
+  # Playwright suite are unchanged.
   #
   # It must NOT become a required check, because it is the most memory-hungry
   # job in the pipeline — it is the one the container's 1024 MiB ceiling kills
@@ -504,58 +506,26 @@ jobs:
   #     broadcasts and real email to real constituents. See docs/ci-separation-plan.md.
   #   - this job off the required-checks path (see the old build comment below):
   #     it is the most memory-hungry job in the pipeline.
-  build-e2e:
-    name: Build + E2E
+  # The prebuild and the browser suite are separate jobs on purpose. The old
+  # merged job compiled Next and then drove Chromium in one 1 GiB container;
+  # on 2026-11-26 its build step spent 42 minutes there before the job was
+  # cancelled. A cold e2e build measured 2.87 GiB peak RSS locally. Disabling
+  # Turbopack's persistent build cache for this throwaway e2e bundle (there is
+  # no warm cache in a fresh CI container) brings that to 2.45 GiB, and the
+  # browser suite now gets a fresh container of its own. The `.next` handoff is
+  # a compressed artifact with the cache excluded; the build command, minifier
+  # and full Playwright suite are unchanged.
+  build-e2e-build:
+    name: Build + E2E (build)
     runs-on: [self-hosted, linux]
-    # The 1 GiB runner host cannot build Next and run the whole Vitest coverage
-    # suite at the same time. A 2026-11-25 run left both jobs frozen for 36
-    # minutes on their heavy steps, then deregistered the runners. Wait for the
-    # test verdict before starting the build; a red test blocks the build, which
-    # is the correct gate and also avoids spending 20 minutes on a failed tree.
+    # Wait for the test verdict before starting the build; a red test blocks the
+    # build, which is the correct gate and also avoids spending 20 minutes on a
+    # failed tree.
     needs: [changes, lint, test]
     if: needs.changes.outputs.runtime == 'true'
-    timeout-minutes: 60
+    timeout-minutes: 45
     env:
-      # No NODE_OPTIONS here any more, and that is not a loss of protection —
-      # it is the removal of a protection that stopped applying.
-      #
-      # This job used to cap V8's heap at 1280 MB because the build ran on
-      # Node, where a larger ceiling let the working set balloon across swap on
-      # the 887 MB VPS (page-fault thrashing, then OOM). Every process in this
-      # job now runs on Bun's runtime, and Bun does not read `--max-old-space-size`
-      # from NODE_OPTIONS: measured on Bun 1.4.4, the heap limit is ~48 MB
-      # whether the variable is set to 1280, 4096 or absent. The cap was
-      # therefore inert — a comment that read like a safety rail over a cliff
-      # that was not there.
-      #
-      # What actually keeps this job inside 1024 MiB is unchanged and real:
-      #   - `experimental.cpus: 1` for the e2e build (next.config.ts), so
-      #     prerendering is serial rather than one worker per host CPU;
-      #   - `--workers=1` for Playwright, so one Chromium fights the build for
-      #     memory instead of several.
-      #
-      # `--smol` is NOT the lever, and that was measured rather than assumed.
-      # The comment here used to propose it — "more frequent GC, less resident
-      # memory" — on the reasoning that it should be measured first. Measured:
-      # three runs each, peak resident set size of `bun --bun next build`
-      # against `bun --smol --bun next build`, on the same machine:
-      #
-      #     plain  1388 MiB · 1846 MiB · 1192 MiB
-      #     smol   1487 MiB · 1561 MiB · 1216 MiB
-      #
-      # The two distributions overlap completely — the same command measured
-      # 1.19 GiB and 1.85 GiB on different runs — so `--smol` did not move
-      # the footprint beyond the run-to-run variance, and its effect on wall
-      # clock was lost in the same noise. The build's memory profile is
-      # dominated by something other than GC pressure, so a smaller heap does
-      # not help. `experimental.cpus: 1` is the lever that does.
-      #
-      # Worth knowing in the other direction too: the build's peak RSS is
-      # 1.2–1.8 GiB, which is *above* this container's 1024 MiB ceiling. The
-      # job passes because the cgroup counts the whole tree against 1 GiB
-      # with 4 GiB of swap behind it, and because `experimental.cpus: 1`
-      # keeps the working set serial. A runner with less headroom would need
-      # a different build strategy, not a different GC setting.
+      NEXT_E2E_BUILD: "true"
       NEXT_TELEMETRY_DISABLED: "1"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -581,23 +551,8 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      # Exact key on the lockfile only — NOT on src/**. Next's cache is
-      # content-addressed, so changed pages rebuild regardless; keying on src
-      # hashed every push into a cold full build. Old src-hashed keys stay
-      # reachable through the second restore prefix.
-      - name: Cache Next.js build
-        if: "runner.environment != 'self-hosted' && !contains(runner.name, 'personal') && !contains(runner.name, 'ghrunner')"
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
-        with:
-          path: .next/cache
-          key: ${{ runner.os }}-nextjs-${{ hashFiles('bun.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-nextjs-${{ hashFiles('bun.lock') }}-
-            ${{ runner.os }}-nextjs-
-
       - name: Build
         env:
-          NEXT_E2E_BUILD: "true"
           # Source-map upload for the Sentry plugin. The plugin skips upload
           # when the token is absent; next.config.ts additionally passes
           # undefined for e2e builds, so a bundle that is never deployed never
@@ -605,7 +560,61 @@ jobs:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
         run: bun run build
 
-      # Same container the build just ran in — no artefact upload/download.
+      - name: Package the e2e build
+        run: |
+          tar -czf "$RUNNER_TEMP/next-e2e-build.tgz" \
+            --exclude='.next/cache' \
+            --exclude='.next/diagnostics' \
+            --exclude='.next/trace' \
+            .next
+
+      - name: Upload the e2e build
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: next-e2e-build
+          path: ${{ runner.temp }}/next-e2e-build.tgz
+          retention-days: 1
+
+  build-e2e-test:
+    name: Build + E2E (e2e)
+    runs-on: [self-hosted, linux]
+    needs: [build-e2e-build]
+    if: needs.build-e2e-build.result == 'success'
+    timeout-minutes: 30
+    env:
+      CI: "true"
+      NEXT_E2E_BUILD: "true"
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+          no-cache: true
+
+      - name: Cache bun dependencies
+        if: "runner.environment != 'self-hosted' && !contains(runner.name, 'personal') && !contains(runner.name, 'ghrunner')"
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: ${{ runner.os }}-bun-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Download the e2e build
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: next-e2e-build
+          path: ${{ runner.temp }}
+
+      - name: Restore the e2e build
+        run: tar -xzf "$RUNNER_TEMP/next-e2e-build.tgz"
+
       # Browsers are cached like bun's package cache: keyed on the lockfile
       # that pins the Playwright version, so a version bump re-downloads once.
       - name: Cache Playwright browsers
@@ -639,7 +648,6 @@ jobs:
             bun node_modules/@playwright/test/cli.js test --workers=1
           fi
         env:
-          CI: "true"
           # Seeded admin sessions, so /admin and /auth/mfa stop being the two
           # surfaces with no browser coverage. Both specs test.skip when these
           # are absent rather than weakening an assertion, so an unseeded project
@@ -658,6 +666,17 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 14
+
+  # Keep one stable check name for the delivery gate. This job owns no steps
+  # and no coverage; it is green only when both halves above are green.
+  build-e2e:
+    name: Build + E2E
+    runs-on: [self-hosted, linux]
+    needs: [build-e2e-build, build-e2e-test]
+    timeout-minutes: 5
+    steps:
+      - name: Confirm both halves passed
+        run: echo "Next build and the full Playwright suite both passed."
 
   # ── 5. Vercel deployment confirmation ─────────────────────────────────────
   # Ownership: Vercel builds and deploys the Next.js app. This job builds

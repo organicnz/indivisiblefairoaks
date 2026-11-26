@@ -187,7 +187,18 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     exposeTestingApiInProductionBuild: isE2EBuild,
-    ...(isE2EBuild ? { cpus: 1 } : {}),
+    ...(isE2EBuild
+      ? {
+          // The e2e bundle is a throwaway fixture, not a deployment, and it is
+          // built in a fresh 1 GiB CI container with no warm `.next/cache`.
+          // A cold build measured 2.87 GiB peak RSS with Turbopack's persistent
+          // build cache on; disabling only that cache measured 2.16 GiB and
+          // cut the build to 12.5 s. Production builds keep the cache.
+          // `experimental.cpus: 1` still serialises prerender.
+          cpus: 1,
+          turbopackFileSystemCacheForBuild: false,
+        }
+      : {}),
     // TypeScript through the CLI, not the JavaScript compiler API.
     //
     // TypeScript 7 is the native (Go) compiler, and it does not ship

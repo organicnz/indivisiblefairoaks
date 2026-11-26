@@ -116,8 +116,9 @@ The container runs with `Memory=1073741824` (1024 MiB),
 `MemorySwap=4294967296` (4096 MiB, backed by 6 GB host swap) and `CpuQuota=150000`.
 Jobs end `cancelled` rather than `failed` once the cgroup is exhausted, and
 `cancelled` there means the host ran out of room — it is not a verdict on the code.
-With expanded 6 GB host swap, `build-e2e` sets `NODE_OPTIONS: --max-old-space-size=3584`
-to let V8 utilize the available swap without triggering excessive GC cycles or allocation failures.
+On 2026-11-26 the e2e prebuild and the browser suite were split into
+`build-e2e-build` and `build-e2e-test`; the build disables Turbopack's persistent
+cache for the throwaway e2e bundle (see below).
 
 > **Superseded 2026-10-20 — the `NODE_OPTIONS` caps are gone, and they were
 > already inert.** Every process in these jobs now runs on Bun's runtime, and
@@ -133,10 +134,29 @@ to let V8 utilize the available swap without triggering excessive GC cycles or a
 > below are kept as the record they are; the heap numbers in them describe a
 > V8 pipeline that no longer exists.
 
+### Build + E2E is split (2026-11-26)
+
+The merged `Build + E2E` job spent 42 minutes in its Build step on 2026-11-26
+and never reached the Playwright suite. It is now two jobs plus a tiny aggregate:
+
+- `build-e2e-build` installs, runs `NEXT_E2E_BUILD=true bun run build`, and
+  uploads a compressed `.next` artifact with `.next/cache` excluded;
+- `build-e2e-test` starts in a fresh 1 GiB container, restores that artifact,
+  and runs the same full suite with `--workers=1`;
+- `build-e2e` is the stable `Build + E2E` check name and is green only when both
+  halves are green.
+
+`next.config.ts` disables `turbopackFileSystemCacheForBuild` only for e2e builds.
+There is no warm `.next/cache` in a fresh CI container, and the persistent cache
+kept its snapshot resident: a cold build measured **2.87 GiB peak RSS** with it
+and **2.45 GiB** without it, at the same ~12 s wall clock. `experimental.cpus: 1`
+still serialises prerender, and the minifier stays on so the browser suite still
+tests a minified bundle. Production builds keep the cache and the minifier.
+
 ### Never switch to `ubuntu-latest`
 
 Workflows in this repository run exclusively on self-hosted runners (`[self-hosted, linux, <role>-runner]`).
-Do not switch jobs to `ubuntu-latest`. When optimizing `build-e2e` on the self-hosted host:
+Do not switch jobs to `ubuntu-latest`. When optimizing `build-e2e-build` on the self-hosted host:
 1. **Single-worker Next.js builds**: `next.config.ts` sets `experimental.cpus: 1` during `NEXT_E2E_BUILD`
    so page collection and static generation run sequentially with 1 worker rather than spawning multiple
    V8 processes that compete for physical memory and cause swap thrashing.
@@ -402,7 +422,7 @@ makes this job's wall clock the binding constraint rather than the code.
 > contract is not the binding constraint on this job any more.
 >
 > The runner still needs its memory headroom for the **build**, which is a
-> different job (`build-e2e`) and does not type-check — e2e builds set
+> different job (`build-e2e-build`) and does not type-check — e2e builds set
 > `typescript.ignoreBuildErrors`. See `AGENTS.md` for the current contract.
 
 **That ceiling was wrong, and it was wrong in the direction that hides a pass.**
