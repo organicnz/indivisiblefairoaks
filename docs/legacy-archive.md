@@ -143,8 +143,9 @@ assets, 20 documents, 27 links, 49 public assets, and 17 public documents.
 - `/archive#voter-guides-2026` is the home for the 2026 voter guides and
   recommendations. Its four document links resolve through
   `legacy_public_documents` when a row exists, otherwise they fall back to the
-  original Drive URL. `/voter-info` keeps the evergreen voter-rights guides and
-  links readers to the archived 2026 material.
+  original Drive URL. `/voter-info` keeps only the evergreen voter-rights guides;
+  it carries no 2026 guide, recommendation, or archive callout. The site footer
+  and navigation link to `/archive`.
 - `/newsletters` adds legacy newsletter PDFs.
 - `/choir` adds the old feature article, Instagram, Mobilize and film/document
   records.

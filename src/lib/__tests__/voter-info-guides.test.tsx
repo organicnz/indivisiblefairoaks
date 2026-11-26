@@ -56,7 +56,7 @@ describe('VoterInfoPage & archived 2026 voter guides', () => {
     expect(metadata.description).toContain('Sacramento County');
   });
 
-  it('keeps the evergreen rights guides and points 2026 material to the archive', async () => {
+  it('keeps only evergreen rights guides and renders no 2026 material or archive pointer', async () => {
     const page = await VoterInfoPage();
     await act(async () => {
       root.render(page);
@@ -77,10 +77,19 @@ describe('VoterInfoPage & archived 2026 voter guides', () => {
     expect(container.textContent).not.toContain('Understanding the SAVE America Act');
     expect(container.textContent).not.toContain('Analysis by Lawyer Oyer');
 
-    expect(container.textContent).toContain('Voter Information Archives');
-    expect(container.textContent).toContain('not a live election guide');
+    // The 2026 archive callout and the "Archives" section link now live only on
+    // /archive, so this page carries no 2026 wording or pointer at all.
+    expect(container.textContent).not.toContain('2026');
+    expect(container.textContent).not.toContain('Voter Information Archives');
+    expect(container.textContent).not.toContain('Open the 2026 voter archive');
+
+    const sectionNav = container.querySelector('nav[aria-label="Voter information sections"]');
+    expect(sectionNav).not.toBeNull();
+    expect(sectionNav?.textContent).not.toContain('Archives');
 
     const links = Array.from(container.querySelectorAll<HTMLAnchorElement>('a'));
+    expect(links.some((a) => a.getAttribute('href') === '#archives')).toBe(false);
+    expect(links.some((a) => a.getAttribute('href')?.startsWith('/archive'))).toBe(false);
 
     for (const href of [
       'https://registertovote.ca.gov',
@@ -114,9 +123,5 @@ describe('VoterInfoPage & archived 2026 voter guides', () => {
         'https://elections.cdn.sos.ca.gov/statewide-elections/2025-special/trusted-info-homelessness.pdf'
     );
     expect(unhousedVoterLink).toBeDefined();
-
-    const archiveLink = links.find((a) => a.getAttribute('href') === '/archive#voter-guides-2026');
-    expect(archiveLink).toBeDefined();
-    expect(archiveLink?.textContent).toContain('Open the 2026 voter archive');
   });
 });

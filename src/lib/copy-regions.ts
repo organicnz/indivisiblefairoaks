@@ -83,7 +83,6 @@ export const PAGE_COPY_REGIONS: Readonly<Record<string, readonly CopyRegionDefin
   '/voter-info': [
     { id: 'voter-guides', label: 'Voter Rights & Educational Guides' },
     { id: 'voter-hotlines', label: 'Elections & Hotlines' },
-    { id: 'voter-archive', label: 'Voter Information Archive' },
   ],
   '/choir': [{ id: 'choir-schedule', label: 'Rehearsal Schedule' }],
   '/donate': [{ id: 'donate-impact', label: 'Where Your Donation Goes' }],

@@ -5,7 +5,6 @@ import { MASTHEAD_INTRO, MASTHEAD_TITLE, PageMasthead } from '@/components/layou
 import { DataPoint } from '@/components/ui/DataPoint';
 import { SacramentoRepresentativeFinder } from '@/components/ui/SacramentoRepresentativeFinder';
 import { VoterActionCards } from '@/components/voter-info/VoterActionCards';
-import { VoterArchiveSection } from '@/components/voter-info/VoterArchiveSection';
 import { VoterGuidesSection } from '@/components/voter-info/VoterGuidesSection';
 import { VoterHotlinesSection } from '@/components/voter-info/VoterHotlinesSection';
 import { VoterSectionNav } from '@/components/voter-info/VoterSectionNav';
@@ -79,7 +78,6 @@ export default async function VoterInfoPage() {
           <VoterGuidesSection dataPoints={dataPoints} legacyHref={legacyHref} />
         </CopyRegion>
         <VoterHotlinesSection dataPoints={dataPoints} />
-        <VoterArchiveSection />
       </div>
     </div>
   );

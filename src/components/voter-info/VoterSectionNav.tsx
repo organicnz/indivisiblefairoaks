@@ -4,15 +4,11 @@ const SECTIONS = [
   ['guides', 'Guides'],
   ['rights', 'Rights'],
   ['hotlines', 'Hotlines'],
-  ['archives', 'Archives'],
 ] as const;
 
 export function VoterSectionNav() {
   return (
-    <nav
-      aria-label="Voter information sections"
-      className="border-b border-border bg-surface-card"
-    >
+    <nav aria-label="Voter information sections" className="border-b border-border bg-surface-card">
       <div className="mx-auto flex max-w-5xl gap-5 overflow-x-auto px-4 py-3 sm:px-6 lg:px-8">
         {SECTIONS.map(([href, label]) => (
           <a
