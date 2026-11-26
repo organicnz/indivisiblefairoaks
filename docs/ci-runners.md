@@ -146,6 +146,21 @@ and never reached the Playwright suite. It is now two jobs plus a tiny aggregate
 - `build-e2e` is the stable `Build + E2E` check name and is green only when both
   halves are green.
 
+The e2e bundle resolves remote gallery media through the repository's local
+`public/images/gallery` fixtures (`src/lib/e2e-image-loader.ts`). A runner's path
+to Supabase Storage was slow enough that the image optimizer's upstream fetch
+timed out and every `page.goto()` waited on the same banner image. It returns
+those fixture paths directly: setting `images.loader` to `custom` disables the
+built-in `/_next/image` endpoint, so a wrapped URL returns the 404 page and every
+photo falls back to its placeholder plate. The gallery fallback spec intercepts
+`**/images/gallery/**` instead; production keeps Next's default loader and the
+real media.
+
+The e2e job has a 40-minute ceiling. `runner-health.yml` cancels a run only when
+one of its **in-progress jobs** is older than 50 minutes, not when the run itself
+is old: on 2026-11-26 the run spent 38 minutes queued, then its healthy e2e job
+was cancelled by the old run-age rule at 26 minutes of work.
+
 `next.config.ts` disables `turbopackFileSystemCacheForBuild` only for e2e builds.
 There is no warm `.next/cache` in a fresh CI container, and the persistent cache
 kept its snapshot resident: a cold build measured **2.87 GiB peak RSS** with it

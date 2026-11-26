@@ -513,8 +513,10 @@ jobs:
   # Turbopack's persistent build cache for this throwaway e2e bundle (there is
   # no warm cache in a fresh CI container) brings that to 2.45 GiB, and the
   # browser suite now gets a fresh container of its own. The `.next` handoff is
-  # a compressed artifact with the cache excluded; the build command, minifier
-  # and full Playwright suite are unchanged.
+  # a compressed artifact with the Turbopack cache excluded; the build command,
+  # minifier and full Playwright suite are unchanged. The e2e bundle resolves
+  # external media through the local gallery fixtures (see next.config.ts), so
+  # a slow Supabase Storage response cannot stall every page load.
   build-e2e-build:
     name: Build + E2E (build)
     runs-on: [self-hosted, linux]
@@ -580,7 +582,11 @@ jobs:
     runs-on: [self-hosted, linux]
     needs: [build-e2e-build]
     if: needs.build-e2e-build.result == 'success'
-    timeout-minutes: 30
+    # The split job pays for its own dependency and browser install. Keep
+    # headroom above the full suite's measured runtime so a slow runner cannot
+    # truncate the gate; the runner-health watchdog only cancels jobs that have
+    # actually been in progress for 50 minutes.
+    timeout-minutes: 40
     env:
       CI: "true"
       NEXT_E2E_BUILD: "true"

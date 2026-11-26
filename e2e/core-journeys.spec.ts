@@ -154,7 +154,7 @@ test.describe('gallery journey', () => {
   });
 
   test('a failed gallery photo shows the accessible fallback', async ({ page }) => {
-    await page.route('**/_next/image**', async (route) => {
+    await page.route('**/images/gallery/**', async (route) => {
       await route.fulfill({
         status: 503,
         contentType: 'text/plain',

@@ -52,7 +52,7 @@ export function GalleryGrid({
           type="button"
           data-gallery-photo={photo.id}
           onClick={() => onSelectPhoto(photo.id)}
-          className="group relative h-88 cursor-pointer overflow-hidden border border-border bg-surface-card text-left transition-colors hover:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          className="group relative h-88 cursor-pointer overflow-hidden border border-border bg-secondary text-left transition-colors hover:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >
           <GalleryImage
             src={photo.url}
@@ -64,7 +64,7 @@ export function GalleryGrid({
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-secondary via-secondary/45 to-transparent opacity-90 transition-opacity group-hover:opacity-80" />
 
           <div className="absolute left-4 top-4 z-10 flex max-w-[85%] flex-col items-start gap-1.5">
-            <span className="border border-white/20 bg-secondary/85 px-2.5 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wider text-accent-gold backdrop-blur-md">
+            <span className="border border-white/20 bg-secondary px-2.5 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wider text-accent-gold">
               {photo.category}
             </span>
             {photo.signQuote && (
@@ -80,11 +80,7 @@ export function GalleryGrid({
             </span>
             <div className="flex items-start justify-between gap-2 text-xs text-ink-muted-on-dark">
               <span className="flex min-w-0 max-w-[70%] items-start gap-1">
-                <MapPin
-                  size={12}
-                  className="mt-0.5 shrink-0 text-accent-gold"
-                  aria-hidden="true"
-                />
+                <MapPin size={12} className="mt-0.5 shrink-0 text-accent-gold" aria-hidden="true" />
                 <span className="line-clamp-2">{photo.location}</span>
               </span>
               <span className="shrink-0 font-mono text-[10px]">{photo.date}</span>

@@ -196,26 +196,36 @@ jobs:
       # A runner that dies mid-job leaves the job in_progress until GitHub's
       # timeout-minutes backstop eventually fires — which on a dead runner is
       # never, because the only thing that can fire it is the runner itself.
-      # This is the watchdog that does not depend on the runner: any run whose
-      # oldest in-flight job is older than 30 min is cancelled, long enough
-      # that a healthy pass (worst observed ~27 min) is never touched, short
-      # enough to unblock the queue. It is idempotent and the only candidate
-      # is the same-repository CI workflow.
-      - name: Cancel wedged in_progress runs (>30 min)
+      # This is the watchdog that does not depend on the runner: any run with
+      # an in-progress job older than 50 min is cancelled, long enough that a
+      # healthy pass (which can sit in the queue for half an hour before its
+      # first job starts) is never touched, short enough to unblock the queue.
+      #
+      # Measure the JOB, not the run. The first version used the run's
+      # `startedAt`; on 2026-11-26 a run queued for 38 minutes before its e2e
+      # job even began, so the watchdog cancelled a perfectly healthy e2e job
+      # at 26 minutes of work. A queued run is not wedged.
+      - name: Cancel wedged in_progress runs (>50 min of job time)
         env:
           GH_TOKEN: ${{ secrets.RUNNERS_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
           NOW=$(date -u +%s)
           gh run list --repo "${{ github.repository }}" --status in_progress --limit 20 \
-            --json databaseId,startedAt \
-            --jq '.[] | "\(.databaseId) \(.startedAt)"' | while read -r id started; do
-            START=$(date -u -d "$started" +%s 2>/dev/null || echo "$NOW")
+            --json databaseId \
+            --jq '.[].databaseId' | while read -r id; do
+            OLDEST=$(gh api "repos/${{ github.repository }}/actions/runs/$id/jobs" \
+              --jq '[.jobs[] | select(.status == "in_progress") | .started_at] | min // empty')
+            if [ -z "$OLDEST" ]; then
+              echo "  run $id has no in-progress job — left alone"
+              continue
+            fi
+            START=$(date -u -d "$OLDEST" +%s 2>/dev/null || echo "$NOW")
             AGE=$(( (NOW - START) / 60 ))
-            if [ "$AGE" -gt 30 ]; then
-              echo "Cancelling wedged run $id (age ${AGE}m)"
+            if [ "$AGE" -gt 50 ]; then
+              echo "Cancelling wedged run $id (oldest in-progress job ${AGE}m)"
               gh run cancel "$id" --repo "${{ github.repository }}" || echo "::warning::failed to cancel $id"
             else
-              echo "  run $id is ${AGE}m old — left alone"
+              echo "  run $id oldest in-progress job is ${AGE}m old — left alone"
             fi
           done
 

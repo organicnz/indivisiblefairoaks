@@ -245,6 +245,15 @@ const nextConfig: NextConfig = {
     return [...legacyRedirects, ...removedCommerceRedirects];
   },
   images: {
+    // The e2e bundle is hermetic: remote gallery photos are served from the
+    // local fixtures in public/images/gallery, because a slow Supabase Storage
+    // response otherwise stalls every page load on the fleet. Production uses
+    // Next's default loader and the real media. A custom loader disables the
+    // built-in `/_next/image` endpoint, so the loader returns fixture paths
+    // directly and the gallery fallback spec intercepts those.
+    ...(isE2EBuild
+      ? { loader: 'custom' as const, loaderFile: './src/lib/e2e-image-loader.ts' }
+      : {}),
     // Cache transforms for 31 days — product photos rarely change, so repeat
     // views should never pay a second optimization. Cuts the transformations
     // quota burn dramatically (each unique width×image pair transforms once).

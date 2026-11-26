@@ -47,19 +47,19 @@ function GalleryImageState({
         className={
           fallback
             ? 'absolute inset-0 z-[1]'
-            : 'civic-photo-fallback absolute inset-0 z-[1] flex flex-col items-center justify-center gap-2 overflow-hidden bg-surface-muted px-4 py-5 text-center text-muted-foreground dark:bg-secondary dark:text-ink-muted-on-dark'
+            : 'civic-photo-fallback absolute inset-0 z-[1] flex flex-col items-center justify-center gap-2 overflow-hidden bg-secondary px-4 py-5 text-center text-ink-muted-on-dark'
         }
       >
         {fallback ?? (
           <div className="relative z-[1] flex flex-col items-center gap-2.5">
-            <span className="flex size-11 items-center justify-center border border-border bg-surface-card/85 text-muted-foreground dark:border-white/15 dark:bg-white/5 dark:text-ink-muted-on-dark">
+            <span className="flex size-11 items-center justify-center border border-white/15 bg-white/5 text-ink-muted-on-dark">
               <ImageOff size={19} aria-hidden="true" className="shrink-0" />
             </span>
             <span className="text-[10px] font-bold uppercase tracking-[0.18em]">
               {fallbackLabel}
             </span>
             {alt ? (
-              <span className="line-clamp-2 max-w-[24ch] font-display text-sm font-semibold leading-snug text-foreground/70 dark:text-ink-on-dark/70">
+              <span className="line-clamp-2 max-w-[24ch] font-display text-sm font-semibold leading-snug text-ink-on-dark/70">
                 {alt}
               </span>
             ) : null}
