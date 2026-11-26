@@ -16,6 +16,7 @@ import type {
   IceSourceReport,
   IceSourceReportKind,
 } from '@/lib/ice-crawl-types';
+import type { IceSourceReportPublicationStatus } from '@/lib/ice-discovery-publication';
 import {
   type IceSourceReportFilters,
   normalizeIceSourceReportQuery,
@@ -85,6 +86,7 @@ export type IceSourceReportInput = {
   extraction_method: IceSourceExtractionMethod;
   dedupe_key: string;
   published_at?: string;
+  publication_status?: IceSourceReportPublicationStatus;
   provenance?: 'crawl' | 'discovery';
   rights_status?: 'confirmed' | 'unconfirmed';
   summary?: string | null;
@@ -122,6 +124,23 @@ export type IceSourceReportSummary = Pick<
   | 'city'
   | 'state_code'
 >;
+
+export type IceSourceReportPublicationSummary = {
+  publicCount: number;
+  scheduledCount: number;
+  awaitingRightsCount: number;
+  rightsConfirmedDraftCount: number;
+};
+
+export type IceSourceReportDraft = {
+  id: string;
+  title: string;
+  source_name: string;
+  source_url: string;
+  rights_status: 'confirmed' | 'unconfirmed';
+  publication_status: IceSourceReportPublicationStatus;
+  published_at: string;
+};
 
 type IceCrawlDatabase = {
   public: {
@@ -477,7 +496,7 @@ export async function hasIceCrawlPageImage(store: IceCrawlStore, imageUrl: strin
 export async function listUnconfirmedDiscoveryReports(store: IceCrawlStore, limit = 10) {
   const { data, error } = await store
     .from('ice_source_reports')
-    .select('id, title, source_name, source_url, summary, published_at')
+    .select('id, title, source_name, source_url, summary, publication_status, published_at')
     .eq('provenance', 'discovery')
     .eq('rights_status', 'unconfirmed')
     // The rights queue drains oldest-first too: a summary admitted last week
@@ -486,6 +505,60 @@ export async function listUnconfirmedDiscoveryReports(store: IceCrawlStore, limi
     .limit(Math.min(Math.max(1, limit), 50));
   if (error) throw new Error(`unconfirmed discovery reports failed: ${error.message}`);
   return data ?? [];
+}
+
+export async function listRightsConfirmedDrafts(
+  store: IceCrawlStore,
+  limit = 10
+): Promise<IceSourceReportDraft[]> {
+  const { data, error } = await store
+    .from('ice_source_reports')
+    .select('id, title, source_name, source_url, rights_status, publication_status, published_at')
+    .eq('rights_status', 'confirmed')
+    .eq('publication_status', 'draft')
+    .order('published_at', { ascending: true })
+    .limit(Math.min(Math.max(1, limit), 50));
+  if (error) throw new Error(`rights-confirmed drafts failed: ${error.message}`);
+  return (data ?? []) as IceSourceReportDraft[];
+}
+
+export async function getSourceReportPublicationSummary(
+  store: IceCrawlStore
+): Promise<IceSourceReportPublicationSummary> {
+  const now = new Date().toISOString();
+  const [publicCount, scheduled, awaitingRights, rightsConfirmedDrafts] = await Promise.all([
+    getPublishedSourceReportCount(store),
+    store
+      .from('ice_source_reports')
+      .select('id', { count: 'exact', head: true })
+      .eq('rights_status', 'confirmed')
+      .eq('publication_status', 'published')
+      .gt('published_at', now),
+    store
+      .from('ice_source_reports')
+      .select('id', { count: 'exact', head: true })
+      .eq('rights_status', 'unconfirmed'),
+    store
+      .from('ice_source_reports')
+      .select('id', { count: 'exact', head: true })
+      .eq('rights_status', 'confirmed')
+      .eq('publication_status', 'draft'),
+  ]);
+
+  if (scheduled.error) throw new Error(`scheduled count failed: ${scheduled.error.message}`);
+  if (awaitingRights.error) {
+    throw new Error(`awaiting-rights count failed: ${awaitingRights.error.message}`);
+  }
+  if (rightsConfirmedDrafts.error) {
+    throw new Error(`draft count failed: ${rightsConfirmedDrafts.error.message}`);
+  }
+
+  return {
+    publicCount,
+    scheduledCount: scheduled.count ?? 0,
+    awaitingRightsCount: awaitingRights.count ?? 0,
+    rightsConfirmedDraftCount: rightsConfirmedDrafts.count ?? 0,
+  };
 }
 
 export async function getDiscoveryReportForPromotion(store: IceCrawlStore, id: string) {
@@ -519,6 +592,26 @@ export async function promoteDiscoveryReport(
     .eq('rights_status', 'unconfirmed')
     .select('id');
   if (error) throw new Error(`discovery report promotion failed: ${error.message}`);
+  return (data?.length ?? 0) > 0;
+}
+
+/**
+ * Explicit human publication after rights confirmation. The update is guarded
+ * by both `rights_status` and `publication_status`, so a draft can never be
+ * published by a stale UI or by an unauthenticated caller that guesses an id.
+ */
+export async function publishSourceReport(store: IceCrawlStore, id: string) {
+  const { data, error } = await store
+    .from('ice_source_reports')
+    .update({
+      publication_status: 'published',
+      published_at: new Date().toISOString(),
+    })
+    .eq('id', id)
+    .eq('rights_status', 'confirmed')
+    .eq('publication_status', 'draft')
+    .select('id');
+  if (error) throw new Error(`source report publication failed: ${error.message}`);
   return (data?.length ?? 0) > 0;
 }
 
@@ -896,12 +989,12 @@ export async function getPublishedSourceReportCount(
     .from('ice_source_reports')
     .select('id', { count: 'exact', head: true })
     // The store uses the service-role key, so PostgREST does not apply the
-    // anon RLS policy that hides future-dated rows. Every public read must
-    // repeat that predicate or a scheduled report becomes visible early.
-    // `rights_status` is the second half of the same gate: discovery summaries
-    // are attributed abstracts, not rights-confirmed republications.
+    // anon RLS policy. Every public read repeats all three gates: submission,
+    // human rights confirmation, and the publication time. A draft, an
+    // attributed discovery summary, or a future-dated row must stay invisible.
     .lte('published_at', new Date().toISOString())
-    .eq('rights_status', 'confirmed');
+    .eq('rights_status', 'confirmed')
+    .eq('publication_status', 'published');
 
   if (filters?.kind && filters.kind !== 'all') {
     query = query.eq('kind', filters.kind);
@@ -949,6 +1042,7 @@ export async function getPublishedSourceReportCitySummary(
       )
       .lte('published_at', new Date().toISOString())
       .eq('rights_status', 'confirmed')
+      .eq('publication_status', 'published')
       .eq('state_code', stateCode)
       .ilike('city', city)
       .order('published_at', { ascending: false })
@@ -974,6 +1068,8 @@ export async function getSourceReportForRefinement(
     .select('id, source_url, source_title, title, text_content, refined_text, refined_at')
     .eq('id', id)
     .lte('published_at', new Date().toISOString())
+    .eq('rights_status', 'confirmed')
+    .eq('publication_status', 'published')
     .maybeSingle();
   if (error) throw new Error(`source report refinement read failed: ${error.message}`);
   return (data as IceSourceReportRefinementRow | null) ?? null;
@@ -1014,6 +1110,7 @@ function toPublicSourceReport(row: IceSourceReport): IceSourceReport {
     kind: row.kind,
     extraction_method: row.extraction_method,
     published_at: row.published_at,
+    publication_status: row.publication_status ?? 'published',
     provenance: row.provenance ?? 'crawl',
     rights_status: row.rights_status ?? 'confirmed',
     summary: row.summary ?? null,
@@ -1034,6 +1131,7 @@ export async function getPublishedSourceReports(
     .select('*')
     .lte('published_at', new Date().toISOString())
     .eq('rights_status', 'confirmed')
+    .eq('publication_status', 'published')
     .order('published_at', { ascending: false });
 
   if (filters?.kind && filters.kind !== 'all') {

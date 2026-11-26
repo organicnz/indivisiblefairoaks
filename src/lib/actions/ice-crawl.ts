@@ -16,6 +16,7 @@ import {
   insertIceCrawlDiscoveries,
   insertIceCrawlSource,
   listIceCrawlSources,
+  publishSourceReport,
   reviewIceCrawlDiscovery,
   updateIceCrawlSource,
 } from '@/lib/ice-crawl-store';
@@ -452,6 +453,38 @@ export async function promoteIceCrawlReportAction(
     return {
       success: false,
       error: error instanceof Error ? error.message : 'The promotion failed.',
+    };
+  }
+}
+
+/**
+ * Publish a rights-confirmed draft. Publication is deliberately separate from
+ * rights confirmation: an admin can clear the legal gate and still keep the
+ * report private until the chapter is ready to release it.
+ */
+export async function publishIceCrawlReportAction(
+  input: unknown
+): Promise<IceCrawlPromotionActionResult> {
+  const session = await requireAdmin('/admin/ice-crawl');
+  const parsed = idSchema.safeParse(input);
+  if (!parsed.success) return { success: false, error: 'Check the discovery report.' };
+
+  try {
+    const published = await publishSourceReport(storeFrom(session), parsed.data.id);
+    if (!published) {
+      return {
+        success: false,
+        error: 'Only a rights-confirmed draft can be published.',
+      };
+    }
+    revalidatePath('/admin/ice-crawl');
+    revalidatePath('/ice-alerts');
+    revalidatePath('/ice-alerts/web-reports');
+    return { success: true, message: 'Published to the public archive.' };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'The report could not be published.',
     };
   }
 }

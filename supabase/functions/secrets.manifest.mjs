@@ -141,6 +141,10 @@ export const FUNCTION_SECRETS = {
     ICE_AI_RATE_LIMIT_WINDOW_MIN: { verify: false, note: 'Defaults in code.' },
   },
   'ice-scan': {
+    ICE_DISCOVERY_AUTO_PUBLISH: {
+      verify: false,
+      note: 'Publication switch, default false. The rights confirmation gate still applies.',
+    },
     // Only platform-injected values are read here: `SUPABASE_SECRET_KEYS`
     // authenticates pg_cron's `apikey` header, and the legacy
     // `SUPABASE_SERVICE_ROLE_KEY` backs the DB client and the server-to-server

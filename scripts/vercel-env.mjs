@@ -115,6 +115,12 @@ export const VARS = {
     example: '3',
     note: 'Contact submissions per window, per IP. Defaults in code.',
   },
+  ICE_DISCOVERY_AUTO_PUBLISH: {
+    required: false,
+    example: 'false',
+    note:
+      'Discovery intake switch. Defaults to false; when true, new rows are submitted for publication but still require human rights confirmation.',
+  },
   NEXT_PUBLIC_VAPID_PUBLIC_KEY: {
     required: false,
     example: 'B…',

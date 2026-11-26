@@ -5,11 +5,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
  * The aggregate source-report reads use `getIceCrawlStore()`, which is built
  * with the service-role key. That bypasses the anon RLS policy:
  *
- *   using (published_at <= now())
+ *   using (publication_status = 'published' and rights_status = 'confirmed'
+ *          and published_at <= now())
  *
- * so every public query has to apply the predicate itself. These tests fail if
- * a scheduled (future-dated) report leaks through the archive, a count, a city
- * summary, or the Near-me locator's place list.
+ * so every public query has to apply all three predicates itself. These tests
+ * fail if a draft, an unconfirmed summary, or a scheduled (future-dated) report
+ * leaks through the archive, a count, a city summary, or the Near-me list.
  */
 const placesStore = vi.hoisted(() => ({ current: null as unknown }));
 
@@ -46,6 +47,7 @@ function report(overrides: Record<string, unknown>) {
     extraction_method: 'feed',
     dedupe_key: 'report',
     published_at: PAST,
+    publication_status: 'published',
     provenance: 'crawl',
     rights_status: 'confirmed',
     refined_text: null,
@@ -73,6 +75,13 @@ const rows = [
     rights_status: 'unconfirmed',
     summary: 'An attributed summary that still needs a human rights confirmation.',
   }),
+  report({
+    id: 'rights-confirmed-draft',
+    city: 'San Jose',
+    state_code: 'CA',
+    dedupe_key: 'held-draft',
+    publication_status: 'draft',
+  }),
 ];
 
 function makeStore() {
@@ -96,7 +105,12 @@ describe('public source-report reads honour published_at and rights_status', () 
     expect(reports.map((row) => row.id)).not.toContain('unconfirmed-discovery');
   });
 
-  it('excludes a future-dated or unconfirmed report from exact counts', async () => {
+  it('excludes a rights-confirmed draft from the archive', async () => {
+    const reports = await getPublishedSourceReports(makeStore(), 50);
+    expect(reports.map((row) => row.id)).not.toContain('rights-confirmed-draft');
+  });
+
+  it('excludes a future-dated, unconfirmed, or draft report from exact counts', async () => {
     expect(await getPublishedSourceReportCount(makeStore())).toBe(2);
   });
 
@@ -116,5 +130,10 @@ describe('public source-report reads honour published_at and rights_status', () 
       { city: 'Sacramento', stateCode: 'CA', count: 1 },
       { city: 'Portland', stateCode: 'OR', count: 1 },
     ]);
+  });
+
+  it('excludes a rights-confirmed draft from the Near-me place list', async () => {
+    const places = await getSourceReportPlaces();
+    expect(places.map((place) => place.city)).not.toContain('San Jose');
   });
 });

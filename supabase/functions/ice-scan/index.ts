@@ -49,6 +49,10 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 const APP_URL = Deno.env.get('APP_URL') ?? 'https://indivisiblefairoaks.org';
 const SCAN_BUDGET_MS = envInt('ICE_SCAN_BUDGET_MS', 100_000, 45_000, 140_000);
+// Discovery intake is a draft factory by default. Turning this on submits new
+// rows for publication, but the rights gate remains mandatory and independent.
+const AUTO_PUBLISH = (Deno.env.get('ICE_DISCOVERY_AUTO_PUBLISH') ?? '').trim().toLowerCase() === 'true';
+const PUBLICATION_STATUS = AUTO_PUBLISH ? 'published' : 'draft';
 const INTAKE_DEFAULT = envInt('ICE_SCAN_INTAKE_LIMIT', 9, 1, 20);
 const INTAKE_MAX = 20;
 const CONCURRENCY = envInt('ICE_SCAN_CONCURRENCY', 3, 1, 6);
@@ -591,6 +595,7 @@ async function processCandidate(
           extraction_method: 'ai',
           dedupe_key: `discovery:${canonicalUrl}`,
           published_at: now,
+          publication_status: PUBLICATION_STATUS,
           provenance: 'discovery',
           rights_status: 'unconfirmed',
           summary,
@@ -642,6 +647,7 @@ async function processCandidate(
   log('ice_scan_report', {
     discoveryId: discovery.id,
     host: new URL(canonicalUrl).hostname,
+    publication: PUBLICATION_STATUS,
     images,
     imageErrors,
   });
@@ -716,6 +722,7 @@ async function runIntake(
   const summary = {
     processed: outcomes.filter((outcome) => outcome.status !== 'deferred').length,
     reports: outcomes.filter((outcome) => outcome.status === 'report').length,
+    publication: PUBLICATION_STATUS,
     duplicates: outcomes.filter((outcome) => outcome.status === 'duplicate').length,
     rejected: outcomes.filter((outcome) => outcome.status === 'rejected').length,
     retried: outcomes.filter((outcome) => outcome.status === 'retry').length,
@@ -733,6 +740,7 @@ async function runIntake(
   log('ice_scan_intake', {
     processed: summary.processed,
     reports: summary.reports,
+    publication: summary.publication,
     duplicates: summary.duplicates,
     rejected: summary.rejected,
     retried: summary.retried,
@@ -884,6 +892,7 @@ Deno.serve(async (request) => {
           errors: [...new Set([...errors, ...phaseErrors])].slice(0, 20),
           details: {
             providers: discovery.providers ?? [],
+            publication: PUBLICATION_STATUS,
             deferred: Number(intake.deferred ?? 0),
             skipped: [discovery.skipped, intake.skipped].filter(Boolean),
           },

@@ -5,15 +5,20 @@ import { IceCrawlDiscovery } from '@/components/admin/IceCrawlDiscovery';
 import { IceCrawlManager } from '@/components/admin/IceCrawlManager';
 import { IceCrawlPromotion } from '@/components/admin/IceCrawlPromotion';
 import { IceCrawlHeader } from '@/components/admin/ice/IceCrawlHeader';
+import { IceCrawlPublicationGate } from '@/components/admin/ice/IceCrawlPublicationGate';
 import { requireAdminPage } from '@/lib/admin-auth';
+import { env } from '@/lib/env';
 import {
   countCollapsedIceCrawlDiscoveries,
   countReviewableIceCrawlDiscoveries,
   getIceCrawlStore,
+  getPublishedSourceReports,
+  getSourceReportPublicationSummary,
   type IceCrawlDiscoveryOrder,
   type IceCrawlStore,
   listIceCrawlDiscoveries,
   listIceCrawlSources,
+  listRightsConfirmedDrafts,
   listTopConfidenceIceCrawlDiscoveries,
   listUnconfirmedDiscoveryReports,
 } from '@/lib/ice-crawl-store';
@@ -21,6 +26,7 @@ import type {
   IceCrawlDiscovery as IceCrawlDiscoveryRow,
   IceCrawlSource,
 } from '@/lib/ice-crawl-types';
+import { parseIceDiscoveryAutoPublish } from '@/lib/ice-discovery-publication';
 
 export const instant = false;
 
@@ -49,6 +55,15 @@ export default async function AdminIceCrawlPage({
   let discoveryTotal = 0;
   let collapsedDuplicates = 0;
   let unconfirmed: Awaited<ReturnType<typeof listUnconfirmedDiscoveryReports>> = [];
+  let confirmedDrafts: Awaited<ReturnType<typeof listRightsConfirmedDrafts>> = [];
+  let publicationSummary = {
+    publicCount: 0,
+    scheduledCount: 0,
+    awaitingRightsCount: 0,
+    rightsConfirmedDraftCount: 0,
+  };
+  let publicPreview: Awaited<ReturnType<typeof getPublishedSourceReports>> = [];
+  const autoPublish = parseIceDiscoveryAutoPublish(env.ICE_DISCOVERY_AUTO_PUBLISH);
   let loadError = false;
   let discoveryLoadError = false;
 
@@ -87,6 +102,19 @@ export default async function AdminIceCrawlPage({
     } catch {
       unconfirmed = [];
     }
+    try {
+      const [summary, publicRows, drafts] = await Promise.all([
+        getSourceReportPublicationSummary(crawlerStore),
+        getPublishedSourceReports(crawlerStore, 5),
+        listRightsConfirmedDrafts(crawlerStore, 10),
+      ]);
+      publicationSummary = summary;
+      publicPreview = publicRows;
+      confirmedDrafts = drafts;
+    } catch {
+      // The publication preview is an operational aid, not the discovery queue.
+      // Leave it empty rather than hiding the rest of the page behind one read.
+    }
   } else {
     loadError = true;
     discoveryLoadError = true;
@@ -95,6 +123,18 @@ export default async function AdminIceCrawlPage({
   const enabled = sources.filter((source) => source.enabled).length;
   const totalPages = sources.reduce((sum, source) => sum + source.last_page_count, 0);
   const totalReports = sources.reduce((sum, source) => sum + source.last_report_count, 0);
+  const draftPreview = [
+    ...unconfirmed.map((report) => ({
+      id: report.id,
+      title: report.title,
+      source_name: report.source_name,
+      rights_status: 'unconfirmed' as const,
+      publication_status:
+        report.publication_status === 'published' ? ('published' as const) : ('draft' as const),
+      published_at: report.published_at,
+    })),
+    ...confirmedDrafts,
+  ].slice(0, 5);
 
   return (
     <div>
@@ -128,6 +168,16 @@ export default async function AdminIceCrawlPage({
         wording, and deterministic extraction remains the fallback when AI is unavailable.
       </AdminNotice>
 
+      <IceCrawlPublicationGate
+        autoPublish={autoPublish}
+        publicCount={publicationSummary.publicCount}
+        scheduledCount={publicationSummary.scheduledCount}
+        awaitingRightsCount={publicationSummary.awaitingRightsCount}
+        rightsConfirmedDraftCount={publicationSummary.rightsConfirmedDraftCount}
+        publicPreview={publicPreview}
+        draftPreview={draftPreview}
+      />
+
       <IceCrawlDiscovery
         discoveries={discoveries}
         topConfidence={topConfidence}
@@ -139,7 +189,11 @@ export default async function AdminIceCrawlPage({
         loadError={discoveryLoadError}
       />
 
-      <IceCrawlPromotion reports={unconfirmed} />
+      <IceCrawlPromotion
+        reports={unconfirmed}
+        confirmedDrafts={confirmedDrafts}
+        autoPublish={autoPublish}
+      />
 
       {loadError ? (
         <div role="alert" className="border border-accent/40 bg-accent/10 p-5 text-sm">

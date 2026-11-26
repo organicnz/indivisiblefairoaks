@@ -559,6 +559,13 @@ export const REGISTRY = {
   SEARCH_RATE_LIMIT_MAX: { exposure: EXPOSURE.public, owner: OWNERS['edge-runtime'], stores: ['edge-secret'] },
   SEARCH_RATE_LIMIT_WINDOW_MIN: { exposure: EXPOSURE.public, owner: OWNERS['edge-runtime'], stores: ['edge-secret'] },
   SEARCH_RPC_TIMEOUT_MS: { exposure: EXPOSURE.public, owner: OWNERS['edge-runtime'], stores: ['edge-secret'] },
+  ICE_DISCOVERY_AUTO_PUBLISH: {
+    exposure: EXPOSURE.server,
+    owner: OWNERS['edge-runtime'],
+    stores: ['edge-secret', 'vercel-var'],
+    note:
+      'Publication switch, not a credential. Default false: discovery intake writes drafts, and the human rights gate still applies.',
+  },
 
   /**
    * An *alternate authentication path* into a service-role-key function, which

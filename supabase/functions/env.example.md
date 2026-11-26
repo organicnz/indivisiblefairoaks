@@ -77,6 +77,15 @@ ICE_ZAI_MODEL=
 ICE_GROQ_MODEL=
 ```
 
+### Discovery publication — `ice-scan` and the Next intake
+
+```
+# Off by default. Discovery rows are drafts; an admin must confirm rights and
+# publish. When true, new rows are submitted for publication but still remain
+# invisible until rights_status = confirmed.
+ICE_DISCOVERY_AUTO_PUBLISH=false
+```
+
 ### Rate limits and tuning — all optional, defaults live in code
 
 ```

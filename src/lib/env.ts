@@ -56,6 +56,11 @@ const serverSchema = publicSchema.extend({
   // Existing Z.AI provider used by the ICE case brief. Optional: the source
   // crawler falls back to deterministic extraction when it is absent.
   ZAI_API_KEY: z.string().min(1).optional().catch(undefined),
+  // Discovery intake publishes nothing by default. When explicitly set to
+  // `true`, newly admitted discovery rows are submitted for publication, but
+  // the human rights confirmation is still required before any public read can
+  // see them.
+  ICE_DISCOVERY_AUTO_PUBLISH: z.enum(['true', 'false']).optional().catch(undefined),
   // Resend email delivery
   RESEND_API_KEY: z.string().min(1).optional().catch(undefined),
   // Verifies Resend webhook signatures on /api/webhooks/resend. Optional at

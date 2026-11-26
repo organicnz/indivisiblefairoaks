@@ -1,3 +1,5 @@
+import type { IceSourceReportPublicationStatus } from '@/lib/ice-discovery-publication';
+
 export type IceCrawlSourceStatus = 'ok' | 'partial' | 'error' | 'blocked';
 
 export type IceCrawlSource = {
@@ -37,6 +39,7 @@ export type IceSourceReport = {
   kind: IceSourceReportKind;
   extraction_method: IceSourceExtractionMethod;
   published_at: string;
+  publication_status: IceSourceReportPublicationStatus;
   provenance: 'crawl' | 'discovery';
   rights_status: 'confirmed' | 'unconfirmed';
   summary: string | null;

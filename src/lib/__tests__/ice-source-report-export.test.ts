@@ -22,6 +22,7 @@ const REPORT: IceSourceReport = {
   kind: 'enforcement',
   extraction_method: 'feed',
   published_at: '2026-11-16T19:00:01.000Z',
+  publication_status: 'published',
   provenance: 'crawl',
   rights_status: 'confirmed',
   summary: null,

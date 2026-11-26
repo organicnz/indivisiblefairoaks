@@ -16,6 +16,7 @@
  * the next scheduled attempt.
  */
 
+import { env } from '@/lib/env';
 import { extractWithAi, fetchCrawlDocument, validatePublicUrl } from '@/lib/ice-crawl';
 import {
   classifyReportKind,
@@ -40,6 +41,10 @@ import {
   upsertIceCrawlPage,
 } from '@/lib/ice-crawl-store';
 import type { IceCrawlDiscovery, IceSourceReportKind } from '@/lib/ice-crawl-types';
+import {
+  discoveryPublicationStatus,
+  parseIceDiscoveryAutoPublish,
+} from '@/lib/ice-discovery-publication';
 import { refineSourceTextWithAi } from '@/lib/ice-source-refine';
 
 export const DISCOVERY_INTAKE_MAX_PER_RUN = 8;
@@ -84,6 +89,8 @@ export type DiscoveryIntakeSummary = {
   rejected: number;
   retried: number;
   remaining: number;
+  /** `draft` unless ICE_DISCOVERY_AUTO_PUBLISH is explicitly enabled. */
+  publicationMode: 'draft' | 'published';
   outcomes: DiscoveryIntakeOutcome[];
 };
 
@@ -186,6 +193,10 @@ export async function processPendingDiscoveries(
 ): Promise<DiscoveryIntakeSummary> {
   const limit = Math.min(Math.max(1, options.limit ?? DISCOVERY_INTAKE_MAX_PER_RUN), 20);
   const deadline = options.deadline ?? Date.now() + 45_000;
+  // Publication is opt-in. The rights gate is not: even an auto-published row
+  // stays invisible to every public reader until an admin confirms rights.
+  const autoPublish = parseIceDiscoveryAutoPublish(env.ICE_DISCOVERY_AUTO_PUBLISH);
+  const publicationStatus = discoveryPublicationStatus(autoPublish);
   const pending = await listPendingIceCrawlDiscoveries(store, limit);
   const source = await getOrCreateDiscoverySource(store);
   const outcomes: DiscoveryIntakeOutcome[] = [];
@@ -348,6 +359,7 @@ export async function processPendingDiscoveries(
           extraction_method: method,
           dedupe_key: `discovery:${canonicalUrl}`,
           published_at: now,
+          publication_status: publicationStatus,
           provenance: 'discovery',
           rights_status: 'unconfirmed',
           summary,
@@ -411,6 +423,7 @@ export async function processPendingDiscoveries(
           discoveryId: discovery.id,
           host: new URL(canonicalUrl).hostname,
           aiReports: aiReports.length,
+          publication: publicationStatus,
         })
       );
     } catch (error) {
@@ -453,6 +466,7 @@ export async function processPendingDiscoveries(
       rejected,
       retried,
       remaining,
+      publication: publicationStatus,
     })
   );
   return {
@@ -462,6 +476,7 @@ export async function processPendingDiscoveries(
     rejected,
     retried,
     remaining,
+    publicationMode: publicationStatus,
     outcomes,
   };
 }
