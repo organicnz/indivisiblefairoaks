@@ -356,7 +356,10 @@ jobs:
     runs-on: [self-hosted, linux]
     needs: [changes]
     if: needs.changes.outputs.runtime == 'true'
-    timeout-minutes: 60
+    # A healthy suite is ~6 minutes. The 2026-11-26 run spent 45 minutes inside
+    # a hung test before it failed, so a 30-minute ceiling bounds that failure
+    # without cutting a normal run.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -525,7 +528,9 @@ jobs:
     # failed tree.
     needs: [changes, lint, test]
     if: needs.changes.outputs.runtime == 'true'
-    timeout-minutes: 45
+    # The split build's recent pass is ~25 minutes. Forty minutes leaves room
+    # for a loaded host without letting a wedged prerender hold a runner for 45.
+    timeout-minutes: 40
     env:
       NEXT_E2E_BUILD: "true"
       NEXT_TELEMETRY_DISABLED: "1"
@@ -582,11 +587,10 @@ jobs:
     runs-on: [self-hosted, linux]
     needs: [build-e2e-build]
     if: needs.build-e2e-build.result == 'success'
-    # The split job pays for its own dependency and browser install. Keep
-    # headroom above the full suite's measured runtime so a slow runner cannot
-    # truncate the gate; the runner-health watchdog only cancels jobs that have
-    # actually been in progress for 50 minutes.
-    timeout-minutes: 40
+    # The split job pays for its own dependency and browser install. A healthy
+    # full suite is ~6 minutes; 20 minutes catches a wedged Playwright run well
+    # before the runner-health watchdog's 50-minute in-progress threshold.
+    timeout-minutes: 20
     env:
       CI: "true"
       NEXT_E2E_BUILD: "true"

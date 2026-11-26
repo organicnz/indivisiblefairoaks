@@ -156,7 +156,7 @@ photo falls back to its placeholder plate. The gallery fallback spec intercepts
 `**/images/gallery/**` instead; production keeps Next's default loader and the
 real media.
 
-The e2e job has a 40-minute ceiling. `runner-health.yml` cancels a run only when
+The e2e job has a 20-minute ceiling. `runner-health.yml` cancels a run only when
 one of its **in-progress jobs** is older than 50 minutes, not when the run itself
 is old: on 2026-11-26 the run spent 38 minutes queued, then its healthy e2e job
 was cancelled by the old run-age rule at 26 minutes of work.
