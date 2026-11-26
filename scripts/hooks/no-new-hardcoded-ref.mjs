@@ -35,7 +35,6 @@ for (const file of newFiles) {
       found.push(file);
     }
   } catch {
-    continue;
   }
 }
 

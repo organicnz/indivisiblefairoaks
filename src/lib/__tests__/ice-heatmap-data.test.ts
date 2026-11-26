@@ -23,9 +23,7 @@ describe('verified ICE heat-map snapshot', () => {
     expect(meta.periodEnd).toBe('2026-08-06');
     expect(meta.releaseCheckedAt).toBe('2026-11-15');
     expect(meta.license).toBe('CC0 1.0');
-    expect(meta.sha256).toBe(
-      '9aa0d48232805380057475c48d5953277c14307c6ddaef79b2ad28fb4d84a8a5'
-    );
+    expect(meta.sha256).toBe('9aa0d48232805380057475c48d5953277c14307c6ddaef79b2ad28fb4d84a8a5');
     expect(meta.sourceUrl).toContain('deportationdata.org/data/processed/ice.html');
     expect(meta.sourceDataUrl).toContain('github.com/deportationdata/ice');
   });
@@ -70,9 +68,9 @@ describe('verified ICE heat-map snapshot', () => {
   });
 
   it('is sorted for the ranked city list and includes the local cities', () => {
-    expect(cities.every((city, index) => index === 0 || cities[index - 1].count >= city.count)).toBe(
-      true
-    );
+    expect(
+      cities.every((city, index) => index === 0 || cities[index - 1].count >= city.count)
+    ).toBe(true);
     expect(cities[0]).toMatchObject({ city: 'Conroe', stateCode: 'TX', count: 29_537 });
     expect(cities).toContainEqual(
       expect.objectContaining({ city: 'Sacramento', stateCode: 'CA', count: 728 })
@@ -84,13 +82,10 @@ describe('verified ICE heat-map snapshot', () => {
 
   it('seeds the Supabase migration with the same rows and hash', () => {
     const migration = readFileSync(
-      join(
-        process.cwd(),
-        'supabase/migrations/20261115154500_ice_heatmap_snapshot.sql'
-      ),
+      join(process.cwd(), 'supabase/migrations/20261115154500_ice_heatmap_snapshot.sql'),
       'utf8'
     );
-    const seededRows = migration.match(/^  \('ddp-ice-2026-08-06',/gm) ?? [];
+    const seededRows = migration.match(/^ {2}\('ddp-ice-2026-08-06',/gm) ?? [];
     expect(seededRows).toHaveLength(cities.length);
     expect(migration).toContain(meta.sha256);
     expect(migration).toContain('760248');

@@ -32,7 +32,7 @@ const errors = [];
 const total = cities.reduce((sum, city) => sum + city.count, 0);
 const max = Math.max(...cities.map((city) => city.count));
 const keys = new Set(cities.map((city) => `${city.city}|${city.stateCode}`));
-const seededRows = (migration.match(/^  \('ddp-ice-2026-08-06',/gm) ?? []).length;
+const seededRows = (migration.match(/^ {2}\('ddp-ice-2026-08-06',/gm) ?? []).length;
 
 if (cities.length !== meta.mappedCities) {
   errors.push(`city rows ${cities.length} != mappedCities ${meta.mappedCities}`);

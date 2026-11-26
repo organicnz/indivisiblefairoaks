@@ -120,13 +120,13 @@ function filterTables(src, allowlist) {
   // and that block appears first and has its own `Tables: {}` entry. Matching
   // the first `Tables:` in the file therefore filtered nothing at all, quietly
   // leaving every foreign table in the committed union.
-  const publicMatch = src.match(/\n  public: \{\n/);
+  const publicMatch = src.match(/\n {2}public: \{\n/);
   if (!publicMatch) return src; // no public schema — return as-is
   const publicStart = publicMatch.index + publicMatch[0].length;
 
   // No leading `\n` here: the slice starts immediately after `public: {\n`, so
   // the `Tables:` line is the first thing in it.
-  const tablesMatch = /^    Tables: \{\n/m.exec(src.slice(publicStart));
+  const tablesMatch = /^ {4}Tables: \{\n/m.exec(src.slice(publicStart));
   if (!tablesMatch) return src; // no Tables block found — return as-is
 
   const tablesStart = publicStart + tablesMatch.index + tablesMatch[0].length;

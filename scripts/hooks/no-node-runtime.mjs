@@ -328,7 +328,7 @@ const RULES = [
     // The version is required, so that a prose mention of "node@" — a
     // package name, a URL, a note in a comment — is not a finding. A runtime
     // declaration always carries a version.
-    test: (line) => /(^|[\s'"\[,])node@\d+\.\d+/.test(line),
+    test: (line) => /(^|[\s'"[,])node@\d+\.\d+/.test(line),
   },
   {
     name: 'node-fetch',

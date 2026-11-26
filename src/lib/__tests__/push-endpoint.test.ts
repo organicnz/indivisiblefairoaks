@@ -3,10 +3,10 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   isKnownPushProviderHost,
   isPrivateOrInternalAddress,
-  PushEndpointError,
-  validatePushEndpoint,
   type PushEndpointAddress,
+  type PushEndpointError,
   type PushEndpointResolver,
+  validatePushEndpoint,
 } from '@/lib/push-endpoint';
 
 const PUBLIC_ADDRESS: PushEndpointAddress = { address: '8.8.8.8', family: 4 };
@@ -84,29 +84,26 @@ describe('validatePushEndpoint', () => {
   });
 
   it('rejects a provider hostname that resolves to a private address', async () => {
-    const resolver = vi.fn(async (): Promise<PushEndpointAddress[]> => [
-      { address: '10.0.0.7', family: 4 },
-    ]);
+    const resolver = vi.fn(
+      async (): Promise<PushEndpointAddress[]> => [{ address: '10.0.0.7', family: 4 }]
+    );
     await expectCode('https://fcm.googleapis.com/push', 'private-destination', resolver);
   });
 
   it('rejects a provider hostname with mixed public and private answers', async () => {
-    const resolver = vi.fn(async (): Promise<PushEndpointAddress[]> => [
-      PUBLIC_ADDRESS,
-      { address: '::1', family: 6 },
-    ]);
+    const resolver = vi.fn(
+      async (): Promise<PushEndpointAddress[]> => [PUBLIC_ADDRESS, { address: '::1', family: 6 }]
+    );
     await expectCode('https://fcm.googleapis.com/push', 'private-destination', resolver);
   });
 
-  it.each([
-    '::ffff:0:127.0.0.1',
-    '64:ff9b:1::a00:1',
-  ])('rejects a provider hostname that resolves to %s', async (address) => {
-    const resolver = vi.fn(async (): Promise<PushEndpointAddress[]> => [
-      { address, family: 6 },
-    ]);
-    await expectCode('https://fcm.googleapis.com/push', 'private-destination', resolver);
-  });
+  it.each(['::ffff:0:127.0.0.1', '64:ff9b:1::a00:1'])(
+    'rejects a provider hostname that resolves to %s',
+    async (address) => {
+      const resolver = vi.fn(async (): Promise<PushEndpointAddress[]> => [{ address, family: 6 }]);
+      await expectCode('https://fcm.googleapis.com/push', 'private-destination', resolver);
+    }
+  );
 
   it('fails closed when a provider hostname cannot be resolved', async () => {
     const resolver = vi.fn(async (): Promise<PushEndpointAddress[]> => {

@@ -2,7 +2,7 @@
 
 import { Type as TypeIcon, X } from 'lucide-react';
 import { type KeyboardEvent, useEffect, useRef } from 'react';
-import { BLOCK_DEFINITIONS, searchBlocks } from './block-definitions';
+import type { BLOCK_DEFINITIONS, searchBlocks } from './block-definitions';
 
 export function SlashMenu({
   query,

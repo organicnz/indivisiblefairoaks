@@ -24,7 +24,7 @@ const sentenceSegmenter =
 function countWords(value: string): number {
   const trimmed = value.trim();
   if (!trimmed) return 0;
-  return trimmed.match(/[\p{L}\p{N}]+(?:['’\-][\p{L}\p{N}]+)*/gu)?.length ?? 0;
+  return trimmed.match(/[\p{L}\p{N}]+(?:['’-][\p{L}\p{N}]+)*/gu)?.length ?? 0;
 }
 
 /** Long enough to be hard to scan in a bulletin summary. */
@@ -68,9 +68,7 @@ function splitSentences(value: string): string[] {
 function countParagraphs(value: string): number {
   const trimmed = value.replace(/\r\n?/g, '\n').trim();
   if (!trimmed) return 0;
-  return trimmed
-    .split(/\n[ \t]*\n/)
-    .filter((paragraph) => paragraph.trim().length > 0).length;
+  return trimmed.split(/\n[ \t]*\n/).filter((paragraph) => paragraph.trim().length > 0).length;
 }
 
 function readingMinutes(words: number): number {
