@@ -26,7 +26,8 @@ import {
   verbatimExcerpt,
 } from '@/lib/ice-crawl-extract';
 import {
-  extractEvidenceImageUrls,
+  type FeedImageLookupBudget,
+  ingestFeedReportImages,
   ingestIcePageImages,
   ingestIcePageImageUrls,
 } from '@/lib/ice-crawl-images';
@@ -79,10 +80,11 @@ const MAX_TICK_PAGES = 400;
 // 60-second tick can drain it. The cap keeps the queue trending down while
 // still following the highest-priority links first.
 const MAX_TICK_INTAKE = 40;
-// Feed items have no article HTML of their own. Opening a bounded handful of
-// article pages for og:image/JSON-LD is what lets a feed report carry a
-// preview without turning one 35-second tick into a second crawl.
-const MAX_FEED_IMAGE_LOOKUPS = 4;
+// Feed items have no article HTML of their own. Each report without a feed
+// image gets one bounded article lookup for og:image/JSON-LD; the budget is
+// shared by every source in a tick, so adding sources cannot multiply the work
+// and turn one 35-second tick into a second crawl.
+const MAX_FEED_IMAGE_LOOKUPS_PER_TICK = 4;
 const MAX_IMAGES_PER_FEED_PAGE = 2;
 const AI_CHUNK_CHARS = 24_000;
 const AI_CHUNK_OVERLAP = 2_000;
@@ -975,10 +977,16 @@ async function loadCrawlCities(store: IceCrawlStore): Promise<CityPoint[]> {
   }
 }
 
+export type CrawlIceSourceOptions = {
+  deadline?: number;
+  /** Shared by `crawlAllIceSources` so image work is capped per tick, not per source. */
+  feedImageLookupBudget?: FeedImageLookupBudget;
+};
+
 export async function crawlIceSource(
   source: IceCrawlSource,
   cities: readonly CityPoint[] = [],
-  options: { deadline?: number } = {}
+  options: CrawlIceSourceOptions = {}
 ): Promise<IceCrawlSummary> {
   const store = getIceCrawlStore();
   if (!store) throw new Error('Crawler storage is not configured.');
@@ -986,6 +994,9 @@ export async function crawlIceSource(
   const now = new Date().toISOString();
   const startUrls = resolveCrawlUrls(source.url);
   const budgeted = options.deadline !== undefined;
+  const feedImageBudget = options.feedImageLookupBudget ?? {
+    remaining: MAX_FEED_IMAGE_LOOKUPS_PER_TICK,
+  };
   // A budgeted tick resumes the persisted queue; an unbudgeted (manual) run
   // still starts from the source's seed and walks it in one go.
   const frontier = budgeted ? await listIceCrawlFrontier(store, source.id) : [];
@@ -1000,7 +1011,6 @@ export async function crawlIceSource(
   let reportsFound = 0;
   let skipped = 0;
   let discovered = queue.length;
-  let feedImageLookups = 0;
   let budgetExhausted = false;
   let intakeAdded = 0;
   const takeIntake = () => {
@@ -1303,9 +1313,9 @@ export async function crawlIceSource(
     // Evidence images are captured only for pages that produced at least one
     // report, so the bucket holds material tied to an ICE activity rather than
     // every logo and stock photo the crawler happens to pass. Feed/listing
-    // items carry their own image metadata; when they do not, a bounded number
-    // of article pages is opened for og:image/JSON-LD instead of skipping the
-    // preview entirely.
+    // items carry their own image metadata; each report without one gets a
+    // bounded, SSRF-guarded article lookup for og:image/JSON-LD instead of
+    // silently losing its preview.
     if (
       reports.length > 0 &&
       (options.deadline === undefined || options.deadline - Date.now() > 10_000)
@@ -1323,24 +1333,14 @@ export async function crawlIceSource(
           });
           if (images.errors.length > 0) errors.push(...images.errors.slice(0, 2));
         } else {
-          const urls = reports
-            .map((report) => report.imageUrl)
-            .filter((url): url is string => Boolean(url));
-          if (urls.length === 0) {
-            for (const report of reports) {
-              if (feedImageLookups >= MAX_FEED_IMAGE_LOOKUPS) break;
-              if (!report.sourceUrl || report.sourceUrl === page.finalUrl) continue;
-              if (options.deadline !== undefined && options.deadline - Date.now() < 12_000) break;
-              feedImageLookups += 1;
-              try {
-                const article = await fetchCrawlDocument(report.sourceUrl);
-                urls.push(...extractEvidenceImageUrls(article.text, article.finalUrl, 1));
-              } catch {
-                // A challenged or image-less article is not a crawl failure.
-              }
-            }
-          }
-          if (urls.length > 0) {
+          // Feed metadata first: it is free and already names the publisher's
+          // own image. The article pass below covers the reports it missed.
+          const feedUrls = [
+            ...new Set(
+              reports.map((report) => report.imageUrl).filter((url): url is string => Boolean(url))
+            ),
+          ].slice(0, MAX_IMAGES_PER_FEED_PAGE);
+          if (feedUrls.length > 0) {
             const images = await ingestIcePageImageUrls(
               {
                 store,
@@ -1348,10 +1348,27 @@ export async function crawlIceSource(
                 pageId,
                 isPublicUrl: assertPublicUrl,
                 hash: sha256,
+                deadline: options.deadline,
               },
-              [...new Set(urls)].slice(0, MAX_IMAGES_PER_FEED_PAGE)
+              feedUrls
             );
             if (images.errors.length > 0) errors.push(...images.errors.slice(0, 2));
+          }
+
+          const articleImages = await ingestFeedReportImages({
+            store,
+            sourceId: source.id,
+            pageId,
+            feedUrl: page.finalUrl,
+            reports,
+            isPublicUrl: assertPublicUrl,
+            hash: sha256,
+            fetchArticle: (url) => fetchCrawlDocument(url, { timeoutMs: 8_000, maxRedirects: 2 }),
+            deadline: options.deadline,
+            lookupBudget: feedImageBudget,
+          });
+          if (articleImages.errors.length > 0) {
+            errors.push(...articleImages.errors.slice(0, 2));
           }
         }
       } catch {
@@ -1463,6 +1480,9 @@ export async function crawlAllIceSources(options: { limit?: number; timeBudgetMs
     totalBudget > 0 && sources.length > 1
       ? Math.max(10_000, Math.floor(totalBudget / sources.length))
       : undefined;
+  // One object for the whole tick: the article-image budget is spending, not
+  // a per-source allowance that grows when the rotation is widened.
+  const feedImageLookupBudget = { remaining: MAX_FEED_IMAGE_LOOKUPS_PER_TICK };
   const results: Array<{ source: string; summary: IceCrawlSummary | { error: string } }> = [];
 
   for (const source of sources) {
@@ -1474,7 +1494,10 @@ export async function crawlAllIceSources(options: { limit?: number; timeBudgetMs
     try {
       results.push({
         source: source.label,
-        summary: await crawlIceSource(source, cities, { deadline: sourceDeadline }),
+        summary: await crawlIceSource(source, cities, {
+          deadline: sourceDeadline,
+          feedImageLookupBudget,
+        }),
       });
     } catch (error) {
       results.push({

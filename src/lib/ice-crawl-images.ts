@@ -26,6 +26,9 @@ const MAX_IMAGE_BYTES = 5_500_000;
 const MAX_IMAGES_PER_PAGE = 2;
 const IMAGE_TIMEOUT_MS = 8_000;
 const MAX_REDIRECTS = 3;
+// A feed article lookup needs room for the page fetch plus the image download.
+// Below this the tick is ending; the next tick resumes with the same feed.
+const MIN_FEED_LOOKUP_REMAINING_MS = 12_000;
 const MAX_WIDTH = 1400;
 const WEBP_QUALITY = 72;
 
@@ -283,20 +286,34 @@ export async function ingestIcePageImageUrls(deps: IngestImageUrlsDeps, urls: re
         errors.push(`${imageUrl}: ${error.message}`);
         continue;
       }
-      await insertIceCrawlPageImages(deps.store, [
-        {
-          source_id: deps.sourceId,
-          page_id: deps.pageId,
-          image_url: imageUrl,
-          storage_path: storagePath,
-          mime_type: 'image/webp',
-          width: compressed.width,
-          height: compressed.height,
-          bytes: compressed.data.byteLength,
-          dedupe_key: dedupeKey,
-        },
-      ]);
-      stored += 1;
+      try {
+        const linked = await insertIceCrawlPageImages(deps.store, [
+          {
+            source_id: deps.sourceId,
+            page_id: deps.pageId,
+            image_url: imageUrl,
+            storage_path: storagePath,
+            mime_type: 'image/webp',
+            width: compressed.width,
+            height: compressed.height,
+            bytes: compressed.data.byteLength,
+            dedupe_key: dedupeKey,
+          },
+        ]);
+        // A duplicate dedupe key means an existing row already owns these
+        // bytes at the same path, so the object must stay.
+        if (linked > 0) stored += linked;
+        else skipped += 1;
+      } catch (error) {
+        // The object and its row are one record. Never leave bytes in the
+        // private bucket that the index cannot point at.
+        try {
+          await deps.store.storage.from(BUCKET).remove([storagePath]);
+        } catch {
+          // Best-effort cleanup; the write failure is reported below.
+        }
+        throw error;
+      }
     } catch (error) {
       errors.push(`${imageUrl}: ${error instanceof Error ? error.message : 'image failed.'}`);
     }
@@ -308,4 +325,89 @@ export async function ingestIcePageImageUrls(deps: IngestImageUrlsDeps, urls: re
 export async function ingestIcePageImages(deps: IngestImagesDeps) {
   const urls = extractEvidenceImageUrls(deps.html, deps.pageUrl);
   return ingestIcePageImageUrls(deps, urls);
+}
+
+/**
+ * Article lookups left in this crawler tick. Shared by every source in the
+ * tick: without one budget object, adding sources multiplies the image work
+ * and an otherwise bounded 60-second tick spends its time on previews.
+ */
+export type FeedImageLookupBudget = { remaining: number };
+
+export type FeedReportImage = {
+  sourceUrl?: string | null;
+  imageUrl?: string | null;
+};
+
+export type IngestFeedReportImagesDeps = {
+  store: IceCrawlStore;
+  sourceId: string;
+  /** The page the report was found on; the image row indexes that provenance. */
+  pageId: string;
+  feedUrl: string;
+  reports: readonly FeedReportImage[];
+  isPublicUrl: (raw: string) => Promise<URL>;
+  hash: (value: string) => Promise<string>;
+  /**
+   * Must be the crawler's guarded document fetch (`fetchCrawlDocument`), so
+   * every article hop still runs the public-URL assertion and robots check.
+   */
+  fetchArticle: (url: string) => Promise<{ text: string; finalUrl: string }>;
+  /** Wall-clock budget shared with the crawl tick. */
+  deadline?: number;
+  lookupBudget: FeedImageLookupBudget;
+};
+
+/**
+ * Give feed-derived reports a preview when the feed item did not carry one.
+ *
+ * A feed carries metadata for its own items, not the article's social image.
+ * For each report still missing an image this opens the linked article through
+ * the crawler's guarded fetch, takes the first `og:image`/JSON-LD/content image,
+ * and runs it through the same download → WebP → private-bucket path as a page
+ * image. Lookups are capped by the shared budget, and the deadline is passed
+ * through to the image download so a slow publisher cannot outlive the tick.
+ */
+export async function ingestFeedReportImages(deps: IngestFeedReportImagesDeps) {
+  let stored = 0;
+  let skipped = 0;
+  let lookups = 0;
+  const errors: string[] = [];
+  const seen = new Set<string>();
+
+  for (const report of deps.reports) {
+    // The caller already ingests images declared by the feed itself; opening
+    // the article as well would download the same report twice.
+    if (report.imageUrl) continue;
+    const articleUrl = report.sourceUrl?.trim();
+    if (!articleUrl || articleUrl === deps.feedUrl) continue;
+    if (seen.has(articleUrl)) continue;
+    seen.add(articleUrl);
+
+    if (deps.lookupBudget.remaining <= 0) break;
+    if (deps.deadline !== undefined && deps.deadline - Date.now() < MIN_FEED_LOOKUP_REMAINING_MS) {
+      break;
+    }
+
+    deps.lookupBudget.remaining -= 1;
+    lookups += 1;
+    try {
+      const article = await deps.fetchArticle(articleUrl);
+      const urls = extractEvidenceImageUrls(article.text, article.finalUrl, 1);
+      if (urls.length === 0) {
+        skipped += 1;
+        continue;
+      }
+      const result = await ingestIcePageImageUrls(deps, urls);
+      stored += result.stored;
+      skipped += result.skipped;
+      errors.push(...result.errors);
+    } catch (error) {
+      errors.push(
+        `${articleUrl}: ${error instanceof Error ? error.message : 'article image lookup failed.'}`
+      );
+    }
+  }
+
+  return { stored, skipped, lookups, errors };
 }
