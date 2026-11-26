@@ -1069,6 +1069,20 @@ export type Database = {
       }
     }
     Views: {
+      ice_crawl_health: {
+        Row: {
+          active_alert_count: number | null
+          active_alerts: Json | null
+          checked_at: string | null
+          last_discovery_at: string | null
+          last_scan_at: string | null
+          last_source_crawl_at: string | null
+          last_source_crawl_attempt_at: string | null
+          last_source_crawl_reports: number | null
+          last_source_crawl_status: string | null
+        }
+        Relationships: []
+      }
       ice_cron_health: {
         Row: {
           active: boolean | null
