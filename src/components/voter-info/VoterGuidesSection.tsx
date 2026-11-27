@@ -82,7 +82,7 @@ export function VoterGuidesSection({
                 {/* Card 1: Official Voter Guide */}
                 <a
                   href={legacyHref(
-                    VOTER_GUIDES_2026_DRIVE_IDS[0],
+                    VOTER_GUIDES_2026_DRIVE_IDS.sacramentoGuide,
                     'https://drive.google.com/file/d/10XEUyMoyGUI_UktPVwB0RJo-6w3lN0Uy/view?ts=6ac7c922'
                   )}
                   target="_blank"
@@ -126,7 +126,7 @@ export function VoterGuidesSection({
                 {/* Card 2: Ballot Recommendations */}
                 <a
                   href={legacyHref(
-                    VOTER_GUIDES_2026_DRIVE_IDS[1],
+                    VOTER_GUIDES_2026_DRIVE_IDS.ballotRecommendations,
                     'https://drive.google.com/file/d/1JW2rg5dVBZBqezG3hd9QBu0znt3XsMaN/view?usp=sharing_eil_se_dm&ts=6ac7c902'
                   )}
                   target="_blank"
@@ -172,7 +172,7 @@ export function VoterGuidesSection({
                 {/* Card 3: Hands Off Our Vote Toolkit */}
                 <a
                   href={legacyHref(
-                    VOTER_GUIDES_2026_DRIVE_IDS[2],
+                    VOTER_GUIDES_2026_DRIVE_IDS.handsOffToolkit,
                     'https://drive.google.com/file/d/11Cv8yyuI_jtNet_IFSYHDN5xFr1axfg2/view?usp=sharing_eil_se_dm&ts=6ac7c8d5'
                   )}
                   target="_blank"
@@ -215,7 +215,7 @@ export function VoterGuidesSection({
                 {/* Card 4: Key Dates for the Election */}
                 <a
                   href={legacyHref(
-                    VOTER_GUIDES_2026_DRIVE_IDS[3],
+                    VOTER_GUIDES_2026_DRIVE_IDS.keyDates,
                     'https://docs.google.com/document/d/1XyqCKsSKaQqrrzX7CSl3G3v0ChUtH98U/edit?usp=sharing_eil_se_dm&rtpof=true&sd=true&ts=6ac7c8ad'
                   )}
                   target="_blank"

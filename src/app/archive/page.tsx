@@ -56,11 +56,13 @@ export default async function ArchivePage() {
     linksByPage.set(link.page_id, list);
   }
   // The four 2026 voter documents are presented in the 2026 block above. Keep
-  // their rows out of the legacy article list so each appears once on the page;
-  // the masthead still counts every document in the archive.
+  // their rows out of the legacy article lists so each appears once on the
+  // page; the masthead still counts every document in the archive.
+  const articleDocuments = documents.filter(
+    (document) => !isMovedVoterGuide2026(document.drive_id)
+  );
   const documentsByPage = new Map<string, typeof documents>();
-  for (const document of documents) {
-    if (isMovedVoterGuide2026(document.drive_id)) continue;
+  for (const document of articleDocuments) {
     const list = documentsByPage.get(document.source_page_path) ?? [];
     list.push(document);
     documentsByPage.set(document.source_page_path, list);

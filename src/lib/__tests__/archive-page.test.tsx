@@ -21,7 +21,13 @@ vi.mock('@/lib/queries/legacy', () => ({
   // implementations only touch rows the empty archive does not have, and the
   // fallback URL is what an empty or failed read renders anyway.
   legacyDocumentForDriveId: () => null,
-  legacyDocumentUrl: () => null,
+  // A hosted row gets a URL, so a document that leaks back into the legacy
+  // article produces a second, countable link rather than an invisible one.
+  legacyDocumentUrl: (
+    document: Pick<LegacyDocumentRow, 'public_url' | 'file_path' | 'external_url'>
+  ) =>
+    document.public_url ??
+    (document.file_path ? `https://storage.test/${document.file_path}` : document.external_url),
 }));
 
 vi.mock('@/lib/queries/civic', () => ({
@@ -38,7 +44,7 @@ vi.mock('@/components/cms/CopyRegion', () => ({
 
 const EMPTY_ARCHIVE: LegacyArchive = { pages: [], assets: [], links: [], documents: [] };
 
-const VOTER_GUIDE_DRIVE_IDS = VOTER_GUIDES_2026_DRIVE_IDS;
+const VOTER_GUIDE_DRIVE_IDS = Object.values(VOTER_GUIDES_2026_DRIVE_IDS);
 
 function legacyDocument(overrides: Partial<LegacyDocumentRow>): LegacyDocumentRow {
   return {
@@ -62,7 +68,7 @@ function legacyDocument(overrides: Partial<LegacyDocumentRow>): LegacyDocumentRo
   };
 }
 
-describe('ArchivePage with no legacy capture', () => {
+describe('ArchivePage', () => {
   let container: HTMLDivElement;
   let root: Root;
 
@@ -112,18 +118,28 @@ describe('ArchivePage with no legacy capture', () => {
     expect(container.textContent).toContain('The archive is being prepared');
   });
 
-  it('does not list the moved 2026 documents again in the legacy article', async () => {
-    const moved = legacyDocument({
-      id: 'moved',
-      title: 'Moved 2026 Guide',
-      drive_id: VOTER_GUIDE_DRIVE_IDS[0],
-      file_path: 'documents/voter/moved-2026-guide.pdf',
-    });
+  it('renders every moved 2026 guide once and keeps the other documents in the article', async () => {
+    // All four ids, not one sample: a set that silently loses an entry has to
+    // fail here, not on the deployed page.
+    const moved = VOTER_GUIDE_DRIVE_IDS.map((driveId, index) =>
+      legacyDocument({
+        id: `moved-${index}`,
+        title: `Moved 2026 Guide ${index + 1}`,
+        drive_id: driveId,
+        file_path: `documents/voter/moved-2026-guide-${index + 1}.pdf`,
+      })
+    );
     const earlier = legacyDocument({
       id: 'earlier',
       title: 'Earlier Voter Guide',
       drive_id: 'earlier-drive-id',
       file_path: 'documents/voter/earlier-guide.pdf',
+    });
+    const secondEarlier = legacyDocument({
+      id: 'earlier-2',
+      title: 'Earlier Voter Letter',
+      drive_id: 'earlier-2-drive-id',
+      file_path: 'documents/voter/earlier-letter.pdf',
     });
     getLegacyArchive.mockResolvedValueOnce({
       ...EMPTY_ARCHIVE,
@@ -141,17 +157,38 @@ describe('ArchivePage with no legacy capture', () => {
           sort_order: 0,
         },
       ],
-      documents: [moved, earlier],
+      documents: [...moved, earlier, secondEarlier],
     });
 
     await renderPage();
 
     expectArchivedGuidesRendered();
-    // The article keeps the earlier guide and skips the moved one, which is
-    // rendered once by the 2026 block above.
+
+    // The article keeps every other voter document and none of the moved ones.
     const article = container.querySelector('article');
     expect(article?.textContent).toContain('Earlier Voter Guide');
-    expect(article?.textContent).not.toContain('Moved 2026 Guide');
+    expect(article?.textContent).toContain('Earlier Voter Letter');
+    for (const document of moved) {
+      expect(article?.textContent).not.toContain(document.title);
+    }
+
+    // Each moved guide is rendered exactly once on the page: its only link is
+    // the 2026 card's Drive fallback, and its hosted copy never appears.
+    const hrefs = Array.from(container.querySelectorAll('a')).map(
+      (anchor) => anchor.getAttribute('href') ?? ''
+    );
+    for (const driveId of VOTER_GUIDE_DRIVE_IDS) {
+      expect(
+        hrefs.filter((href) => href.includes(driveId)),
+        driveId
+      ).toHaveLength(1);
+    }
+    expect(hrefs.some((href) => href.includes('moved-2026-guide-'))).toBe(false);
+    expect(container.textContent?.match(/Moved 2026 Guide/g)).toBeNull();
+
+    // The surviving documents are not duplicated either.
+    expect(container.textContent?.match(/Earlier Voter Guide/g)).toHaveLength(1);
+    expect(container.textContent?.match(/Earlier Voter Letter/g)).toHaveLength(1);
   });
 
   it('renders the 2026 guides when the legacy archive query rejects', async () => {
