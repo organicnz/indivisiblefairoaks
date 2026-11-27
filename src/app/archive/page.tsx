@@ -6,6 +6,7 @@ import { ArchiveMasthead } from '@/components/archive/ArchiveMasthead';
 import { ArchiveNav } from '@/components/archive/ArchiveNav';
 import { CopyRegion } from '@/components/cms/CopyRegion';
 import { VoterGuidesSection } from '@/components/voter-info/VoterGuidesSection';
+import { isMovedVoterGuide2026 } from '@/components/voter-info/voter-guides-2026';
 import { pageMetadata } from '@/lib/metadata';
 import { getDataPoints } from '@/lib/queries/civic';
 import {
@@ -54,8 +55,12 @@ export default async function ArchivePage() {
     list.push(link);
     linksByPage.set(link.page_id, list);
   }
+  // The four 2026 voter documents are presented in the 2026 block above. Keep
+  // their rows out of the legacy article list so each appears once on the page;
+  // the masthead still counts every document in the archive.
   const documentsByPage = new Map<string, typeof documents>();
   for (const document of documents) {
+    if (isMovedVoterGuide2026(document.drive_id)) continue;
     const list = documentsByPage.get(document.source_page_path) ?? [];
     list.push(document);
     documentsByPage.set(document.source_page_path, list);
