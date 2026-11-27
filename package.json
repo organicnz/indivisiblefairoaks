@@ -30,6 +30,7 @@
     "content:archive:preview": "bun scripts/preview-content-archive.mjs",
     "legacy:audit": "bun scripts/legacy-audit.mjs",
     "legacy:import": "bun scripts/legacy-import.mjs",
+    "smoke:archive": "bun scripts/smoke-archive-2026.mjs",
     "audit:deps": "bun scripts/check-vulnerabilities.mjs",
     "audit:coverage": "bun scripts/check-audit-coverage.mjs",
     "secrets:audit": "bun scripts/secrets-audit.mjs",

@@ -149,6 +149,15 @@ jobs:
           echo "::error::/api/health reports '${live:-nothing}', not the deployed $EXPECTED_SHA — the host is serving a different build."
           exit 1
 
+      # The SHA assertion proves the host serves this build; it says nothing about
+      # whether the page contains what was shipped. Check the moved 2026 block and
+      # its four document links on the live host, and prove /voter-info carries
+      # none of it. Runs after the SHA assertion so a stale alias cannot pass.
+      - name: Smoke-check the 2026 archive and the /voter-info boundary
+        run: |
+          bun scripts/smoke-archive-2026.mjs \
+            --site-url=${{ vars.NEXT_PUBLIC_SITE_URL }}
+
       - name: List production environment variable names
         if: always()
         env:
