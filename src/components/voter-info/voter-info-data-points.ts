@@ -19,6 +19,39 @@ export const VOTER_INFO_ARCHIVED_2026_PREFIXES = [
   'voter.spotlight.',
 ] as const;
 
+/**
+ * The 20 data points the 2026 archive block renders on `/archive`.
+ *
+ * `/archive` used to call `getDataPoints('voter')`, which read the entire
+ * voter group — the 56 evergreen keys that `/voter-info` renders plus these
+ * 20 — and serialized all of it into the archive page's RSC payload. Only the
+ * 2026 block uses voter copy there, so the page asks Supabase for exactly this
+ * list instead. The unit test beside this module scans `VoterGuidesSection`
+ * and fails if a new archived key is rendered without being added here.
+ */
+export const VOTER_ARCHIVE_2026_DATA_POINT_KEYS = [
+  'voter.guides.badge',
+  'voter.guides.headline',
+  'voter.guides.subhead',
+  'voter.guide.sac_voter_guide.title',
+  'voter.guide.sac_voter_guide.desc',
+  'voter.guide.sac_voter_guide.btn',
+  'voter.guide.ballot_recs.title',
+  'voter.guide.ballot_recs.desc',
+  'voter.guide.ballot_recs.btn',
+  'voter.guide.candidate_brief.title',
+  'voter.guide.candidate_brief.desc',
+  'voter.guide.candidate_brief.btn',
+  'voter.guide.voter_doc.title',
+  'voter.guide.voter_doc.desc',
+  'voter.guide.voter_doc.btn',
+  'voter.spotlight.badge',
+  'voter.spotlight.title',
+  'voter.spotlight.desc',
+  'voter.spotlight.author',
+  'voter.spotlight.link',
+] as const;
+
 export const VOTER_INFO_DATA_POINT_KEYS = [
   'voter.action.elections_desc',
   'voter.action.elections_title',

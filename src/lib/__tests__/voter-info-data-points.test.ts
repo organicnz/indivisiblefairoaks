@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  VOTER_ARCHIVE_2026_DATA_POINT_KEYS,
   VOTER_INFO_ARCHIVED_2026_PREFIXES,
   VOTER_INFO_DATA_POINT_KEYS,
 } from '@/components/voter-info/voter-info-data-points';
@@ -34,6 +35,13 @@ describe('voter-info data-point keys', () => {
     expect(keys.filter(isArchived2026)).toEqual([]);
   });
 
+  it('lists the 20 archived 2026 keys, once each', () => {
+    const keys = [...VOTER_ARCHIVE_2026_DATA_POINT_KEYS];
+    expect(new Set(keys).size).toBe(keys.length);
+    expect(keys.length).toBe(20);
+    expect(keys.filter((key) => !isArchived2026(key))).toEqual([]);
+  });
+
   it('covers every voter key the page components read', async () => {
     const listed = new Set<string>(VOTER_INFO_DATA_POINT_KEYS);
     const missing: string[] = [];
@@ -59,6 +67,13 @@ describe('voter-info data-point keys', () => {
     // keys must have been seen and deliberately excluded.
     expect(archivedReferenced.length).toBeGreaterThan(0);
     expect(missing).toEqual([]);
+
+    // `/archive` asks for exactly these keys. A new archived key rendered by
+    // the 2026 block without a matching entry would silently fall back to its
+    // JSX copy, so the registry is checked against the component here.
+    expect([...new Set(archivedReferenced)].sort()).toEqual(
+      [...VOTER_ARCHIVE_2026_DATA_POINT_KEYS].sort()
+    );
   });
 
   it('asks Supabase for exactly those keys', async () => {

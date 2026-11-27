@@ -31,7 +31,7 @@ vi.mock('@/lib/queries/legacy', async (importOriginal) => {
 });
 
 vi.mock('@/lib/queries/civic', () => ({
-  getDataPoints: vi.fn(async () => ({})),
+  getDataPointsForKeys: vi.fn(async () => ({})),
 }));
 
 vi.mock('@/components/cms/CopyRegion', () => ({

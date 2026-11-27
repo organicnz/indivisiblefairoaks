@@ -7,8 +7,9 @@ import { ArchiveNav } from '@/components/archive/ArchiveNav';
 import { CopyRegion } from '@/components/cms/CopyRegion';
 import { VoterGuidesSection } from '@/components/voter-info/VoterGuidesSection';
 import { isMovedVoterGuide2026 } from '@/components/voter-info/voter-guides-2026';
+import { VOTER_ARCHIVE_2026_DATA_POINT_KEYS } from '@/components/voter-info/voter-info-data-points';
 import { pageMetadata } from '@/lib/metadata';
-import { getDataPoints } from '@/lib/queries/civic';
+import { getDataPointsForKeys } from '@/lib/queries/civic';
 import {
   getLegacyArchive,
   type LegacyArchive,
@@ -35,7 +36,10 @@ export default async function ArchivePage() {
       console.error('[archive] legacy archive read failed; rendering coded content only:', error);
       return emptyArchive;
     }),
-    getDataPoints('voter'),
+    // The archive only renders the 2026 block's copy. Ask for those 20 keys,
+    // not the whole voter group: the evergreen `/voter-info` keys have no
+    // consumer here and must not be serialized into this page's RSC payload.
+    getDataPointsForKeys(VOTER_ARCHIVE_2026_DATA_POINT_KEYS),
   ]);
   const { pages, assets, links, documents } = legacy;
 

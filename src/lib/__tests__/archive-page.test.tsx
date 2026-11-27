@@ -4,6 +4,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ArchivePage from '@/app/archive/page';
 import { VOTER_GUIDES_2026_DRIVE_IDS } from '@/components/voter-info/voter-guides-2026';
+import { VOTER_ARCHIVE_2026_DATA_POINT_KEYS } from '@/components/voter-info/voter-info-data-points';
 import type { LegacyArchive, LegacyDocumentRow } from '@/lib/queries/legacy';
 
 vi.mock('next/cache', () => ({
@@ -14,6 +15,7 @@ vi.mock('next/cache', () => ({
 }));
 
 const getLegacyArchive = vi.hoisted(() => vi.fn());
+const getDataPointsForKeys = vi.hoisted(() => vi.fn(async () => ({})));
 
 vi.mock('@/lib/queries/legacy', () => ({
   getLegacyArchive,
@@ -31,7 +33,7 @@ vi.mock('@/lib/queries/legacy', () => ({
 }));
 
 vi.mock('@/lib/queries/civic', () => ({
-  getDataPoints: vi.fn(async () => ({})),
+  getDataPointsForKeys,
 }));
 
 vi.mock('@/components/cms/CopyRegion', () => ({
@@ -73,6 +75,7 @@ describe('ArchivePage', () => {
   let root: Root;
 
   beforeEach(() => {
+    getDataPointsForKeys.mockClear();
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
@@ -107,6 +110,15 @@ describe('ArchivePage', () => {
       expect(html, driveId).toContain(driveId);
     }
   }
+
+  it('asks for only the archived 2026 data points', async () => {
+    getLegacyArchive.mockResolvedValueOnce(EMPTY_ARCHIVE);
+
+    await renderPage();
+
+    expect(getDataPointsForKeys).toHaveBeenCalledTimes(1);
+    expect(getDataPointsForKeys).toHaveBeenCalledWith(VOTER_ARCHIVE_2026_DATA_POINT_KEYS);
+  });
 
   it('renders the 2026 guides when the legacy archive query is empty', async () => {
     getLegacyArchive.mockResolvedValueOnce(EMPTY_ARCHIVE);
