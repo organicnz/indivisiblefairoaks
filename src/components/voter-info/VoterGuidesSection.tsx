@@ -299,7 +299,7 @@ export function VoterGuidesSection({
                         Analysis by Lawyer Oyer
                       </DataPoint>
                       <a
-                        href="https://www.brennancenter.org/our-work/research-reports/save-act-voter-suppression"
+                        href="https://www.brennancenter.org/our-work/analysis-opinion/new-save-act-bills-would-still-block-millions-americans-voting"
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-primary-ink dark:text-primary-on-dark hover:underline inline-flex items-center gap-1 font-semibold"
