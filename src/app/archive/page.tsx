@@ -10,6 +10,7 @@ import { pageMetadata } from '@/lib/metadata';
 import { getDataPoints } from '@/lib/queries/civic';
 import {
   getLegacyArchive,
+  type LegacyArchive,
   legacyDocumentForDriveId,
   legacyDocumentUrl,
 } from '@/lib/queries/legacy';
@@ -22,10 +23,21 @@ export const metadata: Metadata = pageMetadata({
 });
 
 export default async function ArchivePage() {
-  const [{ pages, assets, links, documents }, dataPoints] = await Promise.all([
-    getLegacyArchive(),
+  // The 2026 voter guides are coded content, not legacy-capture content, so they
+  // must not depend on the archive tables. `getLegacyArchive` already returns
+  // empties when a query fails, but a rejection can still escape the cache
+  // boundary — and one failed legacy read must not turn the route into a 500
+  // that hides the material that was moved here.
+  const emptyArchive: LegacyArchive = { pages: [], assets: [], links: [], documents: [] };
+  const [legacy, dataPoints] = await Promise.all([
+    getLegacyArchive().catch((error: unknown) => {
+      console.error('[archive] legacy archive read failed; rendering coded content only:', error);
+      return emptyArchive;
+    }),
     getDataPoints('voter'),
   ]);
+  const { pages, assets, links, documents } = legacy;
+
   const legacyHref = (driveId: string, fallback: string) => {
     const document = legacyDocumentForDriveId(documents, driveId);
     return document ? (legacyDocumentUrl(document) ?? fallback) : fallback;
@@ -67,18 +79,31 @@ export default async function ArchivePage() {
       />
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {pages.length === 0 ? (
-          <ArchiveEmptyState />
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-[15rem_1fr] gap-10 items-start">
-            <ArchiveNav pages={pages} />
+        {/*
+          The 2026 voter guides sit outside the legacy branch on purpose. They are
+          the moved content Erin asked for, and an empty or failed legacy capture
+          must leave them rendered above the "being prepared" notice rather than
+          hiding them behind it. With legacy pages present the layout is unchanged:
+          the nav takes the narrow column and the guides lead the wide one.
+        */}
+        <div
+          className={
+            pages.length === 0
+              ? 'space-y-12'
+              : 'grid grid-cols-1 lg:grid-cols-[15rem_1fr] gap-10 items-start'
+          }
+        >
+          {pages.length > 0 ? <ArchiveNav pages={pages} /> : null}
 
-            <div className="space-y-12">
-              <CopyRegion id="archive-voter-guides">
-                <VoterGuidesSection dataPoints={dataPoints} legacyHref={legacyHref} mode="2026" />
-              </CopyRegion>
+          <div className="space-y-12">
+            <CopyRegion id="archive-voter-guides">
+              <VoterGuidesSection dataPoints={dataPoints} legacyHref={legacyHref} mode="2026" />
+            </CopyRegion>
 
-              {pages.map((page, pageIndex) => (
+            {pages.length === 0 ? (
+              <ArchiveEmptyState />
+            ) : (
+              pages.map((page, pageIndex) => (
                 <ArchiveArticle
                   key={page.id}
                   page={page}
@@ -87,10 +112,10 @@ export default async function ArchivePage() {
                   links={linksByPage.get(page.id) ?? []}
                   documents={documentsByPage.get(page.source_path) ?? []}
                 />
-              ))}
-            </div>
+              ))
+            )}
           </div>
-        )}
+        </div>
 
         {pages.length > 0 ? <ArchiveFooter /> : null}
       </div>
