@@ -208,12 +208,22 @@ export async function POST(req: NextRequest) {
     await auditSave('success', saved?.label ?? upsertRow.label, data ?? upsertRow);
 
     try {
-      revalidateTag('data-points', 'hours');
+      // `revalidateTag(tag, profile)` is stale-while-revalidate, not expiry:
+      // with the `hours` profile Next records `stale = now` but
+      // `expired = now + 24h`, so the next request serves the old value and
+      // refreshes behind it. An admin edit has to be on the next page load,
+      // and `updateTag` is server-action-only, so `{ expire: 0 }` is the
+      // route-handler spelling of immediate expiry.
+      revalidateTag('data-points', { expire: 0 });
       // Link Tree and Partners copy lives in the same data_points table, so
       // editing either group must refresh those routes too, not just home.
       revalidatePath('/');
       revalidatePath('/links');
       revalidatePath('/partners');
+      // The moved 2026 voter guides are prerendered on /archive, which carries
+      // its own 15-minute ISR window. The tag expires the cached data entry;
+      // the path expires the page that embedded it.
+      revalidatePath('/archive');
     } catch {
       // Revalidation may throw outside request lifecycle or in tests
     }
@@ -275,12 +285,15 @@ export async function DELETE(req: NextRequest) {
     await auditDelete('success', { deleted: true });
 
     try {
-      revalidateTag('data-points', 'hours');
+      // Immediate expiry, for the reason on POST: the `hours` profile would
+      // serve one more stale page before the deletion became visible.
+      revalidateTag('data-points', { expire: 0 });
       // Link Tree and Partners copy lives in the same data_points table, so
       // editing either group must refresh those routes too, not just home.
       revalidatePath('/');
       revalidatePath('/links');
       revalidatePath('/partners');
+      revalidatePath('/archive');
     } catch {
       // Revalidation may throw outside request lifecycle or in tests
     }

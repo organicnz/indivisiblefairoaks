@@ -151,6 +151,10 @@ describe('Data Points Edge API Route (/api/data-points)', () => {
       mfa_level: 'aal2',
       outcome: 'success',
     });
+    // `{ expire: 0 }`, not a profile: a profile is stale-while-revalidate, so
+    // the editor's next /archive load would still show the old value.
+    expect(revalidateTag).toHaveBeenCalledWith('data-points', { expire: 0 });
+    expect(revalidatePath).toHaveBeenCalledWith('/archive');
   });
 
   it('DELETE deletes data point by key when user is admin', async () => {
@@ -175,6 +179,8 @@ describe('Data Points Edge API Route (/api/data-points)', () => {
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.success).toBe(true);
+    expect(revalidateTag).toHaveBeenCalledWith('data-points', { expire: 0 });
+    expect(revalidatePath).toHaveBeenCalledWith('/archive');
     expect(audits[0]).toMatchObject({
       action: 'data_point.delete',
       target_type: 'data_point',
