@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { revalidateTag } from 'next/cache';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const requireAdmin = vi.hoisted(() => vi.fn());
@@ -111,6 +112,7 @@ describe('importMobilizeEvent ownership reads', () => {
       outcome: 'success',
       metadata: { external_id: '1011420', mode: 'created' },
     });
+    expect(vi.mocked(revalidateTag)).toHaveBeenCalledWith('events', { expire: 0 });
   });
 
   it('adopts a hand-made row whose RSVP link matches the event', async () => {

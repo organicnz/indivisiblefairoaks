@@ -313,7 +313,7 @@ describe('Partners & Coalition Links Edge API Routes', () => {
       const json = await res.json();
       expect(json.success).toBe(true);
       expect(json.link.name).toBe('California Voter Reg');
-      expect(revalidateTag).toHaveBeenCalledWith('coalition-links', 'hours');
+      expect(revalidateTag).toHaveBeenCalledWith('coalition-links', { expire: 0 });
       expect(revalidatePath).toHaveBeenCalledWith('/links');
       expect(audits[0]).toMatchObject({
         action: 'coalition_link.save',
@@ -386,7 +386,7 @@ describe('Partners & Coalition Links Edge API Routes', () => {
       expect(res.status).toBe(200);
       const json = await res.json();
       expect(json.success).toBe(true);
-      expect(revalidateTag).toHaveBeenCalledWith('coalition-links', 'hours');
+      expect(revalidateTag).toHaveBeenCalledWith('coalition-links', { expire: 0 });
       expect(revalidatePath).toHaveBeenCalledWith('/links');
       expect(audits[0]).toMatchObject({
         action: 'coalition_link.delete',

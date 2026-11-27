@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { revalidateTag } from 'next/cache';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
@@ -257,6 +258,7 @@ describe('deleteContent', () => {
     expect(result).toMatchObject({ success: true });
     // Row must be gone from the backing array after delete.
     expect(rows).toHaveLength(0);
+    expect(vi.mocked(revalidateTag)).toHaveBeenCalledWith('content', { expire: 0 });
   });
 
   it('fails when the page does not exist', async () => {
@@ -356,6 +358,7 @@ describe('duplicateContent', () => {
     expect(insertedRows[0]?.status).toBe('draft');
     // Must carry a -copy slug.
     expect(String(insertedRows[0]?.slug)).toContain('rally-notes-copy');
+    expect(vi.mocked(revalidateTag)).toHaveBeenCalledWith('content', { expire: 0 });
   });
 
   it('fails when the source page does not exist', async () => {
@@ -1016,6 +1019,7 @@ describe('saveContent — insert publishes with a timestamp', () => {
     expect(result).toMatchObject({ success: true });
     // The row inserted into the backing array must carry a published_at.
     expect(rows[0]?.published_at).toBeTruthy();
+    expect(vi.mocked(revalidateTag)).toHaveBeenCalledWith('content', { expire: 0 });
   });
 });
 

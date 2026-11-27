@@ -164,9 +164,7 @@ export async function getContentList({
       // The second query answers the only question the filtered total cannot:
       // how much is the filter hiding? It has to carry the same search/status/
       // type filters, or the number would describe a different list.
-      let hiddenBuilder = adminClient
-        .from('content')
-        .select('id', { count: 'exact', head: true });
+      let hiddenBuilder = adminClient.from('content').select('id', { count: 'exact', head: true });
       if (status !== 'all') hiddenBuilder = hiddenBuilder.eq('status', status);
       if (type !== 'all') hiddenBuilder = hiddenBuilder.eq('type', type);
       if (safe) {
@@ -253,11 +251,7 @@ async function assertSlugAvailable(
   const conflict = describeSlugConflict(slug);
   if (conflict) return conflict;
 
-  const { data, error } = await client
-    .from('content')
-    .select('id')
-    .eq('slug', slug)
-    .maybeSingle();
+  const { data, error } = await client.from('content').select('id').eq('slug', slug).maybeSingle();
   if (error) return 'Could not check whether that slug is available. Try again.';
   if (data && data.id !== excludeId) {
     return `/${slug} is already used by another page.`;
@@ -266,14 +260,17 @@ async function assertSlugAvailable(
 }
 
 function revalidateContent(slug?: string | null, previousSlug?: string | null): void {
-  // 'hours' matches the cacheLife profile every content query declares, so an
-  // admin publish invalidates exactly the cache the page is held in rather than
-  // promoting it to a longer-lived profile (see Conservation Mode in AGENTS.md).
-  revalidateTag('content', 'hours');
-  revalidateTag('posts', 'hours');
-  if (slug) revalidateTag(`content-${slug}`, 'hours');
+  // Immediate expiry, not the `hours` cacheLife profile: a profile is
+  // stale-while-revalidate, so the first load after a publish would still
+  // render the previous copy. Expiring now leaves the queries' own `hours`
+  // lifetime intact for time-based freshness while making the edit visible on
+  // the next request.
+  revalidateTag('content', { expire: 0 });
+  revalidateTag('posts', { expire: 0 });
+  if (slug) revalidateTag(`content-${slug}`, { expire: 0 });
   // A slug change leaves the old tag orphaned, so invalidate it too.
-  if (previousSlug && previousSlug !== slug) revalidateTag(`content-${previousSlug}`, 'hours');
+  if (previousSlug && previousSlug !== slug)
+    revalidateTag(`content-${previousSlug}`, { expire: 0 });
   revalidatePath('/admin/content');
   revalidatePath('/news');
   revalidatePath('/sitemap.xml');
@@ -391,12 +388,7 @@ export async function saveContent(
       }
     : null;
 
-  const slugConflict = await assertSlugAvailable(
-    data.slug,
-    adminClient,
-    targetId,
-    previous?.slug
-  );
+  const slugConflict = await assertSlugAvailable(data.slug, adminClient, targetId, previous?.slug);
   if (slugConflict) return fail(slugConflict);
 
   /*

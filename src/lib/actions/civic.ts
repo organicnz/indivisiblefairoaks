@@ -223,7 +223,7 @@ export async function saveCivicEvent(
       outcome: 'success',
     });
 
-    revalidateTag('events', 'hours');
+    revalidateTag('events', { expire: 0 });
     revalidatePath('/events');
     revalidatePath('/');
 
@@ -308,7 +308,7 @@ export async function deleteCivicEvent(slug: string): Promise<CivicActionResult>
       outcome: 'success',
     });
 
-    revalidateTag('events', 'hours');
+    revalidateTag('events', { expire: 0 });
     revalidatePath('/events');
     revalidatePath('/');
 
@@ -449,7 +449,7 @@ export async function saveCivicNewsletter(
     } as CivicNewsletterRecord;
 
     await audit('success', saved as unknown as Record<string, unknown>);
-    revalidateTag('newsletters', 'hours');
+    revalidateTag('newsletters', { expire: 0 });
     revalidatePath('/newsletters');
     // A renamed or newly published bulletin must not leave a stale cached
     // detail page behind at the old or new slug.
@@ -510,7 +510,7 @@ export async function deleteCivicNewsletter(slug: string): Promise<CivicActionRe
     }
 
     await audit('success');
-    revalidateTag('newsletters', 'hours');
+    revalidateTag('newsletters', { expire: 0 });
     revalidatePath('/newsletters');
     revalidatePath('/newsletters/[slug]', 'page');
     revalidatePath('/news');
@@ -608,7 +608,7 @@ export async function saveCoalitionLink(
       return fail(error.message);
     }
 
-    revalidateTag('coalition-links', 'hours');
+    revalidateTag('coalition-links', { expire: 0 });
     revalidatePath('/links');
 
     return { success: true, data: data as CoalitionLinkRecord };
@@ -635,7 +635,7 @@ export async function deleteCoalitionLink(slug: string): Promise<CivicActionResu
     if (error) return fail(error.message);
     if (!deleted) return fail('Link not found');
 
-    revalidateTag('coalition-links', 'hours');
+    revalidateTag('coalition-links', { expire: 0 });
     revalidatePath('/links');
 
     return { success: true };

@@ -158,7 +158,7 @@ export async function POST(req: NextRequest) {
       saved?.name ?? payload.name,
       data ?? upsertRow
     );
-    revalidateTag('coalition-links', 'hours');
+    revalidateTag('coalition-links', { expire: 0 });
     revalidatePath('/links');
 
     return NextResponse.json({ success: true, link: data }, { status: 200 });
@@ -217,7 +217,7 @@ export async function DELETE(req: NextRequest) {
     }
     await auditDelete('success', { deleted: true });
 
-    revalidateTag('coalition-links', 'hours');
+    revalidateTag('coalition-links', { expire: 0 });
     revalidatePath('/links');
 
     return NextResponse.json({ success: true, deleted: slug }, { status: 200 });

@@ -20,7 +20,8 @@ const MAX_JSON_BODY_BYTES = 512_000;
 const NO_STORE = { 'Cache-Control': 'no-store' } as const;
 
 function revalidateNewsletters(): void {
-  revalidateTag('newsletters', 'hours');
+  // Immediate expiry: a cacheLife profile would serve one stale bulletin first.
+  revalidateTag('newsletters', { expire: 0 });
   revalidatePath('/newsletters');
   revalidatePath('/newsletters/[slug]', 'page');
   revalidatePath('/news');

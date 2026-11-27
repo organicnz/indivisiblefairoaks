@@ -392,7 +392,8 @@ export interface MobilizeImportResult {
 }
 
 function revalidateEvents() {
-  revalidateTag('events', 'hours');
+  // Immediate expiry: the `hours` profile would serve one more stale /events.
+  revalidateTag('events', { expire: 0 });
   revalidatePath('/events');
   revalidatePath('/');
 }

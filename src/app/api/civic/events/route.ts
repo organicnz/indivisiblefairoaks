@@ -2,13 +2,13 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { revalidatePath, revalidateTag } from 'next/cache';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { requireAdminApi } from '@/lib/admin-api-auth';
 // Issue #149: the GET payload feeds the calendar's rows and links; stamps must
 // be Pacific wall time interpreted by the consumers' `ctz=` / `TZID=`, never a
 // runtime-zone-of-the-server rendering.
 import { recordAdminAudit } from '@/lib/admin-audit';
-import { requireAdminApi } from '@/lib/admin-api-auth';
-import { readJsonBodyWithLimit } from '@/lib/request-body';
 import { instantToPacificBasic } from '@/lib/calendar-time';
+import { readJsonBodyWithLimit } from '@/lib/request-body';
 import { createPublicClient } from '@/lib/supabase-server';
 
 /** Bounded JSON bodies: these routes are reachable by admins, not the open internet. */
@@ -205,23 +205,23 @@ export async function POST(req: NextRequest) {
     };
 
     const write = isRename
-      ? eventsClient.from('events').update(upsertRow).eq('slug', originalSlug ?? finalSlug)
+      ? eventsClient
+          .from('events')
+          .update(upsertRow)
+          .eq('slug', originalSlug ?? finalSlug)
       : eventsClient.from('events').upsert(upsertRow, { onConflict: 'slug' });
     const { data, error } = await write.select('*').single();
 
     if (error) {
       const message =
-        error.code === '23505'
-          ? `"${finalSlug}" is already used by another event.`
-          : error.message;
+        error.code === '23505' ? `"${finalSlug}" is already used by another event.` : error.message;
       await recordAdminAudit(auth.session.adminClient, {
         actorUserId: adminUserId,
         actorEmail: adminEmail,
         action: existingEvent ? 'event.update' : 'event.create',
         targetType: 'event',
         targetId: finalSlug,
-        targetLabel:
-          (existingEvent?.title as string | undefined) ?? payload.title,
+        targetLabel: (existingEvent?.title as string | undefined) ?? payload.title,
         before: existingEvent,
         after: null,
         mfaLevel,
@@ -229,10 +229,7 @@ export async function POST(req: NextRequest) {
         error: message,
       });
       if (error.code === '23505') {
-        return NextResponse.json(
-          { error: message },
-          { status: 409 }
-        );
+        return NextResponse.json({ error: message }, { status: 409 });
       }
       return NextResponse.json({ error: message }, { status: 500 });
     }
@@ -256,8 +253,9 @@ export async function POST(req: NextRequest) {
     // The modal posts to this API first. Without this invalidation a successful
     // save left `/events` and the homepage on their cached copies, so the
     // editor could publish a correction that readers would not see until the
-    // cache expired.
-    revalidateTag('events', 'hours');
+    // cache expired. `{ expire: 0 }` expires now; a cacheLife profile is
+    // stale-while-revalidate and would serve one more old page.
+    revalidateTag('events', { expire: 0 });
     revalidatePath('/events');
     revalidatePath('/');
 
@@ -315,8 +313,7 @@ export async function DELETE(req: NextRequest) {
         action: 'event.delete',
         targetType: 'event',
         targetId: slug,
-        targetLabel:
-          (existingEvent?.title as string | undefined) ?? slug,
+        targetLabel: (existingEvent?.title as string | undefined) ?? slug,
         before: existingEvent,
         after: null,
         mfaLevel,
@@ -335,8 +332,7 @@ export async function DELETE(req: NextRequest) {
         action: 'event.delete',
         targetType: 'event',
         targetId: slug,
-        targetLabel:
-          (existingEvent?.title as string | undefined) ?? slug,
+        targetLabel: (existingEvent?.title as string | undefined) ?? slug,
         before: existingEvent,
         after: null,
         mfaLevel,
@@ -352,15 +348,14 @@ export async function DELETE(req: NextRequest) {
       action: 'event.delete',
       targetType: 'event',
       targetId: slug,
-      targetLabel:
-        (existingEvent?.title as string | undefined) ?? slug,
+      targetLabel: (existingEvent?.title as string | undefined) ?? slug,
       before: existingEvent,
       after: null,
       mfaLevel,
       outcome: 'success',
     });
 
-    revalidateTag('events', 'hours');
+    revalidateTag('events', { expire: 0 });
     revalidatePath('/events');
     revalidatePath('/');
 

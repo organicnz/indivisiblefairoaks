@@ -183,7 +183,7 @@ describe('Civic Events Edge API Route (/api/civic/events)', () => {
     const json = await res.json();
     expect(json.success).toBe(true);
     expect(json.event.title).toBe('Democracy Rally');
-    expect(revalidateTag).toHaveBeenCalledWith('events', 'hours');
+    expect(revalidateTag).toHaveBeenCalledWith('events', { expire: 0 });
     expect(revalidatePath).toHaveBeenCalledWith('/events');
     expect(revalidatePath).toHaveBeenCalledWith('/');
     expect(auditInsert).toHaveBeenCalledWith(
@@ -278,7 +278,7 @@ describe('Civic Events Edge API Route (/api/civic/events)', () => {
     const json = await res.json();
     expect(json.success).toBe(true);
     expect(json.deletedSlug).toBe('test-event');
-    expect(revalidateTag).toHaveBeenCalledWith('events', 'hours');
+    expect(revalidateTag).toHaveBeenCalledWith('events', { expire: 0 });
     expect(revalidatePath).toHaveBeenCalledWith('/events');
     expect(revalidatePath).toHaveBeenCalledWith('/');
     expect(auditInsert).toHaveBeenCalledWith(
@@ -395,7 +395,7 @@ describe('Civic Newsletters Edge API Route (/api/civic/newsletters)', () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]?.slug).toBe('winter-bulletin');
     expect(audits[0]).toMatchObject({ action: 'newsletter.create', outcome: 'success' });
-    expect(revalidateTag).toHaveBeenCalledWith('newsletters', 'hours');
+    expect(revalidateTag).toHaveBeenCalledWith('newsletters', { expire: 0 });
     expect(revalidatePath).toHaveBeenCalledWith('/newsletters');
   });
 
@@ -491,7 +491,7 @@ describe('Civic Newsletters Edge API Route (/api/civic/newsletters)', () => {
     expect(json.success).toBe(true);
     expect(json.deletedSlug).toBe('fall-bulletin-2026');
     expect(rows).toHaveLength(0);
-    expect(revalidateTag).toHaveBeenCalledWith('newsletters', 'hours');
+    expect(revalidateTag).toHaveBeenCalledWith('newsletters', { expire: 0 });
     expect(revalidatePath).toHaveBeenCalledWith('/newsletters');
   });
 });

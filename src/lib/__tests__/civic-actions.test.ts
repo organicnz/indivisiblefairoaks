@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { revalidateTag } from 'next/cache';
 import { describe, expect, it, vi } from 'vitest';
 
 const requireAdmin = vi.hoisted(() => vi.fn());
@@ -137,6 +138,7 @@ describe('Civic Server Actions', () => {
           outcome: 'success',
         })
       );
+      expect(vi.mocked(revalidateTag)).toHaveBeenCalledWith('events', { expire: 0 });
     });
 
     it('pauses the Mobilize sync when an admin edits a synced row', async () => {
@@ -427,6 +429,7 @@ describe('Civic Server Actions', () => {
         target_id: 'bulletin-summer',
         outcome: 'success',
       });
+      expect(vi.mocked(revalidateTag)).toHaveBeenCalledWith('newsletters', { expire: 0 });
     });
 
     it('refuses to overwrite an existing bulletin when the slug is reused', async () => {
@@ -578,6 +581,7 @@ describe('Civic Server Actions', () => {
       if (res.success && res.data) {
         expect(res.data.name).toBe('Sister District Project');
       }
+      expect(vi.mocked(revalidateTag)).toHaveBeenCalledWith('coalition-links', { expire: 0 });
     });
 
     it('renames an existing coalition link in place instead of creating a duplicate', async () => {
