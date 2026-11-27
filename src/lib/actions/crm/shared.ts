@@ -127,9 +127,14 @@ export function escapeIlikeOrValue(value: string): string {
  * the directory itself, the follow-up board, and the contact 360 that owns the row.
  * Hand-listing these per action is how they drifted — toggling a task on the 360 page
  * revalidated the board but not the 360, so the tab it was toggled in stayed stale.
+ *
+ * Expire immediately, like the other write paths. A cacheLife profile here is
+ * stale-while-revalidate: the tag is marked stale but stays fresh until the
+ * profile's expiry, so the first request after a save renders the previous tag
+ * chips and refreshes behind it.
  */
 export function revalidateCRMRoutes(contactId?: string | null): void {
-  revalidateTag('crm-tags', 'hours');
+  revalidateTag('crm-tags', { expire: 0 });
   revalidatePath('/admin/crm');
   revalidatePath('/admin/crm/tasks');
   revalidatePath('/admin/crm/broadcasts');
