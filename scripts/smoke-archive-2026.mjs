@@ -2,12 +2,17 @@
 /**
  * Post-deploy smoke check for the 2026 voter-guides archive.
  *
- * Two things Erin asked for have no runtime test that can run in CI's unit
+ * Three things Erin asked for have no runtime test that can run in CI's unit
  * suite, because they are properties of the *deployed page*:
  *
  *   1. `/archive` renders the moved 2026 block — the anchor, the heading, all
  *      five items, and a link for each of the four documents;
- *   2. `/voter-info` carries none of it.
+ *   2. `/voter-info` carries none of it;
+ *   3. each page serialises only its own voter keys. `/archive` asks Supabase
+ *      for the 20 archived keys and `/voter-info` for the 56 evergreen ones.
+ *      The RSC payload is part of the response, so an archived key there is the
+ *      same regression as a rendered card: it puts copy on the wrong page and
+ *      grows the payload that narrowing the fetch removed.
  *
  * This script is the post-deploy half. It runs after the deploy workflow has
  * proved the host serves the requested commit, so a stale alias cannot pass it.
@@ -87,21 +92,25 @@ export const VOTER_INFO_FORBIDDEN = [
   ...DOCUMENTS.flatMap((doc) => [doc.driveId, `documents/voter/${doc.slug}.pdf`]),
 ];
 
-/**
- * The page's rendered markup, with `<script>` and comments removed.
- *
- * This matters for the negative check: Next serialises the `data_points`
- * dictionary into the RSC hydration payload, so `/voter-info` legitimately
- * contains the string `"voter.guides.headline":"2026 Voter Guide & Ballot
- * Recommendations"` inside a script tag even though it renders none of it. A
- * raw-HTML search reports that as a regression on a correct page. Scanning
- * rendered markup is the accurate question: is 2026 *content* present?
- */
-export function renderedContent(html) {
-  return html
-    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
-    .replace(/<!--[\s\S]*?-->/g, '');
-}
+/** Archived 2026 key prefixes. `/voter-info` must serialise none of them. */
+export const VOTER_INFO_ARCHIVED_KEY_PREFIXES = [
+  'voter.guides.',
+  'voter.guide.',
+  'voter.spotlight.',
+];
+
+/** Evergreen voter key prefixes. `/archive` must serialise none of them. */
+export const ARCHIVE_EVERGREEN_KEY_PREFIXES = [
+  'voter.action.',
+  'voter.guide1.',
+  'voter.guide2.',
+  'voter.guide3.',
+  'voter.guide4.',
+  'voter.guides_section.',
+  'voter.hero.',
+  'voter.hotlines.',
+  'voter.repfinder.',
+];
 
 /** Minimal entity decoding — enough to compare rendered copy, not a parser. */
 export function decodeEntities(html) {
@@ -175,6 +184,17 @@ export function inspectArchive(html) {
     }
   }
 
+  // The page asks Supabase for the 20 archived keys only. The whole response is
+  // checked, not just the section, because the RSC payload carries the
+  // serialised data points for the route.
+  for (const prefix of ARCHIVE_EVERGREEN_KEY_PREFIXES) {
+    if (html.includes(prefix)) {
+      failures.push(
+        `/archive serialises the evergreen voter key prefix "${prefix}"; it must read only the 2026 keys`
+      );
+    }
+  }
+
   for (const doc of DOCUMENTS) {
     const href = hrefs.find((value) => value.includes(doc.slug) || value.includes(doc.driveId));
     if (!href) {
@@ -196,20 +216,31 @@ export function inspectArchive(html) {
  *
  * Anchored on a positive marker too (`Voter Rights & Educational Guides`), so a
  * 200 error page or a redirect target cannot pass by containing nothing.
+ *
+ * Scans the whole response, not just rendered markup. The page now asks for its
+ * 56 evergreen keys only, so no archived key or 2026 copy belongs anywhere in
+ * it — including the RSC payload. Before that narrowing this check had to strip
+ * `<script>` tags because the payload legitimately named the archived keys; a
+ * gate that still stripped them would miss the payload regression it exists to
+ * catch.
  */
 export function inspectVoterInfo(html) {
   const failures = [];
-  // Rendered markup only — see `renderedContent`. The hydration payload names
-  // the same data points the archive uses, and it is not page content.
-  const rendered = renderedContent(html);
-  const text = decodeEntities(rendered);
+  const text = decodeEntities(html);
 
   if (!text.includes('Voter Rights & Educational Guides')) {
     failures.push('/voter-info is missing its evergreen "Voter Rights & Educational Guides" heading');
   }
   for (const forbidden of VOTER_INFO_FORBIDDEN) {
-    if (rendered.includes(forbidden) || text.includes(forbidden)) {
+    if (html.includes(forbidden) || text.includes(forbidden)) {
       failures.push(`/voter-info still contains 2026 material: "${forbidden}"`);
+    }
+  }
+  for (const prefix of VOTER_INFO_ARCHIVED_KEY_PREFIXES) {
+    if (html.includes(prefix)) {
+      failures.push(
+        `/voter-info serialises the archived voter key prefix "${prefix}"; it must read only its evergreen keys`
+      );
     }
   }
   return failures;

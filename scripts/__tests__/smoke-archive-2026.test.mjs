@@ -16,11 +16,16 @@ const OWNED = (slug) =>
   `https://project.supabase.co/storage/v1/object/public/legacy-documents/documents/voter/${slug}.pdf`;
 const DRIVE = (driveId) => `https://drive.google.com/file/d/${driveId}/preview`;
 
-function archiveHtml({ links = DOCUMENTS.map((doc) => OWNED(doc.slug)), items = ARCHIVE_ITEMS } = {}) {
+function archiveHtml({
+  links = DOCUMENTS.map((doc) => OWNED(doc.slug)),
+  items = ARCHIVE_ITEMS,
+  extra = '',
+} = {}) {
   return `<html><body><main><section id="voter-guides-2026" aria-labelledby="voter-guides-2026-heading">
     <h2 id="voter-guides-2026-heading">2026 Voter Guide &amp; Ballot Recommendations</h2>
     ${items.map((item) => `<h3>${item}</h3>`).join('\n')}
     ${links.map((href) => `<a href="${href}">document</a>`).join('\n')}
+    ${extra}
   </section><section id="archive-intro">later</section></main></body></html>`;
 }
 
@@ -85,6 +90,20 @@ describe('inspectArchive', () => {
     const { failures } = inspectArchive(archiveHtml({ links }));
     expect(failures.some((failure) => failure.includes('links back to /voter-info'))).toBe(true);
   });
+
+  it('fails when an evergreen voter key is serialised on /archive', () => {
+    const extra =
+      '<script>self.__next_f.push([1,"{\\"voter.hotlines.headline\\":\\"Election Hotlines\\"}"])</script>';
+    const { failures } = inspectArchive(archiveHtml({ extra }));
+    expect(failures.some((failure) => failure.includes('voter.hotlines.'))).toBe(true);
+  });
+
+  it('accepts archived 2026 keys in the RSC payload', () => {
+    const extra =
+      '<script>self.__next_f.push([1,"{\\"voter.guide.sac_voter_guide.title\\":\\"Sacramento Voter Guide\\"}"])</script>';
+    const { failures } = inspectArchive(archiveHtml({ extra }));
+    expect(failures).toEqual([]);
+  });
 });
 
 describe('inspectVoterInfo', () => {
@@ -108,11 +127,19 @@ describe('inspectVoterInfo', () => {
       .toBeGreaterThan(0);
   });
 
-  it('ignores 2026 strings in the serialized hydration payload', () => {
-    // The live page carries the data-points dictionary in an RSC script tag.
-    // That is not rendered content and must not read as a regression.
+  it('fails when archived keys survive in the serialized payload', () => {
+    // This is the regression the narrowed fetch removed: the 2026 keys used to
+    // be serialised into /voter-info even though the page rendered none of them.
     const payload =
-      '<script>self.__next_f.push([1,"{\\"voter.guides.headline\\":\\"2026 Voter Guide & Ballot Recommendations\\",\\"voter.guide.candidate_brief.title\\":\\"Hands Off Our Vote 2026 Toolkit\\"}"])</script>';
+      '<script>self.__next_f.push([1,"{\\"voter.guides.headline\\":\\"2026 Voter Guide & Ballot Recommendations\\",\\"voter.spotlight.title\\":\\"Understanding the SAVE America Act\\"}"])</script>';
+    const failures = inspectVoterInfo(voterInfoHtml(payload));
+    expect(failures.some((failure) => failure.includes('voter.guides.'))).toBe(true);
+  });
+
+  it('passes when only evergreen keys are serialized', () => {
+    // `voter.guide1.` is evergreen and must not trip the `voter.guide.` prefix.
+    const payload =
+      '<script>self.__next_f.push([1,"{\\"voter.hero.intro\\":\\"Your vote is your voice\\",\\"voter.guide1.title\\":\\"Who Represents You?\\"}"])</script>';
     expect(inspectVoterInfo(voterInfoHtml(payload))).toEqual([]);
   });
 
