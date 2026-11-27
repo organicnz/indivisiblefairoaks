@@ -105,7 +105,7 @@ export function HomeHero({
                     initialData={dataPoints}
                     className="font-display text-3xl font-semibold leading-none tracking-[-0.03em] text-foreground"
                   >
-                    500+
+                    300+
                   </DataPoint>
                   <DataPoint
                     name="home.impact.neighbors_label"
