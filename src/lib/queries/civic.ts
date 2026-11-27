@@ -327,6 +327,28 @@ export async function getDataPoints(group?: string): Promise<Record<string, stri
   }
 }
 
+export async function getDataPointsForKeys(
+  keys: readonly string[]
+): Promise<Record<string, string>> {
+  'use cache';
+  cacheLife('hours');
+  cacheTag('data-points');
+  try {
+    const supabase = publicClient();
+    const { data } = await supabase
+      .from('data_points')
+      .select('key, value')
+      .in('key', [...keys].sort());
+    const map: Record<string, string> = {};
+    for (const row of (data ?? []) as Pick<DataPointRow, 'key' | 'value'>[]) {
+      map[row.key] = row.value;
+    }
+    return map;
+  } catch {
+    return {};
+  }
+}
+
 export async function getDataPointsForGroups(
   groups: readonly string[]
 ): Promise<Record<string, string>> {

@@ -3,6 +3,11 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import VoterInfoPage, { metadata } from '@/app/voter-info/page';
+import { VOTER_INFO_DATA_POINT_KEYS } from '@/components/voter-info/voter-info-data-points';
+
+const getDataPointsForKeys = vi.hoisted(() => vi.fn(async () => ({})));
+
+vi.mock('@/lib/queries/civic', () => ({ getDataPointsForKeys }));
 
 vi.mock('next/cache', () => ({
   cacheLife: vi.fn(),
@@ -61,6 +66,11 @@ describe('VoterInfoPage & archived 2026 voter guides', () => {
     await act(async () => {
       root.render(page);
     });
+
+    // The page must not read the whole `voter` group: that would ship the
+    // archived 2026 copy in this page's RSC payload even though none of it
+    // renders here.
+    expect(getDataPointsForKeys).toHaveBeenCalledWith(VOTER_INFO_DATA_POINT_KEYS);
 
     expect(container.textContent).toContain('Voter Rights & Educational Guides');
     expect(container.textContent).toContain('Who Represents You?');

@@ -8,8 +8,9 @@ import { VoterActionCards } from '@/components/voter-info/VoterActionCards';
 import { VoterGuidesSection } from '@/components/voter-info/VoterGuidesSection';
 import { VoterHotlinesSection } from '@/components/voter-info/VoterHotlinesSection';
 import { VoterSectionNav } from '@/components/voter-info/VoterSectionNav';
+import { VOTER_INFO_DATA_POINT_KEYS } from '@/components/voter-info/voter-info-data-points';
 import { pageMetadata } from '@/lib/metadata';
-import { getDataPoints } from '@/lib/queries/civic';
+import { getDataPointsForKeys } from '@/lib/queries/civic';
 import {
   getLegacyDocuments,
   legacyDocumentForDriveId,
@@ -24,8 +25,11 @@ export const metadata: Metadata = pageMetadata({
 });
 
 export default async function VoterInfoPage() {
+  // Only the keys this page renders. Reading the whole `voter` group would
+  // serialize the 2026 guide copy that now lives on /archive into this page's
+  // RSC payload on every visit.
   const [dataPoints, legacyDocuments] = await Promise.all([
-    getDataPoints('voter'),
+    getDataPointsForKeys(VOTER_INFO_DATA_POINT_KEYS),
     getLegacyDocuments('voter'),
   ]);
   const legacyHref = (driveId: string, fallback: string) => {
