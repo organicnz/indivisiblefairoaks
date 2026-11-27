@@ -1,5 +1,7 @@
 import type { MetadataRoute } from 'next';
+import { headers } from 'next/headers';
 import { IS_PRODUCTION_SITE, siteUrl } from '@/config/site';
+import { isCrawlableHost } from '@/config/staging-guard';
 
 // Paths with no public content. Written without trailing slashes because
 // `Disallow: /account/` does NOT cover `/account` — Google then records the URL as
@@ -12,10 +14,14 @@ import { IS_PRODUCTION_SITE, siteUrl } from '@/config/site';
 // noindexable surfaces we therefore let crawlers fetch and read the directive.
 const DISALLOW = ['/api/'];
 
-// Only meaningful on the production apex. On preview/staging the whole site is
-// noindex, and advertising a sitemap there invites crawlers to waste requests.
-export default function robots(): MetadataRoute.Robots {
-  if (!IS_PRODUCTION_SITE) {
+// Read the request host rather than only the build flag. `IS_PRODUCTION_SITE`
+// becomes true for *every* host on the Production deployment at the apex
+// cutover, including `test.indivisiblefairoaks.org`; the host is the only thing
+// that still distinguishes them. See `src/config/staging-guard.ts`.
+export default async function robots(): Promise<MetadataRoute.Robots> {
+  const host = (await headers()).get('host');
+
+  if (!isCrawlableHost({ host, isProductionSite: IS_PRODUCTION_SITE })) {
     return {
       rules: [{ userAgent: '*', disallow: '/' }],
     };

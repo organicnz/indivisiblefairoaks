@@ -1,6 +1,7 @@
 import { withSentryConfig } from '@sentry/nextjs/config';
 import type { NextConfig } from 'next';
 import { LEGACY_REDIRECTS } from './src/config/legacy-redirects';
+import { stagingNoIndexRules } from './src/config/staging-guard';
 
 // Supabase hostname is derived from the build-time env so a project restore
 // or fork only needs a secret rotation — no code change.
@@ -110,6 +111,11 @@ const routeHeaders = [
     source,
     headers: [{ key: 'X-Robots-Tag', value: 'noindex, nofollow' }],
   })),
+  // Host-conditional, not build-conditional. At the apex cutover the Production
+  // build sets `IS_PRODUCTION_SITE` true for `test.indivisiblefairoaks.org` too,
+  // because both hosts serve that one deployment. The request host is what keeps
+  // staging out of the index. See `src/config/staging-guard.ts`.
+  ...stagingNoIndexRules(),
 ];
 
 // Legacy Google Sites URLs. The chapter's site ran on Google Sites before this app;
