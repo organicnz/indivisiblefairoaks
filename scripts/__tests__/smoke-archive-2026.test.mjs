@@ -158,9 +158,24 @@ describe('pathnameOf', () => {
 
 describe('main', () => {
   const siteUrl = 'https://example.test';
+  const SHA = 'a'.repeat(40);
+  /** No real waiting in unit tests; retry decisions are still exercised. */
+  const FAST = { sleep: async () => {}, retryDelays: [0, 0, 0] };
 
-  function fakeFetch({ archive = archiveHtml(), voter = voterInfoHtml(), linkStatus = 200 } = {}) {
+  function fakeFetch({
+    archive = archiveHtml(),
+    voter = voterInfoHtml(),
+    linkStatus = 200,
+    healthSha = SHA,
+    healthStatus = 200,
+  } = {}) {
     return async (url) => {
+      if (url.endsWith('/api/health')) {
+        return new Response(JSON.stringify({ status: 'ok', deployment: { commit: healthSha } }), {
+          status: healthStatus,
+          headers: { 'content-type': 'application/json' },
+        });
+      }
       if (url.endsWith('/archive')) return new Response(archive, { status: 200 });
       if (url.endsWith('/voter-info')) return new Response(voter, { status: 200 });
       if (url.includes('/legacy-documents/')) {
@@ -175,6 +190,7 @@ describe('main', () => {
 
   it('passes when the archive and all four links are good', async () => {
     const code = await main([`--site-url=${siteUrl}`], {
+      ...FAST,
       fetch: fakeFetch(),
       log: () => {},
     });
@@ -183,6 +199,7 @@ describe('main', () => {
 
   it('fails when a document link 404s', async () => {
     const code = await main([`--site-url=${siteUrl}`], {
+      ...FAST,
       fetch: fakeFetch({ linkStatus: 404 }),
       log: () => {},
     });
@@ -191,13 +208,101 @@ describe('main', () => {
 
   it('fails when /voter-info still names 2026 material', async () => {
     const code = await main([`--site-url=${siteUrl}`], {
+      ...FAST,
       fetch: fakeFetch({ voter: voterInfoHtml('<h3>Key Dates for the Election</h3>') }),
       log: () => {},
     });
     expect(code).toBe(1);
   });
 
+  it('fails when an evergreen key leaks into the archive payload', async () => {
+    const extra =
+      '<script>self.__next_f.push([1,"{\\"voter.hero.intro\\":\\"Your vote is your voice\\"}"])</script>';
+    const code = await main([`--site-url=${siteUrl}`], {
+      ...FAST,
+      fetch: fakeFetch({ archive: archiveHtml({ extra }) }),
+      log: () => {},
+    });
+    expect(code).toBe(1);
+  });
+
+  it('passes only when the host reports the expected commit', async () => {
+    const code = await main(
+      [`--site-url=${siteUrl}`, `--expect-sha=${SHA}`, '--health-budget-ms=0'],
+      { ...FAST, fetch: fakeFetch({ healthSha: SHA }), log: () => {} }
+    );
+    expect(code).toBe(0);
+  });
+
+  it('refuses to smoke a host serving a different commit', async () => {
+    const code = await main(
+      [`--site-url=${siteUrl}`, `--expect-sha=${SHA}`, '--health-budget-ms=0'],
+      { ...FAST, fetch: fakeFetch({ healthSha: 'b'.repeat(40) }), log: () => {} }
+    );
+    expect(code).toBe(1);
+  });
+
+  it('polls health until the deployment for this commit is live', async () => {
+    let healthCalls = 0;
+    const base = fakeFetch({ healthSha: SHA });
+    const fetchImpl = async (url, init) => {
+      if (url.endsWith('/api/health')) {
+        healthCalls += 1;
+        if (healthCalls === 1) {
+          return new Response(JSON.stringify({ deployment: { commit: 'b'.repeat(40) } }), {
+            status: 200,
+          });
+        }
+      }
+      return base(url, init);
+    };
+    const code = await main(
+      [`--site-url=${siteUrl}`, `--expect-sha=${SHA}`, '--health-budget-ms=50'],
+      { ...FAST, fetch: fetchImpl, log: () => {} }
+    );
+    expect(healthCalls).toBe(2);
+    expect(code).toBe(0);
+  });
+
+  it('retries a transient 404 while the deployment settles', async () => {
+    let archiveAttempts = 0;
+    const base = fakeFetch();
+    const fetchImpl = async (url, init) => {
+      if (url.endsWith('/archive')) {
+        archiveAttempts += 1;
+        if (archiveAttempts < 3) return new Response('not ready', { status: 404 });
+      }
+      return base(url, init);
+    };
+    const code = await main([`--site-url=${siteUrl}`], { ...FAST, fetch: fetchImpl, log: () => {} });
+    expect(archiveAttempts).toBe(3);
+    expect(code).toBe(0);
+  });
+
+  it('fails loudly when the archive never stops returning 500', async () => {
+    const base = fakeFetch();
+    const fetchImpl = async (url, init) =>
+      url.endsWith('/archive') ? new Response('boom', { status: 500 }) : base(url, init);
+    const code = await main([`--site-url=${siteUrl}`], { ...FAST, fetch: fetchImpl, log: () => {} });
+    expect(code).toBe(1);
+  });
+
+  it('fails fast on a non-retryable 403', async () => {
+    let archiveAttempts = 0;
+    const base = fakeFetch();
+    const fetchImpl = async (url, init) => {
+      if (url.endsWith('/archive')) {
+        archiveAttempts += 1;
+        return new Response('forbidden', { status: 403 });
+      }
+      return base(url, init);
+    };
+    const code = await main([`--site-url=${siteUrl}`], { ...FAST, fetch: fetchImpl, log: () => {} });
+    expect(archiveAttempts).toBe(1);
+    expect(code).toBe(1);
+  });
+
   it('refuses to run without an explicit site url', async () => {
-    expect(await main([], { fetch: fakeFetch(), log: () => {} })).toBe(1);
+    expect(await main([], { ...FAST, fetch: fakeFetch(), log: () => {} })).toBe(1);
   });
 });

@@ -747,6 +747,17 @@ jobs:
           VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
         run: bun scripts/check-vercel-deploy.mjs --sha=${{ github.sha }} --out=vercel-logs --site-url=${{ vars.NEXT_PUBLIC_SITE_URL }}
 
+      # READY proves the build compiled; it says nothing about page content.
+      # Run the same payload-boundary gate the manual deploy workflow runs, but
+      # only after the production host reports this exact commit, so a lagging
+      # alias cannot smoke the previous build. The script retries settling
+      # 404/5xx responses and fails loudly with the offending key prefix.
+      - name: Smoke-check the voter payload boundary
+        run: |
+          bun scripts/smoke-archive-2026.mjs \
+            --site-url=${{ vars.NEXT_PUBLIC_SITE_URL }} \
+            --expect-sha=${{ github.sha }}
+
       # Every production deploy leaves its evidence: the scrubbed full build
       # log plus a summary (state, verdict, tail). `always()` because an ERROR
       # deploy is when the log matters most; `continue-on-error` because a

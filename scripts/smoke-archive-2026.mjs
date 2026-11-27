@@ -37,14 +37,38 @@
  *
  * Usage:
  *   bun scripts/smoke-archive-2026.mjs --site-url=https://test.indivisiblefairoaks.org
+ *   bun scripts/smoke-archive-2026.mjs --site-url=... --expect-sha=<full-sha>
  *
  * `--site-url` is required. There is no default host: the repo has repeatedly
  * been bitten by a guessed origin, and a smoke check that quietly probes the
  * wrong host is worse than one that refuses to start.
+ *
+ * `--expect-sha` is the CI mode. It polls `/api/health` until the host reports
+ * that commit before inspecting any page, so a lagging production alias cannot
+ * smoke the previous build. The manual deploy workflow asserts the SHA in its
+ * own step and omits the flag; its behaviour is otherwise unchanged.
+ *
+ * Requests retry 404/408/425/429/5xx and network errors with a short backoff,
+ * because a fresh alias can answer 404 or 5xx for a few seconds while it
+ * settles. A 200 response is inspected on the first attempt, so retries can
+ * never hide a payload violation. The retry count and health budget are
+ * bounded; there is no unbounded wait.
  */
 
 export const SECTION_ID = 'voter-guides-2026';
 export const ARCHIVE_HEADING = '2026 Voter Guide & Ballot Recommendations';
+
+/** Backoff for requests that may race a deployment or alias settling. */
+const RETRY_DELAYS_MS = [2_000, 4_000, 8_000];
+const HEALTH_POLL_INTERVAL_MS = 5_000;
+const HEALTH_BUDGET_MS = 120_000;
+
+const defaultSleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** A status worth retrying while a deployment settles. */
+function retryableStatus(status) {
+  return status === 404 || status === 408 || status === 425 || status === 429 || status >= 500;
+}
 
 /** Every item the archived block must render. */
 export const ARCHIVE_ITEMS = [
@@ -246,37 +270,140 @@ export function inspectVoterInfo(html) {
   return failures;
 }
 
-async function fetchText(fetchImpl, url) {
-  const res = await fetchImpl(url, {
-    cache: 'no-store',
-    redirect: 'follow',
-    signal: AbortSignal.timeout(30_000),
-  });
-  return { status: res.status, contentType: res.headers.get('content-type') ?? '', body: await res.text() };
+/**
+ * Fetch a page, retrying only the statuses a settling deployment can produce.
+ * A 200 is returned immediately — the body is what the caller inspects.
+ */
+async function fetchText(fetchImpl, url, { delays = RETRY_DELAYS_MS, sleep = defaultSleep } = {}) {
+  let lastResponse = null;
+  let lastError = null;
+
+  for (let attempt = 0; attempt <= delays.length; attempt += 1) {
+    try {
+      const res = await fetchImpl(url, {
+        cache: 'no-store',
+        redirect: 'follow',
+        signal: AbortSignal.timeout(30_000),
+      });
+      lastResponse = {
+        status: res.status,
+        contentType: res.headers.get('content-type') ?? '',
+        body: await res.text(),
+      };
+      if (!retryableStatus(res.status) || attempt === delays.length) return lastResponse;
+    } catch (error) {
+      lastError = error;
+      if (attempt === delays.length) throw error;
+    }
+    await sleep(delays[attempt]);
+  }
+
+  if (lastResponse) return lastResponse;
+  throw lastError;
 }
 
 /** Follow one document link. Owned copies must be real PDFs; Drive must 200. */
-async function checkDocumentLink(fetchImpl, link, siteUrl) {
+async function checkDocumentLink(
+  fetchImpl,
+  link,
+  siteUrl,
+  { delays = RETRY_DELAYS_MS, sleep = defaultSleep } = {}
+) {
   const url = new URL(link.href, siteUrl).toString();
-  const res = await fetchImpl(url, {
-    cache: 'no-store',
-    redirect: 'follow',
-    headers: { Range: 'bytes=0-4' },
-    signal: AbortSignal.timeout(60_000),
-  });
-  const bytes = new Uint8Array(await res.arrayBuffer());
-  const type = (res.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase();
-  const isPdf = bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46;
-  const okStatus = res.status === 200 || res.status === 206;
+  let lastFailure = { ok: false, url, kind: link.kind, reason: 'not attempted' };
 
-  if (!okStatus) return { ok: false, url, kind: link.kind, reason: `HTTP ${res.status}` };
-  if (link.kind === 'owned' && (type !== 'application/pdf' || !isPdf)) {
-    return { ok: false, url, kind: link.kind, reason: `not a PDF (${type || 'no type'})` };
+  for (let attempt = 0; attempt <= delays.length; attempt += 1) {
+    try {
+      const res = await fetchImpl(url, {
+        cache: 'no-store',
+        redirect: 'follow',
+        headers: { Range: 'bytes=0-4' },
+        signal: AbortSignal.timeout(60_000),
+      });
+      const bytes = new Uint8Array(await res.arrayBuffer());
+      const type = (res.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase();
+      const isPdf = bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46;
+      const okStatus = res.status === 200 || res.status === 206;
+
+      if (!okStatus) {
+        lastFailure = { ok: false, url, kind: link.kind, reason: `HTTP ${res.status}` };
+        if (retryableStatus(res.status) && attempt < delays.length) {
+          await sleep(delays[attempt]);
+          continue;
+        }
+        return lastFailure;
+      }
+      if (link.kind === 'owned' && (type !== 'application/pdf' || !isPdf)) {
+        return { ok: false, url, kind: link.kind, reason: `not a PDF (${type || 'no type'})` };
+      }
+      if (link.kind === 'unknown') {
+        return {
+          ok: false,
+          url,
+          kind: link.kind,
+          reason: 'link matches neither storage slug nor Drive id',
+        };
+      }
+      return { ok: true, url, kind: link.kind, reason: 'ok' };
+    } catch (error) {
+      lastFailure = {
+        ok: false,
+        url,
+        kind: link.kind,
+        reason: `request failed (${error?.message ?? error})`,
+      };
+      if (attempt < delays.length) {
+        await sleep(delays[attempt]);
+        continue;
+      }
+      return lastFailure;
+    }
   }
-  if (link.kind === 'unknown') {
-    return { ok: false, url, kind: link.kind, reason: 'link matches neither storage slug nor Drive id' };
-  }
-  return { ok: true, url, kind: link.kind, reason: 'ok' };
+
+  return lastFailure;
+}
+
+/**
+ * Wait for the host to report exactly the commit CI pushed.
+ *
+ * `do…while` so the first probe always happens: a zero budget must mean "one
+ * attempt", not "never asked". The caller turns a mismatch into a failure, so
+ * a lagging alias cannot masquerade as a passing smoke check against the
+ * previous build.
+ */
+async function waitForCommit(
+  fetchImpl,
+  siteUrl,
+  expectSha,
+  { budgetMs = HEALTH_BUDGET_MS, intervalMs = HEALTH_POLL_INTERVAL_MS, sleep = defaultSleep } = {}
+) {
+  const deadline = Date.now() + budgetMs;
+  let lastCommit = null;
+  let attempts = 0;
+
+  do {
+    attempts += 1;
+    try {
+      const res = await fetchImpl(`${siteUrl}/api/health`, {
+        cache: 'no-store',
+        redirect: 'follow',
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (res.status === 200) {
+        const body = await res.json().catch(() => null);
+        lastCommit = body?.deployment?.commit ?? null;
+        if (lastCommit === expectSha) return { ok: true, commit: lastCommit, attempts };
+      } else {
+        lastCommit = `HTTP ${res.status}`;
+      }
+    } catch (error) {
+      lastCommit = error?.message ?? String(error);
+    }
+    if (Date.now() >= deadline) break;
+    await sleep(intervalMs);
+  } while (Date.now() < deadline);
+
+  return { ok: false, commit: lastCommit, attempts };
 }
 
 export async function main(argv = process.argv.slice(2), deps = {}) {
@@ -286,13 +413,42 @@ export async function main(argv = process.argv.slice(2), deps = {}) {
     return 1;
   }
   const siteUrl = siteUrlArg.replace(/\/+$/, '');
+  const expectSha = argv.find((arg) => arg.startsWith('--expect-sha='))?.slice('--expect-sha='.length);
+  const healthBudgetArg = argv
+    .find((arg) => arg.startsWith('--health-budget-ms='))
+    ?.slice('--health-budget-ms='.length);
+  const healthBudgetMs = healthBudgetArg === undefined ? HEALTH_BUDGET_MS : Number(healthBudgetArg);
   const fetchImpl = deps.fetch ?? fetch;
   const log = deps.log ?? console.log;
+  const sleep = deps.sleep ?? defaultSleep;
+  const retryDelays = deps.retryDelays ?? RETRY_DELAYS_MS;
   const failures = [];
+
+  if (!Number.isFinite(healthBudgetMs) || healthBudgetMs < 0) {
+    console.error('✖  --health-budget-ms must be a non-negative number of milliseconds.');
+    return 1;
+  }
 
   log(`Smoke-checking ${siteUrl}`);
 
-  const archive = await fetchText(fetchImpl, `${siteUrl}/archive`);
+  if (expectSha) {
+    log(`Waiting for ${siteUrl} to serve ${expectSha.slice(0, 8)}…`);
+    const live = await waitForCommit(fetchImpl, siteUrl, expectSha, {
+      budgetMs: healthBudgetMs,
+      intervalMs: deps.healthPollIntervalMs ?? HEALTH_POLL_INTERVAL_MS,
+      sleep,
+    });
+    if (!live.ok) {
+      console.error(
+        `✖  ${siteUrl} is serving ${live.commit ?? 'nothing'}, not ${expectSha}. Refusing to smoke a different build.`
+      );
+      return 1;
+    }
+    log(`  ✅ live commit ${live.commit.slice(0, 8)}`);
+  }
+
+  const requestOptions = { delays: retryDelays, sleep };
+  const archive = await fetchText(fetchImpl, `${siteUrl}/archive`, requestOptions);
   if (archive.status !== 200) {
     failures.push(`/archive returned HTTP ${archive.status}`);
   } else {
@@ -300,7 +456,7 @@ export async function main(argv = process.argv.slice(2), deps = {}) {
     failures.push(...inspection.failures);
     log(`  ${inspection.failures.length === 0 ? '✅' : '✖ '} /archive 2026 block`);
     for (const link of inspection.links) {
-      const result = await checkDocumentLink(fetchImpl, link, siteUrl);
+      const result = await checkDocumentLink(fetchImpl, link, siteUrl, requestOptions);
       if (!result.ok) failures.push(`${link.label} → ${result.reason} (${result.url})`);
       log(
         `  ${result.ok ? '✅' : '✖ '} ${link.label} [${result.kind}]` +
@@ -309,7 +465,7 @@ export async function main(argv = process.argv.slice(2), deps = {}) {
     }
   }
 
-  const voterInfo = await fetchText(fetchImpl, `${siteUrl}/voter-info`);
+  const voterInfo = await fetchText(fetchImpl, `${siteUrl}/voter-info`, requestOptions);
   if (voterInfo.status !== 200) {
     failures.push(`/voter-info returned HTTP ${voterInfo.status}`);
   } else {
