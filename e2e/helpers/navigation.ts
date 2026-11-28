@@ -19,15 +19,31 @@ import { expect, type Page } from '@playwright/test';
  * `requireHeading: false` is for callers that record a missing h1 as a finding
  * (structure.spec.ts) instead of throwing at the navigation.
  */
+/**
+ * How long a committed route gets to put its shell on screen.
+ *
+ * This is the navigation budget, not the content budget. Playwright's 10-second
+ * `expect` default is sized for an assertion about a page that has loaded; a
+ * landmark that has not arrived yet is the navigation still in flight. On a
+ * loaded runner that difference is not academic: in run 46120207279
+ * (2026-11-28) the host ran at roughly 7× the 5.9-minute baseline, five pages
+ * took 10–25 seconds to reach `main`, and every one of those five failures was
+ * this wait — no landmark was missing. The routes were fine; the 10-second
+ * budget described a quiet host. Giving the shell the same 20 seconds as the
+ * navigation changes nothing about what is asserted: a page that never renders
+ * still fails here, with the same message.
+ */
+const ROUTE_READY_TIMEOUT_MS = 20_000;
+
 export async function gotoRoute(
   page: Page,
   path: string,
   options: { requireHeading?: boolean } = {}
 ): Promise<void> {
-  await page.goto(path, { waitUntil: 'commit', timeout: 20_000 });
-  await expect(page.locator('main')).toBeVisible();
+  await page.goto(path, { waitUntil: 'commit', timeout: ROUTE_READY_TIMEOUT_MS });
+  await expect(page.locator('main')).toBeVisible({ timeout: ROUTE_READY_TIMEOUT_MS });
   if (options.requireHeading !== false) {
-    await expect(page.locator('h1').first()).toBeVisible();
+    await expect(page.locator('h1').first()).toBeVisible({ timeout: ROUTE_READY_TIMEOUT_MS });
   }
 }
 

@@ -163,6 +163,15 @@ one of its **in-progress jobs** is older than 50 minutes, not when the run itsel
 is old: on 2026-11-26 the run spent 38 minutes queued, then its healthy e2e job
 was cancelled by the old run-age rule at 26 minutes of work.
 
+A route's **structural** wait — the `<main>` landmark and `h1` that
+`gotoRoute()` requires — uses the same 20-second budget as the navigation
+itself, not Playwright's 10-second `expect` default. That was measured on
+2026-11-28 (run `46120207279`): the host ran at roughly 7× the 5.9-minute
+baseline, five pages took 10–25 seconds to reach `main`, and every one of those
+failures was that wait rather than a missing landmark. Content assertions keep
+the 10-second budget; only the navigation that has already committed gets the
+time the navigation is already given.
+
 `next.config.ts` disables `turbopackFileSystemCacheForBuild` only for e2e builds.
 There is no warm `.next/cache` in a fresh CI container, and the persistent cache
 kept its snapshot resident: a cold build measured **2.87 GiB peak RSS** with it
