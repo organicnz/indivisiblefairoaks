@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
+import { gotoRoute } from './helpers/navigation';
 
 /**
  * Dark-mode accessibility gate — the counterpart to `a11y.spec.ts`.
@@ -45,7 +46,8 @@ test('a11y: all public pages pass axe in the dark palette', async ({ page }) => 
   const failures: { page: string; violations: string[] }[] = [];
 
   for (const { path, name } of PAGES) {
-    await page.goto(path, { waitUntil: 'load' });
+    // `load` waits on every subresource; the rendered DOM is what axe scans.
+    await gotoRoute(page, path);
     // The attribute is set before paint by the inline bootstrap script; a page
     // that never took the palette is the failure this gate exists for, and axe
     // would read it as a light page and pass. `color-scheme` is the browser's

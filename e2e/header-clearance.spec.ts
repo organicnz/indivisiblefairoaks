@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { gotoRoute } from './helpers/navigation';
 
 /**
  * Fixed-header clearance guards.
@@ -25,8 +26,6 @@ const guardedRoutes: Route[] = [
 ];
 
 async function expectHeadingClearOfHeader(page: import('@playwright/test').Page) {
-  await page.waitForLoadState('load');
-
   const banner = page.getByRole('banner');
   await expect(banner).toBeVisible();
   // The clearance contract only means something while the banner is fixed.
@@ -57,7 +56,7 @@ test.describe('header clearance', () => {
 
     const failures: string[] = [];
     for (const route of guardedRoutes) {
-      await page.goto(route.path);
+      await gotoRoute(page, route.path);
       await expect(page.locator('h1').first()).toHaveText(new RegExp(route.heading.source, 'i'), {
         timeout: 15_000,
       });
@@ -77,7 +76,7 @@ test.describe('header clearance', () => {
     const mobileRoutes = [guardedRoutes[0], guardedRoutes[1], guardedRoutes[6]];
     const failures: string[] = [];
     for (const route of mobileRoutes) {
-      await page.goto(route.path);
+      await gotoRoute(page, route.path);
       await expect(page.locator('h1').first()).toHaveText(new RegExp(route.heading.source, 'i'), {
         timeout: 15_000,
       });

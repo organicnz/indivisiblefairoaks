@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { gotoHydrated } from './helpers/navigation';
 
 /**
  * Navbar account entry point.
@@ -12,8 +13,7 @@ import { expect, test } from '@playwright/test';
 
 test.describe('navbar account entry', () => {
   test('desktop header shows Sign In linking to /login when signed out', async ({ page }) => {
-    await page.goto('/');
-    await page.waitForLoadState('load');
+    await gotoHydrated(page, '/');
 
     const signIn = page.getByRole('link', { name: 'Sign In' });
     await expect(signIn).toBeVisible();
@@ -25,8 +25,7 @@ test.describe('navbar account entry', () => {
 
   test('mobile drawer offers Sign In linking to /login', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto('/');
-    await page.waitForLoadState('load');
+    await gotoHydrated(page, '/');
 
     await page.getByRole('button', { name: 'Open navigation menu' }).click();
     const account = page.getByRole('link', { name: 'Sign in to your account' });
@@ -40,8 +39,7 @@ test.describe('navbar account entry', () => {
     // when the row only appeared at xl — and that assumption is exactly what
     // let the account entry go missing between 768 and 1279.
     await page.setViewportSize({ width: 1024, height: 800 });
-    await page.goto('/');
-    await page.waitForLoadState('load');
+    await gotoHydrated(page, '/');
 
     const signIn = page.getByRole('link', { name: 'Sign in to your account' });
     await expect(signIn).toBeVisible();

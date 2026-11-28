@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { gotoRoute } from './helpers/navigation';
 
 /**
  * Public-page structure and reflow gate.
@@ -45,7 +46,9 @@ test('public routes keep one h1, ordered headings, one main, and no overflow', a
   const failures: { route: string; reason: string }[] = [];
 
   for (const route of ROUTES) {
-    await page.goto(route.path, { waitUntil: 'load' });
+    // `load` waits on every subresource; structure only needs the document.
+    // A missing h1 is recorded as a finding below, so do not gate on it here.
+    await gotoRoute(page, route.path, { requireHeading: false });
     // The login form is a client component under Suspense; its heading can
     // arrive a beat after the document load event. Wait for it, then run the
     // outline check — a missing h1 still fails below.

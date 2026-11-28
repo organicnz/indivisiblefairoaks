@@ -1,4 +1,5 @@
 import { type APIRequestContext, expect, test } from '@playwright/test';
+import { gotoHydrated } from './helpers/navigation';
 import { MOCK_URL as MOCK } from './helpers/ports';
 
 async function setMockMode(request: APIRequestContext, mode: Record<string, unknown>) {
@@ -10,7 +11,7 @@ async function getMockState(request: APIRequestContext) {
 }
 
 async function fillAndSubmit(page: import('@playwright/test').Page, opts: { copy?: boolean } = {}) {
-  await page.goto('/contact');
+  await gotoHydrated(page, '/contact');
   await page.getByLabel('Full Name').fill('E2E Tester');
   await page.getByLabel('Email Address').fill('e2e-tester@indivisiblefairoaks.org');
   await page
@@ -93,7 +94,7 @@ test.describe('contact form delivery status', () => {
     page,
     request,
   }) => {
-    await page.goto('/contact');
+    await gotoHydrated(page, '/contact');
     // Honeypot is visually hidden; fill() refuses hidden inputs even forced,
     // so set the DOM value directly like a naive bot would.
     await page.locator('#website').evaluate((el) => {
@@ -111,7 +112,7 @@ test.describe('contact form delivery status', () => {
   });
 
   test('client-side required validation blocks an empty submit', async ({ page, request }) => {
-    await page.goto('/contact');
+    await gotoHydrated(page, '/contact');
     await page.getByRole('button', { name: /send message/i }).click();
 
     const validation = await page
@@ -122,7 +123,7 @@ test.describe('contact form delivery status', () => {
   });
 
   test('server-side length validation surfaces the error banner', async ({ page }) => {
-    await page.goto('/contact');
+    await gotoHydrated(page, '/contact');
     await page.getByLabel('Full Name').fill('x'.repeat(101));
     await page.getByLabel('Email Address').fill('valid@indivisiblefairoaks.org');
     await page

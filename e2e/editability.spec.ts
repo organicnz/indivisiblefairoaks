@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { gotoRoute } from './helpers/navigation';
 
 /**
  * Editability coverage gate.
@@ -48,7 +49,8 @@ const EDITORIAL_ROUTES = [
 test.describe('public editorial editability coverage', () => {
   for (const route of EDITORIAL_ROUTES) {
     test(`${route.name} exposes an admin edit surface`, async ({ page }) => {
-      await page.goto(route.path, { waitUntil: 'load' });
+      // `load` waits on every subresource; the edit surfaces are in the DOM.
+      await gotoRoute(page, route.path);
 
       const surfaces = page.locator('[data-copy-region], [data-data-point]');
       await expect(
@@ -56,11 +58,11 @@ test.describe('public editorial editability coverage', () => {
         `${route.path} renders no data-copy-region or data-data-point surface`
       ).toBeAttached();
 
-      const regionIds = await page.locator('[data-copy-region]').evaluateAll((nodes) =>
-        nodes
-          .map((node) => node.getAttribute('data-copy-region')?.trim() ?? '')
-          .filter(Boolean)
-      );
+      const regionIds = await page
+        .locator('[data-copy-region]')
+        .evaluateAll((nodes) =>
+          nodes.map((node) => node.getAttribute('data-copy-region')?.trim() ?? '').filter(Boolean)
+        );
 
       expect(new Set(regionIds).size, `${route.path} has duplicate copy-region ids`).toBe(
         regionIds.length
@@ -69,8 +71,9 @@ test.describe('public editorial editability coverage', () => {
       const emptySurfaces = await surfaces.evaluateAll((nodes) =>
         nodes
           .filter((node) => !(node.textContent ?? '').trim())
-          .map((node) =>
-            node.getAttribute('data-copy-region') ?? node.getAttribute('data-data-point') ?? ''
+          .map(
+            (node) =>
+              node.getAttribute('data-copy-region') ?? node.getAttribute('data-data-point') ?? ''
           )
       );
       expect(emptySurfaces, `${route.path} renders empty edit surfaces`).toEqual([]);

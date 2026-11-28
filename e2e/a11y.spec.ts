@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
+import { gotoRoute } from './helpers/navigation';
 
 /**
  * Automated accessibility regression gate (WCAG 2.1 A/AA via axe-core).
@@ -53,9 +54,10 @@ test('a11y: all public pages pass axe WCAG 2.1 A/AA in both themes', async ({ pa
   for (const theme of THEMES) {
     for (const { path, name } of PAGES) {
       await page.emulateMedia({ colorScheme: theme, reducedMotion: 'reduce' });
-      // Bound each navigation independently: one slow route must not consume
-      // the whole test budget and hide the remaining pages' results.
-      await page.goto(path, { waitUntil: 'load', timeout: 30_000 });
+      // `load` waits on every subresource; the rendered DOM is what axe scans.
+      // See helpers/navigation.ts for the failure that made that difference a
+      // 360-second test timeout on `/choir`.
+      await gotoRoute(page, path);
       await page.waitForTimeout(250);
 
       // The theme provider reacts to the emulated system scheme. Assert the
