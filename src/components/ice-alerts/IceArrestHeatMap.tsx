@@ -1,16 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { IceAlertBanner } from './IceAlertBanner';
 import { IceCaseDocumentation } from './IceCaseDocumentation';
 import { IceMapPanel } from './IceMapPanel';
 import { IceReadingGuide } from './IceReadingGuide';
 import { IceSidebar } from './IceSidebar';
-import {
-  serializeIceMapUrlState,
-  type IceMapUrlState,
-} from './map-url-state';
+import { type IceMapUrlState, serializeIceMapUrlState } from './map-url-state';
 import type { CityPoint, HeatmapSnapshot, SearchTarget } from './types';
 import { useIceMap } from './use-ice-map';
 import { useLocationSearch } from './use-location-search';
@@ -231,6 +228,7 @@ export function IceArrestHeatMap({
             locationSearch={locationSearch}
             isLocationSearching={isLocationSearching}
             userLocation={userLocation}
+            userLocationStatus={userLocationStatus}
             isLocating={isLocating}
             locationHeadline={locationHeadline}
             locationDetail={locationDetail}

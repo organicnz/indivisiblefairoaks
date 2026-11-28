@@ -3,11 +3,12 @@ import type { FormEvent, RefObject } from 'react';
 import { IceMapCanvas } from './IceMapCanvas';
 import { IceMapToolbar } from './IceMapToolbar';
 import type {
-  HeatStatus,
   HeatmapMeta,
+  HeatStatus,
   LocationSearchState,
   MapView,
   UserLocation,
+  UserLocationStatus,
 } from './types';
 
 type IceMapPanelProps = {
@@ -19,6 +20,7 @@ type IceMapPanelProps = {
   locationSearch: LocationSearchState;
   isLocationSearching: boolean;
   userLocation: UserLocation | null;
+  userLocationStatus: UserLocationStatus;
   isLocating: boolean;
   locationHeadline: string;
   locationDetail: string;
@@ -39,6 +41,7 @@ export function IceMapPanel({
   locationSearch,
   isLocationSearching,
   userLocation,
+  userLocationStatus,
   isLocating,
   locationHeadline,
   locationDetail,
@@ -50,7 +53,12 @@ export function IceMapPanel({
   onReset,
 }: IceMapPanelProps) {
   return (
-    <div id="ice-map-panel" className="min-w-0 scroll-mt-28 lg:sticky lg:top-28 lg:self-start">
+    <div
+      id="ice-map-panel"
+      data-map-status={heatStatus}
+      data-location-status={userLocationStatus}
+      className="min-w-0 scroll-mt-28 lg:sticky lg:top-28 lg:self-start"
+    >
       <div className="overflow-hidden border border-border bg-surface-card">
         <IceMapToolbar
           meta={meta}

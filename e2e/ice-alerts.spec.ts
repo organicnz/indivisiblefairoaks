@@ -171,6 +171,16 @@ async function mockRapidFeed(page: import('@playwright/test').Page, body = rapid
   );
 }
 
+/**
+ * The historical map is a client-only dynamic chunk. Wait for its settled
+ * heat-status instead of asserting against the loading skeleton.
+ */
+async function waitForHistoricalMap(page: import('@playwright/test').Page) {
+  const panel = page.locator('#ice-map-panel');
+  await expect(panel).toHaveAttribute('data-map-status', 'ready');
+  return panel;
+}
+
 test.describe('ICE arrest city map', () => {
   test('shows the historical snapshot and renders the city circles', async ({ page }) => {
     await page.route('**/api/geo', (route) =>
@@ -182,11 +192,13 @@ test.describe('ICE arrest city map', () => {
     );
     await page.goto(HISTORY_PATH);
 
-    const panel = page.locator('#ice-map-panel');
+    const panel = await waitForHistoricalMap(page);
     const map = page.getByRole('region', { name: MAP_LABEL });
     const coverage = panel.getByRole('group', { name: 'Map coverage' });
 
-    await expect(page.getByRole('heading', { level: 2, name: 'ICE arrests, mapped' })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { level: 2, name: 'ICE arrests, mapped' })
+    ).toBeVisible();
     await expect(page.getByText(/Historical data, not a live alert map/)).toBeVisible();
     await expect(page.getByRole('button', { name: 'Hide historical map' })).toHaveAttribute(
       'aria-expanded',
@@ -198,9 +210,8 @@ test.describe('ICE arrest city map', () => {
       'aria-pressed',
       'true'
     );
-    await expect(panel.locator('#ice-location-status')).toContainText(
-      'Showing the U.S. overview'
-    );
+    await expect(panel).toHaveAttribute('data-location-status', 'unavailable');
+    await expect(panel.locator('#ice-location-status')).toContainText('Showing the U.S. overview');
     await expect(panel.getByRole('button', { name: 'Use precise location' })).toHaveCount(0);
     await expect(coverage.getByRole('button', { name: 'Locate me' })).toBeDisabled();
     await expect(panel.getByText('Clustered city map active')).toBeVisible();
@@ -388,12 +399,10 @@ test.describe('ICE arrest city map', () => {
     await expect(panel.getByRole('heading', { level: 2, name: 'Custom U.S. view' })).toBeVisible();
     await expect(page.locator('.leaflet-pane canvas')).toHaveCount(1);
 
-    await expect.poll(() => new URL(page.url()).searchParams.get('foiaPin')).toBe(
-      '40.7484,-73.9857'
-    );
-    expect(new URL(page.url()).searchParams.get('foiaQ')).toBe(
-      '350 5th Ave, New York, NY'
-    );
+    await expect
+      .poll(() => new URL(page.url()).searchParams.get('foiaPin'))
+      .toBe('40.7484,-73.9857');
+    expect(new URL(page.url()).searchParams.get('foiaQ')).toBe('350 5th Ave, New York, NY');
     expect(new URL(page.url()).searchParams.get('pin')).toBeNull();
 
     await page.reload();
@@ -559,7 +568,8 @@ test.describe('ICE arrest city map', () => {
     );
     await page.goto(HISTORY_PATH);
 
-    const panel = page.locator('#ice-map-panel');
+    const panel = await waitForHistoricalMap(page);
+    await expect(panel).toHaveAttribute('data-location-status', 'available');
     await expect(panel.locator('#ice-location-status')).toContainText(
       'Approximate area: Sacramento, CA'
     );
@@ -576,9 +586,10 @@ test.describe('ICE Alert national rapid-response dashboard', () => {
     await page.goto('/ice-alerts');
 
     await expect(page.getByRole('heading', { level: 1, name: 'ICE Alert' })).toBeVisible();
-    await expect(
-      page.getByRole('link', { name: 'Rapid response', exact: true })
-    ).toHaveAttribute('aria-current', 'page');
+    await expect(page.getByRole('link', { name: 'Rapid response', exact: true })).toHaveAttribute(
+      'aria-current',
+      'page'
+    );
     await expect(
       page.getByRole('region', { name: 'Interactive national ICE rapid-response map' })
     ).toBeVisible();
@@ -603,9 +614,7 @@ test.describe('ICE Alert national rapid-response dashboard', () => {
     await expect(panel.getByRole('heading', { name: 'Santa Ana, CA' })).toBeVisible();
     await expect(panel.getByText(/City centroid, not a street address/)).toBeVisible();
     await expect(panel.getByText(/identities are not republished/)).toBeVisible();
-    await expect.poll(() => new URL(page.url()).searchParams.get('alert')).toBe(
-      'test-santa-ana-1'
-    );
+    await expect.poll(() => new URL(page.url()).searchParams.get('alert')).toBe('test-santa-ana-1');
   });
 
   test('opens an on-map popup for a report pin', async ({ page }) => {
@@ -649,9 +658,7 @@ test.describe('ICE Alert national rapid-response dashboard', () => {
 
       await marker.locator('.ice-rapid-marker').click();
 
-      const popup = page
-        .locator('#ice-rapid-map-panel .ice-map-popup')
-        .filter({ hasText: place });
+      const popup = page.locator('#ice-rapid-map-panel .ice-map-popup').filter({ hasText: place });
       await expect(popup).toBeVisible();
       await expect(popup.locator('.ice-map-popup__title')).toHaveText(place);
 
@@ -752,9 +759,7 @@ test.describe('ICE Alert national rapid-response dashboard', () => {
     await mockRapidFeed(page, stale);
     await page.goto('/ice-alerts');
 
-    await expect(
-      page.getByText('No active community reports in the last 4 hours.')
-    ).toBeVisible();
+    await expect(page.getByText('No active community reports in the last 4 hours.')).toBeVisible();
     await expect(page.locator('.ice-rapid-marker.is-live')).toHaveCount(0);
     await expect(page.locator('.ice-rapid-marker').first()).toBeVisible({ timeout: 15_000 });
     await expect(page.locator('#ice-community-panel').getByText('Earlier').first()).toBeVisible();
@@ -800,9 +805,7 @@ test.describe('ICE Alert national rapid-response dashboard', () => {
     await expect(panel.getByRole('heading', { name: 'Chicago, IL' })).toBeVisible({
       timeout: 15_000,
     });
-    await expect.poll(() => new URL(page.url()).searchParams.get('alert')).toBe(
-      'test-chicago-1'
-    );
+    await expect.poll(() => new URL(page.url()).searchParams.get('alert')).toBe('test-chicago-1');
 
     const historicalLink = page.getByRole('link', { name: 'Historical FOIA', exact: true });
     await expect(historicalLink).toHaveAttribute('href', '#historical-foia');
@@ -813,7 +816,9 @@ test.describe('ICE Alert national rapid-response dashboard', () => {
     await expect(page.locator('#historical-foia-panel')).toBeHidden();
     await historicalLink.click();
     await expect(page.getByRole('heading', { level: 1, name: 'ICE Alert' })).toBeVisible();
-    await expect(page.getByRole('heading', { level: 2, name: 'ICE arrests, mapped' })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { level: 2, name: 'ICE arrests, mapped' })
+    ).toBeVisible();
     await expect(page.getByRole('button', { name: 'Hide historical map' })).toHaveAttribute(
       'aria-expanded',
       'true'
@@ -835,9 +840,7 @@ test.describe('ICE Alert national rapid-response dashboard', () => {
     ).toBeVisible();
     await expect(page.getByLabel('Your name')).toBeVisible();
     await expect(page.getByLabel('Full name used in custody')).toBeVisible();
-    await expect(
-      page.getByLabel(/I understand this is a private request/)
-    ).toBeVisible();
+    await expect(page.getByLabel(/I understand this is a private request/)).toBeVisible();
 
     const invalid = await request.post('/api/ice-reunification', {
       multipart: { submitter_name: 'A' },

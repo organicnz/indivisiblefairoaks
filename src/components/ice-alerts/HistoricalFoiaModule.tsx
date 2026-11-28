@@ -8,8 +8,10 @@ import type { IceMapUrlState } from './map-url-state';
 import type { HeatmapMeta } from './types';
 import { useHistoricalSnapshot } from './use-historical-snapshot';
 
+const loadHeatMapModule = () => import('./IceArrestHeatMap');
+
 const IceArrestHeatMap = dynamic(
-  () => import('./IceArrestHeatMap').then((module) => module.IceArrestHeatMap),
+  () => loadHeatMapModule().then((module) => module.IceArrestHeatMap),
   {
     ssr: false,
     loading: () => <HistoricalMapSkeleton />,
@@ -53,7 +55,15 @@ export function HistoricalFoiaModule({
   const { snapshot, status: loadStatus, load: loadSnapshot } = useHistoricalSnapshot();
 
   useEffect(() => {
-    if (isOpen) void loadSnapshot();
+    if (!isOpen) return;
+    // Start the map chunk and the snapshot fetch together. Rendering the
+    // dynamic map only after the snapshot resolves serialized two independent
+    // requests; on a loaded runner the panel could miss its readiness window.
+    // dynamic() reuses this module promise, so the chunk is not fetched twice.
+    void loadHeatMapModule().catch(() => {
+      // The dynamic boundary owns the load-failure UI.
+    });
+    void loadSnapshot();
   }, [isOpen, loadSnapshot]);
 
   const markOpenInUrl = useCallback(() => {
