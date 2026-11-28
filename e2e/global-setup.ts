@@ -86,6 +86,51 @@ function servedBuildIds(html: string): string[] {
   return [...ids];
 }
 
+/** How long the server has to identify itself before the check gives up. */
+const STREAM_READ_TIMEOUT_MS = 15_000;
+
+/**
+ * The served HTML, read only until the server has identified its build.
+ *
+ * `/` is a partial prerender: `next start` sends the static shell at once and
+ * streams the dynamic holes behind it. `await response.text()` waits for the
+ * **last** byte, so it also waits for a data read that has nothing to do with
+ * which build is answering. When that read stalls the body never closes, and
+ * the gate hangs before a single test starts: no reporter output, no HTML
+ * report, and nothing but the job's ceiling to end it.
+ *
+ * That is what four cancelled runs looked like — an empty `Run E2E tests`
+ * step for the whole twenty minutes, while the cancelled build that preceded
+ * them kept its log, so the emptiness was real and not a logging artifact.
+ *
+ * The build id arrives in the first few kilobytes of the shell's flight
+ * payload (measured at about 4 KB on this homepage), so the check can finish
+ * while the holes are still streaming. If the shell has not identified itself
+ * within `STREAM_READ_TIMEOUT_MS`, the caller reports a stalled stream instead
+ * of waiting for a page that may never finish.
+ */
+async function readUntilIdentified(
+  response: Response
+): Promise<{ html: string; stalled: boolean }> {
+  if (!response.body) return { html: '', stalled: false };
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  // One deadline for the whole read: this bounds the check, not the page.
+  const deadline = Bun.sleep(STREAM_READ_TIMEOUT_MS).then(() => 'deadline' as const);
+  let html = '';
+  try {
+    for (;;) {
+      const next = await Promise.race([reader.read(), deadline]);
+      if (next === 'deadline') return { html, stalled: true };
+      if (next.done) return { html: html + decoder.decode(), stalled: false };
+      html += decoder.decode(next.value, { stream: true });
+      if (servedBuildIds(html).length > 0) return { html, stalled: false };
+    }
+  } finally {
+    await reader.cancel().catch(() => {});
+  }
+}
+
 /**
  * The base URL the suite is about to drive.
  *
@@ -127,10 +172,11 @@ export default async function globalSetup(config: {
     );
   }
 
-  let html: string;
+  const startedAt = performance.now();
+  let shell: { html: string; stalled: boolean };
   try {
     const response = await fetch(baseURL, { redirect: 'follow' });
-    html = await response.text();
+    shell = await readUntilIdentified(response);
   } catch (error) {
     throw new Error(
       `\n✖  Could not reach ${baseURL}: ${String((error as Error)?.message ?? error)}\n` +
@@ -138,13 +184,23 @@ export default async function globalSetup(config: {
     );
   }
 
-  const served = servedBuildIds(html);
-  if (served.includes(expected)) return;
+  const served = servedBuildIds(shell.html);
+  if (served.includes(expected)) {
+    // One line, because the alternative — a gate that says nothing — is what
+    // made a pre-run stall indistinguishable from a suite that ran and was
+    // cancelled.
+    console.log(
+      `[e2e] ${baseURL} identified ${expected} in ${Math.round(performance.now() - startedAt)}ms`
+    );
+    return;
+  }
 
   const detail =
-    served.length === 0
-      ? 'the page carries no build id at all'
-      : `it is serving build ${served[0]}`;
+    served.length > 0
+      ? `it is serving build ${served[0]}`
+      : shell.stalled
+        ? `the response was still streaming after ${STREAM_READ_TIMEOUT_MS / 1000}s without identifying a build`
+        : 'the page carries no build id at all';
 
   throw new Error(
     '\n' +
