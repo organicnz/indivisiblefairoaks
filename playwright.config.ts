@@ -103,7 +103,12 @@ export default defineConfig({
   // Ephemeral runner hosts have 2 vCPUs; 1 worker prevents severe CPU
   // contention, SwiftShader WebGL stalls, and teardown timeouts.
   workers: Bun.env.CI ? 1 : undefined,
-  reporter: Bun.env.CI ? [['github'], ['html', { open: 'never' }]] : 'list',
+  // `github` is an annotation channel: it writes nothing for a test that
+  // passes. A job cancelled mid-suite therefore left an empty step log **and**
+  // no HTML report, so the run could not be diagnosed at all. `list` writes a
+  // line per test as it settles, and it is already flushed when the step is
+  // killed; `html` remains for the uploaded artifact.
+  reporter: Bun.env.CI ? [['list'], ['github'], ['html', { open: 'never' }]] : 'list',
   use: {
     baseURL: `http://localhost:${PORT}`,
     trace: 'retain-on-failure',
